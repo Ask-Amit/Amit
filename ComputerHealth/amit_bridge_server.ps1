@@ -1,4 +1,5 @@
 # Amit Computer Health - Local Bridge Server
+# Version v1.13 (2026-10-31): new routes /amit-icon-whisper.ico and /amit-icon-read.ico (each part of Amit has its own icon; same circle and ring, only the symbol changes).
 # Version v1.10 (2026-10-30)
 # v1.10: new route /amit-icon.ico (the Amit icon for the offline Amit Live page).
 # v1.09 (2026-10-30) - first numbered version was v1.01 (baseline v1.00 = everything before).
@@ -1175,6 +1176,34 @@ try {
                 # an Amit page (which holds the login) confirms it wrote the waiting voice into the person's saved voice (Amit site only)
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else { Send-JsonRaw $response ([AmitWhisper]::TalkVoiceAck()) }
+            }
+            "/amit-icon-whisper.ico" {
+                # The Whisper icon (microphone), for the Whisper window's title bar and taskbar entry. Falls back to the Amit icon if it is not installed.
+                $iconFile = Join-Path $watcherDir "amit_icon_whisper.ico"
+                if (-not (Test-Path $iconFile)) { $iconFile = Join-Path $watcherDir "amit_icon.ico" }
+                if (Test-Path $iconFile) {
+                    $iconBytes = [System.IO.File]::ReadAllBytes($iconFile)
+                    $response.ContentType = "image/x-icon"
+                    $response.KeepAlive = $false
+                    $response.ContentLength64 = $iconBytes.Length
+                    $response.OutputStream.Write($iconBytes, 0, $iconBytes.Length)
+                    $response.OutputStream.Close()
+                }
+                else { $response.StatusCode = 404; Send-Html $response "No icon." }
+            }
+            "/amit-icon-read.ico" {
+                # The Read icon (speaker), for the Read window's title bar and taskbar entry. Falls back to the Amit icon if it is not installed.
+                $iconFile = Join-Path $watcherDir "amit_icon_read.ico"
+                if (-not (Test-Path $iconFile)) { $iconFile = Join-Path $watcherDir "amit_icon.ico" }
+                if (Test-Path $iconFile) {
+                    $iconBytes = [System.IO.File]::ReadAllBytes($iconFile)
+                    $response.ContentType = "image/x-icon"
+                    $response.KeepAlive = $false
+                    $response.ContentLength64 = $iconBytes.Length
+                    $response.OutputStream.Write($iconBytes, 0, $iconBytes.Length)
+                    $response.OutputStream.Close()
+                }
+                else { $response.StatusCode = 404; Send-Html $response "No icon." }
             }
             "/amit-icon.ico" {
                 # The Amit icon, for the offline Amit Live page's title bar and taskbar entry.

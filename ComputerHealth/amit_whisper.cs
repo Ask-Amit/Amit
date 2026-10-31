@@ -29,7 +29,7 @@ using System.Windows.Automation.Text;
 
 public static class AmitWhisper
 {
-    public const string Version = "1.42";   // 1.42: while Read is paused for dictation, the gold highlight over the screen is hidden (it cluttered the screen the person is dictating into) and comes back, in the same place, when the reading resumes. 1.41: FIX (dictation after Read paused it): (1) the speaking/voice windows of Read are now recognised as the helper's own windows, so dictation never "types" into the hidden Edge page and gives the focus back to the window the person was using (first failure: words heard, typed nowhere); (2) the "Read is speaking" mute can no longer be left on by a late message: it is set only when Read STARTS speaking while dictation is already listening, and cleared when Read pauses, ends or stops or the listening ends (second failure: a late heartbeat after "paused" made dictation throw the words away). 1.40: (1) a live voice change carries on from the word being spoken instead of starting the sentence over (amit_talk.html v1.04); (2) when dictation or Voice starts while Read is speaking, Read pauses by itself (the speaker shows the pause bars) and carries on where it was when the listening ends; a press of the speaker by the person cancels the automatic resume. 1.39: FIX: dictation could stay blocked after Read (the "Read is speaking" signal depended on a "finished" message that can get lost after live voice changes). Now the speaking page sends a heartbeat every 1.5 s while sound really plays, dictation is only quieted for 4 seconds after the last one, and a watchdog returns the speaker to waiting if the sound stops without a "finished"; the page also waits a moment between cancelling a sentence and saying it again with new settings (Edge sometimes dropped it). 1.38: while Read is speaking, dictation and Voice ignore what the microphone hears (it is Amit's own voice, which used to be typed into the person's text box) and dictation's "Amit is listening" box is taken off the screen; they work normally again when Read is not speaking, including while it is paused. 1.37: the voice window is INTERACTIVE (moving a slider or choosing another voice while Amit is reading changes the sound within about a third of a second; the current sentence is said again with the new settings; amit_talk.html v1.02); the hidden Edge speaking window is slimmed (extra switches) and now closes 30 seconds after the last reading instead of 3 minutes, never while the voice window is open. 1.36: a DOUBLE CLICK on the reading speaker opens a small voice window beside it (voice, speed, pause between sentences, pitch, volume, Test, Save); Save keeps the new voice on this computer at once and hands it to the person's login (their saved voice, their default) the next time an Amit page loads, without the old copy from the database overwriting it (new bridge routes /api/talk/voice-save and /api/talk/voice-ack). A single click is acted on after a very short wait (the double-click time, at most 400 ms) so a double click is no longer two presses. The note "Your saved voice is not on this computer" no longer pops up on the screen (it is only logged). 1.35: the ring choice is now called READ (it reads aloud what the person points at) and works ONE SHOT: press the speaker, and the very next click or selection is what is read, then it goes back to waiting so the person can use the computer freely; to read somewhere else, press it again. A click reads from the clicked word to the end of its paragraph; a highlight reads exactly the highlight (one word if one word, the whole page after Select All). Pressing while reading pauses it and the next click or selection is read instead (pressing again with none resumes). A soft gold highlight shows the words being read (where Windows accessibility gives their place). When the words cannot be read, Amit says so out loud in the person's voice ("Sorry, I'm not able to read this") and on screen, never silently; a plain click on a button or menu only shows a note. 1.33: TALK, a fourth choice in the Amit Live ring: a small see-through speaker stays on top of everything; the person selects words (or clicks where to start) in any program and presses it, and Amit reads aloud from there in the person's own saved Amit voice (copied here from their login; with none, Talk asks them to open Amit and sign in). Press again to pause or resume; Esc or a right click on the speaker removes it. The speaking is done by a hidden Edge window (page /talk, new bridge routes /api/talk/*) because the natural voices exist only in Edge. 1.32: a SHOW AMIT button in the Show Amit editor: saves the shot, hands it to the Amit Live window, which posts it into the person's own Ask Amit chat for today (under their own sign-in; the helper holds no login) and asks Amit to look at it (new bridge routes /api/showamit/pending and /api/showamit/pending.png, offered for 5 minutes, only to the Amit site). 1.31: the Amit Live window closes itself after 60 seconds without the focus (never while music plays; the no-internet page too). ONE Amit Live window only: choosing Ask Amit when its window is already open brings that window to the front instead of opening another (and a second press while the first is still opening starts nothing). 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
+    public const string Version = "1.49";   // 1.48: an image layer is a WINDOW onto its image: the corner handles change the window to any shape (the image inside keeps its size and place, only what shows changes); the wheel over the window zooms the image inside, like the main picture (the size % box does the same); Ctrl + drag moves the image inside the window; dragging the body moves the window. Saved in the same .amitshot format. 1.47: a placed image layer has four corner handles (drag one to make it larger or smaller, the opposite corner stays), shows move/resize cursors, drags to move, and the mouse wheel over it resizes it (the wheel anywhere else zooms the whole picture). 1.46: Capture now places the new image layer at once (no click needed) and logs the placing. 1.45: a Capture button (camera) in the Show Amit editor: the editor steps aside, a bar waits while the person shows the screen they want ("Capture now"), they drag an area, click where it goes, and it becomes a new image layer (Capture 1, 2...) that can be switched on/off, resized with the size % box and dragged to move. 1.44: the Show Amit editor has a Clear & Recapture button: it drops the picture (asking first if there are unsaved changes) and lets the person choose a new area of the screen. 1.43: each part of Amit has its own icon: the same dark circle and gold ring, only the gold symbol changes (Whisper = microphone, Read = speaker, Show Amit = camera; Ask Amit keeps the aleph). The dictation "Amit is listening" box, the Whisper window, the Read window and the Show Amit editor each show their own, in the taskbar and the title bar. The Read windows are now named "Amit Read". The dictation box says "Amit is listening" until words come through, then "Amit is dictating", and the words always show beside the icon. The icons are bigger and bolder, with real 48/32/24/16 px images (256 first) so the taskbar is not blurry. Icons live in Templates; a missing icon falls back to the Amit one. 1.42: while Read is paused for dictation, the gold highlight over the screen is hidden (it cluttered the screen the person is dictating into) and comes back, in the same place, when the reading resumes. 1.41: FIX (dictation after Read paused it): (1) the speaking/voice windows of Read are now recognised as the helper's own windows, so dictation never "types" into the hidden Edge page and gives the focus back to the window the person was using (first failure: words heard, typed nowhere); (2) the "Read is speaking" mute can no longer be left on by a late message: it is set only when Read STARTS speaking while dictation is already listening, and cleared when Read pauses, ends or stops or the listening ends (second failure: a late heartbeat after "paused" made dictation throw the words away). 1.40: (1) a live voice change carries on from the word being spoken instead of starting the sentence over (amit_talk.html v1.04); (2) when dictation or Voice starts while Read is speaking, Read pauses by itself (the speaker shows the pause bars) and carries on where it was when the listening ends; a press of the speaker by the person cancels the automatic resume. 1.39: FIX: dictation could stay blocked after Read (the "Read is speaking" signal depended on a "finished" message that can get lost after live voice changes). Now the speaking page sends a heartbeat every 1.5 s while sound really plays, dictation is only quieted for 4 seconds after the last one, and a watchdog returns the speaker to waiting if the sound stops without a "finished"; the page also waits a moment between cancelling a sentence and saying it again with new settings (Edge sometimes dropped it). 1.38: while Read is speaking, dictation and Voice ignore what the microphone hears (it is Amit's own voice, which used to be typed into the person's text box) and dictation's "Amit is listening" box is taken off the screen; they work normally again when Read is not speaking, including while it is paused. 1.37: the voice window is INTERACTIVE (moving a slider or choosing another voice while Amit is reading changes the sound within about a third of a second; the current sentence is said again with the new settings; amit_talk.html v1.02); the hidden Edge speaking window is slimmed (extra switches) and now closes 30 seconds after the last reading instead of 3 minutes, never while the voice window is open. 1.36: a DOUBLE CLICK on the reading speaker opens a small voice window beside it (voice, speed, pause between sentences, pitch, volume, Test, Save); Save keeps the new voice on this computer at once and hands it to the person's login (their saved voice, their default) the next time an Amit page loads, without the old copy from the database overwriting it (new bridge routes /api/talk/voice-save and /api/talk/voice-ack). A single click is acted on after a very short wait (the double-click time, at most 400 ms) so a double click is no longer two presses. The note "Your saved voice is not on this computer" no longer pops up on the screen (it is only logged). 1.35: the ring choice is now called READ (it reads aloud what the person points at) and works ONE SHOT: press the speaker, and the very next click or selection is what is read, then it goes back to waiting so the person can use the computer freely; to read somewhere else, press it again. A click reads from the clicked word to the end of its paragraph; a highlight reads exactly the highlight (one word if one word, the whole page after Select All). Pressing while reading pauses it and the next click or selection is read instead (pressing again with none resumes). A soft gold highlight shows the words being read (where Windows accessibility gives their place). When the words cannot be read, Amit says so out loud in the person's voice ("Sorry, I'm not able to read this") and on screen, never silently; a plain click on a button or menu only shows a note. 1.33: TALK, a fourth choice in the Amit Live ring: a small see-through speaker stays on top of everything; the person selects words (or clicks where to start) in any program and presses it, and Amit reads aloud from there in the person's own saved Amit voice (copied here from their login; with none, Talk asks them to open Amit and sign in). Press again to pause or resume; Esc or a right click on the speaker removes it. The speaking is done by a hidden Edge window (page /talk, new bridge routes /api/talk/*) because the natural voices exist only in Edge. 1.32: a SHOW AMIT button in the Show Amit editor: saves the shot, hands it to the Amit Live window, which posts it into the person's own Ask Amit chat for today (under their own sign-in; the helper holds no login) and asks Amit to look at it (new bridge routes /api/showamit/pending and /api/showamit/pending.png, offered for 5 minutes, only to the Amit site). 1.31: the Amit Live window closes itself after 60 seconds without the focus (never while music plays; the no-internet page too). ONE Amit Live window only: choosing Ask Amit when its window is already open brings that window to the front instead of opening another (and a second press while the first is still opening starts nothing). 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
 
     // v1.03 (2026-10-29, Ryan): LATCH MODE. Hold the button to start; let go and dictation keeps going, so long dictations do not need the
     // button held. Hold the button again (same hold time) to stop; a quick tap during dictation is still a normal click. Dictation also
@@ -79,7 +79,7 @@ public static class AmitWhisper
     static volatile bool targetChecked = false;
     static string abortMsg = "";             // why nothing was typed (shown when the person lets go, instead of "nothing heard")
     static volatile bool sendEnter = false;  // press Enter when the button is let go (only if something was typed); off unless the person turns it on
-    static string settingsPath, logPath, profileDir, iconPath;
+    static string settingsPath, logPath, profileDir, iconPath, iconWhisperPath, iconReadPath, iconShowPath;
     static int bridgePort = 8710;
 
     // ---------- state ----------
@@ -175,6 +175,65 @@ public static class AmitWhisper
     [DllImport("user32.dll")] static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
     [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)] static extern int SetCurrentProcessExplicitAppUserModelID(string appId);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr LoadImage(IntPtr hinst, string name, uint type, int cx, int cy, uint flags);
+    [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr h, int msg, IntPtr w, IntPtr l);
+    [DllImport("user32.dll")] static extern int GetSystemMetrics(int index);
+    [DllImport("user32.dll")] static extern uint GetDpiForWindow(IntPtr h);
+    static IntPtr iconSetWhisperWnd = IntPtr.Zero, iconSetTalkWnd = IntPtr.Zero;
+    static IntPtr iconBigWhisper = IntPtr.Zero, iconSmallWhisper = IntPtr.Zero, iconBigTalk = IntPtr.Zero, iconSmallTalk = IntPtr.Zero;
+
+    // Edge builds a window's taskbar icon from the page favicon at low resolution, which blurs a thin symbol. So the helper gives those windows
+    // their icon directly (WM_SETICON) from the real .ico, loading the exact sizes Windows asks for: crisp at every screen scale.
+    static void SetWindowIconFromFile(IntPtr h, string path, ref IntPtr big, ref IntPtr small)
+    {
+        try
+        {
+            if (h == IntPtr.Zero || path == null || !File.Exists(path)) return;
+            if (big == IntPtr.Zero)
+            {
+                // the taskbar draws its icon 24 px at 100% screen scale (30 at 125%, 36 at 150%): load exactly that size from the .ico so Windows
+                // never has to stretch a different one; the title bar uses 16 px at 100%. The window's own screen scale decides.
+                int dpi = 96;
+                try { int d = (int)GetDpiForWindow(h); if (d >= 96) dpi = d; } catch { }
+                int cb = (int)Math.Round(24.0 * dpi / 96.0), cs = (int)Math.Round(16.0 * dpi / 96.0);
+                big = LoadImage(IntPtr.Zero, path, 1, cb, cb, 0x10);
+                small = LoadImage(IntPtr.Zero, path, 1, cs, cs, 0x10);
+            }
+            if (big != IntPtr.Zero) SendMessage(h, 0x80, (IntPtr)1, big);       // WM_SETICON, ICON_BIG (taskbar)
+            if (small != IntPtr.Zero) SendMessage(h, 0x80, (IntPtr)0, small);   // ICON_SMALL (title bar)
+        }
+        catch { }
+    }
+    // Edge puts its own (blurry) favicon icon back whenever its page changes while in use, so the helper re-checks its two windows about every second
+    // and sets the icon again only if it is no longer ours.
+    static System.Threading.Timer iconKeeperTimer;
+    static void IconKeeper(object state)
+    {
+        try
+        {
+            if (host == null && talkHost == null) return;   // no Whisper or Read window exists: nothing to look at, no work at all
+            EnumWindows(delegate (IntPtr h, IntPtr l)
+            {
+                if (!IsWindowVisible(h)) return true;
+                StringBuilder sb = new StringBuilder(256);
+                GetWindowText(h, sb, 256);
+                string t = sb.ToString();
+                if (t.StartsWith("Amit Whisper mode (", StringComparison.OrdinalIgnoreCase)) KeepIcon(h, iconWhisperPath, ref iconBigWhisper, ref iconSmallWhisper);
+                else if (t.StartsWith("Amit Read (", StringComparison.OrdinalIgnoreCase)) KeepIcon(h, iconReadPath, ref iconBigTalk, ref iconSmallTalk);
+                return true;
+            }, IntPtr.Zero);
+        }
+        catch { }
+    }
+    static void KeepIcon(IntPtr h, string path, ref IntPtr big, ref IntPtr small)
+    {
+        try
+        {
+            if (big != IntPtr.Zero && SendMessage(h, 0x7F, (IntPtr)1, IntPtr.Zero) == big) return;   // WM_GETICON: still ours
+            SetWindowIconFromFile(h, path, ref big, ref small);
+        }
+        catch { }
+    }
     [StructLayout(LayoutKind.Sequential)] struct RECT { public int left, top, right, bottom; }
     [StructLayout(LayoutKind.Sequential)] struct WINDOWPLACEMENT { public int length, flags, showCmd; public POINT ptMin, ptMax; public RECT rcNormal; }
     [DllImport("user32.dll")] static extern bool SetWindowPlacement(IntPtr h, ref WINDOWPLACEMENT p);
@@ -191,9 +250,13 @@ public static class AmitWhisper
     {
         bridgePort = port;
         iconPath = Path.Combine(watcherDir ?? "", "amit_icon.ico");
+        iconWhisperPath = Path.Combine(watcherDir ?? "", "amit_icon_whisper.ico");
+        iconReadPath = Path.Combine(watcherDir ?? "", "amit_icon_read.ico");
+        iconShowPath = Path.Combine(watcherDir ?? "", "amit_icon_showamit.ico");
         // Windows groups a program's windows under that program's own icon, and this helper is a PowerShell process, so the Show Amit windows showed the
         // PowerShell icon in the taskbar. Giving the process its own identity makes the taskbar use the window's icon (Amit's) instead.
         try { SetCurrentProcessExplicitAppUserModelID("Amit.ShowAmit"); } catch { }
+        try { iconKeeperTimer = new System.Threading.Timer(IconKeeper, null, 2000, 1000); } catch { }
         byte[] tb = new byte[16];
         using (System.Security.Cryptography.RNGCryptoServiceProvider rng = new System.Security.Cryptography.RNGCryptoServiceProvider()) { rng.GetBytes(tb); }
         pageToken = BitConverter.ToString(tb).Replace("-", "").ToLowerInvariant();
@@ -347,7 +410,7 @@ public static class AmitWhisper
     static bool IsAmitHelperWindow(string title)
     {
         if (String.IsNullOrEmpty(title)) return false;
-        return title.IndexOf("Amit Whisper mode", StringComparison.OrdinalIgnoreCase) >= 0 || title.StartsWith("Amit Talk (", StringComparison.OrdinalIgnoreCase);
+        return title.IndexOf("Amit Whisper mode", StringComparison.OrdinalIgnoreCase) >= 0 || title.StartsWith("Amit Read (", StringComparison.OrdinalIgnoreCase);
     }
 
     static void TrackForeground()
@@ -836,7 +899,8 @@ public static class AmitWhisper
 
     static bool SessionActive() { lock (sync) { return (state == ST_LISTEN || state == ST_FINISH || state == ST_STOPPEND) && startSent; } }
 
-    static string ListenHead() { return latched ? "Amit is listening (right-click to stop)" : "Amit is listening"; }
+    // "Amit is listening" shows while nothing has been said yet; once words are coming through (this is only used then) it says "Amit is dictating"
+    static string ListenHead() { return latched ? "Amit is dictating (right-click to stop)" : "Amit is dictating"; }
 
     // Called by the bridge for every event the page posts: "kind\ntext"
     public static void OnPageEvent(string body)
@@ -1179,6 +1243,7 @@ public static class AmitWhisper
             }, IntPtr.Zero);
         }
         catch { }
+        if (found != IntPtr.Zero && found != iconSetWhisperWnd) { iconSetWhisperWnd = found; SetWindowIconFromFile(found, iconWhisperPath, ref iconBigWhisper, ref iconSmallWhisper); }
         return found;
     }
 
@@ -1407,6 +1472,45 @@ public static class AmitWhisper
         PictureBox pic;
         FlowLayoutPanel head, bodyPanel;
         static readonly Color Dark = Color.FromArgb(24, 26, 32);
+        // The round badge for one icon file, drawn ONCE at its exact size, over gold, so the soft edge blends into gold and not into the dark card (which looked like a
+        // blurry black rim). The icon's gold ring sits about 1.5% inside its picture, so it is drawn slightly larger to reach the edge. Kept per file.
+        static readonly Dictionary<string, Bitmap> badges = new Dictionary<string, Bitmap>();
+        static Bitmap BadgeFor(string path, int S)
+        {
+            if (path == null || !File.Exists(path)) return null;
+            Bitmap have;
+            if (badges.TryGetValue(path, out have)) return have;
+            using (Bitmap src = new Bitmap(path))
+            {
+                Bitmap b = new Bitmap(S, S);
+                using (Graphics g = Graphics.FromImage(b))
+                {
+                    g.Clear(Color.FromArgb(212, 175, 55));
+                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    g.SmoothingMode = SmoothingMode.HighQuality;
+                    g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                    float d = S * 4f / 256f;
+                    g.DrawImage(src, new RectangleF(-d, -d, S + 2 * d, S + 2 * d));
+                    // a thin gold rim over the very edge, so no dark or half-blended pixel can show around the circle
+                    using (Pen rim = new Pen(Color.FromArgb(212, 175, 55), 3.4f)) { g.DrawEllipse(rim, 1.7f, 1.7f, S - 3.4f, S - 3.4f); }
+                }
+                badges[path] = b;
+                return b;
+            }
+        }
+
+        // Which icon a message belongs to: dictation messages show the microphone, Read messages the speaker, everything else (Ask Amit) the Amit icon.
+        static string IconForTitle(string title)
+        {
+            string t = title ?? "";
+            string f = null;
+            if (t.StartsWith("Read ") || t.StartsWith("That is a ")) f = iconReadPath;
+            else if (t.StartsWith("Amit is listening") || t.StartsWith("Amit is dictating") || t.StartsWith("Amit heard") || t.StartsWith("Amit did not hear") || t.StartsWith("Amit cannot")
+                || t.StartsWith("Amit could not start") || t.StartsWith("Amit was not ready") || t.StartsWith("Amit is getting ready")
+                || t.StartsWith("That is not a text box") || t == "Done") f = iconWhisperPath;
+            return (f != null && File.Exists(f)) ? f : iconPath;
+        }
+
         public OverlayForm()
         {
             FormBorderStyle = FormBorderStyle.None; ShowInTaskbar = false; TopMost = true;
@@ -1425,30 +1529,8 @@ public static class AmitWhisper
             pic.SizeMode = PictureBoxSizeMode.Zoom; pic.Size = new Size(60, 60); pic.Margin = new Padding(0, 0, 8, 0); pic.BackColor = Dark;
             try
             {
-                if (iconPath != null && File.Exists(iconPath))
-                {
-                    // Drawn ONCE at its exact size, over gold, so the soft edge blends into gold and not into the dark card (which looked like a
-                    // blurry black rim). The icon's gold ring sits about 1.5% inside its picture, so it is drawn slightly larger to reach the edge.
-                    using (Bitmap src = new Bitmap(iconPath))
-                    {
-                        int S = pic.Width;
-                        Bitmap b = new Bitmap(S, S);
-                        using (Graphics g = Graphics.FromImage(b))
-                        {
-                            g.Clear(Color.FromArgb(212, 175, 55));
-                            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                            g.SmoothingMode = SmoothingMode.HighQuality;
-                            g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                            float d = S * 4f / 256f;
-                            g.DrawImage(src, new RectangleF(-d, -d, S + 2 * d, S + 2 * d));
-                            // a thin gold rim over the very edge, so no dark or half-blended pixel can show around the circle
-                            using (Pen rim = new Pen(Color.FromArgb(212, 175, 55), 3.4f)) { g.DrawEllipse(rim, 1.7f, 1.7f, S - 3.4f, S - 3.4f); }
-                        }
-                        pic.Image = b;
-                        pic.SizeMode = PictureBoxSizeMode.Normal;
-                        pic.BackColor = Color.FromArgb(212, 175, 55);
-                    }
-                }
+                Bitmap b0 = BadgeFor(iconPath, pic.Width);
+                if (b0 != null) { pic.Image = b0; pic.SizeMode = PictureBoxSizeMode.Normal; pic.BackColor = Color.FromArgb(212, 175, 55); }
             }
             catch (Exception ex) { Log("Box icon not loaded: " + ex.Message); }
             lblTitle = new Label();
@@ -1517,7 +1599,8 @@ public static class AmitWhisper
             // the first line is the title; anything after a line break is the body
             int nl = t.IndexOf('\n');
             string title = nl < 0 ? t : t.Substring(0, nl);
-            bool iconSaysIt = pic.Image != null && title == "Amit is listening";   // the icon already says it is Amit
+            try { Bitmap nb = BadgeFor(IconForTitle(title), pic.Width); if (nb != null && !object.ReferenceEquals(pic.Image, nb)) pic.Image = nb; } catch { }
+            bool iconSaysIt = false;   // v1.43: the icon is now a microphone, not Amit's own, so the words "Amit is listening" / "Amit is dictating" always show beside it
             lblTitle.Text = iconSaysIt ? "" : title;
             lblTitle.Visible = !iconSaysIt;
             lblBody.Text = nl < 0 ? "" : t.Substring(nl + 1);
@@ -2279,11 +2362,12 @@ public static class AmitWhisper
                 if (!IsWindowVisible(h)) return true;
                 StringBuilder sb = new StringBuilder(256);
                 GetWindowText(h, sb, 256);
-                if (sb.ToString().StartsWith("Amit Talk (", StringComparison.OrdinalIgnoreCase)) { found = h; return false; }
+                if (sb.ToString().StartsWith("Amit Read (",StringComparison.OrdinalIgnoreCase)) { found = h; return false; }
                 return true;
             }, IntPtr.Zero);
         }
         catch { }
+        if (found != IntPtr.Zero && found != iconSetTalkWnd) { iconSetTalkWnd = found; SetWindowIconFromFile(found, iconReadPath, ref iconBigTalk, ref iconSmallTalk); }
         return found;
     }
 
@@ -2762,9 +2846,10 @@ public static class AmitWhisper
                     if (!IsWindowVisible(h)) return true;
                     StringBuilder sb = new StringBuilder(256);
                     GetWindowText(h, sb, 256);
-                    if (sb.ToString().StartsWith("Amit Talk (", StringComparison.OrdinalIgnoreCase)) { found = h; return false; }
+                    if (sb.ToString().StartsWith("Amit Read (",StringComparison.OrdinalIgnoreCase)) { found = h; return false; }
                     return true;
                 }, IntPtr.Zero);
+                if (found != IntPtr.Zero && found != iconSetTalkWnd) { iconSetTalkWnd = found; SetWindowIconFromFile(found, iconReadPath, ref iconBigTalk, ref iconSmallTalk); }
                 if (found != IntPtr.Zero && !IsIconic(found) && !talkSettingsOpen)
                 {
                     ShowWindow(found, 7);
@@ -2989,7 +3074,7 @@ public static class AmitWhisper
         {
             FormBorderStyle = FormBorderStyle.None; ShowInTaskbar = false; TopMost = true; StartPosition = FormStartPosition.Manual;
             Width = 60; Height = 60; DoubleBuffered = true; BackColor = Color.FromArgb(16, 24, 36); Opacity = 0.6; Cursor = Cursors.Hand;
-            Text = "Amit Talk";
+            Text = "Amit Read";
             using (GraphicsPath gp = new GraphicsPath()) { gp.AddEllipse(0, 0, 59, 59); Region = new Region(gp); }
             MoveNear(x, y);
             MouseDown += delegate (object s, MouseEventArgs e)
@@ -3152,6 +3237,63 @@ public static class AmitWhisper
         t.Start();
     }
 
+    // takes the screen, lets the person drag an area on any screen, and returns that area (null if cancelled); runs on its own STA thread
+    static Bitmap PickAreaBitmap()
+    {
+        Thread.Sleep(220);   // whatever was in front is hidden before this runs; this gives Windows time to take it off the screen
+        Rectangle vs = SystemInformation.VirtualScreen;
+        Bitmap shot = new Bitmap(vs.Width, vs.Height, PixelFormat.Format24bppRgb);
+        using (Graphics g = Graphics.FromImage(shot)) { g.CopyFromScreen(vs.Left, vs.Top, 0, 0, vs.Size, CopyPixelOperation.SourceCopy); }
+        // one picker window for each screen (a single window stretched over two screens of different size and scaling
+        // did not take the mouse everywhere)
+        PickGroup grp = new PickGroup();
+        Screen[] scr = Screen.AllScreens;
+        Log("Show Amit: " + scr.Length + " screen(s), whole area " + vs.X + "," + vs.Y + " " + vs.Width + "x" + vs.Height);
+        foreach (Screen sc in scr)
+        {
+            grp.Forms.Add(new PickForm(shot, vs, sc.Bounds, grp));
+            Log("Show Amit: picker for " + sc.DeviceName + " at " + sc.Bounds.X + "," + sc.Bounds.Y + " " + sc.Bounds.Width + "x" + sc.Bounds.Height);
+        }
+        foreach (PickForm pf in grp.Forms) pf.Show();
+        Application.Run(grp.Context);
+        Bitmap crop = grp.Result;
+        foreach (PickForm pf in grp.Forms) { try { pf.Dispose(); } catch { } }
+        shot.Dispose();
+        return crop;
+    }
+
+    // v1.45 Capture from inside an editor: a small bar waits while the person arranges the screen (the editor is minimized), then
+    // "Capture now" takes the screen and lets them drag an area. Returns null if cancelled.
+    static Bitmap WaitThenPickBitmap()
+    {
+        bool go = false;
+        using (Form f = new Form())
+        {
+            f.FormBorderStyle = FormBorderStyle.None; f.StartPosition = FormStartPosition.Manual; f.ShowInTaskbar = false; f.TopMost = true; f.KeyPreview = true;
+            f.BackColor = Color.FromArgb(18, 20, 26);
+            Rectangle wa = Screen.FromPoint(Cursor.Position).WorkingArea;
+            f.Size = new Size(640, 60);
+            f.Location = new Point(wa.X + (wa.Width - f.Width) / 2, wa.Y + 12);
+            f.Paint += delegate (object s, PaintEventArgs pe) { using (Pen p = new Pen(Color.FromArgb(212, 175, 55), 2f)) pe.Graphics.DrawRectangle(p, 1, 1, f.Width - 3, f.Height - 3); };
+            Label lb = new Label(); lb.Text = "Show the screen you want, then press Capture now."; lb.ForeColor = Color.FromArgb(212, 175, 55);
+            lb.Font = new Font("Segoe UI", 10f, FontStyle.Bold); lb.Location = new Point(14, 0); lb.Size = new Size(330, 60); lb.TextAlign = ContentAlignment.MiddleLeft;
+            Button bGo = new Button(); bGo.Text = "Capture now"; bGo.Location = new Point(350, 14); bGo.Size = new Size(160, 32);
+            bGo.FlatStyle = FlatStyle.Flat; bGo.FlatAppearance.BorderColor = Color.FromArgb(212, 175, 55); bGo.BackColor = Color.FromArgb(212, 175, 55); bGo.ForeColor = Color.FromArgb(18, 20, 26);
+            bGo.Font = new Font("Segoe UI", 10f, FontStyle.Bold); bGo.Cursor = Cursors.Hand;
+            Button bNo = new Button(); bNo.Text = "Cancel"; bNo.Location = new Point(520, 14); bNo.Size = new Size(104, 32);
+            bNo.FlatStyle = FlatStyle.Flat; bNo.FlatAppearance.BorderColor = Color.FromArgb(212, 175, 55); bNo.BackColor = Color.FromArgb(40, 43, 52); bNo.ForeColor = Color.White;
+            bNo.Font = new Font("Segoe UI", 10f, FontStyle.Bold); bNo.Cursor = Cursors.Hand;
+            bGo.Click += delegate { go = true; f.Close(); };
+            bNo.Click += delegate { f.Close(); };
+            f.KeyDown += delegate (object s, KeyEventArgs k) { if (k.KeyCode == Keys.Escape) f.Close(); else if (k.KeyCode == Keys.Enter) { go = true; f.Close(); } };
+            f.Controls.Add(lb); f.Controls.Add(bGo); f.Controls.Add(bNo);
+            f.Shown += delegate { f.Activate(); };
+            Application.Run(f);
+        }
+        if (!go) return null;
+        return PickAreaBitmap();
+    }
+
     // a click on Show Amit in the ring: take the screen, let the person drag an area, then open the editor
     static void StartShowAmit()
     {
@@ -3160,28 +3302,7 @@ public static class AmitWhisper
         Thread t = new Thread(delegate ()
         {
             Bitmap crop = null;
-            try
-            {
-                Thread.Sleep(220);   // the ring is hidden before this runs; this gives Windows time to take it off the screen
-                Rectangle vs = SystemInformation.VirtualScreen;
-                Bitmap shot = new Bitmap(vs.Width, vs.Height, PixelFormat.Format24bppRgb);
-                using (Graphics g = Graphics.FromImage(shot)) { g.CopyFromScreen(vs.Left, vs.Top, 0, 0, vs.Size, CopyPixelOperation.SourceCopy); }
-                // one picker window for each screen (a single window stretched over two screens of different size and scaling
-                // did not take the mouse everywhere)
-                PickGroup grp = new PickGroup();
-                Screen[] scr = Screen.AllScreens;
-                Log("Show Amit: " + scr.Length + " screen(s), whole area " + vs.X + "," + vs.Y + " " + vs.Width + "x" + vs.Height);
-                foreach (Screen sc in scr)
-                {
-                    grp.Forms.Add(new PickForm(shot, vs, sc.Bounds, grp));
-                    Log("Show Amit: picker for " + sc.DeviceName + " at " + sc.Bounds.X + "," + sc.Bounds.Y + " " + sc.Bounds.Width + "x" + sc.Bounds.Height);
-                }
-                foreach (PickForm pf in grp.Forms) pf.Show();
-                Application.Run(grp.Context);
-                crop = grp.Result;
-                foreach (PickForm pf in grp.Forms) { try { pf.Dispose(); } catch { } }
-                shot.Dispose();
-            }
+            try { crop = PickAreaBitmap(); }
             catch (Exception ex) { Log("Show Amit: could not take the screen (" + ex.Message + ")"); }
             finally { showAmitBusy = false; }
             if (crop == null) { Log("Show Amit: nothing chosen"); return; }
@@ -3467,11 +3588,18 @@ public static class AmitWhisper
         // click, which selects the mark under it. Otherwise a drag moves the picture and a click is a click.
         bool toolPending;
         Point toolDownPt;
+        // v1.45: with Move on, pressing on the selected image and dragging moves that image (the editor decides whether the press is on it)
+        public Func<PointF, bool> ItemDragBegin;
+        public Action<PointF> ItemDragMove;
+        public Action ItemDragEnd;
+        public Func<PointF, Cursor> HoverCursor;
+        bool itemDrag;
 
         protected override void OnMouseDown(MouseEventArgs e)
         {
             Focus();     // so keys such as Delete and Esc go to the picture, not to a box the cursor was left in
             if (e.Button != MouseButtons.Left) return;
+            if (Mode == "move" && ItemDragBegin != null && ItemDragBegin(ToImage(e.Location))) { itemDrag = true; Cursor = Cursors.SizeAll; return; }
             if (IsDrawTool() && (Control.ModifierKeys & Keys.Control) == 0)
             {
                 toolPending = true; toolDrag = false; toolDownPt = e.Location;
@@ -3482,6 +3610,8 @@ public static class AmitWhisper
 
         protected override void OnMouseMove(MouseEventArgs e)
         {
+            if (itemDrag) { if (ItemDragMove != null) ItemDragMove(ToImage(e.Location)); return; }
+            if (!pressed && !toolPending && HoverCursor != null) { Cursor hc = HoverCursor(ToImage(e.Location)); Cursor = hc ?? BaseCursor; }
             if (toolPending)
             {
                 if (!toolDrag)
@@ -3505,6 +3635,7 @@ public static class AmitWhisper
 
         protected override void OnMouseUp(MouseEventArgs e)
         {
+            if (itemDrag && e.Button == MouseButtons.Left) { itemDrag = false; Cursor = BaseCursor; if (ItemDragEnd != null) ItemDragEnd(); return; }
             if (toolPending && e.Button == MouseButtons.Left)
             {
                 bool drew = toolDrag;
@@ -3527,6 +3658,7 @@ public static class AmitWhisper
         readonly ZoomCanvas canvas;
         readonly Form form;
         public Func<bool> Suppress;                          // true while the wheel belongs to something else (the open font list, the format bar)
+        public Func<Point, int, bool> Hook;                  // v1.47: the editor takes the wheel when the pointer is over the selected image
         public WheelFilter(ZoomCanvas c, Form f) { canvas = c; form = f; }
         public bool PreFilterMessage(ref Message m)
         {
@@ -3536,6 +3668,7 @@ public static class AmitWhisper
             Point p = Control.MousePosition;
             if (!canvas.RectangleToScreen(canvas.ClientRectangle).Contains(p)) return false;
             int delta = (short)((m.WParam.ToInt64() >> 16) & 0xFFFF);
+            if (Hook != null && Hook(canvas.PointToClient(p), delta)) return true;
             canvas.ZoomAt(canvas.PointToClient(p), delta);
             return true;
         }
@@ -3592,7 +3725,7 @@ public static class AmitWhisper
         Panel lpanel;
         ListView llist;
         Label layerInfo;
-        Button bLayers, bOpenShot, bAmit, bAddText, bAddDraw, bAddImage, bDelLayer, bUp, bDown, bUndo, bColor;
+        Button bCapture, bRecap, bLayers, bOpenShot, bAmit, bAddText, bAddDraw, bAddImage, bDelLayer, bUp, bDown, bUndo, bColor;
         Dictionary<string, Button> toolBtns = new Dictionary<string, Button>();
         bool lopen, suppressLayerUi;
         int lwidened;
@@ -3618,7 +3751,7 @@ public static class AmitWhisper
             img = image;
             lock (editorsLock) { Seq = ++editorSeq; }
             Text = "Show Amit #" + Seq; StartPosition = FormStartPosition.CenterScreen; KeyPreview = true; BackColor = Dark;
-            try { Icon = new Icon(iconPath); } catch { }
+            try { Icon = new Icon((iconShowPath != null && File.Exists(iconShowPath)) ? iconShowPath : iconPath); } catch { }
 
             top = new Panel(); top.Dock = DockStyle.Top; top.Height = 48; top.BackColor = Dark;
             Label lt = new Label(); lt.Text = "Title"; lt.ForeColor = Gold; lt.AutoSize = true; lt.Location = new Point(12, 15); lt.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
@@ -3632,13 +3765,18 @@ public static class AmitWhisper
             bLayers = MakeButton("Layers", 822, 80, false);
             bOpenShot = MakeButton("Open...", 906, 80, false);
             bAmit = MakeButton("Show Amit", 990, 100, true);
+            bCapture = MakeButton("Capture", 1096, 124, false);
+            bCapture.Image = CameraGlyph(); bCapture.ImageAlign = ContentAlignment.MiddleLeft; bCapture.TextAlign = ContentAlignment.MiddleRight; bCapture.Padding = new Padding(4, 0, 6, 0);
+            bRecap = MakeButton("Clear && Recapture", 1224, 150, false);
             ToolTip tip = new ToolTip();
+            tip.SetToolTip(bCapture, "Take another screen capture and add it to this picture as a new layer. The editor steps aside so you can show the screen you want.");
+            tip.SetToolTip(bRecap, "Throw this picture away and choose a new area of the screen");
             tip.SetToolTip(bLayers, "Layers: text, drawings and images on top of the picture, each one can be switched on and off");
             tip.SetToolTip(bOpenShot, "Open a shot you saved earlier, with all its layers");
             tip.SetToolTip(bAmit, "Send this shot to Amit: it is saved, then posted in your own Ask Amit chat for today, and the Amit Live window opens on it. It goes to Amit's team in your chat.");
             tip.SetToolTip(bSaveView, "Save exactly what you see now: the zoomed part, as its own picture");
             tip.SetToolTip(bSave, "Save the whole picture (with any words written on it)");
-            top.Controls.Add(lt); top.Controls.Add(title); top.Controls.Add(bText); top.Controls.Add(bSave); top.Controls.Add(bSaveView); top.Controls.Add(bSaveAs); top.Controls.Add(bFolder); top.Controls.Add(bPics); top.Controls.Add(bLayers); top.Controls.Add(bOpenShot); top.Controls.Add(bAmit);
+            top.Controls.Add(lt); top.Controls.Add(title); top.Controls.Add(bText); top.Controls.Add(bSave); top.Controls.Add(bSaveView); top.Controls.Add(bSaveAs); top.Controls.Add(bFolder); top.Controls.Add(bPics); top.Controls.Add(bLayers); top.Controls.Add(bOpenShot); top.Controls.Add(bAmit); top.Controls.Add(bCapture); top.Controls.Add(bRecap);
 
             status = new Label(); status.Dock = DockStyle.Bottom; status.Height = 28; status.ForeColor = Color.FromArgb(220, 220, 220); status.BackColor = Dark;
             status.Font = new Font("Segoe UI", 9.5f); status.TextAlign = ContentAlignment.MiddleLeft; status.AutoEllipsis = true; status.Padding = new Padding(10, 0, 0, 0);
@@ -3656,7 +3794,7 @@ public static class AmitWhisper
             canvas.Controls.Add(fbar);     // the format bar floats over the top (or bottom) of the picture only while a mark is selected, so nothing shifts
 
             Rectangle wa = Screen.FromPoint(Cursor.Position).WorkingArea;
-            int w = Math.Max(1400, Math.Min(img.Width + 4, wa.Width * 85 / 100));
+            int w = Math.Max(1660, Math.Min(img.Width + 4, wa.Width * 85 / 100));
             int h = Math.Max(320, Math.Min(img.Height + 4 + 48 + 28, wa.Height * 85 / 100));
             ClientSize = new Size(w, h);
 
@@ -3684,6 +3822,10 @@ public static class AmitWhisper
             canvas.ToolDown += OnToolDown; canvas.ToolMove += OnToolMove; canvas.ToolUp += OnToolUp;
             bSave.Click += delegate { DoSave(); };
             bAmit.Click += delegate { DoSendToAmit(); };
+            bRecap.Click += delegate { DoRecapture(); };
+            bCapture.Click += delegate { DoCapture(); };
+            canvas.ItemDragBegin = BeginImageDrag; canvas.ItemDragMove = MoveImageDrag; canvas.ItemDragEnd = EndImageDrag;
+            canvas.HoverCursor = ImageHoverCursor; wheel.Hook = WheelOverImage;
             bSaveAs.Click += delegate { DoSaveAs(); };
             bFolder.Click += delegate { DoOpenFolder(); };
             bSaveView.Click += delegate { DoSaveView(); };
@@ -3822,6 +3964,7 @@ public static class AmitWhisper
         // so Ctrl+V pastes it anywhere.
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            if (discardOnClose) { base.OnFormClosing(e); return; }     // Clear & Recapture: nothing is saved or put on the clipboard
             try
             {
                 CommitEditor();
@@ -3838,6 +3981,186 @@ public static class AmitWhisper
         {
             try { if (img != null) img.Dispose(); } catch { }
             base.OnFormClosed(e);
+        }
+
+        // v1.45 Capture: another screen capture, taken while this editor steps aside, comes back as a new image layer. The person clicks
+        // where its top-left corner goes; the layer can then be switched on/off, resized (the % box) and dragged like any image layer.
+        string pendingLayerName;
+        bool capturing;
+        void DoCapture()
+        {
+            if (capturing || showAmitBusy) { status.Text = "A capture is already waiting."; return; }
+            CommitEditor();
+            capturing = true; showAmitBusy = true;
+            Log("Show Amit: Capture (extra layer) from #" + Seq);
+            WindowState = FormWindowState.Minimized;
+            Thread t = new Thread(delegate ()
+            {
+                Bitmap b = null;
+                try { b = WaitThenPickBitmap(); }
+                catch (Exception ex) { Log("Show Amit: capture for a layer failed (" + ex.Message + ")"); }
+                finally { showAmitBusy = false; }
+                try
+                {
+                    BeginInvoke(new Action(delegate
+                    {
+                        capturing = false;
+                        if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
+                        BringFront();
+                        if (b == null) { status.Text = "Capture cancelled. Nothing was added."; return; }
+                        int n = 1;
+                        foreach (ShotLayer o in layers) if (o.Name != null && o.Name.StartsWith("Capture ")) n++;
+                        try
+                        {
+                            BeginPlaceImage(b);
+                            pendingLayerName = "Capture " + n;
+                            Log("Show Amit: capture " + b.Width + "x" + b.Height + " becomes layer \"" + pendingLayerName + "\"");
+                            PlacePendingImage(new Point(40, 40));    // placed at once near the top-left of what is on screen; the person drags it where they want
+                        }
+                        catch (Exception ex) { Log("Show Amit: could not place the capture (" + ex.ToString().Replace("\r\n", " | ") + ")"); status.Text = "Could not add the capture: " + ex.Message; }
+                    }));
+                }
+                catch { capturing = false; if (b != null) b.Dispose(); }   // the editor was closed meanwhile
+            });
+            t.IsBackground = true;
+            t.SetApartmentState(ApartmentState.STA);
+            t.Start();
+        }
+
+        // dragging the selected image moves it (Move tool only)
+        // v1.47: the selected image has four corner handles (drag one to resize, the opposite corner stays put), its body moves it,
+        // and the mouse wheel over it resizes it (the wheel anywhere else still zooms the whole picture)
+        // v1.48: the corners change the WINDOW only (any shape, the image inside does not change size or place); the body moves the window;
+        // Ctrl + drag moves the image inside the window; the wheel over it zooms the image inside, like the main picture
+        PointF imgDragStart, imgDragOrig, resAnchor, resImgPos;
+        bool imgResize, imgPan;
+
+        bool SelImageActive() { return selItem != null && selItem.Kind == "image" && selItem.Img != null && selLayer != null && selLayer.Visible && curTool == "move"; }
+
+        // which corner of the selected image is at p: 0 none, 1 top-left, 2 top-right, 3 bottom-right, 4 bottom-left
+        int CornerAt(PointF p)
+        {
+            RectangleF b = ItemBounds(selItem);
+            float r = 11f / canvas.Zoom;
+            if (Math.Abs(p.X - b.Left) <= r && Math.Abs(p.Y - b.Top) <= r) return 1;
+            if (Math.Abs(p.X - b.Right) <= r && Math.Abs(p.Y - b.Top) <= r) return 2;
+            if (Math.Abs(p.X - b.Right) <= r && Math.Abs(p.Y - b.Bottom) <= r) return 3;
+            if (Math.Abs(p.X - b.Left) <= r && Math.Abs(p.Y - b.Bottom) <= r) return 4;
+            return 0;
+        }
+
+        Cursor ImageHoverCursor(PointF p)
+        {
+            if (!SelImageActive()) return null;
+            int c = CornerAt(p);
+            if (c == 1 || c == 3) return Cursors.SizeNWSE;
+            if (c == 2 || c == 4) return Cursors.SizeNESW;
+            return HitItem(selItem, p, 0f) ? Cursors.SizeAll : null;
+        }
+
+        bool BeginImageDrag(PointF p)
+        {
+            if (!SelImageActive()) return false;
+            int c = CornerAt(p);
+            if (c != 0)
+            {
+                RectangleF b = ItemBounds(selItem);
+                bool right = (c == 2 || c == 3), bottom = (c == 3 || c == 4);
+                resAnchor = new PointF(right ? b.Left : b.Right, bottom ? b.Top : b.Bottom);   // the opposite corner stays where it is
+                resImgPos = new PointF(selItem.A.X + selItem.Pts[0].X, selItem.A.Y + selItem.Pts[0].Y);   // where the image sits on the picture: it stays there
+                imgResize = true; imgPan = false;
+                return true;
+            }
+            if (!HitItem(selItem, p, 0f)) return false;
+            imgResize = false;
+            imgPan = (Control.ModifierKeys & Keys.Control) != 0;
+            imgDragStart = p; imgDragOrig = imgPan ? selItem.Pts[0] : selItem.A;
+            return true;
+        }
+        void MoveImageDrag(PointF p)
+        {
+            if (selItem == null) return;
+            if (imgResize)
+            {
+                RectangleF r = NormRect(resAnchor, p);
+                if (r.Width < 12f) r.Width = 12f;
+                if (r.Height < 12f) r.Height = 12f;
+                selItem.A = new PointF(r.X, r.Y); selItem.B = new PointF(r.Width, r.Height);
+                selItem.Pts[0] = new PointF(resImgPos.X - r.X, resImgPos.Y - r.Y);
+            }
+            else if (imgPan) selItem.Pts[0] = new PointF(imgDragOrig.X + (p.X - imgDragStart.X), imgDragOrig.Y + (p.Y - imgDragStart.Y));
+            else selItem.A = new PointF(imgDragOrig.X + (p.X - imgDragStart.X), imgDragOrig.Y + (p.Y - imgDragStart.Y));
+            canvas.Invalidate();
+        }
+
+        // zooms the image inside its window, keeping the point `focus` (on the picture) where it is
+        static void SetContentScale(LayerItem it, float ns, PointF focus)
+        {
+            EnsureBox(it);
+            ns = Math.Max(0.05f, Math.Min(16f, ns));
+            float os = it.Scale;
+            if (Math.Abs(ns - os) < 0.0001f) return;
+            PointF c = new PointF(it.A.X + it.Pts[0].X, it.A.Y + it.Pts[0].Y);
+            c = new PointF(focus.X - (focus.X - c.X) * ns / os, focus.Y - (focus.Y - c.Y) * ns / os);
+            it.Pts[0] = new PointF(c.X - it.A.X, c.Y - it.A.Y);
+            it.Scale = ns;
+        }
+        void EndImageDrag()
+        {
+            if (selItem == null || selLayer == null) return;
+            Touch(selLayer);
+            SyncFormat();       // the size % box shows the new size
+            UpdateThumb(); RaiseEditorsChanged();
+        }
+
+        // the wheel with the pointer over the selected image resizes that image around the pointer; false = not over it, the whole picture zooms
+        bool WheelOverImage(Point clientPt, int delta)
+        {
+            if (!SelImageActive()) return false;
+            PointF p = canvas.ToImage(clientPt);
+            if (!HitItem(selItem, p, 0f)) return false;
+            float os = selItem.Scale, ns = Math.Max(0.05f, Math.Min(16f, os * (float)Math.Pow(1.2, delta / 120.0)));
+            if (Math.Abs(ns - os) < 0.0001f) return true;
+            SetContentScale(selItem, ns, p);
+            Touch(selLayer);
+            canvas.Invalidate(); SyncFormat();
+            UpdateThumb(); RaiseEditorsChanged();
+            status.Text = "Zoom inside \"" + selLayer.Name + "\": " + Math.Round(selItem.Scale * 100) + "%. Ctrl + drag moves the image inside its box; the corners change the box; the wheel off the box zooms the whole picture.";
+            return true;
+        }
+
+        static Bitmap CameraGlyph()
+        {
+            Bitmap bm = new Bitmap(20, 16);
+            using (Graphics g = Graphics.FromImage(bm))
+            {
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                using (SolidBrush gb = new SolidBrush(Gold)) using (SolidBrush dk = new SolidBrush(Color.FromArgb(40, 43, 52)))
+                {
+                    g.FillRectangle(gb, 6, 1, 8, 4);
+                    g.FillRectangle(gb, 1, 4, 18, 11);
+                    g.FillEllipse(dk, 6, 5, 8, 8);
+                    g.FillEllipse(gb, 8, 7, 4, 4);
+                }
+            }
+            return bm;
+        }
+
+        // v1.44 Clear & Recapture: this picture and its layers are dropped (after asking if there is anything unsaved) and the
+        // person drags a new area, which opens in a new editor
+        bool discardOnClose;
+        void DoRecapture()
+        {
+            CommitEditor();
+            if (NeedsSave() && (layers.Count > 0 || dirty))
+            {
+                DialogResult r = MessageBox.Show(this, "This picture has changes that are not saved. Throw it away and choose a new area?", "Clear & Recapture", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (r != DialogResult.Yes) return;
+            }
+            Log("Show Amit: Clear & Recapture on #" + Seq);
+            discardOnClose = true;
+            Close();
+            StartShowAmit();
         }
 
         Button MakeButton(string text, int x, int w, bool main)
@@ -3900,7 +4223,7 @@ public static class AmitWhisper
                         return new RectangleF(it.A.X, it.A.Y, Math.Max(s.Width, 8f), Math.Max(s.Height, 8f));
                     }
                 case "image":
-                    if (it.Img != null) return new RectangleF(it.A.X, it.A.Y, it.Img.Width * it.Scale, it.Img.Height * it.Scale);
+                    if (it.Img != null) { EnsureBox(it); return new RectangleF(it.A.X, it.A.Y, it.B.X, it.B.Y); }
                     break;
             }
             return new RectangleF(it.A.X, it.A.Y, 1f, 1f);
@@ -4254,9 +4577,28 @@ public static class AmitWhisper
                     DrawTextMark(g, it);
                     break;
                 case "image":
-                    if (it.Img != null) g.DrawImage(it.Img, it.A.X, it.A.Y, it.Img.Width * it.Scale, it.Img.Height * it.Scale);
+                    if (it.Img != null)
+                    {
+                        // v1.48: the image shows through a window (the box); the image keeps its own size and place inside it
+                        EnsureBox(it);
+                        GraphicsState gs = g.Save();
+                        g.SetClip(new RectangleF(it.A.X, it.A.Y, it.B.X, it.B.Y));
+                        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                        g.PixelOffsetMode = PixelOffsetMode.Half;
+                        g.DrawImage(it.Img, it.A.X + it.Pts[0].X, it.A.Y + it.Pts[0].Y, it.Img.Width * it.Scale, it.Img.Height * it.Scale);
+                        g.Restore(gs);
+                    }
                     break;
             }
+        }
+
+        // an image mark = a window (A = its top-left, B = its width and height) and the image inside it (Scale = its zoom, Pts[0] = where its
+        // top-left sits relative to the window's). Older marks without a window get one the size of the image.
+        static void EnsureBox(LayerItem it)
+        {
+            if (it.Kind != "image" || it.Img == null) return;
+            if (it.B.X <= 0f || it.B.Y <= 0f) it.B = new PointF(it.Img.Width * it.Scale, it.Img.Height * it.Scale);
+            if (it.Pts.Count == 0) it.Pts.Add(new PointF(0f, 0f));
         }
 
         // words in the mark's color with a thin white edge so they can be read on a dark or a light picture
@@ -4295,6 +4637,15 @@ public static class AmitWhisper
                     RectangleF b = ItemBounds(selItem);
                     b.Inflate(3f / z, 3f / z);
                     g.DrawRectangle(sp, b.X, b.Y, b.Width, b.Height);
+                }
+                if (selItem.Kind == "image" && selItem.Img != null)      // the corner handles
+                {
+                    RectangleF ib = ItemBounds(selItem);
+                    float hs = 9f / z;
+                    PointF[] cs = new PointF[] { new PointF(ib.Left, ib.Top), new PointF(ib.Right, ib.Top), new PointF(ib.Right, ib.Bottom), new PointF(ib.Left, ib.Bottom) };
+                    using (SolidBrush hb = new SolidBrush(Color.FromArgb(212, 175, 55)))
+                    using (Pen hp = new Pen(Color.FromArgb(18, 20, 26), 1.5f / z))
+                        foreach (PointF c in cs) { g.FillRectangle(hb, c.X - hs / 2f, c.Y - hs / 2f, hs, hs); g.DrawRectangle(hp, c.X - hs / 2f, c.Y - hs / 2f, hs, hs); }
                 }
             }
         }
@@ -4672,12 +5023,16 @@ public static class AmitWhisper
             if (b == null) { SetTool("move"); return; }
             pendingImage = null;
             ShotLayer L = NewLayer("image");
+            if (pendingLayerName != null) { L.Name = pendingLayerName; pendingLayerName = null; RefreshLayerList(); }
             LayerItem it = new LayerItem();
             it.Kind = "image"; it.Img = b; it.A = canvas.ToImage(at);
             float maxW = img.Width * 0.6f;
             it.Scale = b.Width > maxW ? maxW / b.Width : 1f;     // a big image is shrunk so it does not cover the whole picture
             AddItem(it);
             SetTool("move");
+            SetSelection(it, L);     // selected at once, so the size box shows and the image can be dragged
+            status.Text = "Placed on layer \"" + L.Name + "\". Drag it to move it, use the size % box to resize it, and switch it on or off in Layers.";
+            Log("Show Amit: image placed on layer \"" + L.Name + "\" at " + (int)it.A.X + "," + (int)it.A.Y + ", scale " + Math.Round(it.Scale * 100) + "%");
         }
 
         // ---- tests only ----
@@ -4885,7 +5240,7 @@ public static class AmitWhisper
             fWidthLbl = new Label(); fWidthLbl.Text = "Line width"; fWidthLbl.Location = new Point(110, 11); fWidthLbl.AutoSize = true; fWidthLbl.ForeColor = Color.White; fWidthLbl.Font = new Font("Segoe UI", 9.5f);
             fWidth = MakeNum(190, 62, 1, 80, 4);
             fPctLbl = new Label(); fPctLbl.Text = "Size %"; fPctLbl.Location = new Point(110, 11); fPctLbl.AutoSize = true; fPctLbl.ForeColor = Color.White; fPctLbl.Font = new Font("Segoe UI", 9.5f);
-            fPct = MakeNum(170, 70, 5, 400, 100);
+            fPct = MakeNum(170, 70, 5, 1600, 100);
 
             fbar.Controls.Add(fLbl); fbar.Controls.Add(fFont); fbar.Controls.Add(fSize); fbar.Controls.Add(fBold); fbar.Controls.Add(fItalic);
             fbar.Controls.Add(fUnder); fbar.Controls.Add(fColor); fbar.Controls.Add(fWidthLbl); fbar.Controls.Add(fWidth); fbar.Controls.Add(fPctLbl); fbar.Controls.Add(fPct);
@@ -4910,7 +5265,7 @@ public static class AmitWhisper
                 }
             };
             fWidth.ValueChanged += delegate { if (!FmtReady(LayerKind.Shape)) return; selItem.W = (float)fWidth.Value; FormatChanged(); };
-            fPct.ValueChanged += delegate { if (!FmtReady(LayerKind.Image)) return; selItem.Scale = (float)fPct.Value / 100f; FormatChanged(); };
+            fPct.ValueChanged += delegate { if (!FmtReady(LayerKind.Image)) return; { RectangleF bb = ItemBounds(selItem); SetContentScale(selItem, (float)fPct.Value / 100f, new PointF(bb.X + bb.Width / 2f, bb.Y + bb.Height / 2f)); } FormatChanged(); };
             SyncFormat();
         }
 
@@ -4970,7 +5325,7 @@ public static class AmitWhisper
                     SetToggle(fBold, it.Bold); SetToggle(fItalic, it.Italic); SetToggle(fUnder, it.Underline);
                 }
                 if (shape) fWidth.Value = (decimal)Math.Max(1f, Math.Min(80f, it.W));
-                if (image) fPct.Value = (decimal)Math.Max(5f, Math.Min(400f, it.Scale * 100f));
+                if (image) fPct.Value = (decimal)Math.Max(5f, Math.Min(1600f, it.Scale * 100f));
                 if (it != null && !image) { fColor.BackColor = it.Col; fColor.ForeColor = (it.Col.GetBrightness() > 0.6f) ? Dark : Color.White; }
             }
             finally { suppressFmt = false; }
@@ -5863,6 +6218,79 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
         }
         catch (Exception ex) { Log("OpenChatWindow: " + ex.Message); return OpenHub("?ask=amit"); }
     }
+    // v1.49: "preview" (said in Voice): Amit Preview, a window with a paste box on the left and the picture of the pasted HTML on the right
+    // (page AmitPreview.html). Opened the same way as the Ask Amit window: Edge/Chrome app mode, one window only, brought in front.
+    // It opens the copy kept in the helper's own folder (no internet needed); only when that file is missing does it use the copy on the Amit site.
+    // What is pasted into the page stays in the window (the preview frame is sandboxed).
+    static int previewOpenedAt = 0;
+    static IntPtr FindPreviewWindowNow()
+    {
+        IntPtr found = IntPtr.Zero;
+        try
+        {
+            EnumWindows(delegate (IntPtr h, IntPtr l)
+            {
+                if (!IsWindowVisible(h)) return true;
+                StringBuilder sb = new StringBuilder(256);
+                GetWindowText(h, sb, 256);
+                string t = sb.ToString().Trim();
+                if (t != "Amit Preview" && !t.StartsWith("Amit Preview - ")) return true;
+                try
+                {
+                    uint pid; GetWindowThreadProcessId(h, out pid);
+                    string pn = Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant();
+                    if (pn == "msedge" || pn == "chrome") { found = h; return false; }
+                }
+                catch { }
+                return true;
+            }, IntPtr.Zero);
+        }
+        catch { }
+        return found;
+    }
+    public static string OpenPreviewWindow()
+    {
+        try
+        {
+            IntPtr already = FindPreviewWindowNow();
+            if (already != IntPtr.Zero) { FrontWindow(already); Log("Amit Preview window was already open: brought it to the front"); return "{\"ok\":true,\"already\":true}"; }
+            if (previewOpenedAt != 0 && Environment.TickCount - previewOpenedAt < 12000) { Log("Amit Preview window is still opening: no second one started"); return "{\"ok\":true,\"already\":true}"; }
+            string exe = FindBrowser();
+            if (exe == null) { ShowOverlay("Amit Preview\nNo Edge or Chrome was found on this computer."); HideOverlayLater(4000); return "{\"ok\":false}"; }
+            // the copy of the page in the helper's own folder opens at once and needs no internet; without it, the copy on the Amit site is used
+            string localPage = "";
+            try { localPage = Path.Combine(Path.GetDirectoryName(iconPath), "AmitPreview.html"); } catch { }
+            string url;
+            if (localPage.Length > 0 && File.Exists(localPage)) url = new Uri(localPage).AbsoluteUri;
+            else
+            {
+                if (!InternetUp()) { ShowOverlay("Amit Preview\nIt needs the internet to open. Try again when you are connected."); HideOverlayLater(5000); return "{\"ok\":false}"; }
+                url = "https://ask-amit.github.io/Amit/AmitCoder/AmitPreview.html";
+            }
+            // most of the screen: 70% of its width and 80% of its height (the screen the pointer was on), never smaller than 800 x 560
+            int w = 1100, ht = 760;
+            try { Rectangle wa = Screen.FromPoint(new Point(menuOpenX, menuOpenY)).WorkingArea; w = Math.Max(800, wa.Width * 7 / 10); ht = Math.Max(560, wa.Height * 8 / 10); } catch { }
+            ProcessStartInfo psi = new ProcessStartInfo(exe, "--app=" + url + " --window-size=" + w + "," + ht);
+            psi.UseShellExecute = false;
+            previewOpenedAt = Environment.TickCount;
+            Process.Start(psi);
+            Log("Opened the Amit Preview window");
+            ThreadPool.QueueUserWorkItem(delegate { BringPreviewFront(); });
+            return "{\"ok\":true}";
+        }
+        catch (Exception ex) { Log("OpenPreviewWindow: " + ex.Message); return "{\"ok\":false}"; }
+    }
+    static void BringPreviewFront()
+    {
+        try
+        {
+            IntPtr found = IntPtr.Zero;
+            for (int i = 0; i < 50 && found == IntPtr.Zero; i++) { Thread.Sleep(200); found = FindPreviewWindowNow(); }      // up to about 10 seconds
+            if (found == IntPtr.Zero) { Log("Amit Preview window: not found to bring in front"); return; }
+            FrontWindow(found);
+        }
+        catch (Exception ex) { Log("BringPreviewFront: " + ex.Message); }
+    }
     // v1.32: the Show Amit button hands a saved picture to the Amit Live window, which posts it into the person's chat for today under their own sign-in
     // (the helper holds no login). The window asks /api/showamit/pending for it; it is offered for 5 minutes, then forgotten.
     static string shotPath, shotTitle = "", shotText = "", shotId = "";
@@ -5982,7 +6410,7 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
     static string hotkeyWarn = "";
     const int MaxWordRows = 2000;
     const int VoiceListenSeconds = 12;
-    static readonly string[] KnownActions = new string[] { "dictate", "showamit", "openhub", "cancel", "voice", "ring" };
+    static readonly string[] KnownActions = new string[] { "dictate", "showamit", "openhub", "cancel", "voice", "ring", "preview" };
 
     static string WordsPath()
     {
@@ -6247,6 +6675,7 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
         AddBuiltIn(l, "dictate", "Dictate", false, "dictate", "dictation", "start dictation", "talk to type", "type for me");
         AddBuiltIn(l, "showamit", "Show Amit", false, "show amit", "snapshot", "screenshot", "show an area");
         AddBuiltIn(l, "openhub", "Open the Amit Hub", false, "open amit hub", "open hub", "amit hub", "open my hub", "go to hub");
+        AddBuiltIn(l, "preview", "Amit Preview", false, "preview", "open preview", "amit preview", "html preview", "previewer", "open previewer");
         AddBuiltIn(l, "cancel", "Cancel", false, "cancel", "never mind", "stop", "close");
         return l;
     }
@@ -6364,7 +6793,7 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
 
     static string VoiceHelpText()
     {
-        StringBuilder sb = new StringBuilder("Amit is listening\nYou can say: Dictate, Show Amit, Open the Hub, Cancel");
+        StringBuilder sb = new StringBuilder("Amit is listening\nYou can say: Dictate, Show Amit, Preview, Open the Hub, Cancel");
         int extra = 0;
         lock (wordsLock)
         {
@@ -6498,7 +6927,7 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
             StartVoiceListen(x, y, 2);
             return;
         }
-        ShowOverlay("Amit did not catch that\nHeard: " + Tail(phrase) + "\nYou can say: Dictate, Show Amit, Open the Hub, Cancel");
+        ShowOverlay("Amit did not catch that\nHeard: " + Tail(phrase) + "\nYou can say: Dictate, Show Amit, Preview, Open the Hub, Cancel");
         HideOverlayLater(6000);
     }
 
@@ -6516,6 +6945,7 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
         if (c.Action == "dictate") { HideOverlay(); StartDictationFromMenu(x, y); return; }
         if (c.Action == "showamit") { HideOverlay(); StartShowAmit(); return; }
         if (c.Action == "openhub") { ShowOverlay("Opening the Amit Hub"); HideOverlayLater(1500); OpenHub(); return; }
+        if (c.Action == "preview") { ShowOverlay("Opening Amit Preview"); HideOverlayLater(1500); ThreadPool.QueueUserWorkItem(delegate { OpenPreviewWindow(); }); return; }
         if (c.Action == "cancel") { ShowOverlay("Cancelled"); HideOverlayLater(1200); return; }
         if (c.Action == "voice") { StartVoiceListen(x, y, 1); return; }
         ShowOverlay(c.Label + "\nThat command is not available on this computer yet.");
@@ -6648,6 +7078,7 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
         else if (a == "dictate") StartDictationFromMenu(x, y);
         else if (a == "showamit") StartShowAmit();
         else if (a == "openhub") OpenHub();
+        else if (a == "preview") OpenPreviewWindow();
         else if (a == "cancel") { HideOverlay(); }
     }
 

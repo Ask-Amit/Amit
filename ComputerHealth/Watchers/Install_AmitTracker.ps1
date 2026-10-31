@@ -3,12 +3,18 @@
 # computer: copies (or downloads) the watcher/bridge scripts and the
 # self-contained AmitSensorReader.exe to a permanent local folder, and
 # creates a "Run Amit Tracker" desktop shortcut that starts tracking and
-# opens the dashboard in one click. Nothing is registered to run
-# automatically at login - tracking only ever starts when that shortcut is
-# used.
+# opens the dashboard in one click. Since 2026-10-20 it also registers a
+# per-user startup entry so Amit's helper starts when Windows does
+# (pass -NoAutoStart to skip that).
 #
 # Safe to run again later - it checks what's already installed and skips
 # steps that are already done, unless -Force is passed.
+#
+# UPDATING (2026-10-26): the installer program passes -InstallerVersion (its own version). A version note is kept next to the installed files
+# (installed_version.txt). If an install already exists and its recorded version is OLDER than the installer's (or no version is recorded,
+# which is every install made before this), the running helper is stopped, every program file is replaced with the new one, and the helper is
+# started again by the installer program. Before this, running a newer installer over an old install silently skipped the copy and left the
+# old program in place. Settings (Whisper mode choices, device id) live outside the replaced files and are kept.
 #
 # Works two ways: if run from inside a full copy of the ComputerHealth folder
 # (the sibling scripts sitting right next to this one), it copies from there.
@@ -16,7 +22,7 @@
 # "Download the Installer" link - it fetches every other required file
 # directly from GitHub instead, since nothing else exists locally yet.
 
-param([switch]$Force)
+param([switch]$Force, [switch]$NoAutoStart, [string]$InstallerVersion = "")
 
 $installDir = "$env:LOCALAPPDATA\AmitComputerHealth"
 $watcherInstallDir = "$installDir\Watchers"
@@ -36,23 +42,60 @@ Write-Host "Install location: $installDir"
 Write-Host ""
 
 # --- Step 1: copy watcher/bridge scripts ---
-$alreadyInstalled = (Test-Path "$watcherInstallDir\amit_bridge_server.ps1") -and -not $Force
+$versionFile = "$watcherInstallDir\installed_version.txt"
+$isInstalled = Test-Path "$watcherInstallDir\amit_bridge_server.ps1"
+$installedVersion = ""
+if (Test-Path $versionFile) { try { $installedVersion = (Get-Content $versionFile -Raw).Trim() } catch {} }
+$upgrading = $false
+if ($isInstalled -and $InstallerVersion -ne "") {
+    try { $upgrading = ($installedVersion -eq "") -or ([version]$installedVersion -lt [version]$InstallerVersion) } catch { $upgrading = ($installedVersion -ne $InstallerVersion) }
+}
+$redo = $Force -or $upgrading     # replace shortcuts and settings entries too, not only the program files
+
+# Stops Amit's helper (the tray program, the bridge, the watchers and the Whisper window) so its files can be replaced. Only this person's
+# own Amit programs; never the installer itself ($PID).
+function Stop-AmitHelper([string]$CommandPattern = 'amit_bridge_server\.ps1|activity_watcher2\.ps1|resource_watcher\.ps1|diagnostics_watcher\.ps1|app_behavior_watcher\.ps1|amit_mobile_watcher\.ps1|install_snapshot_watcher\.ps1', [string]$TrayName = 'AmitTracker', [string]$EdgeMatch = '*AmitComputerHealth*whisper_profile*') {
+    Write-Host "  Stopping the running Amit helper so its files can be replaced..."
+    try { Get-Process -Name $TrayName -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue } catch {}
+    try {
+        Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+            Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -match $CommandPattern } |
+            ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    } catch {}
+    try {
+        Get-CimInstance Win32_Process -Filter "Name='msedge.exe'" -ErrorAction SilentlyContinue |
+            Where-Object { $_.CommandLine -like $EdgeMatch } |
+            ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    } catch {}
+    Start-Sleep -Seconds 2
+}
+
+$alreadyInstalled = $isInstalled -and -not $Force -and -not $upgrading
 if ($alreadyInstalled) {
-    Write-Host "[1/4] Watcher scripts already installed - skipping (use -Force to reinstall)."
+    Write-Host "[1/4] Amit's helper is already installed and up to date - skipping (use -Force to reinstall)."
 } else {
-    Write-Host "[1/4] Installing watcher scripts..."
+    if ($upgrading) {
+        Write-Host ("[1/4] Updating Amit's helper" + $(if ($installedVersion) { " from version $installedVersion" } else { " (an earlier version)" }) + " to version $InstallerVersion...")
+        if (-not $env:AMIT_INSTALL_TEST_NO_STOP) { Stop-AmitHelper }
+    } else {
+        Write-Host "[1/4] Installing watcher scripts..."
+    }
     New-Item -ItemType Directory -Path $watcherInstallDir -Force | Out-Null
     $filesToCopy = @(
         "amit_bridge_server.ps1", "ComputerHealth_Dashboard.html",
         "activity_watcher2.ps1", "resource_watcher.ps1", "diagnostics_watcher.ps1",
         "app_behavior_watcher.ps1", "install_snapshot_watcher.ps1",
         "Run_AmitTracker.ps1", "AmitTracker.exe", "AmitSensorReader.exe",
-        "process_inbox.bat", "process_inbox_prompt.txt"
+        "process_inbox.bat", "process_inbox_prompt.txt",
+        "amit_whisper.cs", "amit_whisper.html", "amit_talk.html", "amit_update.ps1",
+        "amit_icon_whisper.ico", "amit_icon_read.ico", "amit_icon_showamit.ico"
     )
     foreach ($f in $filesToCopy) {
         $src = "$scriptDir\$f"
         if (Test-Path $src) {
-            Copy-Item $src "$watcherInstallDir\$f" -Force
+            # the sensor reader is large (about 75 MB), runs elevated, and rarely changes: do not replace it when it is already the same file
+            if ($f -eq "AmitSensorReader.exe" -and (Test-Path "$watcherInstallDir\$f") -and ((Get-Item "$watcherInstallDir\$f").Length -eq (Get-Item $src).Length)) { continue }
+            try { Copy-Item $src "$watcherInstallDir\$f" -Force -ErrorAction Stop } catch { Write-Host "  Warning: could not replace $f ($($_.Exception.Message)) - it may still be running; restart the computer and run the installer again." }
         } else {
             try {
                 Invoke-WebRequest -Uri "$githubRawBase/$f" -OutFile "$watcherInstallDir\$f" -TimeoutSec 20 -ErrorAction Stop
@@ -61,8 +104,10 @@ if ($alreadyInstalled) {
             }
         }
     }
+    if ($InstallerVersion -ne "") { try { Set-Content -Path $versionFile -Value $InstallerVersion -Encoding ASCII } catch {} }
     Write-Host "  Done."
 }
+if ($env:AMIT_INSTALL_TEST_COPY_ONLY) { Write-Host "(test run: stopping after step 1)"; exit 0 }
 
 # --- Step 1b: Node.js + Claude Code CLI (for AmitBooks local receipt
 # processing) - optional, non-fatal if it fails. This is what
@@ -185,12 +230,27 @@ if (-not (Get-Command claude -ErrorAction SilentlyContinue) -and -not (Test-Path
 # read real sensors. Nothing left to find, download, or manage here.
 Write-Host "[2/4] Sensor reading is self-contained in AmitSensorReader.exe - nothing separate to install."
 
-# --- Step 3: (deliberately no Task Scheduler / login auto-start) ---
-# The bridge server is started on demand by the "Run Amit Tracker" desktop
-# shortcut instead of silently launching at every Windows login. This means
-# a 1-2 second delay the first time you click the shortcut each session,
-# in exchange for nothing running in the background until you ask for it.
-Write-Host "[3/4] Skipping auto-start-at-login by design - the desktop shortcut starts everything on demand instead."
+# --- Step 3: start Amit's helper automatically when this person signs in to Windows ---
+# CHANGED 2026-10-20 (Ryan's direct instruction). This step used to skip auto-start on purpose
+# (nothing ran in the background until the person asked). Now the helper starts with Windows so
+# Computer Health keeps tracking and recording with no window or page open, and the Hub finds it
+# already running. One per-user startup entry (HKCU Run - no administrator needed) that runs
+# AmitTracker.exe in its quiet tray-only mode. --at-logon makes it start the helper only; the
+# helper itself then starts tracking, and respects a Stop the person chose on purpose.
+# Anyone who does not want this passes -NoAutoStart, or deletes the "AmitComputerHealth" value
+# under HKCU\Software\Microsoft\Windows\CurrentVersion\Run (Task Manager > Startup apps also lists it).
+$runKeyPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+if ($NoAutoStart) {
+    try { Remove-ItemProperty -Path $runKeyPath -Name "AmitComputerHealth" -ErrorAction SilentlyContinue } catch {}
+    Write-Host "[3/4] Start-with-Windows skipped (-NoAutoStart) - Amit's helper will only start when you start it."
+} else {
+    try {
+        Set-ItemProperty -Path $runKeyPath -Name "AmitComputerHealth" -Value ("`"$watcherInstallDir\AmitTracker.exe`" --tray-only --at-logon")
+        Write-Host "[3/4] Amit's helper will now start automatically when you sign in to Windows (a small tray icon shows it is running)."
+    } catch {
+        Write-Host "[3/4] Could not set up start-with-Windows ($($_.Exception.Message)) - the desktop shortcut still starts everything."
+    }
+}
 
 # --- Step 4: desktop shortcut ---
 # (Run_AmitTracker.ps1 itself is installed in Step 1 - AmitTracker.exe finds
@@ -215,7 +275,7 @@ $desktopPath = [Environment]::GetFolderPath("Desktop")
 # real mechanism for a desktop icon that opens a website is a .url file
 # (Internet Shortcut), a simple INI-format text file - not a COM object.
 $shortcutPath = "$desktopPath\Amit.url"
-if ((Test-Path $shortcutPath) -and -not $Force) {
+if ((Test-Path $shortcutPath) -and -not $redo) {
     Write-Host "[3/4] Desktop shortcut already exists - skipping."
 } else {
     Write-Host "[3/4] Creating desktop shortcut..."
@@ -237,22 +297,24 @@ IconIndex=0
 # shortcut above, this targets a local .exe, so a real .lnk (WScript.Shell
 # CreateShortcut) is the correct mechanism here - the .lnk-can't-hold-a-web-
 # URL problem noted above doesn't apply to a local file target.
-$trackerShortcutPath = "$desktopPath\Amit Tracker.lnk"
-if ((Test-Path $trackerShortcutPath) -and -not $Force) {
-    Write-Host "[3/4] 'Amit Tracker' desktop shortcut already exists - skipping."
+$trackerShortcutPath = "$desktopPath\Amit Live.lnk"
+$oldTrackerShortcutPath = "$desktopPath\Amit Tracker.lnk"   # the name this shortcut had before it was called Amit Live: replaced, not duplicated
+if (Test-Path $oldTrackerShortcutPath) { try { Remove-Item $oldTrackerShortcutPath -Force -ErrorAction Stop } catch {} }
+if ((Test-Path $trackerShortcutPath) -and -not $redo) {
+    Write-Host "[3/4] 'Amit Live' desktop shortcut already exists - skipping."
 } else {
-    Write-Host "[3/4] Creating 'Amit Tracker' desktop shortcut..."
+    Write-Host "[3/4] Creating 'Amit Live' desktop shortcut..."
     try {
         $wshShell = New-Object -ComObject WScript.Shell
         $trackerShortcut = $wshShell.CreateShortcut($trackerShortcutPath)
         $trackerShortcut.TargetPath = $trackerExePath
         $trackerShortcut.WorkingDirectory = $watcherInstallDir
         $trackerShortcut.IconLocation = $iconLocation
-        $trackerShortcut.Description = "Start Amit's computer tracker directly - no browser involved"
+        $trackerShortcut.Description = "Amit Live: starts Amit's helper (Whisper mode and your computer's health check) - no browser involved"
         $trackerShortcut.Save()
-        Write-Host "  Shortcut created on your desktop: 'Amit Tracker' - starts tracking directly."
+        Write-Host "  Shortcut created on your desktop: 'Amit Live' - starts Amit's helper directly."
     } catch {
-        Write-Host "  Could not create the 'Amit Tracker' shortcut ($($_.Exception.Message)) - you can still start tracking from the dashboard's Launch Tracker button."
+        Write-Host "  Could not create the 'Amit Live' shortcut ($($_.Exception.Message)) - you can still start it from the dashboard's Launch Amit Live button."
     }
 }
 
@@ -266,18 +328,27 @@ try {
     # name in the permission dialog rather than this registry description,
     # so this is what makes "Amit Tracker" show up either way.
     New-Item -Path "HKCU:\Software\Classes\amit-tracker" -Force | Out-Null
-    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker" -Name "(Default)" -Value "URL:Amit Tracker"
+    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker" -Name "(Default)" -Value "URL:Amit Live"
     Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker" -Name "URL Protocol" -Value ""
     New-Item -Path "HKCU:\Software\Classes\amit-tracker\DefaultIcon" -Force | Out-Null
     Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker\DefaultIcon" -Name "(Default)" -Value $iconDest
     New-Item -Path "HKCU:\Software\Classes\amit-tracker\shell\open\command" -Force | Out-Null
     Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker\shell\open\command" -Name "(Default)" -Value "`"$trackerExePath`""
     Write-Host "  Registered. Links starting with amit-tracker:// will now launch the tracker (Windows will always ask permission first - by design, not something we can silence)."
+    # amit-helper:// (added 2026-10-22): the QUIET launch link the Hub uses to start Amit's helper - the same as the start-with-Windows
+    # entry (tray icon only, no window, no dashboard tab). The Hub tries this first, then amit-tracker:// for installs that predate it.
+    New-Item -Path "HKCU:\Software\Classes\amit-helper" -Force | Out-Null
+    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-helper" -Name "(Default)" -Value "URL:Amit Helper"
+    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-helper" -Name "URL Protocol" -Value ""
+    New-Item -Path "HKCU:\Software\Classes\amit-helper\DefaultIcon" -Force | Out-Null
+    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-helper\DefaultIcon" -Name "(Default)" -Value $iconDest
+    New-Item -Path "HKCU:\Software\Classes\amit-helper\shell\open\command" -Force | Out-Null
+    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-helper\shell\open\command" -Name "(Default)" -Value "`"$trackerExePath`" --tray-only --at-logon"
 } catch {
-    Write-Host "  Could not register the link handler ($($_.Exception.Message)) - the dashboard's Launch Tracker button won't work yet, but the Amit desktop shortcut and manual tracking still will."
+    Write-Host "  Could not register the link handler ($($_.Exception.Message)) - the dashboard's Launch Amit Live button won't work yet, but the Amit desktop shortcut and manual tracking still will."
 }
 
 Write-Host ""
 Write-Host "Install complete."
-Write-Host "Double-click 'Amit' on your desktop to open the Hub. From there, Computer Health has its own Launch Tracker button."
+Write-Host "Double-click 'Amit' on your desktop to open the Hub. From there, Computer Health has its own Launch Amit Live button."
 Write-Host "Dashboard: $dashboardUrl"

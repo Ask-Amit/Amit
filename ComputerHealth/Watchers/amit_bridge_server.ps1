@@ -1,4 +1,32 @@
 # Amit Computer Health - Local Bridge Server
+# Version v1.13 (2026-10-31): new routes /amit-icon-whisper.ico and /amit-icon-read.ico (each part of Amit has its own icon; same circle and ring, only the symbol changes).
+# Version v1.10 (2026-10-30)
+# v1.10: new route /amit-icon.ico (the Amit icon for the offline Amit Live page).
+# v1.09 (2026-10-30) - first numbered version was v1.01 (baseline v1.00 = everything before).
+# v1.09: new route /amit-live-offline: the page the Amit Live window shows when there is no internet (served from AmitWhisper.OfflinePage()).
+# v1.12: TALK (the fourth choice in the Amit Live ring, a see-through speaker that reads aloud what the person selects): new routes /talk (the speaking page, amit_talk.html), /api/talk/wait, /api/talk/event, /api/talk/voice (the person's saved voice, copied here by the Amit pages; Amit site only). Talk traffic does not count as "page contact" for the idle stop.
+# v1.11: new routes /api/showamit/pending and /api/showamit/pending.png: the shot the Show Amit button just handed over, for the Amit Live window to post into the person's Ask Amit chat (Amit site only).
+# v1.08: new read-only route /api/health-snapshot (processor, memory, main drive, uptime, three biggest memory users) for the Computer Health tab of the Amit Live window.
+# v1.07: no personal path is written into the program any more: the AmitInbox folder and the owner-only credentials path are built from the signed-in Windows user's own profile folder ($env:USERPROFILE) instead of one fixed user name (found while preparing the public Verify It page; same result on the original computer, correct on every other).
+# v1.06: Whisper mode settings routes grew: /api/whisper/settings now also takes ready= (how long the listening window stays ready) and textonly= (only type into a text box),
+# and there are /api/whisper/open-hub and /api/whisper/test-overlay (all token-protected like the rest).
+# v1.05: WHISPER MODE (Ryan: hold a mouse button anywhere, speak, let go, and the words are typed where the cursor is). The code is
+# amit_whisper.cs (compiled here with Add-Type, so it is part of this one shared agent, not a new program or port) and the listening
+# page amit_whisper.html (served at /whisper). New routes: /whisper, /api/whisper/wait|event|status|settings|learn. Whisper traffic does
+# not count as "page contact" for the idle stop. AMIT_BRIDGE_PORT overrides the port (testing); AMIT_WHISPER_DISABLE=1 skips Whisper mode.
+# v1.04: the idle stop asks itself once every 10 minutes while idle, not once a minute forever.
+# v1.03: MEMORY (Ryan: the monitor grew all day until it used up his RAM). A full garbage collection about once a
+# minute, one reusable self-call client, and a 4-HOUR RESTART OF THE MONITOR: after 4 hours of tracking the bridge
+# stops the three watchers cleanly (each writes its finished-session file to data\pending, which the Hub saves to the
+# database), then starts fresh ones - the tray ignores that short gap (%TEMP%\amit_rotate.flag). Also: stale idle/rotate
+# markers are cleared when the bridge starts, and the resume after an idle stop no longer depends on the marker file.
+# v1.01: CPU/pile-up fixes - direct file-tail read, fast JSON escaping, cheap process-status check, in-flight
+# cap (16) and a 180-second reaper for stuck handlers.
+# v1.02: IDLE STOP (Ryan: nothing should keep running when nothing is using it) - after 10 minutes with no
+# page contact (a request carrying a browser Origin header) the three monitor watchers are stopped quietly
+# (no "turned off on purpose" flag, no dashboard tab, sensor reader left alone so no UAC on return) and the
+# tray icon exits; the next page contact starts tracking again and brings the tray back.
+# Each push of this file bumps this number by 0.01.
 # Serves the dashboard HTML and exposes local watcher data/controls over HTTP
 # so a browser page (which cannot see the filesystem or processes directly)
 # can read tracker output and push events to Supabase.
@@ -12,6 +40,7 @@
 # Run this, then open http://localhost:8710/ in a browser.
 
 $port = 8710
+if ($env:AMIT_BRIDGE_PORT -match '^\d+$') { $port = [int]$env:AMIT_BRIDGE_PORT }
 $watcherDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
 $dashboardPath = "$watcherDir\ComputerHealth_Dashboard.html"
 $deviceIdFile = "$watcherDir\device_id.txt"
@@ -60,6 +89,23 @@ try {
 Write-Host "Amit Computer Health bridge server running at http://localhost:$port/"
 Write-Host "Device ID: $deviceId  |  Device Name: $deviceName"
 Write-Host "Press Ctrl+C to stop."
+
+# ---- Whisper mode (v1.05): the mouse watcher, the live-words box and the typing, all inside this process ----
+# Compiled from amit_whisper.cs next to this script. If anything fails here the rest of the bridge is untouched.
+try {
+    $whisperCs = Join-Path $watcherDir "amit_whisper.cs"
+    if (-not $env:AMIT_WHISPER_DISABLE -and (Test-Path $whisperCs)) {
+        Add-Type -Path $whisperCs -ReferencedAssemblies System.Windows.Forms,System.Drawing,UIAutomationClient,UIAutomationTypes,WindowsBase -ErrorAction Stop
+        [AmitWhisper]::Start($watcherDir, $port)
+        Write-Host "Whisper mode started (hold the chosen mouse button, speak, let go)."
+    }
+} catch {
+    Write-Host "Whisper mode could not start: $($_.Exception.Message)"
+}
+
+# Idle/rotate markers only mean something inside ONE bridge run (the timers they belong to live in memory). Files in the
+# temp folder survive a restart of the computer, so a leftover marker from an earlier run is cleared here (v1.03).
+try { Remove-Item "$env:TEMP\amit_idle_stop.flag", "$env:TEMP\amit_rotate.flag" -ErrorAction SilentlyContinue } catch {}
 
 # ── Amit Mobile listener — auto-start (2026-09-05) ──
 # Per root CLAUDE.md's SINGLE LOCAL CONNECTION STANDARD: Amit Mobile's
@@ -116,7 +162,9 @@ try {
 # ── Performance tracking — auto-start by default (2026-09-05) ──
 # Per AmitMobile's "Connect Amit" design (AmitMobile\CLAUDE.md): when the
 # bridge is running, BOTH the Amit Mobile phone listener (above) AND
-# performance tracking (resource/diagnostics/activity/app-behavior watchers,
+# performance tracking (resource/diagnostics/activity watchers - NOT app-behavior:
+# that one starts only when someone presses Start Watching for a specific app,
+# via /api/start-behavior, never automatically; comment corrected 2026-10-23),
 # started today via the existing Start-Tracking() function / the dashboard's
 # Start Tracking button / the /api/start-tracking endpoint) should be ON by
 # default, together, as one switch - not two separate things a person has
@@ -146,7 +194,7 @@ if (-not (Test-Path $amitTrackingDisabledFlag)) {
 }
 
 $handlerScript = {
-    param($context, $watcherDir, $dashboardPath, $deviceId, $deviceName)
+    param($context, $watcherDir, $dashboardPath, $deviceId, $deviceName, $bridgeState)
 
     function ConvertTo-JsonString($text) {
         # Manual JSON string escaping - avoids ConvertTo-Json, which has a real
@@ -154,7 +202,10 @@ $handlerScript = {
         # (confirmed via tracing: identical code hangs on a cold runspace but not
         # a warm one, purely from the cmdlet call itself, not the data size).
         if ($null -eq $text) { return '""' }
-        $escaped = $text -replace '\\', '\\\\' -replace '"', '\"' -replace "`r", '\r' -replace "`n", '\n' -replace "`t", '\t'
+        # Plain .Replace (not regex -replace): same result, same order (backslash first), but fast on the
+        # 18,000-character lines in resource_watch_result.txt (cost fix 2026-10-23; -replace x6 per line
+        # over a 500-line history is what made /api/resource-history spin for 20+ seconds).
+        $escaped = ([string]$text).Replace('\', '\\').Replace('"', '\"').Replace("`r", '\r').Replace("`n", '\n').Replace("`t", '\t')
         return '"' + $escaped + '"'
     }
 
@@ -174,8 +225,16 @@ $handlerScript = {
     }
 
     function Send-JsonLines($response, $lines) {
-        $itemsJson = ($lines | ForEach-Object { ConvertTo-JsonString $_ }) -join ","
-        Send-JsonRaw $response ('{"lines":[' + $itemsJson + ']}')
+        $sb = New-Object System.Text.StringBuilder
+        [void]$sb.Append('{"lines":[')
+        $first = $true
+        foreach ($l in $lines) {
+            if (-not $first) { [void]$sb.Append(',') }
+            $first = $false
+            [void]$sb.Append((ConvertTo-JsonString $l))
+        }
+        [void]$sb.Append(']}')
+        Send-JsonRaw $response $sb.ToString()
     }
 
     function Send-Json($response, $obj, $statusCode = 200) {
@@ -191,13 +250,42 @@ $handlerScript = {
         $response.OutputStream.Close()
     }
     function Get-TailSafe($path, $lines = 100, $maxLineLen = 400) {
-        if (Test-Path $path) {
+        # Reads only the END of the file straight from disk (cost fix 2026-10-23, Ryan: this bridge was
+        # pinning the CPU). Get-Content -Tail on resource_watch_result.txt (500 lines of ~18,000
+        # characters, about 9 MB) cost about 1.4 CPU-seconds per call even to return 20 short lines, and
+        # the dashboard asks every 5 seconds. Starts with a small chunk from the end and grows it only if
+        # there are not yet enough lines; the file may be appended to while it is read (shared read).
+        if (-not (Test-Path $path)) { return @() }
+        try {
+            $fs = [System.IO.File]::Open($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
             try {
-                $raw = @(Get-Content $path -Tail $lines -Encoding UTF8)
-                return @($raw | ForEach-Object { if ($_.Length -gt $maxLineLen) { $_.Substring(0, $maxLineLen) + "..." } else { $_ } })
-            } catch { return @() }
-        }
-        return @()
+                $len = $fs.Length
+                $chunk = [long][Math]::Max(65536, $lines * 2048)
+                while ($true) {
+                    $start = [Math]::Max([long]0, $len - $chunk)
+                    [void]$fs.Seek($start, [System.IO.SeekOrigin]::Begin)
+                    $buf = New-Object byte[] ($len - $start)
+                    $got = 0
+                    while ($got -lt $buf.Length) {
+                        $n = $fs.Read($buf, $got, $buf.Length - $got)
+                        if ($n -le 0) { break }
+                        $got += $n
+                    }
+                    $parts = [System.Text.Encoding]::UTF8.GetString($buf, 0, $got).Split("`n")
+                    if ($start -eq 0 -or $parts.Count -gt ($lines + 2)) { break }
+                    $chunk = $chunk * 4
+                }
+            } finally { $fs.Dispose() }
+            $out = New-Object System.Collections.Generic.List[string]
+            $from = if ($start -gt 0) { 1 } else { 0 }   # the first piece is a partial line when we did not start at the top
+            for ($i = $from; $i -lt $parts.Count; $i++) {
+                $l = $parts[$i].TrimEnd("`r")
+                if ($l.Length -eq 0) { continue }
+                $out.Add($(if ($l.Length -gt $maxLineLen) { $l.Substring(0, $maxLineLen) + "..." } else { $l }))
+            }
+            if ($out.Count -gt $lines) { return @($out.GetRange($out.Count - $lines, $lines)) }
+            return @($out)
+        } catch { return @() }
     }
 
     function Get-BrowserBreakdown() {
@@ -567,7 +655,7 @@ $handlerScript = {
     # (this is exactly what caused the repeated "Stream was not readable"
     # crashes during testing on 2026-07-13 - two tabs each triggered
     # start-tracking, and nothing here stopped a second full set launching).
-    function Test-WatcherScriptRunning($scriptFileName) {
+    function Test-WatcherScriptRunning($scriptFileName, [switch]$NoRetry) {
         # Get-CimInstance hangs specifically when called from inside this
         # handler's runspace - confirmed live 2026-07-14: the exact same
         # call, run standalone in a normal session, returns in well under a
@@ -589,12 +677,19 @@ $handlerScript = {
         # whichever generation's PIDs it last saved. One retry after a short
         # pause catches a transient miss without meaningfully slowing down
         # the normal (nothing running) case.
-        $match = Get-WmiObject Win32_Process -ErrorAction SilentlyContinue |
+        #
+        # Cost fix 2026-10-23 (Ryan: fans at full speed, CPU pinned by this bridge): this used to
+        # list EVERY process on the machine with its command line, twice whenever nothing matched
+        # (the normal case), on every status poll. The watchers are all PowerShell, so the query now
+        # asks WMI for powershell.exe processes only (filtered inside WMI, not after pulling every
+        # process back), and a read-only status check passes -NoRetry so it never repeats the query
+        # or sleeps. Start-Tracking and the duplicate cleanup still retry, since a miss there matters.
+        $match = Get-WmiObject Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
             Where-Object { $_.CommandLine -like "*$scriptFileName*" } |
             Select-Object -First 1
-        if (-not $match) {
+        if (-not $match -and -not $NoRetry) {
             Start-Sleep -Milliseconds 400
-            $match = Get-WmiObject Win32_Process -ErrorAction SilentlyContinue |
+            $match = Get-WmiObject Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
                 Where-Object { $_.CommandLine -like "*$scriptFileName*" } |
                 Select-Object -First 1
         }
@@ -804,7 +899,25 @@ try {
         return @{ started = $true; pids = $newPids; elevated = $isAdmin; warnings = $warnings }
     }
 
-    function Stop-Tracking() {
+    # Start-Tracking behind one lock (v1.02): a page returning after an idle stop and the Hub's own
+    # ensure-tracking can arrive within the same second; without this both would launch watchers (and a
+    # second elevated sensor-reader prompt). Whoever gets the lock second sees tracking already running
+    # and returns $null instead of starting anything.
+    function Start-TrackingOnce() {
+        $m = New-Object System.Threading.Mutex($false, 'Local\AmitBridgeStartTracking')
+        $got = $false
+        try {
+            try { $got = $m.WaitOne(60000) } catch [System.Threading.AbandonedMutexException] { $got = $true }
+            if (-not $got) { return $null }
+            if ((Get-TrackerStatus).running) { return $null }
+            return (Start-Tracking)
+        } finally {
+            if ($got) { try { $m.ReleaseMutex() } catch {} }
+            $m.Dispose()
+        }
+    }
+
+    function Stop-Tracking([switch]$KeepSensorReader) {
         $stopped = @()
         if (Test-Path $trackerPidFile) {
             $savedPids = Get-Content $trackerPidFile -ErrorAction SilentlyContinue
@@ -876,7 +989,9 @@ try {
         # still applies to the one case the flag can't cover: the reader was
         # already running before this session ever touched it, so no
         # elevated watcher for it exists to signal.
-        $lhmProcs = Get-Process -Name "AmitSensorReader" -ErrorAction SilentlyContinue
+        # -KeepSensorReader (v1.02, idle stop only): the reader runs elevated, so stopping it means a Windows
+        # permission prompt on every return to the Hub. It is light, so an idle stop leaves it running.
+        $lhmProcs = if ($KeepSensorReader) { $null } else { Get-Process -Name "AmitSensorReader" -ErrorAction SilentlyContinue }
         if ($lhmProcs) {
             New-Item $lhmStopFlag -ItemType File -Force | Out-Null
             $lhmWaited = 0
@@ -948,6 +1063,284 @@ try {
                 else { Send-Html $response "<h1>Dashboard file not found at $dashboardPath</h1>" }
             }
             "/api/device" { Send-Json $response @{ deviceId = $deviceId; deviceName = $deviceName } }
+            # ---- Whisper mode (v1.05). The words and the mouse watching live in amit_whisper.cs; these routes only carry messages. ----
+            "/whisper" {
+                # The page gets this run's secret only when it is opened directly (a browser navigation carries no Origin header).
+                # A web page on another site that fetches this address does send an Origin, so it gets the page WITHOUT the secret.
+                $whisperPage = Join-Path $watcherDir "amit_whisper.html"
+                if (Test-Path $whisperPage) {
+                    $wTok = ''
+                    if (-not $request.Headers['Origin']) { $wTok = [AmitWhisper]::Token() }
+                    Send-Html $response ([System.IO.File]::ReadAllText($whisperPage, [System.Text.Encoding]::UTF8).Replace('__WHISPER_TOKEN__', $wTok))
+                }
+                else { $response.StatusCode = 404; Send-Html $response "Whisper mode page is not installed." }
+            }
+            "/api/whisper/wait" {
+                # The listening page asks "any command for me?" and is held here (up to 20 s) until there is one.
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $wSince = -1
+                    try { $wSince = [long]$request.QueryString["seq"] } catch {}
+                    Send-JsonRaw $response ([AmitWhisper]::WaitCommand($wSince, 20000))
+                }
+            }
+            "/api/whisper/event" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $wReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $wBody = $wReader.ReadToEnd(); $wReader.Dispose()
+                    [AmitWhisper]::OnPageEvent($wBody)
+                    Send-JsonRaw $response '{"ok":true}'
+                }
+            }
+            "/api/whisper/status" { Send-JsonRaw $response ([AmitWhisper]::StatusJson()) }
+            "/api/whisper/settings" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $wEn = $request.QueryString["enabled"]; $wHold = $request.QueryString["hold"]; $wBtn = $request.QueryString["button"]
+                    $wEnter = $request.QueryString["enter"]
+                    if ($wEnter) { [void][AmitWhisper]::SetSendEnter($wEnter) }
+                    $wReady = $request.QueryString["ready"]
+                    if ($wReady) { [void][AmitWhisper]::SetKeepReady($wReady) }
+                    $wTextOnly = $request.QueryString["textonly"]
+                    if ($wTextOnly) { [void][AmitWhisper]::SetTextOnly($wTextOnly) }
+                    Send-JsonRaw $response ([AmitWhisper]::Configure($wEn, $wHold, $wBtn))
+                }
+            }
+            "/api/whisper/test-overlay" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ('{"overlay":"' + ([AmitWhisper]::TestOverlay("* Whisper mode test box")) + '"}') }
+            }
+            "/api/whisper/open-hub" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::OpenHub()) }
+            }            "/api/whisper/learn" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::StartLearn()) }
+            }
+            # ---- Talk (v1.12): the speaking half of the "Talk" choice in the Amit Live ring. The words and the speaker on the screen live in amit_whisper.cs; these routes only carry messages. ----
+            "/talk" {
+                # The speaking page (a hidden Edge window of its own). Gets this run's secret only when opened directly (same rule as /whisper).
+                $talkPage = Join-Path $watcherDir "amit_talk.html"
+                if (Test-Path $talkPage) {
+                    $tTok = ''
+                    if (-not $request.Headers['Origin']) { $tTok = [AmitWhisper]::Token() }
+                    Send-Html $response ([System.IO.File]::ReadAllText($talkPage, [System.Text.Encoding]::UTF8).Replace('__WHISPER_TOKEN__', $tTok))
+                }
+                else { $response.StatusCode = 404; Send-Html $response "Talk page is not installed." }
+            }
+            "/api/talk/wait" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $tSince = -1
+                    try { $tSince = [long]$request.QueryString["seq"] } catch {}
+                    Send-JsonRaw $response ([AmitWhisper]::TalkWait($tSince, 20000))
+                }
+            }
+            "/api/talk/event" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $tReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $tBody = $tReader.ReadToEnd(); $tReader.Dispose()
+                    [AmitWhisper]::TalkEvent($tBody)
+                    Send-JsonRaw $response '{"ok":true}'
+                }
+            }
+            "/api/talk/voice" {
+                # The person's saved Amit voice. POST: the Amit pages (which hold the login) copy it here when the person signs in or changes it (Amit site only, same Origin rule as /api/words/*).
+                # GET: the speaking page reads it (needs this run's secret).
+                if ($request.HttpMethod -eq 'POST') {
+                    if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                    else {
+                        $tvReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                        $tvBody = $tvReader.ReadToEnd(); $tvReader.Dispose()
+                        $tvForce = [string]$request.QueryString["force"]
+                        Send-JsonRaw $response ([AmitWhisper]::TalkVoiceSet($tvBody, $tvForce))
+                    }
+                }
+                else {
+                    if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                    else { Send-JsonRaw $response ([AmitWhisper]::TalkVoiceGet()) }
+                }
+            }
+            "/api/talk/voice-save" {
+                # the voice window next to the speaker saves a new voice here (needs this run's secret); it waits here until an Amit page writes it to the login
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $tsReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $tsBody = $tsReader.ReadToEnd(); $tsReader.Dispose()
+                    Send-JsonRaw $response ([AmitWhisper]::TalkVoiceSave($tsBody))
+                }
+            }
+            "/api/talk/voice-ack" {
+                # an Amit page (which holds the login) confirms it wrote the waiting voice into the person's saved voice (Amit site only)
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::TalkVoiceAck()) }
+            }
+            "/amit-icon-whisper.ico" {
+                # The Whisper icon (microphone), for the Whisper window's title bar and taskbar entry. Falls back to the Amit icon if it is not installed.
+                $iconFile = Join-Path $watcherDir "amit_icon_whisper.ico"
+                if (-not (Test-Path $iconFile)) { $iconFile = Join-Path $watcherDir "amit_icon.ico" }
+                if (Test-Path $iconFile) {
+                    $iconBytes = [System.IO.File]::ReadAllBytes($iconFile)
+                    $response.ContentType = "image/x-icon"
+                    $response.KeepAlive = $false
+                    $response.ContentLength64 = $iconBytes.Length
+                    $response.OutputStream.Write($iconBytes, 0, $iconBytes.Length)
+                    $response.OutputStream.Close()
+                }
+                else { $response.StatusCode = 404; Send-Html $response "No icon." }
+            }
+            "/amit-icon-read.ico" {
+                # The Read icon (speaker), for the Read window's title bar and taskbar entry. Falls back to the Amit icon if it is not installed.
+                $iconFile = Join-Path $watcherDir "amit_icon_read.ico"
+                if (-not (Test-Path $iconFile)) { $iconFile = Join-Path $watcherDir "amit_icon.ico" }
+                if (Test-Path $iconFile) {
+                    $iconBytes = [System.IO.File]::ReadAllBytes($iconFile)
+                    $response.ContentType = "image/x-icon"
+                    $response.KeepAlive = $false
+                    $response.ContentLength64 = $iconBytes.Length
+                    $response.OutputStream.Write($iconBytes, 0, $iconBytes.Length)
+                    $response.OutputStream.Close()
+                }
+                else { $response.StatusCode = 404; Send-Html $response "No icon." }
+            }
+            "/amit-icon.ico" {
+                # The Amit icon, for the offline Amit Live page's title bar and taskbar entry.
+                $iconFile = Join-Path $watcherDir "amit_icon.ico"
+                if (Test-Path $iconFile) {
+                    $iconBytes = [System.IO.File]::ReadAllBytes($iconFile)
+                    $response.ContentType = "image/x-icon"
+                    $response.KeepAlive = $false
+                    $response.ContentLength64 = $iconBytes.Length
+                    $response.OutputStream.Write($iconBytes, 0, $iconBytes.Length)
+                    $response.OutputStream.Close()
+                }
+                else { $response.StatusCode = 404; Send-Html $response "No icon." }
+            }
+            "/amit-live-offline" {
+                # The Amit Live window's page for when there is no internet (the helper opens it instead of the live page). The page itself is inside amit_whisper.cs.
+                Send-Html $response ([AmitWhisper]::OfflinePage())
+            }
+            "/api/health-snapshot" {
+                # A quick, plain picture of how this computer is doing right now (processor, memory, main drive, uptime, the three biggest memory users) for the
+                # Computer Health tab of the Amit Live window. Read-only; works without tracking being started. Same Origin rule as /api/words/*. JSON is built by hand (ConvertTo-Json can stall on a cold runspace).
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    try {
+                        $hsOs = Get-CimInstance Win32_OperatingSystem
+                        $hsTotal = [double]$hsOs.TotalVisibleMemorySize / 1024
+                        $hsFree = [double]$hsOs.FreePhysicalMemory / 1024
+                        $hsRam = [int][math]::Round(100 * ($hsTotal - $hsFree) / $hsTotal)
+                        $hsCpuObj = Get-CimInstance Win32_PerfFormattedData_PerfOS_Processor -Filter "Name='_Total'"
+                        $hsCpu = [int]$hsCpuObj.PercentProcessorTime
+                        $hsDisk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
+                        $hsDiskSize = [double]$hsDisk.Size
+                        $hsDiskFreePct = if ($hsDiskSize -gt 0) { [int][math]::Round(100 * [double]$hsDisk.FreeSpace / $hsDiskSize) } else { -1 }
+                        $hsDiskFreeGb = [math]::Round([double]$hsDisk.FreeSpace / 1GB, 1)
+                        $hsUpHours = [math]::Round(((Get-Date) - $hsOs.LastBootUpTime).TotalHours, 1)
+                        $hsTop = @(Get-Process | Group-Object ProcessName | ForEach-Object { New-Object psobject -Property @{ N = $_.Name; M = [math]::Round((($_.Group | Measure-Object WorkingSet64 -Sum).Sum) / 1MB) } } | Sort-Object M -Descending | Select-Object -First 3)
+                        $hsTopJson = @()
+                        foreach ($hsT in $hsTop) { $hsTopJson += ('{"name":' + (ConvertTo-JsonString $hsT.N) + ',"mb":' + [int]$hsT.M + '}') }
+                        $hsTracking = if ((Get-TrackerStatus).running) { 'true' } else { 'false' }
+                        Send-JsonRaw $response ('{"cpuPct":' + $hsCpu + ',"ramPct":' + $hsRam + ',"ramTotalGb":' + [math]::Round($hsTotal / 1024, 1) + ',"diskFreePct":' + $hsDiskFreePct + ',"diskFreeGb":' + $hsDiskFreeGb + ',"uptimeHours":' + $hsUpHours + ',"top":[' + ($hsTopJson -join ',') + '],"tracking":' + $hsTracking + ',"device":' + (ConvertTo-JsonString $deviceName) + '}')
+                    }
+                    catch { Send-JsonRaw $response ('{"error":' + (ConvertTo-JsonString $_.Exception.Message) + '}') 500 }
+                }
+            }
+            "/api/showamit/pending" {
+                # v1.11: the shot the Show Amit button just handed over (id, file name, title, typed words), for the Amit Live window to post into the person's Ask Amit chat. Only the Amit site may ask (same Origin rule as /api/words/*); nothing is offered after 5 minutes.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::ShotPendingJson()) }
+            }
+            "/api/showamit/pending.png" {
+                # v1.11: the picture itself, only while it is the pending one (the id must match), only to the Amit site.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $saBytes = [AmitWhisper]::ShotPendingBytes($request.QueryString["id"])
+                    if ($null -eq $saBytes) { Send-JsonRaw $response '{"error":"none"}' 404 }
+                    else {
+                        $response.ContentType = "image/png"
+                        $response.KeepAlive = $false
+                        $response.Headers.Add("Access-Control-Allow-Origin", "*")
+                        $response.Headers.Add("Access-Control-Allow-Private-Network", "true")
+                        $response.ContentLength64 = $saBytes.Length
+                        $response.OutputStream.Write($saBytes, 0, $saBytes.Length)
+                        $response.OutputStream.Close()
+                    }
+                }
+            }
+            "/api/helper/status" {
+                # Which version of Amit's helper is installed here, and a fingerprint (SHA-256) of each file that can change, so the Hub can compare it with the
+                # published manifest (amit_helper_manifest.json) and tell the person when an update is available. Read-only. Same Origin rule as /api/words/*.
+                # KEEP THE FILE LIST THE SAME AS make_helper_manifest.ps1.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_talk.html','amit_update.ps1')
+                    $hsSha = [System.Security.Cryptography.SHA256]::Create()
+                    $hsParts = @()
+                    foreach ($hsN in $hsNames) {
+                        $hsP = Join-Path $watcherDir $hsN
+                        if (Test-Path $hsP) {
+                            $hsB = [System.IO.File]::ReadAllBytes($hsP)
+                            $hsH = ([BitConverter]::ToString($hsSha.ComputeHash($hsB))).Replace('-', '').ToLowerInvariant()
+                            $hsParts += ('{"name":"' + $hsN + '","sha256":"' + $hsH + '","bytes":' + $hsB.Length + '}')
+                        }
+                    }
+                    $hsSha.Dispose()
+                    $hsCan = (Test-Path (Join-Path $watcherDir 'amit_update.ps1')).ToString().ToLowerInvariant()
+                    Send-JsonRaw $response ('{"ok":true,"helperVersion":"' + [AmitWhisper]::Version + '","canUpdate":' + $hsCan + ',"files":[' + ($hsParts -join ',') + ']}')
+                }
+            }
+            "/api/helper/update" {
+                # The Hub (signed in) asks this computer to bring itself up to date. The helper does NOT take any file or address from the caller:
+                # amit_update.ps1 reads the published manifest from the Amit site itself, checks every fingerprint, waits until the person is not busy,
+                # and rolls back on its own if the new version does not start. Same Origin rule as /api/words/*.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $huReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $huBody = $huReader.ReadToEnd().Trim(); $huReader.Dispose()
+                    if ($huBody -notmatch '^[A-Za-z0-9]{6,40}$') { $huBody = 'r' + [DateTime]::UtcNow.Ticks }
+                    $huScript = Join-Path $watcherDir 'amit_update.ps1'
+                    if (-not (Test-Path $huScript)) { Send-JsonRaw $response '{"ok":false,"error":"this helper cannot update itself yet"}' }
+                    else {
+                        Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File',$huScript,'-RunId',$huBody -WindowStyle Hidden
+                        Send-JsonRaw $response ('{"ok":true,"started":true,"id":"' + $huBody + '"}')
+                    }
+                }
+            }
+            "/api/helper/update-result" {
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $hrPath = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\update_result.json'
+                    if (Test-Path $hrPath) { Send-JsonRaw $response ([System.IO.File]::ReadAllText($hrPath, [System.Text.Encoding]::UTF8)) }
+                    else { Send-JsonRaw $response '{"status":"none"}' }
+                }
+            }
+            "/api/words/get" {
+                # My Words (v1.23): this computer's copy of the person's list (fixes, shortcuts, voice/key/mouse commands). Only the Amit site or a local program may ask.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::WordsGet()) }
+            }
+            "/api/words/sync" {
+                # The Hub (which holds the login) sends the whole list down; reply = rows changed on this computer that the database does not have yet.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $wsReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $wsBody = $wsReader.ReadToEnd(); $wsReader.Dispose()
+                    $wsOut = [AmitWhisper]::WordsSync($wsBody)
+                    Send-JsonRaw $response ('{"ok":true,"text":"' + ($wsOut.Replace('\', '\\').Replace('"', '\"').Replace("`r", '').Replace("`n", '\n')) + '"}')
+                }
+            }
+            "/api/words/ack" {
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $waReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $waBody = $waReader.ReadToEnd(); $waReader.Dispose()
+                    [void][AmitWhisper]::WordsAck($waBody)
+                    Send-JsonRaw $response '{"ok":true}'
+                }
+            }
             "/api/amit-mobile-status" {
                 # Lets anyone (Ryan, a future dashboard tile, the setup guide's
                 # own troubleshooting step) confirm the Amit Mobile listener is
@@ -1110,7 +1503,7 @@ try {
                 try {
                     $body = [System.IO.StreamReader]::new($request.InputStream).ReadToEnd()
                     $json = $body | ConvertFrom-Json
-                    $credPath = "C:\Users\user1\OneDrive\Documents - onedrive\Amit\Database\amit_coder_credentials.md"
+                    $credPath = Join-Path $env:USERPROFILE "OneDrive\Documents - onedrive\Amit\Database\amit_coder_credentials.md"
                     $content = @"
 # AmitCoder Credentials - LOCAL ONLY, never committed to GitHub
 
@@ -1156,7 +1549,7 @@ secret key must never appear here, ever, under any circumstance.
                 try {
                     $body = [System.IO.StreamReader]::new($request.InputStream).ReadToEnd()
                     $json = $body | ConvertFrom-Json
-                    $inboxDir = "C:\Users\user1\AmitInbox"
+                    $inboxDir = Join-Path $env:USERPROFILE "AmitInbox"
                     if (-not (Test-Path $inboxDir)) { New-Item -ItemType Directory -Path $inboxDir -Force | Out-Null }
                     $safeName = ($json.filename -replace '[^\w\.\-]', '_')
                     $imgPath = Join-Path $inboxDir $safeName
@@ -1198,7 +1591,7 @@ secret key must never appear here, ever, under any circumstance.
                 try {
                     $body = [System.IO.StreamReader]::new($request.InputStream).ReadToEnd()
                     $json = $body | ConvertFrom-Json
-                    $inboxDir = "C:\Users\user1\AmitInbox"
+                    $inboxDir = Join-Path $env:USERPROFILE "AmitInbox"
                     $batPath = "$watcherDir\process_inbox.bat"
                     # mode (added 2026-08-02): "light" for the quick pass,
                     # anything else (including absent) defaults to Detailed
@@ -1304,7 +1697,7 @@ secret key must never appear here, ever, under any circumstance.
                 # session was actually running - a genuine process check
                 # (same pattern as the main Tracker on/off state) instead of
                 # guessing from the log's text content.
-                $running = [bool](Test-WatcherScriptRunning "app_behavior_watcher.ps1")
+                $running = [bool](Test-WatcherScriptRunning "app_behavior_watcher.ps1" -NoRetry)
                 Send-JsonRaw $response ('{"running":' + $(if ($running) {'true'} else {'false'}) + '}')
             }
             "/api/browser" { Send-BrowserJson $response }
@@ -1443,6 +1836,89 @@ secret key must never appear here, ever, under any circumstance.
                 $s = Get-TrackerStatus
                 Send-JsonRaw $response ('{"running":' + $(if ($s.running) {'true'} else {'false'}) + ',"pidCount":' + $s.pids.Count + '}')
             }
+            "/api/idle-status" {
+                # Read-only view of the idle timer (v1.02) - for testing and for anyone asking "why did it stop".
+                $idleSec = [int]((Get-Date) - $bridgeState.LastContact).TotalSeconds
+                $limitMin = $bridgeState.LimitMinutes
+                Send-JsonRaw $response ('{"secondsSincePageContact":' + $idleSec + ',"limitMinutes":' + $limitMin + ',"lastPage":' + (ConvertTo-JsonString $bridgeState.LastPage) + ',"lastRoute":' + (ConvertTo-JsonString $bridgeState.LastRoute) + ',"rotateHours":' + $bridgeState.RotateHours + ',"idleStopped":' + $(if (Test-Path "$env:TEMP\amit_idle_stop.flag") {'true'} else {'false'}) + ',"tracking":' + $(if ((Get-TrackerStatus).running) {'true'} else {'false'}) + '}')
+            }
+            "/api/idle-stop" {
+                # Called ONLY by the bridge's own idle timer (v1.02), never by a page. Stops the three monitor
+                # watchers and leaves a marker so the tray program knows this is a quiet idle stop (no dashboard
+                # tab, no "turned off on purpose" flag - that flag would stop the Hub from ever restarting it).
+                # Does nothing while an App Behavior session is running: that was started on purpose.
+                $s = Get-TrackerStatus
+                $behaviorRunning = [bool](Test-WatcherScriptRunning "app_behavior_watcher.ps1" -NoRetry)
+                if ($s.running -and -not $behaviorRunning) {
+                    New-Item "$env:TEMP\amit_idle_stop.flag" -ItemType File -Force | Out-Null
+                    [void](Stop-Tracking -KeepSensorReader)
+                    Send-JsonRaw $response '{"idleStopped":true}'
+                } else {
+                    Send-JsonRaw $response ('{"idleStopped":false,"tracking":' + $(if ($s.running) {'true'} else {'false'}) + ',"appBehaviorRunning":' + $(if ($behaviorRunning) {'true'} else {'false'}) + '}')
+                }
+            }
+            "/api/rotate-tracking" {
+                # Called ONLY by the bridge's own timer (v1.03), never by a page. After the rotate limit of tracking it stops the
+                # three watchers cleanly (each writes its finished-session file to data\pending for the Hub to save to the
+                # database), leaves the sensor reader running, and starts fresh watchers. The marker tells the tray program this
+                # short gap is not a real stop. Skipped while an App Behavior session runs (started on purpose).
+                $s = Get-TrackerStatus
+                $behaviorRunning = [bool](Test-WatcherScriptRunning "app_behavior_watcher.ps1" -NoRetry)
+                $ageH = if (Test-Path $trackerPidFile) { ((Get-Date) - (Get-Item $trackerPidFile).LastWriteTime).TotalHours } else { 0 }
+                if ($s.running -and -not $behaviorRunning -and $ageH -ge $bridgeState.RotateHours) {
+                    New-Item "$env:TEMP\amit_rotate.flag" -ItemType File -Force | Out-Null
+                    try {
+                        [void](Stop-Tracking -KeepSensorReader)
+                        Start-Sleep -Milliseconds 800
+                        [void](Start-TrackingOnce)
+                    } finally { Remove-Item "$env:TEMP\amit_rotate.flag" -ErrorAction SilentlyContinue }
+                    Send-JsonRaw $response '{"rotated":true}'
+                } else {
+                    Send-JsonRaw $response ('{"rotated":false,"tracking":' + $(if ($s.running) {'true'} else {'false'}) + ',"appBehaviorRunning":' + $(if ($behaviorRunning) {'true'} else {'false'}) + ',"ageHours":' + [math]::Round($ageH, 2) + '}')
+                }
+            }
+            "/api/resume-from-idle" {
+                # Called ONLY by the bridge's own main loop (v1.02) the first time a page makes contact after an
+                # idle stop. Starts tracking again (unless the person turned it off on purpose) and brings the
+                # tray icon back - the tray program has a single-instance guard, so this can never double up.
+                if ($true) {
+                    # (v1.03) no longer decided by the marker file: the Hub's own ensure-tracking can start tracking a moment
+                    # before this runs and delete it, and that must not stop the tray icon from coming back.
+                    Remove-Item "$env:TEMP\amit_idle_stop.flag" -ErrorAction SilentlyContinue
+                    if (-not (Test-Path "$env:TEMP\amit_tracking_disabled.flag")) {
+                        [void](Start-TrackingOnce)
+                        if (-not (Get-Process -Name "AmitTracker" -ErrorAction SilentlyContinue)) {
+                            $trayExe = Join-Path $watcherDir "AmitTracker.exe"
+                            if (Test-Path $trayExe) { try { Start-Process -FilePath $trayExe -ArgumentList "--tray-only","--at-logon" -WindowStyle Hidden } catch {} }
+                        }
+                        Send-JsonRaw $response '{"resumed":true}'
+                    } else {
+                        Send-JsonRaw $response '{"resumed":false,"disabledByUser":true}'
+                    }
+                } else {
+                    Send-JsonRaw $response '{"resumed":false}'
+                }
+            }
+            "/api/ensure-tracking" {
+                # Added 2026-10-20 (Ryan: opening the Hub should start the helper's trackers if they are not
+                # running). Unlike /api/start-tracking this NEVER overrides a Stop the person chose on purpose:
+                # if the sticky "tracking disabled" flag is present it starts nothing and says so.
+                $s = Get-TrackerStatus
+                if ($s.running) {
+                    Send-JsonRaw $response '{"running":true,"started":false,"disabledByUser":false}'
+                } elseif (Test-Path "$env:TEMP\amit_tracking_disabled.flag") {
+                    Send-JsonRaw $response '{"running":false,"started":false,"disabledByUser":true}'
+                } else {
+                    $r = Start-TrackingOnce
+                    if ($null -eq $r) {
+                        # someone else (an idle-resume, another tab) started it a moment ago
+                        Send-JsonRaw $response '{"running":true,"started":false,"disabledByUser":false}'
+                    } else {
+                        $warningsJson = if ($r.warnings -and $r.warnings.Count -gt 0) { ($r.warnings | ForEach-Object { ConvertTo-JsonString $_ }) -join "," } else { "" }
+                        Send-JsonRaw $response ('{"running":true,"started":true,"disabledByUser":false,"pidCount":' + $r.pids.Count + ',"warnings":[' + $warningsJson + ']}')
+                    }
+                }
+            }
             "/api/start-tracking" {
                 $r = Start-Tracking
                 # Clears the sticky "tracking disabled" flag (2026-09-05) so a
@@ -1561,6 +2037,36 @@ secret key must never appear here, ever, under any circumstance.
                     Send-JsonRaw $response '{"found":false,"sessionEndTime":null,"rows":[]}'
                 }
             }
+            "/api/pending-sessions" {
+                # Added 2026-10-20 (Ryan's design). The watchers keep every finished session's summary as its own small
+                # file under data\pending until the Hub (or dashboard) confirms it reached the database - so it survives
+                # Windows clearing the temp folder, and a newer session never overwrites an unsaved older one.
+                # Oldest first, at most 20 per call; each file's own JSON is passed through as-is with its file name added.
+                $pDir = "$env:LOCALAPPDATA\AmitComputerHealth\data\pending"
+                $pParts = @()
+                if (Test-Path $pDir) {
+                    foreach ($pf in (Get-ChildItem $pDir -Filter "*.json" -File -ErrorAction SilentlyContinue | Sort-Object Name | Select-Object -First 20)) {
+                        try {
+                            $pTxt = [System.IO.File]::ReadAllText($pf.FullName).Trim()
+                            if ($pTxt.StartsWith("{")) { $pParts += ('{"name":' + (ConvertTo-JsonString $pf.Name) + ',' + $pTxt.Substring(1)) }
+                        } catch {}
+                    }
+                }
+                Send-JsonRaw $response ('{"items":[' + ($pParts -join ",") + ']}')
+            }
+            "/api/pending-session-done" {
+                # The Hub calls this after a pending session is safely in the database (or was deliberately dismissed).
+                # Only a file name in the exact pending-queue shape is accepted, so it can never delete anything else.
+                $pName = $request.QueryString["name"]
+                if ($request.HttpMethod -eq 'POST' -and $pName -match '^(tracker|behavior)_\d{14}\.json$') {
+                    $pTarget = "$env:LOCALAPPDATA\AmitComputerHealth\data\pending\$pName"
+                    $pGone = $false
+                    if (Test-Path $pTarget) { try { Remove-Item $pTarget -Force -ErrorAction Stop; $pGone = $true } catch {} }
+                    Send-JsonRaw $response ('{"deleted":' + $(if ($pGone) {'true'} else {'false'}) + '}')
+                } else {
+                    Send-JsonRaw $response '{"deleted":false,"error":"not a pending session file name"}'
+                }
+            }
             "/api/diagnostics-metrics" {
                 # Same pattern as /api/tracker-metrics above - Ryan's direct
                 # request 2026-07-17: diagnostics_watcher.ps1 now writes its
@@ -1621,21 +2127,142 @@ $pool.ApartmentState = [System.Threading.ApartmentState]::STA
 $pool.Open()
 $running = New-Object System.Collections.ArrayList
 
-while ($listener.IsListening) {
-    $context = $listener.GetContext()
+# Pile-up guard (2026-10-23, Ryan: this bridge sat at ~4 cores and 100+ threads, fans at full
+# speed, slowing the whole computer). The pool above only RUNS 8 handlers at once, but every
+# request used to be queued behind them with no limit and no time limit, so slow or stuck
+# handlers (and a dashboard polling every few seconds) stacked up without end, each one slowing
+# the next. Two limits now keep that from ever building up:
+#   - at most $maxInFlight handlers running or waiting; past that a new request is told "busy"
+#     (503, try again in 5 seconds) instead of being queued - callers just poll again later.
+#   - a handler still going after $maxHandlerSeconds is stopped and its connection dropped.
+# The reaper also runs every 5 seconds while no request arrives, since a stuck handler keeps
+# burning CPU whether or not anyone is calling.
+$maxInFlight = 16
+$maxHandlerSeconds = 180
 
-    $ps = [powershell]::Create()
-    $ps.RunspacePool = $pool
-    [void]$ps.AddScript($handlerScript).AddArgument($context).AddArgument($watcherDir).AddArgument($dashboardPath).AddArgument($deviceId).AddArgument($deviceName)
-    $handle = $ps.BeginInvoke()
-    [void]$running.Add(@{ PS = $ps; Handle = $handle })
+# Idle stop (v1.02). A "page contact" is a request carrying a browser Origin header: every Amit page (Hub,
+# Computer Health, AmitMobile...) sends one, while the tray program, the watchers and command-line checks do
+# not. After $idleMinutes of no page contact the bridge asks itself to stop the monitor (/api/idle-stop); the
+# next page contact undoes it (/api/resume-from-idle). The self-calls carry no Origin, so they never count as
+# contact. $bridgeState is shared with the handlers so /api/idle-status can report it. For testing, a number of
+# minutes in %TEMP%\amit_idle_minutes.txt overrides the default.
+$idleMinutes = 10
+$idleOverrideFile = "$env:TEMP\amit_idle_minutes.txt"
+$bridgeState = [hashtable]::Synchronized(@{ LastContact = (Get-Date); LimitMinutes = $idleMinutes; LastPage = ''; LastRoute = ''; RotateHours = 4 })
+$idleCallAt = [datetime]::MinValue
+$idleCallMade = $false
+# One reusable client for the bridge's calls to itself (v1.03; it used to make a new one every time). A busy one is replaced.
+$selfClient = $null
+function Invoke-BridgeSelf($route) {
+    try {
+        if ($null -eq $script:selfClient -or $script:selfClient.IsBusy) {
+            $script:selfClient = New-Object System.Net.WebClient
+            $script:selfClient.Headers[[System.Net.HttpRequestHeader]::ContentType] = "text/plain"
+        }
+        $script:selfClient.UploadStringAsync([uri]("http://localhost:$port" + $route), "POST", "")
+    } catch {}
+}
 
-    # Clean up completed handlers so the list doesn't grow forever
+# Memory housekeeping (v1.03): the runtime frees garbage lazily, so a long-running bridge looks like it is growing. A full
+# collection about once a minute keeps it at its true size. Cheap: a few hundredths of a second.
+$gcAt = Get-Date
+function Invoke-Housekeeping {
+    if (((Get-Date) - $script:gcAt).TotalSeconds -lt 60) { return }
+    $script:gcAt = Get-Date
+    [GC]::Collect(); [GC]::WaitForPendingFinalizers(); [GC]::Collect()
+}
+
+# 4-hour restart of the monitor (v1.03). The watchers are long-running scripts and slowly accumulate memory; after
+# $rotateHours of tracking the bridge asks itself (/api/rotate-tracking) to stop them cleanly - each writes its finished-session
+# file to data\pending, which the Hub saves to the database - and start fresh ones. The age is the tracker pid file's own
+# time (rewritten whenever tracking starts). For testing, a number of hours in %TEMP%\amit_rotate_hours.txt overrides the default.
+$rotateHours = 4
+$rotateOverrideFile = "$env:TEMP\amit_rotate_hours.txt"
+$rotatePidFile = "$env:TEMP\amit_tracker_pids.txt"
+$rotateCheckAt = [datetime]::MinValue
+$rotateCallAt = [datetime]::MinValue
+function Test-Rotate {
+    if (((Get-Date) - $script:rotateCheckAt).TotalSeconds -lt 30) { return }
+    $script:rotateCheckAt = Get-Date
+    $limit = $rotateHours
+    try { if (Test-Path $rotateOverrideFile) { $v = [double]((Get-Content $rotateOverrideFile -Raw).Trim()); if ($v -gt 0) { $limit = $v } } } catch {}
+    $bridgeState.RotateHours = $limit
+    if (((Get-Date) - $script:rotateCallAt).TotalSeconds -lt 120) { return }
+    if (-not (Test-Path $rotatePidFile)) { return }
+    if (((Get-Date) - (Get-Item $rotatePidFile).LastWriteTime).TotalHours -lt $limit) { return }
+    $script:rotateCallAt = Get-Date
+    Invoke-BridgeSelf '/api/rotate-tracking'
+}
+function Test-IdleStop {
+    $limit = $idleMinutes
+    try { if (Test-Path $idleOverrideFile) { $v = [double]((Get-Content $idleOverrideFile -Raw).Trim()); if ($v -gt 0) { $limit = $v } } } catch {}
+    $bridgeState.LimitMinutes = $limit
+    if (((Get-Date) - $bridgeState.LastContact).TotalMinutes -lt $limit) { return }
+    # (v1.04) once every 10 minutes while idle, not every 60 seconds forever: that was about 1,440 pointless requests a day
+    # (each one runs a handler). 10 minutes still catches an App Behavior session that ended after the first attempt.
+    if (((Get-Date) - $script:idleCallAt).TotalSeconds -lt 600) { return }
+    $script:idleCallAt = Get-Date
+    $script:idleCallMade = $true
+    Invoke-BridgeSelf '/api/idle-stop'
+}
+
+function Remove-FinishedOrStuckHandlers {
     for ($i = $running.Count - 1; $i -ge 0; $i--) {
-        if ($running[$i].Handle.IsCompleted) {
-            try { $running[$i].PS.EndInvoke($running[$i].Handle) } catch {}
-            $running[$i].PS.Dispose()
+        $h = $running[$i]
+        if ($h.Handle.IsCompleted) {
+            try { $h.PS.EndInvoke($h.Handle) } catch {}
+            try { $h.PS.Dispose() } catch {}
+            $running.RemoveAt($i)
+        } elseif (((Get-Date) - $h.Started).TotalSeconds -gt $maxHandlerSeconds) {
+            try { $h.Ctx.Response.Abort() } catch {}
+            try { [void]$h.PS.BeginStop($null, $null) } catch {}
             $running.RemoveAt($i)
         }
     }
+}
+
+while ($listener.IsListening) {
+    $ctxTask = $listener.GetContextAsync()
+    $gotContext = $false
+    try {
+        while (-not $gotContext) {
+            if ($ctxTask.Wait(5000)) { $gotContext = $true } else { Remove-FinishedOrStuckHandlers; Test-IdleStop; Test-Rotate; Invoke-Housekeeping }
+        }
+    } catch { break }
+    $context = $ctxTask.Result
+
+    $origin = $null
+    try { $origin = $context.Request.Headers['Origin'] } catch {}
+    # Whisper mode's own page talks to the bridge constantly; that is not "someone using an Amit page" (v1.05)
+    $isWhisperCall = $false
+    try { $wp = $context.Request.Url.AbsolutePath; $isWhisperCall = ($wp -eq '/whisper' -or $wp -like '/api/whisper/*' -or $wp -eq '/talk' -or $wp -like '/api/talk/*') } catch {}
+    if ($origin -and -not $isWhisperCall) {
+        $bridgeState.LastContact = Get-Date
+        # which page and which call, so /api/idle-status can answer "what is keeping it awake"
+        try {
+            $bridgeState.LastPage = [string]$context.Request.Headers['Referer']
+            $bridgeState.LastRoute = $context.Request.Url.AbsolutePath
+        } catch {}
+        if ($script:idleCallMade) { $script:idleCallMade = $false; Invoke-BridgeSelf '/api/resume-from-idle' }
+    }
+
+    Remove-FinishedOrStuckHandlers
+    Test-IdleStop
+    Test-Rotate
+    Invoke-Housekeeping
+    if ($running.Count -ge $maxInFlight) {
+        try {
+            $context.Response.StatusCode = 503
+            $context.Response.Headers.Add("Access-Control-Allow-Origin", "*")
+            $context.Response.Headers.Add("Retry-After", "5")
+            $context.Response.Close()
+        } catch {}
+        continue
+    }
+
+    $ps = [powershell]::Create()
+    $ps.RunspacePool = $pool
+    [void]$ps.AddScript($handlerScript).AddArgument($context).AddArgument($watcherDir).AddArgument($dashboardPath).AddArgument($deviceId).AddArgument($deviceName).AddArgument($bridgeState)
+    $handle = $ps.BeginInvoke()
+    [void]$running.Add(@{ PS = $ps; Handle = $handle; Ctx = $context; Started = (Get-Date) })
 }

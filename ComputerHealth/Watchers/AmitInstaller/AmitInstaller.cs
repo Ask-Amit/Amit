@@ -1,4 +1,4 @@
-﻿// Amit Installer - a real double-clickable installer. No right-click, no
+// Amit Installer - a real double-clickable installer. No right-click, no
 // "Run with PowerShell" - just double-click and it runs.
 //
 // REWORK (2026-07-13): the previous version downloaded Install_AmitTracker.ps1
@@ -31,7 +31,7 @@ class AmitInstaller
     // embeds the dashboard as a resource, so one shared number means you
     // can look at either version and immediately know if the other is
     // stale, instead of cross-referencing two independent counters.
-    const string CURRENT_VERSION = "4.51";
+    const string CURRENT_VERSION = "4.72";   // 4.72: helper v1.49 - the voice command "preview" opens the Amit Preview window (paste HTML, see it drawn). 4.71: helper v1.48 - the Whisper/Read taskbar icons are sharp: the icon files carry the exact Windows taskbar sizes (24/30/36 px and more), and the helper sets them on the Edge windows itself and keeps them there while in use. 4.70: helper v1.43 + bridge v1.13 - each part of Amit has its own icon (Whisper = microphone, Read = speaker, Show Amit = camera; Ask Amit keeps the aleph); the Read windows are named "Amit Read". 4.69: helper v1.42 + bridge v1.12 - READ, the fourth choice in the Amit Live ring (a see-through speaker that reads aloud what the person points at, in their own saved voice; voice window with live changes on a double click; new page amit_talk.html). 4.68: helper v1.32 + bridge v1.11 - a Show Amit button in the Show Amit editor sends the shot to Amit in the person's Ask Amit chat for today. 4.67: helper v1.31 - one Amit Live window only (choosing Ask Amit again focuses the open one); the window closes itself after 60 seconds without focus. 4.66: helper v1.30 + bridge v1.10 - the Amit icon in the ring opens the Amit Live window (in front, quarter x half screen, no-internet page, health snapshot). 4.65: helper v1.24.1 - Amit Live ring chooses on release; Save View/Save also fill the clipboard. 4.64: helper v1.24 - a single press of the middle mouse button starts Voice. 4.63: carries the automatic updater (amit_update.ps1), Voice and the My Words sync (helper v1.23)
 
     // Every file Install_AmitTracker.ps1 expects to find sitting next to it.
     // Logical resource names (via plain /resource:path, no explicit name)
@@ -51,6 +51,13 @@ class AmitInstaller
         "AmitTracker.exe",
         "AmitSensorReader.exe",
         "amit_icon.ico",
+        "amit_icon_whisper.ico",
+        "amit_icon_read.ico",
+        "amit_icon_showamit.ico",
+        "amit_whisper.cs",
+        "amit_whisper.html",
+        "amit_talk.html",
+        "amit_update.ps1",
         "ComputerHealth_Dashboard.html"
     };
 
@@ -95,7 +102,7 @@ class AmitInstaller
             var psi = new ProcessStartInfo
             {
                 FileName = "powershell.exe",
-                Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + scriptPath + "\"",
+                Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + scriptPath + "\" -InstallerVersion " + CURRENT_VERSION,
                 UseShellExecute = true
                 // Deliberately NOT hidden - the walkthrough already tells
                 // people "a black window will briefly appear, that's the
