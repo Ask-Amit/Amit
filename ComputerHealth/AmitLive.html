@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amit Live</title>
+<!-- AMIT LIVE WINDOW v1.00 (2026-10-30, Ryan's design). The small floating window the Amit Live ring opens when the person picks "Ask Amit"
+     (helper v1.25: Edge/Chrome app mode, ~430x680, movable and resizable). Three tabs: Ask Amit (opens first), My Computer, My Words.
+     Login: the same browser sign-in as the Hub (same site, same profile); the helper holds no login. The chat is the shared engine amit_chat.js
+     (the same box as the chat button on the Hub's right side); every message is a question to Amit and goes to the answering computer
+     (Node -> the person's own Claude) exactly like Ask Amit anywhere else. Amit is told where the person is: app "amitlive" and a place label. -->
+<style>
+:root{--bg:#0b1624;--surface:#0f2338;--line:rgba(201,168,76,.35);--gold:#d4af37;--text:#f0e8d0;--dim:rgba(240,232,208,.65);
+  --amit-surface:#0f2338;--amit-accent-rgb:201,168,76;--amit-text-rgb:240,232,208;--amit-radius:0px}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f4efe2;--surface:#fffaf0;--line:rgba(140,110,30,.4);--gold:#8a6d12;--text:#2a2416;--dim:rgba(42,36,22,.65);
+  --amit-surface:#fffaf0;--amit-accent-rgb:140,110,30;--amit-text-rgb:42,36,22}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+#tabs{position:fixed;top:0;left:0;right:0;height:46px;display:flex;align-items:stretch;gap:2px;padding:6px 8px 0;background:var(--bg);border-bottom:1px solid var(--line);z-index:9500}
+.tab{flex:1;border:1px solid transparent;border-bottom:none;background:transparent;color:var(--dim);font:inherit;font-weight:600;cursor:pointer;border-radius:8px 8px 0 0;padding:0 8px;white-space:nowrap}
+.tab:hover{color:var(--text)}
+.tab.on{background:var(--surface);color:var(--gold);border-color:var(--line)}
+.pane{position:fixed;top:46px;left:0;right:0;bottom:0;display:none;overflow:auto;padding:14px 16px;background:var(--surface)}
+.pane.on{display:block}
+#paneAsk{padding:0;overflow:hidden;background:var(--surface)}
+#askNote{padding:18px 16px;color:var(--dim)}
+/* the shared chat box fills the Ask Amit pane */
+.acx-pop{position:fixed !important;top:46px !important;left:0 !important;right:0 !important;bottom:0 !important;width:auto !important;height:auto !important;max-height:none !important;border:0 !important;border-radius:0 !important;box-shadow:none !important;z-index:9000 !important}
+body:not(.t-ask) .acx-pop{display:none !important}
+h2{margin:0 0 6px;font-size:16px;color:var(--gold)}
+p{margin:6px 0}
+.dim{color:var(--dim)}
+.row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+.btn{display:inline-block;border:1px solid var(--line);background:transparent;color:var(--gold);padding:7px 12px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer;text-decoration:none;margin:4px 6px 4px 0}
+.btn:hover{background:rgba(201,168,76,.12)}
+iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;background:#fff;margin-top:8px}
+.good{color:#5fbf7a}.bad{color:#e07a6a}.warn{color:#e0b44a}
+.verdict{font-size:15px;font-weight:600;margin:4px 0 12px}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.tile .big{font-size:22px;font-weight:700;line-height:1.2}
+.tile .lbl{color:var(--dim);font-size:12px}
+.tab{font-size:13px;padding:0 4px;overflow:hidden;text-overflow:ellipsis}
+</style>
+</head>
+<body class="t-ask">
+<div id="tabs">
+  <button class="tab on" data-t="ask">Ask Amit</button>
+  <button class="tab" data-t="pc">My Computer</button>
+  <button class="tab" data-t="words">My Words</button>
+  <button class="tab" data-t="health">Computer Health</button>
+</div>
+
+<div class="pane on" id="paneAsk"><div id="askNote">Opening your chat with Amit...</div></div>
+
+<div class="pane" id="panePc">
+  <h2>My Computer</h2>
+  <p class="dim">How Amit Live is set up on this computer.</p>
+  <div id="pcStatus"><p class="dim">Checking the helper on this computer...</p></div>
+  <p><a class="btn" id="pcOpen" href="http://localhost:8710/whisper" target="_blank" rel="noopener">Open the full settings page</a></p>
+  <div id="pcFrameBox"></div>
+</div>
+
+<div class="pane" id="paneWords">
+  <h2>My Words</h2>
+  <p>Your own fixes for how Amit hears you, spoken shortcuts, and the voice, key and mouse commands. They are saved under your login and copied to this computer.</p>
+  <p class="dim">In this first version they are edited in the Hub. They will move into this window later.</p>
+  <p><a class="btn" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" target="_blank" rel="noopener">Open the Hub (About Me, My Words)</a></p>
+</div>
+
+<div class="pane" id="paneHealth">
+  <h2>Computer Health</h2>
+  <div id="chVerdict" class="verdict dim">Looking at how this computer is doing...</div>
+  <div id="chTiles" class="tiles"></div>
+  <div id="chTop"></div>
+  <p class="dim" id="chStamp"></p>
+  <p><a class="btn" id="chMore" href="https://ask-amit.github.io/Amit/ComputerHealth/ComputerHealth_Dashboard.html" target="amit_computer_health" rel="noopener">More information</a></p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../amit_chat.js"></script>
+<script>
+(function(){
+  var SB_URL='https://hleqtjqojksurvkyqixt.supabase.co', SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
+  var HELPER='http://localhost:8710';
+  var cur='ask', askStarted=false, pcStarted=false;
+
+  function show(t){
+    cur=t;
+    document.body.className='t-'+t;
+    document.querySelectorAll('.tab').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-t')===t); });
+    document.getElementById('paneAsk').classList.toggle('on', t==='ask');
+    document.getElementById('panePc').classList.toggle('on', t==='pc');
+    document.getElementById('paneWords').classList.toggle('on', t==='words');
+    document.getElementById('paneHealth').classList.toggle('on', t==='health');
+    if(t==='ask') openAsk();
+    if(t==='pc') checkPc();
+    if(t==='health') checkHealth();
+  }
+  document.querySelectorAll('.tab').forEach(function(b){ b.addEventListener('click', function(){ show(b.getAttribute('data-t')); }); });
+
+  /* ---------- Ask Amit ---------- */
+  var db=null, signedIn=false;
+  function note(msg){ var n=document.getElementById('askNote'); if(n){ n.style.display=msg?'block':'none'; if(msg) n.innerHTML=msg; } }
+  function openAsk(){
+    if(!signedIn||!window.AmitChat||!AmitChat.live){ return; }
+    note('');
+    AmitChat.openHelp();      /* the same call the Hub's Ask Amit button makes */
+  }
+  function startChat(user){
+    signedIn=true;
+    AmitChat.appName='amitlive';
+    /* Amit is told where the person is: recorded with every question, so the answer knows this is the floating Amit Live window on their own computer */
+    AmitChat.placeProvider=function(){ return { page:'amitlive', label:'the Amit Live window on the person\'s own computer (opened from the Amit Live ring, tabs: Ask Amit, My Computer, My Words)' }; };
+    AmitChat.connect(db, user.id);
+    var n=0, t=setInterval(function(){
+      if(AmitChat.live){ clearInterval(t); if(cur==='ask') openAsk(); }
+      else if(++n>60){ clearInterval(t); note('Could not reach your chat. Close this window and pick Ask Amit on the ring again.'); }
+    },300);
+  }
+  function init(){
+    if(typeof supabase==='undefined'||!window.AmitChat){ note('The chat could not load. Check the internet connection and open this window again.'); return; }
+    db=supabase.createClient(SB_URL,SB_KEY);
+    db.auth.getSession().then(function(r){
+      var s=r&&r.data&&r.data.session;
+      if(s&&s.user) startChat(s.user);
+      else note('<b>Please sign in first.</b><br>This window uses your Amit sign-in from the Hub in this browser. <a class="btn" target="_blank" rel="noopener" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html">Open the Hub to sign in</a><br><span class="dim">Then close this window and pick Ask Amit on the ring again.</span>');
+    },function(){ note('Could not check your sign-in. Open this window again.'); });
+  }
+
+  /* ---------- My Computer ---------- */
+  function row(a,b){ return '<div class="row"><span>'+a+'</span><span>'+b+'</span></div>'; }
+  function checkPc(){
+    var box=document.getElementById('pcStatus');
+    fetch(HELPER+'/api/helper/status').then(function(r){ return r.json(); }).then(function(j){
+      var v=j.version||j.helperVersion||'unknown';
+      box.innerHTML=row('Amit helper on this computer','<span class="good">running</span>')+row('Helper version',v)+row('Can update itself',j.canUpdate?'<span class="good">yes</span>':'<span class="dim">no</span>');
+      if(!pcStarted){ pcStarted=true; var f=document.createElement('iframe'); f.src=HELPER+'/whisper'; document.getElementById('pcFrameBox').appendChild(f); }
+    }).catch(function(){
+      box.innerHTML=row('Amit helper on this computer','<span class="bad">not reachable</span>')+
+        '<p class="dim">Either the helper is not running, or this browser has not yet allowed this site to reach your computer. If the browser asked "Allow this site to connect to devices on your network?", choose Allow, then open this tab again.</p>';
+    });
+  }
+
+  /* ---------- Computer Health: a plain snapshot of how this computer is doing right now (the helper's /api/health-snapshot) ---------- */
+  var chTimer=null;
+  function tile(lbl,val,cls,sub){ return '<div class="tile"><div class="lbl">'+lbl+'</div><div class="big '+cls+'">'+val+'</div><div class="lbl">'+(sub||'')+'</div></div>'; }
+  function checkHealth(){
+    if(!chTimer){ chTimer=setInterval(function(){ if(cur==='health') checkHealth(); },10000); }
+    var verdict=document.getElementById('chVerdict');
+    fetch(HELPER+'/api/health-snapshot').then(function(r){ return r.json(); }).then(function(j){
+      if(j.error) throw new Error(j.error);
+      var cpuC=j.cpuPct>=90?'bad':j.cpuPct>=70?'warn':'good', ramC=j.ramPct>=90?'bad':j.ramPct>=80?'warn':'good', dskC=j.diskFreePct<10?'bad':j.diskFreePct<20?'warn':'good';
+      var rank={good:0,warn:1,bad:2}, worst=Math.max(rank[cpuC],rank[ramC],rank[dskC]), notes=[];
+      if(cpuC!=='good') notes.push('the processor is busy');
+      if(ramC!=='good') notes.push('memory is getting full');
+      if(dskC!=='good') notes.push('the main drive is running low on space');
+      verdict.className='verdict '+['good','warn','bad'][worst];
+      verdict.textContent=worst===0?'This computer is doing well right now.':(worst===1?'Worth watching: ':'Needs attention: ')+notes.join(', ')+'.';
+      var up=j.uptimeHours>=48?Math.round(j.uptimeHours/24)+' days':Math.round(j.uptimeHours)+' hours';
+      document.getElementById('chTiles').innerHTML=
+        tile('Processor busy',j.cpuPct+'%',cpuC,'right now')+
+        tile('Memory in use',j.ramPct+'%',ramC,'of '+j.ramTotalGb+' GB')+
+        tile('Main drive free',j.diskFreePct+'%',dskC,j.diskFreeGb+' GB free')+
+        tile('On for',up,'','since last restart'+(j.uptimeHours>=336?' - a restart may help':''));
+      var top=(j.top||[]).map(function(x){ return row(x.name, x.mb>=1024?(x.mb/1024).toFixed(1)+' GB':x.mb+' MB'); }).join('');
+      document.getElementById('chTop').innerHTML=top?'<h2 style="margin-top:14px">Using the most memory</h2>'+top:'';
+      document.getElementById('chStamp').textContent='Updated '+new Date().toLocaleTimeString()+(j.device?' - '+j.device:'')+(j.tracking?' - Computer Health is tracking this computer':'');
+    }).catch(function(){
+      verdict.className='verdict bad';
+      verdict.textContent='Could not read this computer.';
+      document.getElementById('chTiles').innerHTML='';
+      document.getElementById('chTop').innerHTML='';
+      document.getElementById('chStamp').textContent='The Amit helper is not reachable, or this browser has not yet allowed this site to connect to your computer. See the My Computer tab.';
+    });
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

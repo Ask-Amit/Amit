@@ -1391,7 +1391,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.53</div>
+      <div class="page-version" id="hubVersionBadge">v8.54</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -13081,6 +13081,16 @@ function hubRailAskAmit(){
   askAmitLive('hub');
 }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') _hubWatcherRefresh(); });
+// Amit Live ring > Ask Amit (helper v1.25) opens the Hub as ...amit-hub.html?ask=amit: once signed in and the chat is live, open the Ask Amit box (the person's own login; nothing is passed in the address)
+(function(){
+  var want=false; try{ want=new URLSearchParams(location.search).get('ask')==='amit'; }catch(e){}
+  if(!want) return;
+  var tries=0, t=setInterval(function(){
+    tries++;
+    if(window.AmitChat&&AmitChat.live&&typeof currentUser!=='undefined'&&currentUser){ clearInterval(t); try{ history.replaceState(null,'',location.pathname); }catch(e){} hubRailAskAmit(); }
+    else if(tries>60){ clearInterval(t); }
+  },500);
+})();
 if(window.AmitChat){ AmitChat.onMaximize=function(id){ openPanel('mail'); var b=document.getElementById('ch-tab-btn-comm-chats'); if(b) b.click(); AmitChat.openInPanel(id); }; AmitChat.mountPanel(document.getElementById('amitChatPanelMount')); _hubRailChat(); }
 </script>
 </body>
