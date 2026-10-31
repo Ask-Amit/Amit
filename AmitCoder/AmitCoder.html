@@ -144,6 +144,15 @@ header{
 .ch-tab-content{display:none}
 .ch-tab-content.active{display:block}
 
+/* ── PREVIEWER TAB (additive): narrow code box on the left, the preview takes the rest ── */
+.pv-wrap{display:flex;gap:14px;height:calc(100vh - 300px);min-height:420px}
+.pv-wrap.wide .pv-code{display:none}
+.pv-code{flex:0 0 28%;min-width:220px;display:flex;flex-direction:column;gap:8px}
+.pv-bar{display:flex;gap:8px;flex-wrap:wrap}
+.pv-code textarea{flex:1;resize:none;background:rgba(var(--amit-overlay-rgb,255,255,255),.06);border:1px solid var(--border);border-radius:6px;padding:10px 11px;color:var(--amit-text,#fff);font-family:var(--amit-font-mono,monospace);font-size:12px;line-height:1.45}
+.pv-view{flex:1;min-width:0;background:#fff;border:1px solid var(--border);border-radius:8px}
+@media (max-width:900px){.pv-wrap{flex-direction:column}.pv-code{flex:0 0 34%}}
+
 /* ── AMITCODER-SPECIFIC CONTENT STYLES (additive only — nothing above this line is touched) ── */
 .panel-body p{margin-bottom:12px;line-height:1.8}
 .panel-body h3{color:var(--gold2);font-size:15px;margin:20px 0 8px;font-family:var(--amit-font-heading,'Cinzel',serif)}
@@ -265,7 +274,7 @@ select option{background:#132844;color:#fff;}
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitCoder</div>
-    <div class="page-version" id="pageVersion">v6.42</div>
+    <div class="page-version" id="pageVersion">v6.43</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -363,10 +372,10 @@ const PLACEHOLDER_COUNT=3;
       </div>`;
     } else if(i===2){
       // Tab labels and real content, in place of the template's generic "Tab N"
-      const tabNames=['Overview','Shortcuts','History','Docs','Dev Practices','Pairing','Library','Settings'];
+      const tabNames=['Overview','Shortcuts','History','Docs','Dev Practices','Pairing','Library','Settings','Previewer'];
       let tabNavHtml='',tabContentHtml='';
-      for(let t=1;t<=8;t++){
-        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${i},${t})${t===2?';loadShortcuts()':t===3?';loadCoderSessions()':t===6?';loadPairingSessions()':t===7?';loadLibrary()':''}"${t===2?' ondblclick="openShortcutsTutorial()"':t===7?' ondblclick="openCodeTutorial()"':''}>${tabNames[t-1]}</button>`;
+      for(let t=1;t<=9;t++){
+        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${i},${t})${t===2?';loadShortcuts()':t===3?';loadCoderSessions()':t===6?';loadPairingSessions()':t===7?';loadLibrary()':t===9?';pvInit()':''}"${t===2?' ondblclick="openShortcutsTutorial()"':t===7?' ondblclick="openCodeTutorial()"':''}>${tabNames[t-1]}</button>`;
         tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${i}-${t}">${tabRealContent(t)}</div>`;
       }
       panelHtml+=`<div class="panel${i===1?' active':''}" id="panel-${i}" style="flex-direction:column">
@@ -618,6 +627,19 @@ function tabRealContent(t){
       <div class="shortcuts-empty" id="libraryEmpty" style="display:none">Nothing shared yet — be the first.</div>
       <div class="shortcuts-empty" id="librarySignedOut">Sign in to browse and share the code library.</div>`;
   }
+  if(t===9){
+    return `<div class="pv-wrap" id="pvWrap">
+      <div class="pv-code" id="pvCodeCol">
+        <div class="pv-bar">
+          <button class="btn btn-gold btn-sm" onclick="pvShow()">show it</button>
+          <button class="btn btn-sm" onclick="pvClear()">clear</button>
+          <button class="btn btn-sm" id="pvWideBtn" onclick="pvWide()">full width</button>
+        </div>
+        <textarea id="pvCode" spellcheck="false" oninput="pvQueue()" placeholder="Paste HTML code here. The picture shows on the right as you paste."></textarea>
+      </div>
+      <iframe class="pv-view" id="pvFrame" sandbox="allow-scripts allow-pointer-lock" title="Previewer"></iframe>
+    </div>`;
+  }
   return `<div class="settings-row">
       <div><div class="settings-label">Your Account ID</div><div class="settings-sub">Paste this into the Starter Kit to link your local hooks (shortcuts + session history) to this account</div></div>
       <span id="accountIdDisplay" style="color:var(--dim);font-size:11px">sign in to see it</span>
@@ -630,6 +652,32 @@ function tabRealContent(t){
       <div><div class="settings-label">Subscription</div><div class="settings-sub">AmitCoder is the paid workspace tier — billing not yet wired</div></div>
       <span style="color:var(--dim);font-size:11.5px">not yet built</span>
     </div>`;
+}
+
+// ── PREVIEWER — paste HTML, see it rendered. Runs in a sandboxed frame with no allow-same-origin, so pasted code cannot reach this page's sign-in or data.
+var pvTimer=null,pvReady=false;
+function pvClean(s){return s.replace(/^\s*```[a-zA-Z]*\s*\n/,'').replace(/\n\s*```\s*$/,'');}
+function pvShow(){
+  const box=document.getElementById('pvCode'),frame=document.getElementById('pvFrame');
+  if(!box||!frame)return;
+  const s=pvClean(box.value);
+  frame.srcdoc=s.trim()?s:'<body style="font-family:Georgia,serif;color:#776;padding:30px">Nothing to show yet. Paste HTML in the box on the left.</body>';
+  try{localStorage.setItem('amit_previewer_last',box.value);}catch(e){}
+}
+function pvQueue(){clearTimeout(pvTimer);pvTimer=setTimeout(pvShow,350);}
+function pvClear(){const b=document.getElementById('pvCode');if(!b)return;b.value='';pvShow();b.focus();}
+function pvWide(){
+  const w=document.getElementById('pvWrap'),btn=document.getElementById('pvWideBtn');
+  if(!w)return;
+  const on=w.classList.toggle('wide');
+  if(btn)btn.textContent=on?'show code':'full width';
+}
+function pvInit(){
+  if(pvReady)return;
+  pvReady=true;
+  const b=document.getElementById('pvCode');
+  try{const last=localStorage.getItem('amit_previewer_last');if(b&&last)b.value=last;}catch(e){}
+  pvShow();
 }
 
 // Tabbed-layout behavior — COPIED UNCHANGED from Templates/template.html.
