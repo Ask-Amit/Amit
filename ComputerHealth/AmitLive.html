@@ -102,7 +102,7 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../amit_chat.js"></script>
+<script src="../amit_chat.js?v=0.28"></script>
 <script src="amit_morning.js"></script>
 <script>
 (function(){
@@ -135,7 +135,15 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
   function openAsk(){
     if(cardUp||!signedIn||!window.AmitChat||!AmitChat.live){ return; }     /* while the morning visit is showing, the chat waits for "Chat with Amit" */
     note('');
-    AmitChat.openHelp();      /* the same call the Hub's Ask Amit button makes */
+    AmitChat.openHelp({ day: dayLabel() });      /* ONE chat per day: the first open of the day makes it, later opens that day return to it, the next day starts a new one. Older days stay in the Hub's Chats. */
+  }
+  /* the person's own day (next morning, or sunset to sunset), worked out fresh each time so a window left open past the turn of the day moves to the new chat */
+  var morS={}, morU={};
+  function dayLabel(){
+    var greg=true; try{ var p=JSON.parse(localStorage.getItem('amit_calPrefs')||'{}'); if(typeof p.greg==='boolean') greg=p.greg; }catch(e){}
+    try{ if(typeof AmitMorning!=='undefined') return AmitMorning.dayInfo(new Date(),morS,{lat:morU.lat,lon:morU.lon,greg:greg}).label; }catch(e){}
+    var d=new Date(Date.now()-4*3600000), z=function(n){ return (n<10?'0':'')+n; };
+    return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());
   }
 
   /* ---------- the morning visit: the first open of each day (the person's own day, see amit_morning.js) ---------- */
@@ -154,7 +162,7 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
       db.from('mor_settings').select('*').eq('user_id',user.id).maybeSingle(),
       db.from('users').select('display_name,lat,lon').eq('id',user.id).maybeSingle()
     ]).then(function(r){
-      var s=Object.assign({},MOR_DEFAULTS,(r[0]&&r[0].data)||{}), u=(r[1]&&r[1].data)||{};
+      var s=Object.assign({},MOR_DEFAULTS,(r[0]&&r[0].data)||{}), u=(r[1]&&r[1].data)||{}; morS=s; morU=u;
       var greg=true; try{ var p=JSON.parse(localStorage.getItem('amit_calPrefs')||'{}'); if(typeof p.greg==='boolean') greg=p.greg; }catch(e){}
       var now=new Date(), info=AmitMorning.dayInfo(now,s,{lat:u.lat,lon:u.lon,greg:greg});
       var seen=''; try{ seen=localStorage.getItem('amit_morning_last')||''; }catch(e){}

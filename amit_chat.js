@@ -1,5 +1,6 @@
 /* ════════════════════════════════════════════════════════════════
    amit_chat.js — the ONE AmitChat engine, shared by every Amit page.
+   v0.28 — 2026-10-31. ONE ASK AMIT CHAT PER DAY (Amit Live window): AmitChat.openHelp({ day: 'YYYY-MM-DD' }) opens that day's own chat (made on the first open of the day, the same chat all day, a new one the next day); the Hub's openHelp() with no argument is unchanged. Needs migration _033 (falls back to the single running chat until it is run).
    v0.27 — 2026-10-26. OWNER'S NAME NO LONGER SHOWN: the label under Amit's replies used to read "answering through <owner's name>'s session"; it now reads "answering through Amit's helper", so nobody sees whose computer answered. The name is still recorded in the database (payload.via_name) as the audit trail; only the display changed. ALSO v0.27: when this computer can only offer a basic (robotic) voice, the chat says so once and the Reading voice box shows a line pointing to Microsoft Edge's natural voice; the better fallback order itself lives in amit_owner_contact.js (amitPickDefaultVoice).
    v0.26 — 2026-10-23. NEW-MEMBER CHECK: adding someone to a chat that already holds information Amit shared from a person's own apps is checked first (the answering computer tries it as that person). Not allowed: the person adding them is told which information it is and which administrator to ask. Allowed: the person adding them is asked to confirm. Accepting an invitation is checked the same way. Needs migration _025.
    v0.21 — 2026-10-18. ASK AMIT FROM THE PAGE: AmitChat.openHelp() opens the chat box on the person's own private chat with Amit (found or made by cha_help_chat), ready to type in; every message sent there is a question to him (a press). The page tells the chat where the person is through AmitChat.placeProvider (recorded with each press). Needs migration _016.
@@ -26,7 +27,7 @@
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.27';
+  var VERSION = 'v0.28';
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
   var SCRIPT_BASE = (function () { var sc = document.currentScript; return sc && sc.src ? sc.src.replace(/[^\/?#]*([?#].*)?$/, '') : ''; })();
 
@@ -283,6 +284,13 @@
       helpChat: function (app) { return db.rpc('cha_help_chat', { p_app: app || 'hub' }).then(function (r) { fail(r); return r.data; }); },
       /* opens it for the page's Ask Amit button: finds or makes the chat, switches Amit on when he is off and posts his greeting naming the page: { id, number, created, greeted, listening, online } */
       helpOpen: function (app, page) { return db.rpc('cha_help_open', { p_app: app || 'hub', p_page: page || null }).then(function (r) { fail(r); return r.data; }); },
+      /* the same, but ONE chat per day (the Amit Live window): same day = same chat, next day = a new one. Falls back to the single running chat until migration _033 is run. */
+      helpOpenDay: function (app, page, day) {
+        return db.rpc('cha_help_open_day', { p_app: app || 'amitlive', p_page: page || null, p_day: day }).then(function (r) {
+          if (r.error && /could not find the function|does not exist|PGRST202/i.test((r.error.message || '') + (r.error.code || ''))) return db.rpc('cha_help_open', { p_app: app || 'amitlive', p_page: page || null }).then(function (r2) { fail(r2); return r2.data; });
+          fail(r); return r.data;
+        });
+      },
       /* turn "Amit is listening" on or off for this chat (any member); returns { listening, changed, online } */
       listen: function (id, on, now) { return db.rpc('cha_listen_set', { p_conv: id, p_on: !!on, p_now: !!now }).then(function (r) { fail(r); return r.data; }); },   /* now = true: switching him on also calls him in at once */
       /* "I am here" (see startPresence); quiet when the presence table is not installed yet */
@@ -2338,10 +2346,11 @@
     /* the page's Ask Amit button: opens the chat box on the person's own private chat with Amit, ready to type in. Returns a promise (true when it opened). */
     ownerName: 'Amit',        /* who Send-to-owner is addressed to: visitors write to AMIT (the owner's name never shows to them), exactly like the original Ask Amit */
     placeProvider: null,      /* set by the page: returns where the person is right now, e.g. { page: 'calendar' }; recorded with each press */
-    openHelp: function () {
+    openHelp: function (opts) {      /* opts.day = 'YYYY-MM-DD' opens that day's own chat (Amit Live); no opts = the one running chat (the Hub) */
       if (!AmitChat.live || !AmitChat.source.helpOpen) return Promise.resolve(false);
       var from = null; try { from = AmitChat.placeProvider ? AmitChat.placeProvider() : null; } catch (e) {}
-      return AmitChat.source.helpOpen(AmitChat.appName || 'hub', from && (from.label || from.page)).then(function (r) {
+      var day = opts && opts.day, pageLabel = from && (from.label || from.page);
+      return (day && AmitChat.source.helpOpenDay ? AmitChat.source.helpOpenDay(AmitChat.appName || 'hub', pageLabel, day) : AmitChat.source.helpOpen(AmitChat.appName || 'hub', pageLabel)).then(function (r) {
         var p = buildPopup(); placePopup(); p.classList.add('open'); p.classList.remove('min'); markAnchor(true);
         var ttl = p.querySelector('.acx-head .acx-title'); if (ttl) ttl.textContent = 'Ask Amit';   /* opened from the Ask Amit button: the box says so */
         if (popView) popView.open('thread', r.id);
