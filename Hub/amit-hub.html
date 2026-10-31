@@ -1391,7 +1391,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.54</div>
+      <div class="page-version" id="hubVersionBadge">v8.56</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2498,6 +2498,7 @@ header{
           <button class="ch-tab-btn active" onclick="showChTab('comm',1)">Email</button>
           <button class="ch-tab-btn" id="ch-tab-btn-comm-chats" onclick="showChTab('comm',2)">Chats</button>
           <button class="ch-tab-btn" onclick="showChTab('comm',3);scLoad()">Shortcuts</button>
+          <button class="ch-tab-btn" id="ch-tab-btn-comm-morning" onclick="showChTab('comm',4);mmLoad()">My Morning</button>
         </div>
         <div class="ch-tab-main">
 
@@ -2613,6 +2614,46 @@ header{
           <div style="height:1px;background:rgba(var(--amit-text-rgb,240,232,208),.12);margin:26px 0 18px"></div>
           <div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.08em;color:var(--gold2);margin-bottom:8px">Coder Shortcuts (AmitCoder J and F)</div>
           <p class="amw-small" style="line-height:1.7;margin:0">Your AmitCoder shortcuts (Amit's own J ones and your own F ones) will be listed and edited here too. Not connected yet.</p>
+        </div>
+
+        <!-- TAB 4: MY MORNING (Ryan, 2026-10-30; Hub v8.56): how the first visit of the day goes in the Amit Live window. One row per person in mor_settings (own row only).
+             The window (ComputerHealth\AmitLive.html) reads it; this tab is the one place it is set up. -->
+        <div class="ch-tab-content" id="ch-tab-comm-4">
+          <div id="mmSignedOut" class="amw-small" style="display:none">Sign in to set up your morning.</div>
+          <div id="mmForm">
+            <div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.08em;color:var(--gold2);margin-bottom:8px">My Morning</div>
+            <p style="font-size:14px;line-height:1.7;color:var(--muted);margin:0 0 12px">The first time each day you hold the right mouse button and let go over the Amit icon, Amit can greet you gently before anything else. Choose how you want that visit to go. You can change it any time, and it applies on every computer you sign in on.</p>
+            <label class="amw-small" style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><input type="checkbox" id="mmEnabled" checked> Give me a morning visit the first time each day</label>
+            <label class="fg-label" style="display:block;margin-bottom:5px">WHEN DOES MY DAY BEGIN?</label>
+            <select class="fg-input" id="mmDayTurn" style="margin-bottom:4px">
+              <option value="auto">Work it out for me (sunset if I have turned the Gregorian calendar off, otherwise the next morning)</option>
+              <option value="sunset">At sunset (sunset to sunset)</option>
+              <option value="morning">The next morning (about 4 a.m.)</option>
+            </select>
+            <p class="amw-small" style="margin:0 0 14px">Sunset uses the ZIP code saved in About Me. Without it, about 6 p.m. is used.</p>
+            <label class="fg-label" style="display:block;margin-bottom:5px">HOW SHOULD IT GO?</label>
+            <select class="fg-input" id="mmPace" style="margin-bottom:14px">
+              <option value="gentle">Gently: a warm hello first, and everything else offered when I want it</option>
+              <option value="short">Short: just the hello and a button to start chatting</option>
+            </select>
+            <label class="fg-label" style="display:block;margin-bottom:5px">MUSIC</label>
+            <select class="fg-input" id="mmMusic" onchange="mmMusicChanged()" style="margin-bottom:8px">
+              <option value="devotions">Songs from Amit's Devotions</option>
+              <option value="link">My own playlist (a web link I paste)</option>
+              <option value="none">No music</option>
+            </select>
+            <div id="mmPlaylistWrap" style="display:none;margin-bottom:8px">
+              <input class="fg-input" id="mmPlaylist" maxlength="500" placeholder="https://... (a YouTube, Spotify or other playlist link)">
+              <p class="amw-small" style="margin:4px 0 0">It opens in your own music account next to Amit. Amit does not play it or read your listening history.</p>
+            </div>
+            <label class="fg-label" style="display:block;margin:8px 0 5px">TELL AMIT WHAT YOU WOULD LIKE TO HEAR (OPTIONAL)</label>
+            <textarea class="fg-input" id="mmWish" maxlength="400" rows="2" placeholder="for example: soft acoustic worship, hymns, instrumental" style="margin-bottom:4px"></textarea>
+            <p class="amw-small" style="margin:0 0 14px">Kept with your settings, private to you. It helps decide what music is made next.</p>
+            <label class="amw-small" style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><input type="checkbox" id="mmWord" checked> Offer me Today's Word</label>
+            <label class="amw-small" style="display:flex;align-items:center;gap:8px;margin-bottom:16px"><input type="checkbox" id="mmAgenda" checked> Offer my agenda (my pursuits due today) when I ask for it</label>
+            <button class="btn btn-gold" onclick="mmSave()">Save my morning</button>
+            <div id="mmNote" class="amw-small" style="min-height:18px;margin-top:8px"></div>
+          </div>
         </div>
 
         </div><!-- /ch-tab-main -->
@@ -5869,6 +5910,51 @@ function avmProblem(type,trigger){
   if(/^((ctrl|alt|shift)\+)+$/.test(t)) return 'Add a key after Ctrl, Alt or Shift.';
   return '';
 }
+// ---- Communications > My Morning (Ryan, 2026-10-30; Hub v8.56). One row per person in mor_settings (migration 032); the Amit Live window reads it. ----
+const MM_DEFAULTS={enabled:true,day_turn:'auto',pace:'gentle',music_choice:'devotions',playlist_url:'',music_wish:'',show_word:true,show_agenda:true};
+function mmEl(id){ return document.getElementById(id); }
+function mmNote(msg,bad){ const n=mmEl('mmNote'); if(!n) return; n.textContent=msg||''; n.style.color=bad?'var(--amit-danger,#e07a6a)':''; }
+function mmMusicChanged(){ const w=mmEl('mmPlaylistWrap'), m=mmEl('mmMusic'); if(w&&m) w.style.display=(m.value==='link')?'':'none'; }
+function mmFill(s){
+  mmEl('mmEnabled').checked=!!s.enabled; mmEl('mmDayTurn').value=s.day_turn; mmEl('mmPace').value=s.pace; mmEl('mmMusic').value=s.music_choice;
+  mmEl('mmPlaylist').value=s.playlist_url||''; mmEl('mmWish').value=s.music_wish||''; mmEl('mmWord').checked=!!s.show_word; mmEl('mmAgenda').checked=!!s.show_agenda;
+  mmMusicChanged();
+}
+async function mmLoad(){
+  const signed=(typeof currentUser!=='undefined'&&currentUser&&typeof db!=='undefined'&&db);
+  const out=mmEl('mmSignedOut'), form=mmEl('mmForm');
+  if(out) out.style.display=signed?'none':''; if(form) form.style.display=signed?'':'none';
+  if(!signed) return;
+  mmNote('');
+  const r=await db.from('mor_settings').select('*').eq('user_id',currentUser.id).maybeSingle();
+  if(r.error){
+    const missing=/does not exist|42P01|PGRST205|schema cache/i.test((r.error.message||'')+' '+(r.error.code||''));
+    mmNote(missing?'My Morning is not set up in the database yet. The owner needs to run migration 032 once.':'Could not load your morning: '+(r.error.message||'unknown error'),true);
+    mmFill(MM_DEFAULTS); return;
+  }
+  mmFill(Object.assign({},MM_DEFAULTS,r.data||{}));
+}
+async function mmSave(){
+  if(!(typeof currentUser!=='undefined'&&currentUser&&typeof db!=='undefined'&&db)){ mmNote('Sign in first.',true); return; }
+  const url=mmEl('mmPlaylist').value.trim(), music=mmEl('mmMusic').value;
+  if(music==='link'&&!/^https:\/\//i.test(url)){ mmNote('Paste a link that starts with https:// , or choose another music option.',true); return; }
+  const row={user_id:currentUser.id,enabled:mmEl('mmEnabled').checked,day_turn:mmEl('mmDayTurn').value,pace:mmEl('mmPace').value,music_choice:music,
+    playlist_url:music==='link'?url:'',music_wish:mmEl('mmWish').value.trim().slice(0,400),show_word:mmEl('mmWord').checked,show_agenda:mmEl('mmAgenda').checked};
+  mmNote('Saving...');
+  const r=await db.from('mor_settings').upsert(row,{onConflict:'user_id'});
+  if(r.error){ mmNote('Could not save: '+(r.error.message||'unknown error'),true); return; }
+  mmNote('Saved. The Amit Live window will use this the next time you open it.');
+}
+// the Amit Live window's "Set up my morning" link opens ...amit-hub.html?mm=1: go to Communications > My Morning once signed in
+(function(){
+  let want=false; try{ want=new URLSearchParams(location.search).get('mm')==='1'; }catch(e){}
+  if(!want) return;
+  let tries=0; const t=setInterval(function(){
+    tries++;
+    if(typeof currentUser!=='undefined'&&currentUser){ clearInterval(t); try{ history.replaceState(null,'',location.pathname); }catch(e){} openPanel('mail'); const b=document.getElementById('ch-tab-btn-comm-morning'); if(b) b.click(); }
+    else if(tries>60){ clearInterval(t); }
+  },500);
+})();
 // Communications > Shortcuts tab opened: load Amit's own and the person's own commands, then sync with this computer
 function scLoad(){
   const out=amwEl('scSignedOut'), signed=(typeof currentUser!=='undefined'&&currentUser&&typeof db!=='undefined'&&db);
@@ -13088,6 +13174,19 @@ document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==
   var tries=0, t=setInterval(function(){
     tries++;
     if(window.AmitChat&&AmitChat.live&&typeof currentUser!=='undefined'&&currentUser){ clearInterval(t); try{ history.replaceState(null,'',location.pathname); }catch(e){} hubRailAskAmit(); }
+    else if(tries>60){ clearInterval(t); }
+  },500);
+})();
+// The Amit Live window's "open full screen" button opens ...amit-hub.html?chat=<conversation id>: go to Communications > Chats with that conversation open (once signed in and the chat is live)
+(function(){
+  var cid=null; try{ cid=new URLSearchParams(location.search).get('chat'); }catch(e){}
+  if(cid===null) return;
+  var tries=0, t=setInterval(function(){
+    tries++;
+    if(window.AmitChat&&AmitChat.live&&typeof currentUser!=='undefined'&&currentUser){
+      clearInterval(t); try{ history.replaceState(null,'',location.pathname); }catch(e){}
+      openPanel('mail'); var b=document.getElementById('ch-tab-btn-comm-chats'); if(b) b.click(); AmitChat.openInPanel(cid||null);
+    }
     else if(tries>60){ clearInterval(t); }
   },500);
 })();

@@ -1,5 +1,9 @@
 # Amit Computer Health - Local Bridge Server
-# Version v1.07 (2026-10-26) - first numbered version was v1.01 (baseline v1.00 = everything before).
+# Version v1.10 (2026-10-30)
+# v1.10: new route /amit-icon.ico (the Amit icon for the offline Amit Live page).
+# v1.09 (2026-10-30) - first numbered version was v1.01 (baseline v1.00 = everything before).
+# v1.09: new route /amit-live-offline: the page the Amit Live window shows when there is no internet (served from AmitWhisper.OfflinePage()).
+# v1.08: new read-only route /api/health-snapshot (processor, memory, main drive, uptime, three biggest memory users) for the Computer Health tab of the Amit Live window.
 # v1.07: no personal path is written into the program any more: the AmitInbox folder and the owner-only credentials path are built from the signed-in Windows user's own profile folder ($env:USERPROFILE) instead of one fixed user name (found while preparing the public Verify It page; same result on the original computer, correct on every other).
 # v1.06: Whisper mode settings routes grew: /api/whisper/settings now also takes ready= (how long the listening window stays ready) and textonly= (only type into a text box),
 # and there are /api/whisper/open-hub and /api/whisper/test-overlay (all token-protected like the rest).
@@ -1110,6 +1114,49 @@ try {
             }            "/api/whisper/learn" {
                 if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else { Send-JsonRaw $response ([AmitWhisper]::StartLearn()) }
+            }
+            "/amit-icon.ico" {
+                # The Amit icon, for the offline Amit Live page's title bar and taskbar entry.
+                $iconFile = Join-Path $watcherDir "amit_icon.ico"
+                if (Test-Path $iconFile) {
+                    $iconBytes = [System.IO.File]::ReadAllBytes($iconFile)
+                    $response.ContentType = "image/x-icon"
+                    $response.KeepAlive = $false
+                    $response.ContentLength64 = $iconBytes.Length
+                    $response.OutputStream.Write($iconBytes, 0, $iconBytes.Length)
+                    $response.OutputStream.Close()
+                }
+                else { $response.StatusCode = 404; Send-Html $response "No icon." }
+            }
+            "/amit-live-offline" {
+                # The Amit Live window's page for when there is no internet (the helper opens it instead of the live page). The page itself is inside amit_whisper.cs.
+                Send-Html $response ([AmitWhisper]::OfflinePage())
+            }
+            "/api/health-snapshot" {
+                # A quick, plain picture of how this computer is doing right now (processor, memory, main drive, uptime, the three biggest memory users) for the
+                # Computer Health tab of the Amit Live window. Read-only; works without tracking being started. Same Origin rule as /api/words/*. JSON is built by hand (ConvertTo-Json can stall on a cold runspace).
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    try {
+                        $hsOs = Get-CimInstance Win32_OperatingSystem
+                        $hsTotal = [double]$hsOs.TotalVisibleMemorySize / 1024
+                        $hsFree = [double]$hsOs.FreePhysicalMemory / 1024
+                        $hsRam = [int][math]::Round(100 * ($hsTotal - $hsFree) / $hsTotal)
+                        $hsCpuObj = Get-CimInstance Win32_PerfFormattedData_PerfOS_Processor -Filter "Name='_Total'"
+                        $hsCpu = [int]$hsCpuObj.PercentProcessorTime
+                        $hsDisk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
+                        $hsDiskSize = [double]$hsDisk.Size
+                        $hsDiskFreePct = if ($hsDiskSize -gt 0) { [int][math]::Round(100 * [double]$hsDisk.FreeSpace / $hsDiskSize) } else { -1 }
+                        $hsDiskFreeGb = [math]::Round([double]$hsDisk.FreeSpace / 1GB, 1)
+                        $hsUpHours = [math]::Round(((Get-Date) - $hsOs.LastBootUpTime).TotalHours, 1)
+                        $hsTop = @(Get-Process | Group-Object ProcessName | ForEach-Object { New-Object psobject -Property @{ N = $_.Name; M = [math]::Round((($_.Group | Measure-Object WorkingSet64 -Sum).Sum) / 1MB) } } | Sort-Object M -Descending | Select-Object -First 3)
+                        $hsTopJson = @()
+                        foreach ($hsT in $hsTop) { $hsTopJson += ('{"name":' + (ConvertTo-JsonString $hsT.N) + ',"mb":' + [int]$hsT.M + '}') }
+                        $hsTracking = if ((Get-TrackerStatus).running) { 'true' } else { 'false' }
+                        Send-JsonRaw $response ('{"cpuPct":' + $hsCpu + ',"ramPct":' + $hsRam + ',"ramTotalGb":' + [math]::Round($hsTotal / 1024, 1) + ',"diskFreePct":' + $hsDiskFreePct + ',"diskFreeGb":' + $hsDiskFreeGb + ',"uptimeHours":' + $hsUpHours + ',"top":[' + ($hsTopJson -join ',') + '],"tracking":' + $hsTracking + ',"device":' + (ConvertTo-JsonString $deviceName) + '}')
+                    }
+                    catch { Send-JsonRaw $response ('{"error":' + (ConvertTo-JsonString $_.Exception.Message) + '}') 500 }
+                }
             }
             "/api/helper/status" {
                 # Which version of Amit's helper is installed here, and a fingerprint (SHA-256) of each file that can change, so the Hub can compare it with the

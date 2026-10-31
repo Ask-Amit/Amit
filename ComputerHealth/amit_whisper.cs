@@ -28,7 +28,7 @@ using System.Windows.Automation;
 
 public static class AmitWhisper
 {
-    public const string Version = "1.24.2";   // 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
+    public const string Version = "1.30";   // 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
 
     // v1.03 (2026-10-29, Ryan): LATCH MODE. Hold the button to start; let go and dictation keeps going, so long dictations do not need the
     // button held. Hold the button again (same hold time) to stop; a quick tap during dictation is still a normal click. Dictation also
@@ -512,6 +512,7 @@ public static class AmitWhisper
                 swallowUpMsg = 0x202;
                 int hit = LiveHit(x, y);
                 if (hit >= 0) ThreadPool.QueueUserWorkItem(delegate { ChooseLive(hit); });
+                else if (hit == -2) ThreadPool.QueueUserWorkItem(delegate { ChooseCenter(); });
                 return true;
             }
             if (IsMyDown(msg, md)) { swallowUpMsg = msg + 1; return true; }
@@ -520,8 +521,11 @@ public static class AmitWhisper
                 // v1.22.2: hold, slide to a choice, let go = chosen. Letting go in the middle (or barely moving) leaves the ring open,
                 // where a left click on a choice still works.
                 int ddx = x - menuOpenX, ddy = y - menuOpenY;
-                int up = (ddx * ddx + ddy * ddy >= 400) ? LiveHit(x, y) : -1;
-                if (up >= 0) ThreadPool.QueueUserWorkItem(delegate { ChooseLive(up); });
+                // v1.28: letting go over the Amit icon in the middle (which is where the pointer is when the ring opens) chooses Ask Amit at once, like letting go over any wedge
+                int hitUp = LiveHit(x, y);
+                int up = (ddx * ddx + ddy * ddy >= 400) ? hitUp : -1;
+                if (hitUp == -2) ThreadPool.QueueUserWorkItem(delegate { ChooseCenter(); });
+                else if (up >= 0) ThreadPool.QueueUserWorkItem(delegate { ChooseLive(up); });
                 return true;
             }
             return false;
@@ -1623,7 +1627,8 @@ public static class AmitWhisper
     }
 
     const int LiveHalf = 200;     // half the width of the window (the ring, its glow and the hint line all fit inside)
-    const int LiveDead = 66;      // pointer closer than this to the middle: nothing is chosen
+    const int LiveCenter = 56;    // pointer closer than this to the middle: it is on the Amit icon, which is the Ask Amit button (v1.26)
+    const int LiveDead = 66;     // pointer closer than this to the middle: nothing is chosen
     const int LiveInner = 74;     // the ring is drawn from here...
     const int LiveOuter = 160;    // ...to here
     const int LiveReach = 176;    // pointer farther out than this: nothing is chosen
@@ -1706,6 +1711,7 @@ public static class AmitWhisper
         if (n == 0) return -1;
         double dx = x - menuCx, dy = y - menuCy;
         double r = Math.Sqrt(dx * dx + dy * dy);
+        if (r < LiveCenter) return -2;      // the Amit icon in the middle (Ask Amit)
         if (r < LiveDead || r > LiveReach) return -1;
         double ang = Math.Atan2(dy, dx) * 180.0 / Math.PI;     // degrees clockwise from 3 o'clock (the screen's y grows downward)
         double w = 360.0 / n;
@@ -1844,7 +1850,8 @@ public static class AmitWhisper
                     }
                 }
             }
-            // Amit in the middle
+            // Amit in the middle (v1.26: it is the Ask Amit button; a gold halo shows when the pointer is on it)
+            if (hover == -2) using (SolidBrush halo = new SolidBrush(LiveHot)) g.FillEllipse(halo, C - 56f, C - 56f, 112f, 112f);
             Bitmap ic = LiveIcon();
             if (ic != null)
             {
@@ -2060,6 +2067,19 @@ public static class AmitWhisper
         if (it.Id == "dictate") StartDictationFromMenu(menuOpenX, menuOpenY);
         else if (it.Id == "showamit") StartShowAmit();
         else if (it.Id == "voice") StartVoiceListen(menuOpenX, menuOpenY, 1);
+    }
+
+    // v1.26: the Amit icon in the middle of the ring IS Ask Amit: a click on it closes the ring and opens the Amit Live window (Ask Amit tab first)
+    static void ChooseCenter()
+    {
+        lock (sync)
+        {
+            if (state != ST_MENU) return;
+            state = ST_IDLE; token++;
+        }
+        HideMenuUi();
+        Log("Amit Live: chose the Amit icon (Ask Amit)");
+        ShowOverlay("Opening Amit's chat"); HideOverlayLater(1500); OpenChatWindow();
     }
 
     // "Dictate" in Amit Live: the same dictation as before, started already latched (the button is not being held any more),
@@ -4646,11 +4666,162 @@ public static class AmitWhisper
     public static string SetTextOnly(string v) { textOnly = v != "0"; SaveSettings(); return StatusJson(); }
 
     // Opens the Amit Hub in the person's own default browser (so their existing sign-in is used). The address is fixed here on purpose.
-    public static string OpenHub()
+    // v1.27: Windows keeps the program the person was in (VS Code) in front when a new browser window starts, so the Amit Live window came up behind it.
+    // Wait for the window (its title is "Amit Live", owned by Edge or Chrome), then make it topmost for a moment, give it the focus, and let it down to a normal window.
+    static void BringAmitLiveFront()
     {
         try
         {
-            ProcessStartInfo psi = new ProcessStartInfo("https://ask-amit.github.io/Amit/Hub/amit-hub.html");
+            IntPtr found = IntPtr.Zero;
+            for (int i = 0; i < 50 && found == IntPtr.Zero; i++)          // up to about 10 seconds
+            {
+                Thread.Sleep(200);
+                EnumWindows(delegate (IntPtr h, IntPtr l)
+                {
+                    if (!IsWindowVisible(h)) return true;
+                    StringBuilder sb = new StringBuilder(256);
+                    GetWindowText(h, sb, 256);
+                    string t = sb.ToString().Trim();
+                    if (t != "Ask Amit" && !t.StartsWith("Ask Amit - ") && t != "Amit Live") return true;      // the page's title (also what the taskbar shows); "Amit Live" is the title the first published page had
+                    try
+                    {
+                        uint pid; GetWindowThreadProcessId(h, out pid);
+                        string pn = Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant();
+                        if (pn == "msedge" || pn == "chrome") { found = h; return false; }
+                    }
+                    catch { }
+                    return true;
+                }, IntPtr.Zero);
+            }
+            if (found == IntPtr.Zero) { Log("Amit Live window: not found to bring in front"); return; }
+            SetWindowPos(found, (IntPtr)(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0040);      // topmost, no move, no resize, show
+            FocusWindow(found);
+            Thread.Sleep(600);
+            if (GetForegroundWindow() != found) FocusWindow(found);
+            SetWindowPos(found, (IntPtr)(-2), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0040);      // back to a normal window (it stays in front because it is active)
+            Log("Amit Live window in front = " + (GetForegroundWindow() == found));
+        }
+        catch (Exception ex) { Log("BringAmitLiveFront: " + ex.Message); }
+    }
+    // v1.29: is the internet reachable? Any answer from the Amit site counts (even an error page); no answer in 3 seconds means no.
+    static bool InternetUp()
+    {
+        try
+        {
+            System.Net.ServicePointManager.SecurityProtocol |= (System.Net.SecurityProtocolType)3072;     // TLS 1.2
+            System.Net.HttpWebRequest r = (System.Net.HttpWebRequest)System.Net.WebRequest.Create("https://ask-amit.github.io/Amit/ComputerHealth/amit_helper_manifest.json");
+            r.Method = "HEAD"; r.Timeout = 3000; r.ReadWriteTimeout = 3000;
+            using (System.Net.WebResponse w = r.GetResponse()) { return true; }
+        }
+        catch (System.Net.WebException wex) { return wex.Response != null; }
+        catch { return false; }
+    }
+
+    // The page the Amit Live window shows when there is no internet. The bridge serves it at /amit-live-offline (it lives inside this file so no new file has to be installed).
+    // It tells the person plainly, offers the Windows network settings and a Try again, and keeps the two tabs that only need the helper (My Computer, Computer Health).
+    // Plain ASCII, no double quotes (this is a C# verbatim string).
+    public static string OfflinePage()
+    {
+        return @"<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>Ask Amit</title><link rel='icon' type='image/x-icon' href='/amit-icon.ico'>
+<style>
+:root{--bg:#09141f;--surface:#0f2338;--line:rgba(201,168,76,.55);--gold:#c9a84c;--text:#f0e8d0;--dim:rgba(240,232,208,.55)}
+*{box-sizing:border-box}html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.5 'Segoe UI',system-ui,sans-serif}
+#head{position:fixed;top:0;left:0;right:0;height:64px;display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--bg);border-bottom:1px solid var(--line)}
+#head .brand{font-size:26px;font-weight:700;color:var(--gold);white-space:nowrap}#head .mid{flex:1;text-align:center;min-width:0}
+#head .t{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#head .n{font-size:12px;color:var(--dim)}
+#tabs{position:fixed;top:64px;left:0;right:0;height:38px;display:flex;gap:2px;padding:4px 8px 0;background:var(--bg);border-bottom:1px solid var(--line)}
+.tab{flex:1;border:1px solid transparent;border-bottom:none;background:transparent;color:var(--dim);font:inherit;font-size:13px;font-weight:600;cursor:pointer;border-radius:8px 8px 0 0;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tab.on{background:var(--surface);color:var(--gold);border-color:var(--line)}
+.pane{position:fixed;top:102px;left:0;right:0;bottom:0;display:none;overflow:auto;padding:16px;background:var(--surface)}.pane.on{display:block}
+h2{margin:0 0 8px;font-size:16px;color:var(--gold)}p{margin:8px 0}.dim{color:var(--dim)}
+.btn{display:inline-block;border:1px solid var(--line);background:transparent;color:var(--gold);padding:8px 12px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer;text-decoration:none;margin:4px 6px 4px 0}.btn:hover{background:rgba(201,168,76,.12)}
+.row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+.good{color:#5fbf7a}.bad{color:#e07a6a}.warn{color:#e0b44a}
+.verdict{font-size:15px;font-weight:600;margin:4px 0 12px}.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{border:1px solid var(--line);border-radius:10px;padding:10px 12px}.tile .big{font-size:22px;font-weight:700;line-height:1.2}.tile .lbl{color:var(--dim);font-size:12px}
+iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;background:#fff;margin-top:8px}
+</style></head><body>
+<div id='head'><div class='brand'>Amit Live</div><div class='mid'><div class='t'>Your personal computer configuration</div><div class='n' id='pcName'>&nbsp;</div></div></div>
+<div id='tabs'><button class='tab on' data-t='ask'>Ask Amit</button><button class='tab' data-t='pc'>My Computer</button><button class='tab' data-t='words'>My Words</button><button class='tab' data-t='health'>Computer Health</button></div>
+<div class='pane on' id='pane-ask'>
+ <h2>We could not connect to your internet service</h2>
+ <p>Amit needs the internet to talk with you. We would love to get you connected.</p>
+ <p class='dim'>A few things to try: make sure Wi-Fi is on or the network cable is plugged in, then wait a minute. If it still does not work, turn your router off and on again.</p>
+ <p><a class='btn' href='ms-settings:network-status'>Open Windows network settings</a> <a class='btn' href='ms-settings:troubleshoot'>Windows troubleshooters</a></p>
+ <p><button class='btn' id='again'>Try again</button> <span id='state' class='dim'></span></p>
+ <p class='dim'>This window checks again by itself every 15 seconds. The My Computer and Computer Health tabs still work without the internet.</p>
+</div>
+<div class='pane' id='pane-pc'><h2>My Computer</h2><div id='pcStatus'><p class='dim'>Checking the helper on this computer...</p></div><p><a class='btn' href='/whisper' target='_blank'>Open the full settings page</a></p><div id='pcFrame'></div></div>
+<div class='pane' id='pane-words'><h2>My Words</h2><p>Your own fixes for how Amit hears you, spoken shortcuts, and your voice, key and mouse commands are kept with your Amit account, so they need the internet.</p><p class='dim'>They will be here again as soon as you are connected.</p></div>
+<div class='pane' id='pane-health'><h2>Computer Health</h2><div id='chVerdict' class='verdict dim'>Looking at how this computer is doing...</div><div id='chTiles' class='tiles'></div><div id='chTop'></div><p class='dim' id='chStamp'></p><p class='dim'>The full Computer Health dashboard needs the internet.</p></div>
+<script>
+var cur='ask',frameMade=false,timer=null;
+fetch('/api/device').then(function(r){return r.json();}).then(function(j){if(j&&j.deviceName)document.getElementById('pcName').textContent=j.deviceName;}).catch(function(){});
+function row(a,b){return '<div class=\'row\'><span>'+a+'</span><span>'+b+'</span></div>';}
+function show(t){cur=t;document.querySelectorAll('.tab').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-t')===t);});
+ ['ask','pc','words','health'].forEach(function(n){document.getElementById('pane-'+n).classList.toggle('on',n===t);});
+ if(t==='pc')pc(); if(t==='health')health();}
+document.querySelectorAll('.tab').forEach(function(b){b.addEventListener('click',function(){show(b.getAttribute('data-t'));});});
+function again(){var s=document.getElementById('state');s.textContent='Checking...';
+ fetch('https://ask-amit.github.io/Amit/ComputerHealth/amit_helper_manifest.json',{mode:'no-cors',cache:'no-store'}).then(function(){location.href='https://ask-amit.github.io/Amit/ComputerHealth/AmitLive.html';}).catch(function(){s.textContent='Still not connected.';});}
+document.getElementById('again').addEventListener('click',again);
+setInterval(function(){if(cur==='ask')again();},15000);
+function pc(){var box=document.getElementById('pcStatus');
+ fetch('/api/helper/status').then(function(r){return r.json();}).then(function(j){
+  box.innerHTML=row('Amit helper on this computer','<span class=\'good\'>running</span>')+row('Helper version',j.helperVersion||'unknown')+row('Can update itself',j.canUpdate?'<span class=\'good\'>yes</span>':'no');
+  if(!frameMade){frameMade=true;var f=document.createElement('iframe');f.src='/whisper';document.getElementById('pcFrame').appendChild(f);}
+ }).catch(function(){box.innerHTML=row('Amit helper on this computer','<span class=\'bad\'>not reachable</span>');});}
+function tile(l,v,c,s){return '<div class=\'tile\'><div class=\'lbl\'>'+l+'</div><div class=\'big '+c+'\'>'+v+'</div><div class=\'lbl\'>'+(s||'')+'</div></div>';}
+function health(){if(!timer){timer=setInterval(function(){if(cur==='health')health();},10000);}
+ var vd=document.getElementById('chVerdict');
+ fetch('/api/health-snapshot').then(function(r){return r.json();}).then(function(j){
+  if(j.error)throw new Error(j.error);
+  var cc=j.cpuPct>=90?'bad':j.cpuPct>=70?'warn':'good',rc=j.ramPct>=90?'bad':j.ramPct>=80?'warn':'good',dc=j.diskFreePct<10?'bad':j.diskFreePct<20?'warn':'good';
+  var rk={good:0,warn:1,bad:2},w=Math.max(rk[cc],rk[rc],rk[dc]),n=[];
+  if(cc!=='good')n.push('the processor is busy'); if(rc!=='good')n.push('memory is getting full'); if(dc!=='good')n.push('the main drive is running low on space');
+  vd.className='verdict '+['good','warn','bad'][w];
+  vd.textContent=w===0?'This computer is doing well right now.':(w===1?'Worth watching: ':'Needs attention: ')+n.join(', ')+'.';
+  var up=j.uptimeHours>=48?Math.round(j.uptimeHours/24)+' days':Math.round(j.uptimeHours)+' hours';
+  document.getElementById('chTiles').innerHTML=tile('Processor busy',j.cpuPct+'%',cc,'right now')+tile('Memory in use',j.ramPct+'%',rc,'of '+j.ramTotalGb+' GB')+tile('Main drive free',j.diskFreePct+'%',dc,j.diskFreeGb+' GB free')+tile('On for',up,'','since last restart');
+  var top=(j.top||[]).map(function(x){return row(x.name,x.mb>=1024?(x.mb/1024).toFixed(1)+' GB':x.mb+' MB');}).join('');
+  document.getElementById('chTop').innerHTML=top?'<h2 style=\'margin-top:14px\'>Using the most memory</h2>'+top:'';
+  document.getElementById('chStamp').textContent='Updated '+new Date().toLocaleTimeString();
+ }).catch(function(){vd.className='verdict bad';vd.textContent='Could not read this computer.';document.getElementById('chTiles').innerHTML='';document.getElementById('chTop').innerHTML='';});}
+</script></body></html>";
+    }
+
+    public static string OpenHub() { return OpenHub(""); }
+    // Ask Amit from the ring: the Amit Live window (ComputerHealth\AmitLive.html: tabs Ask Amit / My Computer / My Words, Ask Amit first) in a small window of its own (Edge/Chrome app mode: its own title bar and taskbar icon, movable and resizable).
+    // It uses the browser's normal profile, so the person's existing Hub sign-in applies; the helper holds no login. Under 700 px wide the chat box fills the window.
+    // No Edge or Chrome found: the Hub opens in the default browser instead.
+    public static string OpenChatWindow()
+    {
+        try
+        {
+            string exe = FindBrowser();
+            if (exe == null) return OpenHub("?ask=amit");
+            // v1.29: with no internet the live page cannot load at all (the browser would show its own error), so the helper opens its own offline page instead
+            bool up = InternetUp();
+            string url = up ? "https://ask-amit.github.io/Amit/ComputerHealth/AmitLive.html" : "http://localhost:" + bridgePort + "/amit-live-offline";
+            if (!up) Log("No internet: opened the offline Amit Live page");
+            // v1.30: a quarter of the screen's width and half its height (the screen the pointer was on), but never smaller than 480 x 520
+            int w = 640, h = 720;
+            try { Rectangle wa = Screen.FromPoint(new Point(menuOpenX, menuOpenY)).WorkingArea; w = Math.Max(480, wa.Width / 4); h = Math.Max(520, wa.Height / 2); } catch { }
+            ProcessStartInfo psi = new ProcessStartInfo(exe, "--app=" + url + " --window-size=" + w + "," + h);
+            psi.UseShellExecute = false;
+            Process.Start(psi);
+            Log("Opened the Ask Amit chat window");
+            ThreadPool.QueueUserWorkItem(delegate { BringAmitLiveFront(); });   // v1.27: it opened BEHIND VS Code; put it in front
+            return "{\"ok\":true}";
+        }
+        catch (Exception ex) { Log("OpenChatWindow: " + ex.Message); return OpenHub("?ask=amit"); }
+    }
+    // query: "" for the plain Hub, "?ask=amit" to have the Hub open the Ask Amit chat box once the person is signed in (the browser's own login is used; the helper holds none)
+    public static string OpenHub(string query)
+    {
+        try
+        {
+            ProcessStartInfo psi = new ProcessStartInfo("https://ask-amit.github.io/Amit/Hub/amit-hub.html" + query);
             psi.UseShellExecute = true;
             Process.Start(psi);
             Log("Opened the Amit Hub in the default browser");

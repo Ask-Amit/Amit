@@ -44,6 +44,15 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
 .good{color:#5fbf7a}.bad{color:#e07a6a}.warn{color:#e0b44a}
 #offBar{display:none;position:fixed;top:var(--top);left:0;right:0;z-index:9600;padding:10px 14px;background:#7a2b22;color:#fff;font-size:13px}
 #offBar a{color:#fff;text-decoration:underline;font-weight:600}
+.morning{padding:28px 22px;height:100%;overflow:auto}
+.mgreet{font-size:26px;font-weight:700;color:var(--gold);margin-bottom:6px;font-family:var(--amit-font-heading,inherit)}
+.msub{font-size:16px;color:var(--text);margin:0 0 18px}
+.mbtns{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.mbig{font-size:15px;padding:10px 16px;background:rgba(var(--amit-accent-rgb,201,168,76),.15)}
+.msmall{font-size:12px;color:var(--dim);margin:8px 0}
+.msmall a{color:var(--gold)}
+.magenda{margin:6px 0 0 18px;padding:0;color:var(--text)}
+.magenda li{margin:4px 0}
 .verdict{font-size:15px;font-weight:600;margin:4px 0 12px}
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .tile{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
@@ -94,6 +103,7 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../amit_chat.js"></script>
+<script src="amit_morning.js"></script>
 <script>
 (function(){
   var SB_URL='https://hleqtjqojksurvkyqixt.supabase.co', SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
@@ -123,9 +133,74 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
   var db=null, signedIn=false;
   function note(msg){ var n=document.getElementById('askNote'); if(n){ n.style.display=msg?'block':'none'; if(msg) n.innerHTML=msg; } }
   function openAsk(){
-    if(!signedIn||!window.AmitChat||!AmitChat.live){ return; }
+    if(cardUp||!signedIn||!window.AmitChat||!AmitChat.live){ return; }     /* while the morning visit is showing, the chat waits for "Chat with Amit" */
     note('');
     AmitChat.openHelp();      /* the same call the Hub's Ask Amit button makes */
+  }
+
+  /* ---------- the morning visit: the first open of each day (the person's own day, see amit_morning.js) ---------- */
+  var cardUp=false, audio=null, songIx=0;
+  var HUBURL='https://ask-amit.github.io/Amit/Hub/amit-hub.html';
+  var SONGS=[{t:'Blow the Shofar',u:'../Devotions/Blow_the_Shofar.mp3'},{t:'When I See the Blood',u:'../Devotions/When_I_See_the_Blood.mp3'}];
+  var MOR_DEFAULTS={enabled:true,day_turn:'auto',pace:'gentle',music_choice:'devotions',playlist_url:'',music_wish:'',show_word:true,show_agenda:true};
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function markVisited(user,label){
+    try{ localStorage.setItem('amit_morning_last',label); }catch(e){}
+    try{ db.from('mor_settings').upsert({user_id:user.id,last_visit_day:label},{onConflict:'user_id'}).then(function(){},function(){}); }catch(e){}
+  }
+  function morningThenChat(user){
+    if(typeof AmitMorning==='undefined'){ openAsk(); return; }
+    Promise.all([
+      db.from('mor_settings').select('*').eq('user_id',user.id).maybeSingle(),
+      db.from('users').select('display_name,lat,lon').eq('id',user.id).maybeSingle()
+    ]).then(function(r){
+      var s=Object.assign({},MOR_DEFAULTS,(r[0]&&r[0].data)||{}), u=(r[1]&&r[1].data)||{};
+      var greg=true; try{ var p=JSON.parse(localStorage.getItem('amit_calPrefs')||'{}'); if(typeof p.greg==='boolean') greg=p.greg; }catch(e){}
+      var now=new Date(), info=AmitMorning.dayInfo(now,s,{lat:u.lat,lon:u.lon,greg:greg});
+      var seen=''; try{ seen=localStorage.getItem('amit_morning_last')||''; }catch(e){}
+      if(!s.enabled||s.last_visit_day===info.label||seen===info.label){ openAsk(); return; }
+      showCard(user,s,u,info,now);
+    }).catch(function(){ openAsk(); });
+  }
+  function endCard(){ cardUp=false; var p=document.getElementById('paneAsk'); if(p) p.innerHTML='<div id="askNote"></div>'; openAsk(); }
+  function playSong(){
+    if(!audio){ audio=new Audio(); audio.addEventListener('ended',function(){ songIx=(songIx+1)%SONGS.length; playSong(); }); }
+    audio.src=SONGS[songIx].u;
+    return audio.play();
+  }
+  function showCard(user,s,u,info,now){
+    cardUp=true; markVisited(user,info.label);
+    var name=((u.display_name||'').split(' ')[0])||'', gentle=(s.pace!=='short');
+    var h='<div class="morning"><div class="mgreet">'+esc(AmitMorning.greeting(now,name,info.shabbat))+'</div>';
+    if(info.shabbat) h+='<p class="msub">Today is a day of rest. Nothing here has to be done.</p>';
+    else if(gentle) h+='<p class="msub">Let us start slowly. What would you like first?</p>';
+    h+='<div class="mbtns"><button class="btn mbig" id="mChat">Chat with Amit</button>';
+    if(gentle){
+      if(s.music_choice==='devotions') h+='<button class="btn" id="mPlay">Play some music</button>';
+      else if(s.music_choice==='link'&&/^https:\/\//i.test(s.playlist_url)) h+='<a class="btn" href="'+esc(s.playlist_url)+'" target="_blank" rel="noopener">Open my playlist</a>';
+      if(s.show_word) h+='<a class="btn" href="'+HUBURL+'" target="amit_hub" rel="noopener">Today\'s Word</a>';
+      if(s.show_agenda&&!info.shabbat) h+='<button class="btn" id="mAgenda">My agenda</button>';
+    }
+    h+='</div><div id="mNow" class="msmall"></div><div id="mAgendaList"></div>';
+    h+='<p class="msmall"><a href="'+HUBURL+'?mm=1" target="amit_hub" rel="noopener">Set up my morning</a></p></div>';
+    document.getElementById('paneAsk').innerHTML=h;
+    document.getElementById('mChat').addEventListener('click',endCard);
+    var pl=document.getElementById('mPlay');
+    if(pl) pl.addEventListener('click',function(){
+      var now=document.getElementById('mNow');
+      if(audio&&!audio.paused){ audio.pause(); pl.textContent='Play some music'; now.textContent=''; return; }
+      var p=playSong();
+      if(p&&p.then) p.then(function(){ pl.textContent='Pause the music'; now.textContent='Now playing: '+SONGS[songIx].t; },function(){ now.textContent='The music could not play here.'; });
+    });
+    var ag=document.getElementById('mAgenda');
+    if(ag) ag.addEventListener('click',function(){
+      var box=document.getElementById('mAgendaList'); box.innerHTML='<p class="msmall">Looking at your agenda...</p>';
+      db.from('hub_entries').select('title,due_date,priority').eq('user_id',user.id).eq('kind','pursuit').eq('done',false).lte('due_date',info.label).order('due_date',{ascending:true}).limit(8).then(function(r){
+        if(r.error){ box.innerHTML='<p class="msmall">Could not read your agenda just now.</p>'; return; }
+        var rows=r.data||[];
+        box.innerHTML=rows.length?'<ul class="magenda">'+rows.map(function(x){ return '<li>'+esc(x.title)+'</li>'; }).join('')+'</ul>':'<p class="msmall">Nothing is due today. A clear morning.</p>';
+      },function(){ box.innerHTML='<p class="msmall">Could not read your agenda just now.</p>'; });
+    });
   }
   function startChat(user){
     signedIn=true;
@@ -139,7 +214,7 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
     };
     AmitChat.connect(db, user.id);
     var n=0, t=setInterval(function(){
-      if(AmitChat.live){ clearInterval(t); if(cur==='ask') openAsk(); }
+      if(AmitChat.live){ clearInterval(t); morningThenChat(user); }
       else if(++n>60){ clearInterval(t); note('Could not reach your chat. Close this window and pick Ask Amit on the ring again.'); }
     },300);
   }
