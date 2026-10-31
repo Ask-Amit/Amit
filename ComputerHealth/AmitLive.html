@@ -363,6 +363,12 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
     });
   }
 
+  /* the window closes itself after 60 seconds without the focus (Ryan, 2026-10-31), so windows do not pile up; never while music is playing. The helper also keeps it to ONE window: choosing Ask Amit again brings this one to the front. */
+  var lastFocus=Date.now();
+  setInterval(function(){
+    if(document.hasFocus()||(audio&&!audio.paused)){ lastFocus=Date.now(); return; }
+    if(Date.now()-lastFocus>=60000){ try{ window.close(); }catch(e){} }
+  },5000);
   init();
 })();
 </script>

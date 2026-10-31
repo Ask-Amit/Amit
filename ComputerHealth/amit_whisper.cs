@@ -28,7 +28,7 @@ using System.Windows.Automation;
 
 public static class AmitWhisper
 {
-    public const string Version = "1.30";   // 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
+    public const string Version = "1.31";   // 1.31: the Amit Live window closes itself after 60 seconds without the focus (never while music plays; the no-internet page too). ONE Amit Live window only: choosing Ask Amit when its window is already open brings that window to the front instead of opening another (and a second press while the first is still opening starts nothing). 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
 
     // v1.03 (2026-10-29, Ryan): LATCH MODE. Hold the button to start; let go and dictation keeps going, so long dictations do not need the
     // button held. Hold the button again (same hold time) to stop; a quick tap during dictation is still a normal click. Dictation also
@@ -4668,6 +4668,46 @@ public static class AmitWhisper
     // Opens the Amit Hub in the person's own default browser (so their existing sign-in is used). The address is fixed here on purpose.
     // v1.27: Windows keeps the program the person was in (VS Code) in front when a new browser window starts, so the Amit Live window came up behind it.
     // Wait for the window (its title is "Amit Live", owned by Edge or Chrome), then make it topmost for a moment, give it the focus, and let it down to a normal window.
+    // v1.31: is an Amit Live window already open? Its title is "Ask Amit" (or "Ask Amit - ...", or the first page's "Amit Live"), owned by Edge or Chrome. Returns its handle, or zero.
+    static int chatOpenedAt = 0;
+    static IntPtr FindAmitLiveWindowNow()
+    {
+        IntPtr found = IntPtr.Zero;
+        try
+        {
+            EnumWindows(delegate (IntPtr h, IntPtr l)
+            {
+                if (!IsWindowVisible(h)) return true;
+                StringBuilder sb = new StringBuilder(256);
+                GetWindowText(h, sb, 256);
+                string t = sb.ToString().Trim();
+                if (t != "Ask Amit" && !t.StartsWith("Ask Amit - ") && t != "Amit Live") return true;
+                try
+                {
+                    uint pid; GetWindowThreadProcessId(h, out pid);
+                    string pn = Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant();
+                    if (pn == "msedge" || pn == "chrome") { found = h; return false; }
+                }
+                catch { }
+                return true;
+            }, IntPtr.Zero);
+        }
+        catch { }
+        return found;
+    }
+    // bring an already open Amit Live window to the front (also from the taskbar if it was minimized) and give it the focus
+    static void FrontWindow(IntPtr found)
+    {
+        try
+        {
+            SetWindowPos(found, (IntPtr)(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0040);
+            FocusWindow(found);
+            Thread.Sleep(300);
+            if (GetForegroundWindow() != found) FocusWindow(found);
+            SetWindowPos(found, (IntPtr)(-2), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0040);
+        }
+        catch (Exception ex) { Log("FrontWindow: " + ex.Message); }
+    }
     static void BringAmitLiveFront()
     {
         try
@@ -4787,6 +4827,7 @@ function health(){if(!timer){timer=setInterval(function(){if(cur==='health')heal
   document.getElementById('chTop').innerHTML=top?'<h2 style=\'margin-top:14px\'>Using the most memory</h2>'+top:'';
   document.getElementById('chStamp').textContent='Updated '+new Date().toLocaleTimeString();
  }).catch(function(){vd.className='verdict bad';vd.textContent='Could not read this computer.';document.getElementById('chTiles').innerHTML='';document.getElementById('chTop').innerHTML='';});}
+var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}else if(Date.now()-lf>=60000){try{window.close();}catch(e){}}},5000);
 </script></body></html>";
     }
 
@@ -4798,6 +4839,10 @@ function health(){if(!timer){timer=setInterval(function(){if(cur==='health')heal
     {
         try
         {
+            // v1.31: one Amit Live window only. Already open: bring it to the front and stop (a second press used to open another one). Started a moment ago and still loading: start nothing.
+            IntPtr already = FindAmitLiveWindowNow();
+            if (already != IntPtr.Zero) { FrontWindow(already); Log("Amit Live window was already open: brought it to the front"); return "{\"ok\":true,\"already\":true}"; }
+            if (chatOpenedAt != 0 && Environment.TickCount - chatOpenedAt < 12000) { Log("Amit Live window is still opening: no second one started"); return "{\"ok\":true,\"already\":true}"; }
             string exe = FindBrowser();
             if (exe == null) return OpenHub("?ask=amit");
             // v1.29: with no internet the live page cannot load at all (the browser would show its own error), so the helper opens its own offline page instead
@@ -4809,6 +4854,7 @@ function health(){if(!timer){timer=setInterval(function(){if(cur==='health')heal
             try { Rectangle wa = Screen.FromPoint(new Point(menuOpenX, menuOpenY)).WorkingArea; w = Math.Max(480, wa.Width / 4); h = Math.Max(520, wa.Height / 2); } catch { }
             ProcessStartInfo psi = new ProcessStartInfo(exe, "--app=" + url + " --window-size=" + w + "," + h);
             psi.UseShellExecute = false;
+            chatOpenedAt = Environment.TickCount;
             Process.Start(psi);
             Log("Opened the Ask Amit chat window");
             ThreadPool.QueueUserWorkItem(delegate { BringAmitLiveFront(); });   // v1.27: it opened BEHIND VS Code; put it in front
