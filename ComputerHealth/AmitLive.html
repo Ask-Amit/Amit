@@ -7,7 +7,7 @@
 <link rel="icon" type="image/x-icon" href="../Templates/amit_icon.ico">
 <!-- the Hub's own Appearance (theme) mechanism: applies the saved theme before first paint, and re-applies when it changes in the Hub (same browser) -->
 <script src="../amit_appearance.js?v=1.06"></script>
-<!-- AMIT LIVE WINDOW v1.00 (2026-10-30, Ryan's design). The small floating window the Amit Live ring opens when the person picks "Ask Amit"
+<!-- AMIT LIVE WINDOW v1.01 (2026-10-31): after sign-in the window copies the person's saved voice to the helper (amitSyncVoiceToHelper) so the reading speaker (Read) speaks in it, and saves back a voice changed there. v1.00 (2026-10-30, Ryan's design). The small floating window the Amit Live ring opens when the person picks "Ask Amit"
      (helper v1.25: Edge/Chrome app mode, ~430x680, movable and resizable). Three tabs: Ask Amit (opens first), My Computer, My Words.
      Login: the same browser sign-in as the Hub (same site, same profile); the helper holds no login. The chat is the shared engine amit_chat.js
      (the same box as the chat button on the Hub's right side); every message is a question to Amit and goes to the answering computer
@@ -292,6 +292,8 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
     };
     AmitChat.voiceSaver=async function(f){ var c=await ownerContact(); if(!c||typeof saveOwnerContactFields!=='function') return false; return saveOwnerContactFields(db,c.id,f); };
     AmitChat.connect(db, user.id);
+    /* Talk (the speaker on the ring) reads in the person's own saved voice: copy it to the helper on this computer, which holds no login */
+    try{ ownerContact().then(function(c){ if(c&&typeof amitSyncVoiceToHelper==='function') amitSyncVoiceToHelper(c,db); }); }catch(e){}
     var n=0, t=setInterval(function(){
       if(AmitChat.live){ clearInterval(t); morningThenChat(user); }
       else if(++n>60){ clearInterval(t); note('Could not reach your chat. Close this window and pick Ask Amit on the ring again.'); }

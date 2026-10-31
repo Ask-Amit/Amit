@@ -25,10 +25,11 @@ using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using System.Windows.Automation;
+using System.Windows.Automation.Text;
 
 public static class AmitWhisper
 {
-    public const string Version = "1.32";   // 1.32: a SHOW AMIT button in the Show Amit editor: saves the shot, hands it to the Amit Live window, which posts it into the person's own Ask Amit chat for today (under their own sign-in; the helper holds no login) and asks Amit to look at it (new bridge routes /api/showamit/pending and /api/showamit/pending.png, offered for 5 minutes, only to the Amit site). 1.31: the Amit Live window closes itself after 60 seconds without the focus (never while music plays; the no-internet page too). ONE Amit Live window only: choosing Ask Amit when its window is already open brings that window to the front instead of opening another (and a second press while the first is still opening starts nothing). 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
+    public const string Version = "1.42";   // 1.42: while Read is paused for dictation, the gold highlight over the screen is hidden (it cluttered the screen the person is dictating into) and comes back, in the same place, when the reading resumes. 1.41: FIX (dictation after Read paused it): (1) the speaking/voice windows of Read are now recognised as the helper's own windows, so dictation never "types" into the hidden Edge page and gives the focus back to the window the person was using (first failure: words heard, typed nowhere); (2) the "Read is speaking" mute can no longer be left on by a late message: it is set only when Read STARTS speaking while dictation is already listening, and cleared when Read pauses, ends or stops or the listening ends (second failure: a late heartbeat after "paused" made dictation throw the words away). 1.40: (1) a live voice change carries on from the word being spoken instead of starting the sentence over (amit_talk.html v1.04); (2) when dictation or Voice starts while Read is speaking, Read pauses by itself (the speaker shows the pause bars) and carries on where it was when the listening ends; a press of the speaker by the person cancels the automatic resume. 1.39: FIX: dictation could stay blocked after Read (the "Read is speaking" signal depended on a "finished" message that can get lost after live voice changes). Now the speaking page sends a heartbeat every 1.5 s while sound really plays, dictation is only quieted for 4 seconds after the last one, and a watchdog returns the speaker to waiting if the sound stops without a "finished"; the page also waits a moment between cancelling a sentence and saying it again with new settings (Edge sometimes dropped it). 1.38: while Read is speaking, dictation and Voice ignore what the microphone hears (it is Amit's own voice, which used to be typed into the person's text box) and dictation's "Amit is listening" box is taken off the screen; they work normally again when Read is not speaking, including while it is paused. 1.37: the voice window is INTERACTIVE (moving a slider or choosing another voice while Amit is reading changes the sound within about a third of a second; the current sentence is said again with the new settings; amit_talk.html v1.02); the hidden Edge speaking window is slimmed (extra switches) and now closes 30 seconds after the last reading instead of 3 minutes, never while the voice window is open. 1.36: a DOUBLE CLICK on the reading speaker opens a small voice window beside it (voice, speed, pause between sentences, pitch, volume, Test, Save); Save keeps the new voice on this computer at once and hands it to the person's login (their saved voice, their default) the next time an Amit page loads, without the old copy from the database overwriting it (new bridge routes /api/talk/voice-save and /api/talk/voice-ack). A single click is acted on after a very short wait (the double-click time, at most 400 ms) so a double click is no longer two presses. The note "Your saved voice is not on this computer" no longer pops up on the screen (it is only logged). 1.35: the ring choice is now called READ (it reads aloud what the person points at) and works ONE SHOT: press the speaker, and the very next click or selection is what is read, then it goes back to waiting so the person can use the computer freely; to read somewhere else, press it again. A click reads from the clicked word to the end of its paragraph; a highlight reads exactly the highlight (one word if one word, the whole page after Select All). Pressing while reading pauses it and the next click or selection is read instead (pressing again with none resumes). A soft gold highlight shows the words being read (where Windows accessibility gives their place). When the words cannot be read, Amit says so out loud in the person's voice ("Sorry, I'm not able to read this") and on screen, never silently; a plain click on a button or menu only shows a note. 1.33: TALK, a fourth choice in the Amit Live ring: a small see-through speaker stays on top of everything; the person selects words (or clicks where to start) in any program and presses it, and Amit reads aloud from there in the person's own saved Amit voice (copied here from their login; with none, Talk asks them to open Amit and sign in). Press again to pause or resume; Esc or a right click on the speaker removes it. The speaking is done by a hidden Edge window (page /talk, new bridge routes /api/talk/*) because the natural voices exist only in Edge. 1.32: a SHOW AMIT button in the Show Amit editor: saves the shot, hands it to the Amit Live window, which posts it into the person's own Ask Amit chat for today (under their own sign-in; the helper holds no login) and asks Amit to look at it (new bridge routes /api/showamit/pending and /api/showamit/pending.png, offered for 5 minutes, only to the Amit site). 1.31: the Amit Live window closes itself after 60 seconds without the focus (never while music plays; the no-internet page too). ONE Amit Live window only: choosing Ask Amit when its window is already open brings that window to the front instead of opening another (and a second press while the first is still opening starts nothing). 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
 
     // v1.03 (2026-10-29, Ryan): LATCH MODE. Hold the button to start; let go and dictation keeps going, so long dictations do not need the
     // button held. Hold the button again (same hold time) to stop; a quick tap during dictation is still a normal click. Dictation also
@@ -201,6 +202,9 @@ public static class AmitWhisper
         settingsPath = Path.Combine(home, "whisper_settings.txt");
         logPath = Path.Combine(home, "whisper.log");
         profileDir = Path.Combine(home, "whisper_profile");
+        talkVoicePath = Path.Combine(home, "talk_voice.json");
+        talkProfileDir = Path.Combine(home, "talk_profile");
+        TalkVoiceLoad();
         LoadSettings();
         Log("Whisper mode " + Version + " starting (button=" + button + ", hold=" + holdMs + " ms, enabled=" + enabled + ")");
         WordsLoad();
@@ -234,6 +238,7 @@ public static class AmitWhisper
         try { lock (sync) { state = ST_IDLE; token++; } } catch { }
         try { if (hookThreadId != 0) PostThreadMessage(hookThreadId, 0x0012, IntPtr.Zero, IntPtr.Zero); } catch { }
         try { CloseHost(); } catch { }
+        try { if (talkState != "off") TalkClose("the helper is stopping"); } catch { }
         try { HideOverlay(); } catch { }
         try { HideMenuUi(); } catch { }
         Log("Whisper mode stopped");
@@ -338,6 +343,13 @@ public static class AmitWhisper
 
     // Remember the last window the person was using, ignoring the Amit window itself. Seen in real use: dictations were typed into the Amit
     // window (or a browser page) because that was where the keyboard focus happened to be, so the words and the Enter never reached the chat.
+    // the helper's own browser windows: the listening window of dictation, and the speaking / voice window of Read (v1.41). Words are never typed into these.
+    static bool IsAmitHelperWindow(string title)
+    {
+        if (String.IsNullOrEmpty(title)) return false;
+        return title.IndexOf("Amit Whisper mode", StringComparison.OrdinalIgnoreCase) >= 0 || title.StartsWith("Amit Talk (", StringComparison.OrdinalIgnoreCase);
+    }
+
     static void TrackForeground()
     {
         try
@@ -345,7 +357,7 @@ public static class AmitWhisper
             IntPtr fg = GetForegroundWindow();
             if (fg == IntPtr.Zero) return;
             if (WindowTitle(fg).Length == 0) return;                                              // not a real program window
-            if (WindowTitle(fg).IndexOf("Amit Whisper mode", StringComparison.OrdinalIgnoreCase) >= 0) return;   // the Amit window
+            if (IsAmitHelperWindow(WindowTitle(fg))) return;   // the Amit window
             uint pid; GetWindowThreadProcessId(fg, out pid);
             Process hp = host;
             try { if (hp != null && !hp.HasExited && hp.Id == (int)pid) return; } catch { }       // the window belongs to the helper's own listening browser
@@ -496,6 +508,9 @@ public static class AmitWhisper
             return true;
         }
         if (swallowUpMsg != 0 && msg == swallowUpMsg) { swallowUpMsg = 0; return true; }
+
+        // Talk (v1.33): remember where the last left click was, and whether it was a drag or double click (a selection), so the speaker knows where to read from
+        if (talkState != "off" && state != ST_MENU && (msg == 0x201 || msg == 0x202)) TalkNoteMouse(msg, x, y);
 
         // Amit Live is open: the ring owns the mouse buttons until a choice is made or Esc is pressed
         if (state == ST_MENU)
@@ -852,8 +867,8 @@ public static class AmitWhisper
                         // If the Amit window itself has the focus, typing would go into it and be lost: put the focus back on the window the
                         // person was last using, or, if that is not possible, type nothing and say why.
                         IntPtr fg = GetForegroundWindow();
-                        bool ours = WindowTitle(fg).IndexOf("Amit Whisper mode", StringComparison.OrdinalIgnoreCase) >= 0;
-                        if (ours && FocusWindow(lastUserWnd)) { fg = GetForegroundWindow(); ours = WindowTitle(fg).IndexOf("Amit Whisper mode", StringComparison.OrdinalIgnoreCase) >= 0; Log("The Amit window had the focus; moved it back to " + ProcessNameOf(fg)); }
+                        bool ours = IsAmitHelperWindow(WindowTitle(fg));
+                        if (ours && FocusWindow(lastUserWnd)) { fg = GetForegroundWindow(); ours = IsAmitHelperWindow(WindowTitle(fg)); Log("The Amit window had the focus; moved it back to " + ProcessNameOf(fg)); }
                         if (ours)
                         {
                             typingAborted = true;
@@ -871,7 +886,7 @@ public static class AmitWhisper
                     }
                     break;
                 case "interim":
-                    if (SessionActive())
+                    if (SessionActive() && !talkMuteDictation)   // v1.38: if Read starts speaking while dictation is listening, the microphone hears Amit's own voice: it is not typed and no box is shown
                     {
                         if (voiceMode) { VoiceInterim(text); break; }
                         modeReady.WaitOne(700);   // wait (briefly) until we know what kind of field this is
@@ -894,7 +909,7 @@ public static class AmitWhisper
                     }
                     break;
                 case "final":
-                    if (SessionActive() && text.Length > 0)
+                    if (SessionActive() && text.Length > 0 && !talkMuteDictation)
                     {
                         if (voiceMode) { VoiceFinal(text); break; }
                         lastSpeech = DateTime.UtcNow;
@@ -1306,7 +1321,7 @@ public static class AmitWhisper
     {
         if (typeModeDecided || TestSink != null) return;
         IntPtr fg = GetForegroundWindow();
-        if (fg == IntPtr.Zero || WindowTitle(fg).IndexOf("Amit Whisper mode", StringComparison.OrdinalIgnoreCase) >= 0) return;
+        if (fg == IntPtr.Zero || IsAmitHelperWindow(WindowTitle(fg))) return;
         string n = ProcessNameOf(fg);
         typeMode = SlowInputApp(n) ? 1 : 0; typeModeDecided = true;
         Log("Typing into " + (n.Length > 0 ? n : "an unknown program") + ": " + (typeMode == 1 ? "paced, one character at a time" : "normal"));
@@ -1623,6 +1638,7 @@ public static class AmitWhisper
         l.Add(new LiveItem("dictate", "Dictate", "Talk to type"));
         l.Add(new LiveItem("showamit", "Show Amit", "Show an area"));
         l.Add(new LiveItem("voice", "Voice", "Say what to do"));
+        l.Add(new LiveItem("talk", "Read", "Read it aloud"));
         return l;
     }
 
@@ -1765,6 +1781,12 @@ public static class AmitWhisper
                 g.DrawLine(p, cx - 2f, cy - 7f, cx - 2f, cy + 2f);
                 g.DrawLine(p, cx + 2f, cy - 5f, cx + 2f, cy);
                 g.DrawLine(p, cx + 6f, cy - 4f, cx + 6f, cy - 1f);
+            }
+            else if (id == "talk")         // a loudspeaker with sound waves
+            {
+                g.DrawLines(p, new PointF[] { new PointF(cx - 11f, cy - 4f), new PointF(cx - 5f, cy - 4f), new PointF(cx + 2f, cy - 10f), new PointF(cx + 2f, cy + 10f), new PointF(cx - 5f, cy + 4f), new PointF(cx - 11f, cy + 4f), new PointF(cx - 11f, cy - 4f) });
+                g.DrawArc(p, cx + 3f, cy - 6f, 8f, 12f, -55f, 110f);
+                g.DrawArc(p, cx + 3f, cy - 11f, 14f, 22f, -55f, 110f);
             }
             else g.DrawEllipse(p, cx - 6f, cy - 6f, 12f, 12f);
         }
@@ -2067,6 +2089,7 @@ public static class AmitWhisper
         if (it.Id == "dictate") StartDictationFromMenu(menuOpenX, menuOpenY);
         else if (it.Id == "showamit") StartShowAmit();
         else if (it.Id == "voice") StartVoiceListen(menuOpenX, menuOpenY, 1);
+        else if (it.Id == "talk") StartTalk();
     }
 
     // v1.26: the Amit icon in the middle of the ring IS Ask Amit: a click on it closes the ring and opens the Amit Live window (Ask Amit tab first)
@@ -2080,6 +2103,959 @@ public static class AmitWhisper
         HideMenuUi();
         Log("Amit Live: chose the Amit icon (Ask Amit)");
         ShowOverlay("Opening Amit's chat"); HideOverlayLater(1500); OpenChatWindow();
+    }
+
+    // =====================================================================================================
+    //  Talk (v1.33, Ryan's design): the "Talk" choice in the ring puts a small see-through speaker on the screen. It stays on top while the
+    //  person goes wherever they like. They select words (or click where to start) in any program and press the speaker; Amit reads aloud from
+    //  there in the person's own saved Amit voice. Press it again to pause or resume. Esc, or a right click on the speaker, takes it away.
+    //  The speaking is done by amit_talk.html (served at /talk) in a hidden Edge window of its own, because Brian and the other natural voices
+    //  exist only in the full Edge. The voice settings come from the person's login: the Amit pages copy them here (/api/talk/voice) when the
+    //  person signs in or changes them. With none copied, Talk asks the person to open Amit and sign in.
+    // =====================================================================================================
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder sb, int max);
+    [DllImport("user32.dll")] static extern uint GetClipboardSequenceNumber();
+
+    static TalkForm talkForm;
+    static string talkState = "off";          // off | idle | loading | reading | paused
+    static readonly object talkLock = new object();
+    static long talkSeq = 0;
+    static string talkCmd = "none", talkCmdText = "";
+    static Process talkHost;
+    static long talkHostGen = 0;
+    static int talkWaiting = 0;
+    static DateTime talkSeen = DateTime.MinValue, talkLastActive = DateTime.UtcNow;
+    static string talkVoicePath, talkProfileDir, talkVoiceJson = "";
+    static System.Threading.Timer talkTimer;
+    static bool talkEscWas;
+    static int talkBusy;
+    static Rectangle talkBounds = Rectangle.Empty;
+    static int talkDownX, talkDownY, talkUpX, talkUpY, talkDownTick, talkUpTick, talkClicks;
+    static bool talkDragged, talkGestureKnown;
+    static bool talkArmed;                    // v1.35: the speaker was pressed, so the very next click or selection is what gets read (one time only)
+    static DateTime talkArmedAt = DateTime.MinValue;
+    static System.Threading.Timer talkPendTimer;   // a short wait after the mouse is let go, so a double click or a drag is not read twice
+    static TextPatternRange talkRange, talkRangeTmp;   // the words being read, when Windows accessibility gave them (drawn as a highlight)
+    static TalkMark talkMark;
+    static System.Threading.Timer talkMarkTimer;
+    static int talkMarkBusy;
+
+    // Is Amit's voice really playing right now? True for 4 seconds after the last sign of sound from the speaking page (it can never stay stuck on)
+    static bool talkWasDictating, talkAutoPaused;   // v1.40: Read pauses by itself while dictation listens, and resumes after
+    static DateTime talkSpeakUntil = DateTime.MinValue;   // only used by the watchdog below: 4 seconds after the last sign of sound
+    // v1.41: true only when Read STARTED speaking while dictation was already listening (the microphone would hear Amit's own voice).
+    // It is cleared the moment Read pauses, ends or stops, or the listening ends, and it is never set by a heartbeat, so it cannot be left on by a late message.
+    static bool talkMuteDictation;
+
+    static void TalkSetState(string s)
+    {
+        lock (talkLock) { talkState = s; if (s != "off") talkLastActive = DateTime.UtcNow; }
+        TalkForm f = talkForm;
+        try { if (f != null && f.IsHandleCreated) f.BeginInvoke(new Action(delegate { f.ApplyState(); })); } catch { }
+    }
+
+    static void StartTalk()
+    {
+        if (!TalkVoiceKnown())
+        {
+            ShowOverlay("Read needs to know your voice\nOpen Amit once while signed in (the Hub, or the Amit Live window) and Read will use the voice you chose.");
+            HideOverlayLater(7000);
+            Log("Talk: no saved voice has been copied here yet");
+            return;
+        }
+        if (talkForm != null && talkState != "off")
+        {
+            TalkForm tf0 = talkForm; int px = menuOpenX, py = menuOpenY;
+            try { if (tf0.IsHandleCreated) tf0.BeginInvoke(new Action(delegate { tf0.MoveNear(px, py); })); } catch { }
+            Log("Talk: the speaker was already on the screen; moved it to the pointer");
+            return;
+        }
+        talkGestureKnown = false;          // the click that chose Talk on the ring is not "where to read from"
+        talkArmed = false;
+        TalkSetState("idle");
+        int ox = menuOpenX, oy = menuOpenY;
+        Thread t = new Thread(delegate ()
+        {
+            try { using (TalkForm f = new TalkForm(ox, oy)) { talkForm = f; Application.Run(f); } }
+            catch (Exception ex) { Log("Talk: " + ex.Message); }
+            finally { talkForm = null; TalkSetState("off"); }
+        });
+        t.IsBackground = true; t.SetApartmentState(ApartmentState.STA); t.Start();
+        talkEscWas = (GetAsyncKeyState(0x1B) & 0x8000) != 0;
+        if (talkTimer != null) talkTimer.Dispose();
+        talkTimer = new System.Threading.Timer(delegate { TalkTick(); }, null, 80, 80);
+        Log("Talk: the speaker is on the screen");
+    }
+
+    static void TalkClose(string why)
+    {
+        Log("Talk: closed (" + why + ")");
+        talkArmed = false; TalkCancelPending();
+        try { lock (talkLock) { if (talkClickTimer != null) { talkClickTimer.Dispose(); talkClickTimer = null; } } } catch { }
+        if (talkSettingsOpen) TalkHideSettings();
+        try { TalkCommand("stop", ""); } catch { }
+        TalkSetState("off");
+        TalkMarkClear();
+        TalkMark mk = talkMark;
+        try { if (mk != null && mk.IsHandleCreated) mk.BeginInvoke(new Action(delegate { mk.Close(); })); } catch { }
+        TalkForm f = talkForm;
+        try { if (f != null && f.IsHandleCreated) f.BeginInvoke(new Action(delegate { f.Close(); })); } catch { }
+        try { if (talkTimer != null) { talkTimer.Dispose(); talkTimer = null; } } catch { }
+        ThreadPool.QueueUserWorkItem(delegate { Thread.Sleep(700); TalkCloseHost(); });
+    }
+
+    // every 80 ms while the speaker is showing: Esc takes it away (Esc is not held back from the program underneath), and a hidden window
+    // closed by hand or idle for 3 minutes is tidied up
+    static void TalkTick()
+    {
+        try
+        {
+            if (talkState == "off") return;
+            bool esc = (GetAsyncKeyState(0x1B) & 0x8000) != 0;
+            if (esc && !talkEscWas && state != ST_MENU) { talkEscWas = true; TalkClose("Esc pressed"); return; }
+            talkEscWas = esc;
+            // dictation (or Voice) starts while Amit is reading: Amit pauses so the person can speak; when the listening ends, it carries on where it was
+            bool dictating = state == ST_LISTEN || state == ST_FINISH || state == ST_STOPPEND;
+            if (dictating && !talkWasDictating && talkState == "reading") { talkAutoPaused = true; TalkCommand("pause", ""); TalkMarkHide(); Log("Talk: reading paused while dictation listens (highlight hidden)"); }
+            else if (!dictating && talkWasDictating && talkAutoPaused)
+            {
+                talkAutoPaused = false;
+                if (talkState == "paused") { TalkCommand("resume", ""); TalkMarkShow(); Log("Talk: dictation finished; reading carries on (highlight back)"); }
+            }
+            talkWasDictating = dictating;
+            if (talkMuteDictation && !dictating) talkMuteDictation = false;       // the listening ended: nothing is muted any more
+            if (talkMuteDictation && talkState != "reading") talkMuteDictation = false;
+            if (talkArmed && talkPendTimer == null && (DateTime.UtcNow - talkArmedAt).TotalSeconds > 90) TalkDisarm("no spot was chosen within 90 seconds");
+            // watchdog: "reading" with no sign of sound for 9 seconds means the speaking page lost track of its own reading: back to waiting
+            if (talkState == "reading" && DateTime.UtcNow > talkSpeakUntil.AddSeconds(5))
+            {
+                Log("Talk: no sound for a while, so the reading is treated as finished");
+                talkMuteDictation = false;
+                TalkMarkClear();
+                TalkSetState(talkArmed ? "armed" : "idle");
+            }
+            if ((talkState == "reading" || talkState == "paused" || talkState == "loading") && talkHost != null)
+            {
+                bool dead = false;
+                try { dead = talkHost.HasExited; } catch { dead = true; }
+                if (dead) { lock (talkLock) { talkHost = null; talkHostGen++; talkWaiting = 0; talkSeen = DateTime.MinValue; } TalkSetState("idle"); }
+            }
+            // the hidden Edge window is the heavy part (about 270 MB private, 15 processes), so it only lives while it is needed: 30 seconds after the last reading, never while the voice window is open
+            if (talkState == "idle" && talkHost != null && !talkSettingsOpen && (DateTime.UtcNow - talkLastActive).TotalSeconds > 30) TalkCloseHost();
+        }
+        catch { }
+    }
+
+    // ---------- one click presses the speaker; a double click opens the voice window (v1.36) ----------
+    // A single click is held back for a short moment (the double-click time, at most 400 ms) to see whether a second click follows.
+    static System.Threading.Timer talkClickTimer;
+    static bool talkSettingsOpen;
+    static void TalkClicked()
+    {
+        lock (talkLock)
+        {
+            if (talkClickTimer != null)
+            {
+                talkClickTimer.Dispose(); talkClickTimer = null;
+                ThreadPool.QueueUserWorkItem(delegate { TalkOpenSettings(); });
+                return;
+            }
+            int ms = Math.Min(SystemInformation.DoubleClickTime, 400);
+            talkClickTimer = new System.Threading.Timer(delegate
+            {
+                lock (talkLock) { if (talkClickTimer != null) { talkClickTimer.Dispose(); talkClickTimer = null; } }
+                TalkPressed();
+            }, null, ms, Timeout.Infinite);
+        }
+    }
+
+    static IntPtr TalkFindWindow()
+    {
+        IntPtr found = IntPtr.Zero;
+        try
+        {
+            EnumWindows(delegate (IntPtr h, IntPtr l)
+            {
+                if (!IsWindowVisible(h)) return true;
+                StringBuilder sb = new StringBuilder(256);
+                GetWindowText(h, sb, 256);
+                if (sb.ToString().StartsWith("Amit Talk (", StringComparison.OrdinalIgnoreCase)) { found = h; return false; }
+                return true;
+            }, IntPtr.Zero);
+        }
+        catch { }
+        return found;
+    }
+
+    // the voice window is the same hidden Edge page, brought on screen next to the speaker
+    static void TalkOpenSettings()
+    {
+        if (talkState == "off") return;
+        if (!TalkEnsureHost())
+        {
+            ShowOverlay("Read could not open its voice window\nEdge was not found, or its window did not open.");
+            HideOverlayLater(5000);
+            return;
+        }
+        talkSettingsOpen = true;
+        TalkCommand("settings", "");
+        IntPtr h = IntPtr.Zero;
+        for (int i = 0; i < 30 && h == IntPtr.Zero; i++) { h = TalkFindWindow(); if (h == IntPtr.Zero) Thread.Sleep(100); }
+        if (h == IntPtr.Zero) { talkSettingsOpen = false; Log("Talk: the voice window could not be found"); return; }
+        try
+        {
+            Rectangle b = talkBounds;
+            Rectangle wa = Screen.FromPoint(new Point(b.X, b.Y)).WorkingArea;
+            int w = 440, ht = 720;
+            int x = b.Right + 12; if (x + w > wa.Right) x = b.Left - 12 - w; if (x < wa.Left) x = wa.Left + 20;
+            int y = Math.Max(wa.Top + 10, Math.Min(wa.Bottom - ht - 10, b.Top - ht / 2));
+            ShowWindow(h, 9);
+            SetWindowPos(h, IntPtr.Zero, x, y, w, ht, 0x0044);
+            SetForegroundWindow(h);
+            Log("Talk: the voice window is open next to the speaker");
+        }
+        catch (Exception ex) { Log("Talk: voice window: " + ex.Message); }
+    }
+
+    static void TalkHideSettings()
+    {
+        talkSettingsOpen = false;
+        try { IntPtr h = TalkFindWindow(); if (h != IntPtr.Zero) ShowWindow(h, 7); } catch { }
+    }
+
+    // ---------- the speaker was pressed (v1.35: one shot) ----------
+    // Waiting: it becomes READY, and the very next click or selection is what gets read, one time; then it goes back to waiting and the person is free to
+    // use the computer. Ready: pressing again cancels. Reading: pauses it, and the very next click or selection is read instead (pressing again with no new
+    // spot resumes). Paused: pressing resumes.
+    static void TalkPressed()
+    {
+        talkAutoPaused = false;     // the person took over: dictation ending no longer resumes the reading by itself
+        string st; lock (talkLock) st = talkState;
+        if (st == "loading") return;
+        if (st == "idle") { TalkArm(); TalkSetState("armed"); return; }
+        if (st == "armed") { TalkDisarm("pressed again"); return; }
+        if (st == "reading") { TalkCommand("pause", ""); TalkArm(); return; }
+        if (st == "paused") { talkArmed = false; TalkCancelPending(); TalkCommand("resume", ""); TalkRefresh(); return; }
+    }
+
+    static void TalkArm()
+    {
+        talkArmed = true; talkArmedAt = DateTime.UtcNow;
+        TalkCancelPending();
+        TalkRefresh();
+        Log("Talk: ready; the next click or selection will be read");
+    }
+
+    static void TalkDisarm(string why)
+    {
+        talkArmed = false;
+        TalkCancelPending();
+        if (talkState == "armed") TalkSetState("idle"); else TalkRefresh();
+        Log("Talk: no longer ready (" + why + ")");
+    }
+
+    static void TalkRefresh()
+    {
+        TalkForm f = talkForm;
+        try { if (f != null && f.IsHandleCreated) f.BeginInvoke(new Action(delegate { f.ApplyState(); })); } catch { }
+    }
+
+    static void TalkCancelPending()
+    {
+        try { if (talkPendTimer != null) { talkPendTimer.Dispose(); talkPendTimer = null; } } catch { }
+    }
+
+    // a short moment after the mouse was let go (so a double click, or a drag, is not read twice): read what was chosen
+    static void TalkGestureFired()
+    {
+        TalkCancelPending();
+        if (!talkArmed) return;
+        if (Interlocked.CompareExchange(ref talkBusy, 1, 0) != 0) return;
+        talkArmed = false;
+        string prev; lock (talkLock) prev = talkState;
+        Thread t = new Thread(delegate ()
+        {
+            try { TalkReadFromHere(prev); }
+            catch (Exception ex) { Log("Talk: " + ex.Message); TalkSetState("idle"); }
+            finally { Interlocked.Exchange(ref talkBusy, 0); }
+        });
+        t.IsBackground = true; t.SetApartmentState(ApartmentState.STA); t.Start();
+    }
+
+    static void TalkReadFromHere(string prev)
+    {
+        TalkSetState("loading");
+        TalkMarkClear();
+        string how;
+        string text = TalkCapture(out how);
+        if (String.IsNullOrEmpty(text) || text.Trim().Length == 0)
+        {
+            bool chose = talkDragged || talkClicks >= 2;      // they highlighted something: always say so; a plain click on a button or menu is not a reading spot
+            string what = chose ? "" : TalkControlUnder(talkUpX, talkUpY);
+            Log("Talk: nothing found to read" + (what.Length > 0 ? " (that was a " + what + ")" : ""));
+            if (what.Length > 0)
+            {
+                TalkSetState(prev == "paused" || prev == "reading" ? "paused" : "idle");
+                ShowOverlay("That is a " + what + ", not text\nPress the speaker, then click the words you want read.");
+                HideOverlayLater(4500);
+                return;
+            }
+            TalkSorry();
+            return;
+        }
+        if (text.Length > 100000) text = text.Substring(0, 100000);
+        Log("Talk: " + text.Length + " characters to read (" + how + ")");
+        if (!TalkEnsureHost())
+        {
+            TalkSetState("idle");
+            ShowOverlay("Read could not start\nEdge was not found, or its speaking window did not open.");
+            HideOverlayLater(5000);
+            return;
+        }
+        TalkCommand("speak", text);
+        TalkMarkShow();
+        TalkWaitStarted();
+    }
+
+    // Amit says it out loud, in the person's own voice, and the words also show on the screen: never a silent failure
+    static void TalkSorry()
+    {
+        string msg = "Sorry, I'm not able to read this.";
+        ShowOverlay(msg + "\nThat program does not share its words with Amit. Try highlighting the words first.");
+        HideOverlayLater(6000);
+        if (TalkEnsureHost()) { TalkCommand("speak", msg); TalkWaitStarted(); }
+        else TalkSetState("idle");
+    }
+
+    static void TalkWaitStarted()
+    {
+        for (int i = 0; i < 150; i++) { Thread.Sleep(100); if (talkState != "loading") return; }
+        if (talkState == "loading")
+        {
+            TalkSetState("idle");
+            TalkMarkClear();
+            ShowOverlay("Read did not start\nCheck the internet connection and try again.");
+            HideOverlayLater(5000);
+            Log("Talk: the speaking page did not start within 15 seconds");
+        }
+    }
+
+    // what is under the pointer when it is clearly a control and not words: a button, a menu, a tab, a scroll bar...
+    static string TalkControlUnder(int x, int y)
+    {
+        return TalkTimed(delegate ()
+        {
+            try
+            {
+                AutomationElement el = AutomationElement.FromPoint(new System.Windows.Point(x, y));
+                if (el == null) return "";
+                int id = el.Current.ControlType.Id;
+                if (id == ControlType.Button.Id || id == ControlType.SplitButton.Id) return "button";
+                if (id == ControlType.MenuItem.Id || id == ControlType.Menu.Id || id == ControlType.MenuBar.Id) return "menu";
+                if (id == ControlType.ToolBar.Id) return "toolbar";
+                if (id == ControlType.TabItem.Id) return "tab";
+                if (id == ControlType.TitleBar.Id) return "title bar";
+                if (id == ControlType.ScrollBar.Id || id == ControlType.Thumb.Id) return "scroll bar";
+                if (id == ControlType.CheckBox.Id || id == ControlType.RadioButton.Id) return "choice box";
+                if (id == ControlType.Slider.Id || id == ControlType.ProgressBar.Id) return "slider";
+            }
+            catch { }
+            return "";
+        }, 1500);
+    }
+
+    // ---------- finding the words: selection first, then "from the click to the end", then the clipboard ----------
+    static string TalkClass(IntPtr h)
+    {
+        try { StringBuilder sb = new StringBuilder(128); GetClassName(h, sb, 128); return sb.ToString(); } catch { return ""; }
+    }
+
+    static string TalkCapture(out string how)
+    {
+        how = "";
+        IntPtr fg = GetForegroundWindow();
+        string cls = TalkClass(fg);
+        // Ctrl+C in a console window stops the program running in it, so the copy is never tried there
+        bool console = cls == "ConsoleWindowClass" || cls == "CASCADIA_HOSTING_WINDOW_CLASS" || cls == "mintty" || cls == "VirtualConsoleClass" || cls == "PuTTY";
+        bool recent = talkGestureKnown && Environment.TickCount - talkUpTick < 600000;
+        bool selected = !recent || talkDragged || talkClicks >= 2;
+        talkRange = null; talkRangeTmp = null;
+        string t = TalkTimed(delegate () { return TalkUiaSelection(); }, 2500);
+        if (t.Trim().Length > 0) { how = "the selection, through Windows accessibility"; talkRange = talkRangeTmp; return t; }
+        if (selected && !console)
+        {
+            t = TalkClipboardCopy();
+            if (t.Trim().Length > 0) { how = "the selection, copied"; return t; }
+        }
+        if (recent)
+        {
+            int cx = talkUpX, cy = talkUpY;
+            talkRangeTmp = null;
+            t = TalkTimed(delegate () { return TalkUiaFromPoint(cx, cy); }, 3000);
+            if (t.Trim().Length > 0) { how = "from the click to the end of its paragraph"; talkRange = talkRangeTmp; return t; }
+        }
+        if (!selected && !console)
+        {
+            t = TalkClipboardCopy();
+            if (t.Trim().Length > 0) { how = "copied"; return t; }
+        }
+        return "";
+    }
+
+    // when Windows accessibility cannot say where the paragraph ends: stop at the first blank line, or at a sentence end before 2500 characters
+    static string TalkTrimToParagraph(string s)
+    {
+        if (s == null) return "";
+        int cut = s.IndexOf("\n\n", StringComparison.Ordinal);
+        if (cut < 0) cut = s.IndexOf("\r\n\r\n", StringComparison.Ordinal);
+        if (cut > 0) s = s.Substring(0, cut);
+        if (s.Length > 2500)
+        {
+            int e = s.LastIndexOfAny(new char[] { '.', '!', '?' }, 2499);
+            s = e > 200 ? s.Substring(0, e + 1) : s.Substring(0, 2500);
+        }
+        return s;
+    }
+
+    static string TalkTimed(Func<string> f, int ms)
+    {
+        string r = "";
+        Thread th = new Thread(delegate () { try { r = f(); } catch { } });
+        th.IsBackground = true; th.SetApartmentState(ApartmentState.MTA); th.Start();
+        if (!th.Join(ms)) { Log("Talk: Windows accessibility did not answer within " + ms + " ms"); return ""; }
+        return r ?? "";
+    }
+
+    static string TalkUiaSelection()
+    {
+        try
+        {
+            AutomationElement el = AutomationElement.FocusedElement;
+            for (int up = 0; el != null && up < 4; up++)
+            {
+                object po;
+                if (el.TryGetCurrentPattern(TextPattern.Pattern, out po))
+                {
+                    TextPatternRange[] sel = ((TextPattern)po).GetSelection();
+                    if (sel != null && sel.Length > 0)
+                    {
+                        string s = sel[0].GetText(300000);
+                        if (!String.IsNullOrEmpty(s) && s.Trim().Length > 0) { talkRangeTmp = sel[0]; return s; }
+                    }
+                }
+                el = TreeWalker.ControlViewWalker.GetParent(el);
+            }
+        }
+        catch { }
+        return "";
+    }
+
+    static string TalkUiaFromPoint(int x, int y)
+    {
+        try
+        {
+            System.Windows.Point pt = new System.Windows.Point(x, y);
+            AutomationElement el = AutomationElement.FromPoint(pt);
+            for (int up = 0; el != null && up < 6; up++)
+            {
+                object po;
+                if (el.TryGetCurrentPattern(TextPattern.Pattern, out po))
+                {
+                    TextPattern tp = (TextPattern)po;
+                    TextPatternRange r = tp.RangeFromPoint(pt);
+                    if (r != null)
+                    {
+                        // from the clicked word to the end of its paragraph
+                        r.ExpandToEnclosingUnit(TextUnit.Word);
+                        bool paraOk = false;
+                        try
+                        {
+                            TextPatternRange para = tp.RangeFromPoint(pt);
+                            para.ExpandToEnclosingUnit(TextUnit.Paragraph);
+                            r.MoveEndpointByRange(TextPatternRangeEndpoint.End, para, TextPatternRangeEndpoint.End);
+                            paraOk = true;
+                        }
+                        catch { }
+                        string s;
+                        if (paraOk) s = r.GetText(30000);
+                        else
+                        {
+                            r.MoveEndpointByRange(TextPatternRangeEndpoint.End, tp.DocumentRange, TextPatternRangeEndpoint.End);
+                            s = TalkTrimToParagraph(r.GetText(30000));
+                        }
+                        if (!String.IsNullOrEmpty(s) && s.Trim().Length > 0) { talkRangeTmp = paraOk ? r : null; return s; }
+                    }
+                }
+                el = TreeWalker.ControlViewWalker.GetParent(el);
+            }
+        }
+        catch { }
+        return "";
+    }
+
+    // Copies the selection with Ctrl+C and puts back whatever was on the clipboard before (needs a thread with its own message loop: STA)
+    static string TalkClipboardCopy()
+    {
+        try
+        {
+            uint before = GetClipboardSequenceNumber();
+            DataObject saved = TalkClipSave();
+            bool wasEmpty = saved == null || saved.GetFormats().Length == 0;
+            INPUT[] a = new INPUT[4];
+            a[0] = TalkKey(0x11, false); a[1] = TalkKey(0x43, false); a[2] = TalkKey(0x43, true); a[3] = TalkKey(0x11, true);
+            SendInput(4, a, Marshal.SizeOf(typeof(INPUT)));
+            bool changed = false;
+            for (int i = 0; i < 12; i++) { Thread.Sleep(50); if (GetClipboardSequenceNumber() != before) { changed = true; Thread.Sleep(60); break; } }
+            if (!changed) return "";
+            string got = "";
+            for (int k = 0; k < 5 && got.Length == 0; k++)
+            {
+                try { if (Clipboard.ContainsText()) got = Clipboard.GetText(); } catch { }
+                if (got.Length == 0) Thread.Sleep(40);
+            }
+            try
+            {
+                if (wasEmpty) Clipboard.Clear();
+                else if (saved != null) Clipboard.SetDataObject(saved, true, 5, 40);
+            }
+            catch { }
+            return got;
+        }
+        catch (Exception ex) { Log("Talk: the copy did not work (" + ex.Message + ")"); return ""; }
+    }
+
+    static INPUT TalkKey(ushort vk, bool up)
+    {
+        INPUT i = new INPUT();
+        i.type = 1; i.u.ki.wVk = vk; i.u.ki.dwFlags = up ? 2u : 0u; i.u.ki.dwExtraInfo = MARK;
+        return i;
+    }
+
+    static DataObject TalkClipSave()
+    {
+        try
+        {
+            IDataObject d = Clipboard.GetDataObject();
+            if (d == null) return null;
+            DataObject copy = new DataObject();
+            foreach (string f in d.GetFormats(false))
+            {
+                try
+                {
+                    object o = d.GetData(f, false);
+                    if (o == null) continue;
+                    MemoryStream ms = o as MemoryStream;
+                    if (ms != null) copy.SetData(f, false, new MemoryStream(ms.ToArray()));
+                    else if (o is string || o is string[] || o is byte[]) copy.SetData(f, false, o);
+                    else if (o is Image) copy.SetData(f, false, ((Image)o).Clone());
+                }
+                catch { }
+            }
+            return copy;
+        }
+        catch { return null; }
+    }
+
+    // called from the mouse hook for every left press and release that is not on the speaker itself
+    static void TalkNoteMouse(int msg, int x, int y)
+    {
+        try
+        {
+            if (talkBounds.Contains(x, y)) return;
+            if (msg == 0x201)
+            {
+                int now = Environment.TickCount;
+                bool near = Math.Abs(x - talkDownX) < 8 && Math.Abs(y - talkDownY) < 8;
+                talkClicks = (near && now - talkDownTick <= SystemInformation.DoubleClickTime) ? talkClicks + 1 : 1;
+                talkDownX = x; talkDownY = y; talkDownTick = now;
+                if (talkArmed) TalkCancelPending();        // another press right away: a double click or the start of a drag, not the end of the choice
+            }
+            else
+            {
+                talkUpX = x; talkUpY = y; talkUpTick = Environment.TickCount; talkGestureKnown = true;
+                talkDragged = Math.Abs(x - talkDownX) > 6 || Math.Abs(y - talkDownY) > 6 || (GetAsyncKeyState(0x10) & 0x8000) != 0;
+                if (talkArmed) { TalkCancelPending(); talkPendTimer = new System.Threading.Timer(delegate { TalkGestureFired(); }, null, 400, Timeout.Infinite); }
+            }
+        }
+        catch { }
+    }
+
+    // ---------- the hidden Edge window that does the speaking (same idea as the listening window) ----------
+    static void TalkCommand(string name, string text)
+    {
+        lock (talkLock) { talkSeq++; talkCmd = name; talkCmdText = text ?? ""; Monitor.PulseAll(talkLock); }
+    }
+
+    // the speaking page asks "any command for me?" and is held here (up to 20 s) until there is one (the bridge's /api/talk/wait calls this)
+    public static string TalkWait(long since, int timeoutMs)
+    {
+        long myGen;
+        lock (talkLock) { myGen = talkHostGen; talkWaiting++; talkSeen = DateTime.UtcNow; }
+        try
+        {
+            lock (talkLock)
+            {
+                if (since < 0 || since > talkSeq) return "{\"seq\":" + talkSeq + ",\"cmd\":\"none\"}";
+                if (talkSeq <= since) Monitor.Wait(talkLock, timeoutMs);
+                if (talkSeq > since) return "{\"seq\":" + talkSeq + ",\"cmd\":\"" + talkCmd + "\",\"text\":\"" + JsonEsc(talkCmdText) + "\"}";
+                return "{\"seq\":" + talkSeq + ",\"cmd\":\"none\"}";
+            }
+        }
+        finally { lock (talkLock) { if (myGen == talkHostGen) { talkWaiting--; talkSeen = DateTime.UtcNow; } } }
+    }
+
+    static bool TalkPageAlive()
+    {
+        lock (talkLock)
+        {
+            if (talkHost != null)
+            {
+                bool dead = false;
+                try { dead = talkHost.HasExited; } catch { dead = true; }
+                if (dead) { talkHost = null; talkHostGen++; talkWaiting = 0; talkSeen = DateTime.MinValue; }
+            }
+            return talkWaiting > 0 || (DateTime.UtcNow - talkSeen).TotalSeconds < 4;
+        }
+    }
+
+    static bool TalkEnsureHost()
+    {
+        if (TalkPageAlive()) return true;
+        string exe = FindBrowser();
+        if (exe == null) { Log("Talk: no Edge or Chrome found"); return false; }
+        try
+        {
+            Directory.CreateDirectory(talkProfileDir);
+            string args = "--user-data-dir=\"" + talkProfileDir + "\" --no-first-run --no-default-browser-check --disable-sync"
+                + " --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --autoplay-policy=no-user-gesture-required"
+                + " --disable-features=Translate,CalculateNativeWinOcclusion,IntensiveWakeUpThrottling,OptimizationHints,MediaRouter,IsolateOrigins,site-per-process"
+                + " --disable-extensions --disable-background-networking --disable-component-update --disable-default-apps --disable-breakpad --disable-domain-reliability --no-pings"
+                + " --disable-gpu --disable-software-rasterizer --renderer-process-limit=1 --disable-site-isolation-trials --disable-background-mode --disable-print-preview --disable-sync"
+                + " --app=http://localhost:" + bridgePort + "/talk?host=1 --window-size=300,200 --window-position=-32000,-32000";
+            IntPtr fg = GetForegroundWindow();
+            ProcessStartInfo psi = new ProcessStartInfo(exe, args);
+            psi.UseShellExecute = true;
+            psi.WindowStyle = ProcessWindowStyle.Minimized;
+            Process p = Process.Start(psi);
+            lock (talkLock) { talkHost = p; talkHostGen++; talkWaiting = 0; talkSeen = DateTime.MinValue; }
+            Log("Talk: started the speaking page in " + (exe.IndexOf("msedge", StringComparison.OrdinalIgnoreCase) >= 0 ? "Edge" : "Chrome") + " (off-screen, minimized)");
+            ThreadPool.QueueUserWorkItem(delegate { TalkKeepHidden(fg); });
+        }
+        catch (Exception ex) { Log("Talk: could not start the browser (" + ex.Message + ")"); return false; }
+        for (int i = 0; i < 120; i++) { if (TalkPageAlive()) return true; Thread.Sleep(100); }
+        Log("Talk: the speaking page did not connect within 12 seconds");
+        return false;
+    }
+
+    // for a few seconds after the speaking window starts: if it came up anyway, minimize it and give focus back to the window the person was using
+    static void TalkKeepHidden(IntPtr previous)
+    {
+        try
+        {
+            bool refocused = false;
+            for (int n = 0; n < 30; n++)
+            {
+                Thread.Sleep(150);
+                IntPtr found = IntPtr.Zero;
+                EnumWindows(delegate (IntPtr h, IntPtr l)
+                {
+                    if (!IsWindowVisible(h)) return true;
+                    StringBuilder sb = new StringBuilder(256);
+                    GetWindowText(h, sb, 256);
+                    if (sb.ToString().StartsWith("Amit Talk (", StringComparison.OrdinalIgnoreCase)) { found = h; return false; }
+                    return true;
+                }, IntPtr.Zero);
+                if (found != IntPtr.Zero && !IsIconic(found) && !talkSettingsOpen)
+                {
+                    ShowWindow(found, 7);
+                    if (!refocused) { refocused = true; if (previous != IntPtr.Zero && !IsIconic(previous)) SetForegroundWindow(previous); }
+                }
+                if (refocused && n > 12) break;
+            }
+        }
+        catch { }
+    }
+
+    static void TalkCloseHost()
+    {
+        Process h;
+        lock (talkLock) { h = talkHost; talkHost = null; talkHostGen++; talkWaiting = 0; talkSeen = DateTime.MinValue; }
+        if (h == null) return;
+        try { if (!h.HasExited) { h.CloseMainWindow(); if (!h.WaitForExit(1500)) h.Kill(); } } catch { }
+    }
+
+    // what the speaking page reports (the bridge's /api/talk/event calls this): body is {"e":"started","m":"..."}
+    public static void TalkEvent(string body)
+    {
+        try
+        {
+            if (String.IsNullOrEmpty(body)) return;
+            string e = TalkField(body, "e"), m = TalkField(body, "m");
+            if (e != "speaking") Log("Talk page: " + e + (m.Length > 0 ? " (" + m + ")" : ""));
+            if (e == "started") { talkSpeakUntil = DateTime.UtcNow.AddSeconds(4); TalkSetState("reading"); if (SessionActive()) { talkMuteDictation = true; try { HideOverlay(); } catch { } } }   // dictation was listening: its box goes away while Amit reads
+            else if (e == "speaking")   // a heartbeat from the page every 1.5 s while sound is really playing: it only keeps the watchdog quiet
+            {
+                if (talkState == "reading") talkSpeakUntil = DateTime.UtcNow.AddSeconds(4);
+            }
+            else if (e == "paused") { talkSpeakUntil = DateTime.MinValue; talkMuteDictation = false; TalkSetState("paused"); }
+            else if (e == "resumed") { talkSpeakUntil = DateTime.UtcNow.AddSeconds(4); talkMuteDictation = SessionActive(); TalkSetState("reading"); }
+            else if (e == "ended" || e == "stopped") { talkSpeakUntil = DateTime.MinValue; talkMuteDictation = false; TalkMarkClear(); if (talkState != "off") TalkSetState(talkArmed ? "armed" : "idle"); }
+            else if (e == "error") { TalkSetState("idle"); ShowOverlay("Read could not read that\n" + m); HideOverlayLater(5000); }
+            else if (e == "novoice") { TalkSetState("idle"); ShowOverlay("Read needs to know your voice\nOpen Amit once while signed in, then try again."); HideOverlayLater(6000); }
+            else if (e == "fallback") { /* the saved voice is not in this browser: Amit quietly uses the closest one (logged above); no box on the screen */ }
+            else if (e == "settingsclosed") TalkHideSettings();
+        }
+        catch { }
+    }
+
+    static string TalkField(string json, string key)
+    {
+        string k = "\"" + key + "\":\"";
+        int i = json.IndexOf(k, StringComparison.Ordinal);
+        if (i < 0) return "";
+        i += k.Length;
+        int j = json.IndexOf('"', i);
+        return j < 0 ? "" : json.Substring(i, j - i);
+    }
+
+    // ---------- the person's saved voice, copied here from their login ----------
+    // A voice changed in the voice window (next to the speaker) is kept here at once and marked "waiting for the login" (talk_voice.json.pending).
+    // The next Amit page that loads under the person's login is handed it back (TalkVoiceSet answers with "pending"), writes it into their saved
+    // voice in the database, and confirms (TalkVoiceAck). Until then the copy from the database does not overwrite it, so a change is never lost.
+    static bool talkVoiceDirty;
+    static string talkDirtyPath;
+    static void TalkVoiceLoad()
+    {
+        try
+        {
+            talkDirtyPath = talkVoicePath + ".pending";
+            talkVoiceDirty = File.Exists(talkDirtyPath);
+            if (talkVoicePath != null && File.Exists(talkVoicePath)) talkVoiceJson = File.ReadAllText(talkVoicePath, Encoding.UTF8);
+        }
+        catch { }
+    }
+    static bool TalkVoiceKnown() { return !String.IsNullOrEmpty(talkVoiceJson); }
+    public static string TalkVoiceGet() { return TalkVoiceKnown() ? talkVoiceJson : "{}"; }
+    static bool TalkVoiceLooksRight(string b)
+    {
+        return b.Length >= 2 && b.Length <= 4000 && b[0] == '{' && (b.IndexOf("voice_name", StringComparison.Ordinal) >= 0 || b.IndexOf("voice_rate", StringComparison.Ordinal) >= 0);
+    }
+    // from the Amit pages (they hold the login). force = the person just saved it in About Me, so it wins over a waiting change.
+    public static string TalkVoiceSet(string body, string force)
+    {
+        try
+        {
+            string b = (body ?? "").Trim();
+            if (!TalkVoiceLooksRight(b)) return "{\"ok\":false}";
+            if (talkVoiceDirty && force != "1") return "{\"ok\":true,\"pending\":" + talkVoiceJson + "}";
+            bool first = !TalkVoiceKnown();
+            talkVoiceJson = b;
+            File.WriteAllText(talkVoicePath, b, new UTF8Encoding(false));
+            if (talkVoiceDirty) { talkVoiceDirty = false; try { File.Delete(talkDirtyPath); } catch { } }
+            if (first) Log("Talk: the person's saved voice was copied here");
+            return "{\"ok\":true}";
+        }
+        catch (Exception ex) { return "{\"ok\":false,\"error\":\"" + JsonEsc(ex.Message) + "\"}"; }
+    }
+    // from the voice window: kept here now, and waiting to be written to the login
+    public static string TalkVoiceSave(string body)
+    {
+        try
+        {
+            string b = (body ?? "").Trim();
+            if (!TalkVoiceLooksRight(b)) return "{\"ok\":false}";
+            talkVoiceJson = b;
+            File.WriteAllText(talkVoicePath, b, new UTF8Encoding(false));
+            talkVoiceDirty = true;
+            File.WriteAllText(talkDirtyPath, "1");
+            Log("Talk: a new voice was saved from the voice window (waiting to be written to the login)");
+            return "{\"ok\":true}";
+        }
+        catch (Exception ex) { return "{\"ok\":false,\"error\":\"" + JsonEsc(ex.Message) + "\"}"; }
+    }
+    // the Amit page wrote the waiting voice into the person's saved voice
+    public static string TalkVoiceAck()
+    {
+        try
+        {
+            if (talkVoiceDirty) { talkVoiceDirty = false; try { File.Delete(talkDirtyPath); } catch { } Log("Talk: the new voice is now saved under the person's login"); }
+            return "{\"ok\":true}";
+        }
+        catch { return "{\"ok\":false}"; }
+    }
+
+    // ---------- the highlight over the words being read (only where Windows accessibility says where the words are) ----------
+    static void TalkMarkShow()
+    {
+        if (talkRange == null) return;
+        try
+        {
+            if (talkMark == null)
+            {
+                Thread t = new Thread(delegate ()
+                {
+                    try { using (TalkMark m = new TalkMark()) { talkMark = m; Application.Run(m); } }
+                    catch (Exception ex) { Log("Talk: highlight window: " + ex.Message); }
+                    finally { talkMark = null; }
+                });
+                t.IsBackground = true; t.SetApartmentState(ApartmentState.STA); t.Start();
+            }
+            if (talkMarkTimer == null) talkMarkTimer = new System.Threading.Timer(delegate { TalkMarkTick(); }, null, 150, 400);
+        }
+        catch (Exception ex) { Log("Talk: highlight: " + ex.Message); }
+    }
+
+    // hides the highlight for a while (dictation is listening) but remembers where the words are, so TalkMarkShow brings it back in the same place
+    static void TalkMarkHide()
+    {
+        try { if (talkMarkTimer != null) { talkMarkTimer.Dispose(); talkMarkTimer = null; } } catch { }
+        TalkMark m = talkMark;
+        try { if (m != null && m.IsHandleCreated) m.BeginInvoke(new Action(delegate { m.SetRects(new List<Rectangle>()); })); } catch { }
+    }
+
+    // takes the highlight away (the window itself stays until the speaker is removed)
+    static void TalkMarkClear()
+    {
+        try { if (talkMarkTimer != null) { talkMarkTimer.Dispose(); talkMarkTimer = null; } } catch { }
+        talkRange = null;
+        TalkMark m = talkMark;
+        try { if (m != null && m.IsHandleCreated) m.BeginInvoke(new Action(delegate { m.SetRects(new List<Rectangle>()); })); } catch { }
+    }
+
+    // four times a second: where are the words now (the page may have been scrolled)?
+    static void TalkMarkTick()
+    {
+        if (Interlocked.CompareExchange(ref talkMarkBusy, 1, 0) != 0) return;
+        try
+        {
+            TextPatternRange r = talkRange; TalkMark m = talkMark;
+            if (r == null || m == null || !m.IsHandleCreated) return;
+            System.Windows.Rect[] rects = null;
+            Thread th = new Thread(delegate () { try { rects = r.GetBoundingRectangles(); } catch { rects = null; } });
+            th.IsBackground = true; th.SetApartmentState(ApartmentState.MTA); th.Start();
+            if (!th.Join(800)) return;
+            List<Rectangle> list = new List<Rectangle>();
+            if (rects != null)
+                foreach (System.Windows.Rect q in rects)
+                    if (q.Width > 1 && q.Height > 1 && q.Width < 20000 && q.Height < 20000) list.Add(new Rectangle((int)q.X, (int)q.Y, (int)q.Width, (int)q.Height));
+            m.BeginInvoke(new Action(delegate { m.SetRects(list); }));
+        }
+        catch { }
+        finally { Interlocked.Exchange(ref talkMarkBusy, 0); }
+    }
+
+    // a see-through window over the whole desktop that lets every click through and never takes focus; it only paints soft gold boxes over the words
+    class TalkMark : Form
+    {
+        List<Rectangle> rects = new List<Rectangle>();
+
+        public TalkMark()
+        {
+            FormBorderStyle = FormBorderStyle.None; ShowInTaskbar = false; TopMost = true; StartPosition = FormStartPosition.Manual;
+            Bounds = SystemInformation.VirtualScreen;
+            BackColor = Color.Magenta; TransparencyKey = Color.Magenta; Opacity = 0.35; DoubleBuffered = true;
+            Text = "Amit Read highlight";
+        }
+
+        protected override bool ShowWithoutActivation { get { return true; } }
+        protected override CreateParams CreateParams
+        {
+            get { CreateParams cp = base.CreateParams; cp.ExStyle |= 0x08000000 | 0x00000080 | 0x00000008 | 0x00000020; return cp; }   // no focus, no taskbar button, on top, clicks go through
+        }
+
+        public void SetRects(List<Rectangle> r)
+        {
+            bool same = r.Count == rects.Count;
+            if (same) for (int i = 0; i < r.Count; i++) if (r[i] != rects[i]) { same = false; break; }
+            if (same) return;
+            rects = r; Invalidate();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Rectangle vs = SystemInformation.VirtualScreen;
+            using (SolidBrush b = new SolidBrush(Color.FromArgb(232, 190, 70)))
+                foreach (Rectangle q in rects) e.Graphics.FillRectangle(b, q.X - vs.X - 2, q.Y - vs.Y - 1, q.Width + 4, q.Height + 2);
+        }
+    }
+
+    // ---------- the speaker on the screen ----------
+    class TalkForm : Form
+    {
+        bool down, dragged;
+        Point downScreen, startLoc;
+
+        public TalkForm(int x, int y)
+        {
+            FormBorderStyle = FormBorderStyle.None; ShowInTaskbar = false; TopMost = true; StartPosition = FormStartPosition.Manual;
+            Width = 60; Height = 60; DoubleBuffered = true; BackColor = Color.FromArgb(16, 24, 36); Opacity = 0.6; Cursor = Cursors.Hand;
+            Text = "Amit Talk";
+            using (GraphicsPath gp = new GraphicsPath()) { gp.AddEllipse(0, 0, 59, 59); Region = new Region(gp); }
+            MoveNear(x, y);
+            MouseDown += delegate (object s, MouseEventArgs e)
+            {
+                if (e.Button == MouseButtons.Left) { down = true; dragged = false; downScreen = Cursor.Position; startLoc = Location; }
+            };
+            MouseMove += delegate (object s, MouseEventArgs e)
+            {
+                if (!down) return;
+                Point c = Cursor.Position;
+                if (Math.Abs(c.X - downScreen.X) > 4 || Math.Abs(c.Y - downScreen.Y) > 4) dragged = true;
+                if (dragged) Location = new Point(startLoc.X + c.X - downScreen.X, startLoc.Y + c.Y - downScreen.Y);
+            };
+            MouseUp += delegate (object s, MouseEventArgs e)
+            {
+                if (e.Button == MouseButtons.Left)
+                {
+                    bool was = down && !dragged; down = false;
+                    if (was) TalkClicked();
+                }
+                else if (e.Button == MouseButtons.Right) ThreadPool.QueueUserWorkItem(delegate { TalkClose("right click on the speaker"); });
+            };
+            Move += delegate { talkBounds = Bounds; };
+        }
+
+        public void MoveNear(int x, int y)
+        {
+            Rectangle wa = Screen.FromPoint(new Point(x, y)).WorkingArea;
+            Location = new Point(Math.Max(wa.Left, Math.Min(wa.Right - Width, x - Width / 2)), Math.Max(wa.Top, Math.Min(wa.Bottom - Height, y - Height / 2)));
+            talkBounds = Bounds;
+        }
+
+        public void ApplyState()
+        {
+            string st = talkState;
+            Opacity = (st == "reading" || talkArmed) ? 0.95 : (st == "paused" || st == "loading") ? 0.8 : 0.6;
+            Invalidate();
+        }
+
+        protected override bool ShowWithoutActivation { get { return true; } }
+        protected override CreateParams CreateParams
+        {
+            get { CreateParams cp = base.CreateParams; cp.ExStyle |= 0x08000000 | 0x00000080 | 0x00000008; return cp; }   // never takes focus, no taskbar button, always on top
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias;
+            string st = talkState;
+            Color ink = st == "loading" ? Color.FromArgb(70, 160, 255) : st == "paused" ? Color.FromArgb(200, 160, 60) : Color.FromArgb(232, 190, 70);
+            using (SolidBrush bg = new SolidBrush(st == "reading" ? Color.FromArgb(70, 56, 20) : Color.FromArgb(16, 24, 36))) g.FillEllipse(bg, 1, 1, 57, 57);
+            using (Pen rp = new Pen(ink, 2.4f)) g.DrawEllipse(rp, 2, 2, 55, 55);
+            if (talkArmed)   // READY: a second, inner ring and a soft gold glow, so it is plain that the next click or selection will be read
+            {
+                using (SolidBrush glow = new SolidBrush(Color.FromArgb(60, 232, 190, 70))) g.FillEllipse(glow, 6, 6, 47, 47);
+                using (Pen rp2 = new Pen(Color.FromArgb(255, 236, 150), 2.0f)) g.DrawEllipse(rp2, 6, 6, 47, 47);
+            }
+            using (SolidBrush b = new SolidBrush(ink))
+                g.FillPolygon(b, new PointF[] { new PointF(16, 25), new PointF(23, 25), new PointF(31, 18), new PointF(31, 42), new PointF(23, 35), new PointF(16, 35) });
+            using (Pen p = new Pen(ink, 2.2f))
+            {
+                p.StartCap = LineCap.Round; p.EndCap = LineCap.Round;
+                if (st == "paused") { g.DrawLine(p, 38, 24, 38, 36); g.DrawLine(p, 44, 24, 44, 36); }
+                else { g.DrawArc(p, 29, 23, 11, 14, -55f, 110f); g.DrawArc(p, 29, 18, 20, 24, -55f, 110f); }
+            }
+        }
     }
 
     // "Dictate" in Amit Live: the same dictation as before, started already latched (the button is not being held any more),
@@ -4609,7 +5585,7 @@ public static class AmitWhisper
         {
             iconPath = icon;
             List<LiveItem> items = new List<LiveItem>();
-            for (int i = 0; i < n; i++) items.Add(i == 0 ? new LiveItem("dictate", "Dictate", "Talk to type") : i == 1 ? new LiveItem("showamit", "Show Amit", "Show an area") : i == 2 ? new LiveItem("voice", "Voice", "Say what to do") : new LiveItem("item" + i, "Choice " + (i + 1), "Example"));
+            for (int i = 0; i < n; i++) items.Add(i == 0 ? new LiveItem("dictate", "Dictate", "Talk to type") : i == 1 ? new LiveItem("showamit", "Show Amit", "Show an area") : i == 2 ? new LiveItem("voice", "Voice", "Say what to do") : i == 3 ? new LiveItem("talk", "Read", "Read it aloud") : new LiveItem("item" + i, "Choice " + (i + 1), "Example"));
             using (Bitmap b = RenderLive(items, hover, false))
             using (Bitmap outp = new Bitmap(b.Width, b.Height))
             using (Graphics g = Graphics.FromImage(outp))

@@ -3,6 +3,7 @@
 # v1.10: new route /amit-icon.ico (the Amit icon for the offline Amit Live page).
 # v1.09 (2026-10-30) - first numbered version was v1.01 (baseline v1.00 = everything before).
 # v1.09: new route /amit-live-offline: the page the Amit Live window shows when there is no internet (served from AmitWhisper.OfflinePage()).
+# v1.12: TALK (the fourth choice in the Amit Live ring, a see-through speaker that reads aloud what the person selects): new routes /talk (the speaking page, amit_talk.html), /api/talk/wait, /api/talk/event, /api/talk/voice (the person's saved voice, copied here by the Amit pages; Amit site only). Talk traffic does not count as "page contact" for the idle stop.
 # v1.11: new routes /api/showamit/pending and /api/showamit/pending.png: the shot the Show Amit button just handed over, for the Amit Live window to post into the person's Ask Amit chat (Amit site only).
 # v1.08: new read-only route /api/health-snapshot (processor, memory, main drive, uptime, three biggest memory users) for the Computer Health tab of the Amit Live window.
 # v1.07: no personal path is written into the program any more: the AmitInbox folder and the owner-only credentials path are built from the signed-in Windows user's own profile folder ($env:USERPROFILE) instead of one fixed user name (found while preparing the public Verify It page; same result on the original computer, correct on every other).
@@ -1116,6 +1117,65 @@ try {
                 if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else { Send-JsonRaw $response ([AmitWhisper]::StartLearn()) }
             }
+            # ---- Talk (v1.12): the speaking half of the "Talk" choice in the Amit Live ring. The words and the speaker on the screen live in amit_whisper.cs; these routes only carry messages. ----
+            "/talk" {
+                # The speaking page (a hidden Edge window of its own). Gets this run's secret only when opened directly (same rule as /whisper).
+                $talkPage = Join-Path $watcherDir "amit_talk.html"
+                if (Test-Path $talkPage) {
+                    $tTok = ''
+                    if (-not $request.Headers['Origin']) { $tTok = [AmitWhisper]::Token() }
+                    Send-Html $response ([System.IO.File]::ReadAllText($talkPage, [System.Text.Encoding]::UTF8).Replace('__WHISPER_TOKEN__', $tTok))
+                }
+                else { $response.StatusCode = 404; Send-Html $response "Talk page is not installed." }
+            }
+            "/api/talk/wait" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $tSince = -1
+                    try { $tSince = [long]$request.QueryString["seq"] } catch {}
+                    Send-JsonRaw $response ([AmitWhisper]::TalkWait($tSince, 20000))
+                }
+            }
+            "/api/talk/event" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $tReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $tBody = $tReader.ReadToEnd(); $tReader.Dispose()
+                    [AmitWhisper]::TalkEvent($tBody)
+                    Send-JsonRaw $response '{"ok":true}'
+                }
+            }
+            "/api/talk/voice" {
+                # The person's saved Amit voice. POST: the Amit pages (which hold the login) copy it here when the person signs in or changes it (Amit site only, same Origin rule as /api/words/*).
+                # GET: the speaking page reads it (needs this run's secret).
+                if ($request.HttpMethod -eq 'POST') {
+                    if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                    else {
+                        $tvReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                        $tvBody = $tvReader.ReadToEnd(); $tvReader.Dispose()
+                        $tvForce = [string]$request.QueryString["force"]
+                        Send-JsonRaw $response ([AmitWhisper]::TalkVoiceSet($tvBody, $tvForce))
+                    }
+                }
+                else {
+                    if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                    else { Send-JsonRaw $response ([AmitWhisper]::TalkVoiceGet()) }
+                }
+            }
+            "/api/talk/voice-save" {
+                # the voice window next to the speaker saves a new voice here (needs this run's secret); it waits here until an Amit page writes it to the login
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $tsReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $tsBody = $tsReader.ReadToEnd(); $tsReader.Dispose()
+                    Send-JsonRaw $response ([AmitWhisper]::TalkVoiceSave($tsBody))
+                }
+            }
+            "/api/talk/voice-ack" {
+                # an Amit page (which holds the login) confirms it wrote the waiting voice into the person's saved voice (Amit site only)
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::TalkVoiceAck()) }
+            }
             "/amit-icon.ico" {
                 # The Amit icon, for the offline Amit Live page's title bar and taskbar entry.
                 $iconFile = Join-Path $watcherDir "amit_icon.ico"
@@ -1187,7 +1247,7 @@ try {
                 # KEEP THE FILE LIST THE SAME AS make_helper_manifest.ps1.
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else {
-                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_update.ps1')
+                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_talk.html','amit_update.ps1')
                     $hsSha = [System.Security.Cryptography.SHA256]::Create()
                     $hsParts = @()
                     foreach ($hsN in $hsNames) {
@@ -2146,7 +2206,7 @@ while ($listener.IsListening) {
     try { $origin = $context.Request.Headers['Origin'] } catch {}
     # Whisper mode's own page talks to the bridge constantly; that is not "someone using an Amit page" (v1.05)
     $isWhisperCall = $false
-    try { $wp = $context.Request.Url.AbsolutePath; $isWhisperCall = ($wp -eq '/whisper' -or $wp -like '/api/whisper/*') } catch {}
+    try { $wp = $context.Request.Url.AbsolutePath; $isWhisperCall = ($wp -eq '/whisper' -or $wp -like '/api/whisper/*' -or $wp -eq '/talk' -or $wp -like '/api/talk/*') } catch {}
     if ($origin -and -not $isWhisperCall) {
         $bridgeState.LastContact = Get-Date
         # which page and which call, so /api/idle-status can answer "what is keeping it awake"

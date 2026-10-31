@@ -1,5 +1,7 @@
 /*
-  amit_owner_contact.js v1.00 — 2026-10-26 (first version marker; the voice fallback now prefers a natural voice
+  amit_owner_contact.js v1.01 — 2026-10-31: amitSyncVoiceToHelper() copies the person's saved voice to the Amit helper on their computer, and hands back a
+  voice they changed from the reading speaker (Read, on the Amit Live ring) so it is saved under their login as their default.
+  v1.00 — 2026-10-26 (first version marker; the voice fallback now prefers a natural voice
   before the old built-in Windows voices: see amitPickDefaultVoice and amitVoiceIsRobotic).
 
   AMIT OWNER CONTACT — resolves/creates the ONE AmitBooks contact row that
@@ -108,7 +110,7 @@ async function _getOrCreateOwnerContactInner(supabaseClient, userId, fallbackNam
       .eq('is_owner', true)
       .order('created_at', { ascending: true });
     if (readErr) return null; // couldn't read — never create blind
-    if (rows && rows.length) return rows[0]; // _justCreated intentionally absent/falsy — this is a returning login
+    if (rows && rows.length){ amitSyncVoiceToHelper(rows[0], supabaseClient); return rows[0]; } // _justCreated intentionally absent/falsy — this is a returning login
 
     // 2. Find a book this login owns.
     let { data: ownerRows } = await supabaseClient
@@ -162,8 +164,52 @@ async function saveOwnerContactFields(supabaseClient, contactId, fields){
   if (!supabaseClient || !contactId) return false;
   try {
     const { error } = await supabaseClient.from('contacts').update(fields).eq('id', contactId);
+    if (!error) amitSyncVoiceToHelper(fields, null, true); // a voice changed in About Me reaches the reading speaker straight away (and wins over a waiting change)
     return !error;
   } catch(e){ return false; }
+}
+
+/*
+  TALK (2026-10-31, Ryan's design). The "Talk" speaker in the Amit Live ring (Aurora) reads aloud in the signed-in person's own saved voice,
+  but the helper on the computer holds no login. So whenever the saved voice is loaded or changed, the Amit pages copy it to the helper
+  (http://localhost:8710/api/talk/voice, which accepts it only from the Amit site). Quiet and best-effort: no helper running, nothing happens.
+  Called with a whole contact row, or with just the fields that changed (these are merged into the last full set this page saw).
+*/
+let _amitVoiceLast = {};
+let _amitVoiceSent = '';
+const _AMIT_VOICE_KEYS = ['voice_name','voice_accent','voice_rate','voice_pitch','voice_volume','voice_pause_scale'];
+/*
+  Two-way. The person can also change their voice from the reading speaker itself (double click on it: the voice window, Save). That change is kept on
+  the computer at once and WAITS for a login. When a page loads under the login (it passes its Supabase client and the whole contact row), the helper's
+  answer carries that waiting voice ("pending"); the page writes it into the saved voice and confirms, so it becomes the person's default everywhere.
+  `force` = the person just saved in About Me: that wins over a waiting change.
+*/
+function amitSyncVoiceToHelper(src, supabaseClient, force){
+  try {
+    if (!src || typeof fetch !== 'function') return;
+    _AMIT_VOICE_KEYS.forEach(k => { if (src[k] !== undefined && src[k] !== null) _amitVoiceLast[k] = src[k]; });
+    if (!_amitVoiceLast.voice_name && !_amitVoiceLast.voice_rate) return;
+    const body = JSON.stringify(_amitVoiceLast);
+    if (body === _amitVoiceSent && !force) return;
+    _amitVoiceSent = body;
+    fetch('http://localhost:8710/api/talk/voice' + (force ? '?force=1' : ''), { method: 'POST', body: body, headers: { 'Content-Type': 'text/plain' } })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        if (!j) { _amitVoiceSent = ''; return; }
+        if (j.pending && supabaseClient && src.id){
+          const upd = {};
+          _AMIT_VOICE_KEYS.forEach(k => { if (j.pending[k] !== undefined && j.pending[k] !== null) upd[k] = j.pending[k]; });
+          supabaseClient.from('contacts').update(upd).eq('id', src.id).then(r2 => {
+            if (r2 && !r2.error){
+              Object.assign(_amitVoiceLast, upd);
+              _amitVoiceSent = JSON.stringify(_amitVoiceLast);
+              fetch('http://localhost:8710/api/talk/voice-ack', { method: 'POST', body: '1', headers: { 'Content-Type': 'text/plain' } }).catch(() => {});
+            }
+          });
+        }
+      })
+      .catch(() => { _amitVoiceSent = ''; });
+  } catch(e){}
 }
 
 // Same resolution logic as resolveVoiceFromPref() in the now-superseded

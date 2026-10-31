@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Amit Talk (speaking page)</title>
+<!-- AMIT READ v1.04 (2026-10-31: a live change carries on from the word being spoken instead of starting the sentence over). v1.03 (2026-10-31: a "speaking" heartbeat every 1.5 s while sound plays, and a short wait between cancelling a sentence and saying it again with new settings). v1.02 (2026-10-31: the voice panel is INTERACTIVE: moving a slider or choosing another voice while Amit is reading changes how it sounds right away;
+     the reading loop here reads the settings fresh for each sentence). v1.01 (2026-10-31, Ryan's design; the file keeps its working name "talk"). The speaking half of "Read" in the Amit Live ring (Aurora).
+     The helper (amit_whisper.cs) opens this page in a hidden Edge window of its own (served at /talk), because the natural voices (Brian and the
+     others) exist only in the full Edge. Nobody sees it, except when the person double-clicks the speaker: then this same window is brought next to
+     the speaker and shows the VOICE panel (voice, speed, pause between sentences, pitch, volume, Test, Save); closing the panel hides it again.
+     It waits for commands from the helper (speak / pause / resume / stop / settings) and tells the helper what it is doing (started / paused /
+     resumed / ended / fallback / novoice / error / settingsclosed), which is what the little speaker on the screen shows.
+     THE VOICE: the person's own saved Amit voice (About Me), copied to the helper by the Amit pages when the person signs in or changes it
+     (/api/talk/voice). This page holds no login. Save here keeps the new voice on this computer at once (/api/talk/voice-save); the next Amit page
+     that loads under the person's login writes it into their saved voice, so it becomes their default everywhere.
+     It speaks with the shared Amit speech code (speakContactText in amit_owner_contact.js, the same one the Hub and Devotions use); a small
+     built-in version is used only if that file cannot be loaded. "Amit" is spoken as "uh-MEET", and web addresses as "link", as the chat does. -->
+<script src="https://ask-amit.github.io/Amit/amit_owner_contact.js"></script>
+<style>
+  :root { --bg:#09141f; --surface:#0f2338; --gold:#c9a84c; --text:#f0e8d0; --dim:rgba(240,232,208,.6); --line:rgba(201,168,76,.45); }
+  html, body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 "Segoe UI", system-ui, sans-serif; }
+  #s { padding:8px; color:var(--dim); }
+  html { overflow-y:auto; }
+  #panel { display:none; padding:14px 18px 16px; }
+  #panel h2 { margin:0 0 2px; font-size:18px; color:var(--gold); }
+  #panel p.sub { margin:0 0 8px; color:var(--dim); font-size:12.5px; }
+  label { display:flex; justify-content:space-between; margin:9px 0 3px; font-size:11.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--dim); }
+  label b { color:var(--text); font-weight:600; text-transform:none; letter-spacing:0; }
+  select { width:100%; background:var(--surface); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:9px; font:inherit; }
+  input[type=range] { width:100%; accent-color:var(--gold); }
+  .row { display:flex; gap:10px; margin-top:14px; }
+  button { flex:1; border:1px solid var(--line); background:transparent; color:var(--gold); padding:10px 12px; border-radius:8px; font:inherit; font-weight:600; cursor:pointer; }
+  button:hover { background:rgba(201,168,76,.14); }
+  button.primary { background:rgba(201,168,76,.24); }
+  #msg { min-height:20px; margin-top:12px; color:#7fd49a; font-size:13px; }
+</style>
+</head>
+<body>
+<div id="s">Amit Read is waiting.</div>
+<div id="panel">
+  <h2>Your reading voice</h2>
+  <p class="sub">How Amit sounds when it reads to you. Save keeps it as your voice.</p>
+  <label for="v">Voice</label>
+  <select id="v"></select>
+  <label for="rate">Speed <b id="rateL"></b></label>
+  <input type="range" id="rate" min="0.5" max="2" step="0.05">
+  <label for="pause">Pause between sentences <b id="pauseL"></b></label>
+  <input type="range" id="pause" min="0.3" max="3" step="0.1">
+  <label for="pitch">Pitch <b id="pitchL"></b></label>
+  <input type="range" id="pitch" min="0.5" max="2" step="0.05">
+  <label for="vol">Volume <b id="volL"></b></label>
+  <input type="range" id="vol" min="0.1" max="1" step="0.05">
+  <div class="row">
+    <button id="test">Test</button>
+    <button id="save" class="primary">Save</button>
+    <button id="close">Close</button>
+  </div>
+  <div id="msg"></div>
+</div>
+<script>
+(function () {
+  var TOKEN = '__WHISPER_TOKEN__';   // filled in by the helper when this page is opened directly; never given to another site
+  var K = '&k=' + encodeURIComponent(TOKEN);
+  var seq = -1, token = 0;
+  var $s = document.getElementById('s'), $panel = document.getElementById('panel');
+  function $(id) { return document.getElementById(id); }
+
+  function post(e, m) {
+    try {
+      fetch('/api/talk/event?k=' + encodeURIComponent(TOKEN), { method: 'POST', body: JSON.stringify({ e: e, m: String(m || '').replace(/["\\\r\n]/g, ' ').slice(0, 200) }) }).catch(function () {});
+    } catch (x) {}
+  }
+
+  function getVoices() {
+    return new Promise(function (res) {
+      var v = speechSynthesis.getVoices();
+      if (v.length) { res(v); return; }
+      var done = false;
+      function fin() { if (!done) { done = true; res(speechSynthesis.getVoices()); } }
+      speechSynthesis.onvoiceschanged = fin;
+      setTimeout(fin, 3000);
+    });
+  }
+
+  function shortName(n) { return String(n || '').replace(/^Microsoft\s+/i, '').split(' - ')[0]; }
+
+  function resolve(voices, contact) {
+    if (typeof resolveVoiceFromContact === 'function') return resolveVoiceFromContact(voices, contact, null);
+    return voices.find(function (v) { return v.name === contact.voice_name; }) || voices.find(function (v) { return /Brian/i.test(v.name); }) || voices[0] || null;
+  }
+
+  /* THE READING LOOP. One sentence at a time (the same pacing as the shared Amit speech code: a pause between sentences scaled by the person's
+     pause setting), but the settings are read fresh for EACH sentence, so the voice window can change them while Amit is reading: the current
+     sentence is stopped and said again straight away with the new settings. Nothing runs between sentences except one timer. */
+  var run = null, paused = false, liveT = null;
+
+  function numOr(v, d) { v = Number(v); return isFinite(v) && v > 0 ? v : d; }
+
+  function startRun(text, contact, voices, my, opts) {
+    var parts = (String(text).match(/[^.!?]+[.!?]*/g) || [String(text)]).map(function (x) { return x.trim(); }).filter(Boolean);
+    paused = false;
+    run = { my: my, parts: parts, i: 0, contact: contact, voices: voices, opts: opts, started: false, dirty: false, timer: null, u: null };
+    speakPart();
+  }
+
+  function speakPart() {
+    var r = run;
+    if (!r || r.my !== token) return;
+    if (r.i >= r.parts.length) { r.opts.onEnd(); return; }
+    var c = r.contact, d = (typeof AMIT_DEFAULT_VOICE !== 'undefined') ? AMIT_DEFAULT_VOICE : { voice_rate: 1.1, voice_pitch: 1, voice_volume: 1, voice_pause_scale: 1.2 };
+    var voice = resolve(r.voices, c), pause = numOr(c.voice_pause_scale, d.voice_pause_scale);
+    var u = new SpeechSynthesisUtterance(r.parts[r.i].slice(r.base || 0));   // base: where in the sentence to begin (after a live change it is the word that was being spoken)
+    if (voice) u.voice = voice;
+    u.rate = numOr(c.voice_rate, d.voice_rate); u.pitch = numOr(c.voice_pitch, d.voice_pitch);
+    u.volume = c.voice_volume != null && isFinite(Number(c.voice_volume)) ? Number(c.voice_volume) : d.voice_volume;
+    r.u = u; r.last = 0;
+    u.onstart = function () { if (run === r && r.u === u && !r.started) { r.started = true; r.opts.onStart(); } };
+    u.onboundary = function (e) { if (run === r && r.u === u && (!e.name || e.name === 'word')) r.last = e.charIndex; };   // the word being spoken right now
+    u.onend = function () {
+      if (run !== r || r.u !== u) return;
+      r.i++; r.base = 0; r.last = 0;
+      if (r.i >= r.parts.length) { r.opts.onEnd(); return; }
+      r.timer = setTimeout(speakPart, 260 * pause);
+    };
+    u.onerror = function (e) { if (run !== r || r.u !== u) return; if (e && (e.error === 'canceled' || e.error === 'interrupted')) return; r.opts.onEnd(); };
+    speechSynthesis.speak(u);
+  }
+
+  /* stop what is being said and carry on from the word that was being spoken, so a new setting is heard without starting over.
+     (Edge cannot change a voice in the middle of a word, so the word being said is said again with the new setting.) */
+  function restartHere(r) {
+    clearTimeout(r.timer);
+    if (r.u && r.last > 0) r.base = (r.base || 0) + r.last;
+    r.last = 0; r.u = null;
+    try { speechSynthesis.cancel(); } catch (x) {}
+    r.timer = setTimeout(speakPart, 80);   // Edge sometimes drops a sentence spoken in the same instant as a cancel
+  }
+
+  /* the person moved a slider or chose another voice while Amit is reading: carry on from this spot with the new settings */
+  function applyLive() {
+    var r = run;
+    if (!r || r.my !== token || !$panel || $panel.style.display === 'none') return;
+    r.contact = fromControls();
+    post('live', 'speed ' + r.contact.voice_rate + ', pause ' + r.contact.voice_pause_scale + ', pitch ' + r.contact.voice_pitch + ', volume ' + r.contact.voice_volume + ', from character ' + ((r.base || 0) + (r.last || 0)) + ' of this sentence' + (paused ? ' (waits for resume)' : ''));
+    if (paused) { r.dirty = true; return; }
+    restartHere(r);
+  }
+  function applyLiveSoon(ms) { clearTimeout(liveT); liveT = setTimeout(applyLive, ms); }
+
+  /* a heartbeat for the helper while sound is really playing (the helper only quiets dictation for a few seconds after the last one, so a lost "finished" message can never leave it stuck) */
+  setInterval(function () {
+    try { if (run && run.my === token && speechSynthesis.speaking && !speechSynthesis.paused) post('speaking', ''); } catch (x) {}
+  }, 1500);
+
+  async function speak(text) {
+    var my = ++token;
+    try { speechSynthesis.cancel(); } catch (x) {}
+    var contact = null;
+    try { var r = await fetch('/api/talk/voice?x=1' + K, { cache: 'no-store' }); contact = await r.json(); } catch (x) {}
+    if (my !== token) return;
+    if (!contact || !(contact.voice_name || contact.voice_rate)) { post('novoice', ''); return; }
+    var voices = await getVoices();
+    if (my !== token) return;
+    if (!voices.length) { post('error', 'This browser has no voices to speak with.'); return; }
+    var chosen = resolve(voices, contact);
+    if (contact.voice_name && chosen && chosen.name !== contact.voice_name) post('fallback', shortName(chosen.name));
+    var spoken = String(text).replace(/https?:\/\/\S+/gi, 'link').replace(/\bAmit\b/g, 'uh-MEET');
+    startRun(spoken, contact, voices, my, {
+      onStart: function () { if (my === token) { $s.textContent = 'Reading.'; post('started', chosen ? shortName(chosen.name) : ''); } },
+      onEnd: function () { if (my === token) { $s.textContent = 'Amit Read is waiting.'; post('ended', ''); } }
+    });
+  }
+
+  /* ---------- the voice panel (double click on the speaker) ---------- */
+  var panelVoices = [];
+  function lbl() {
+    $('rateL').textContent = Number($('rate').value).toFixed(2) + 'x';
+    $('pauseL').textContent = Number($('pause').value).toFixed(1) + 'x';
+    $('pitchL').textContent = Number($('pitch').value).toFixed(2);
+    $('volL').textContent = Math.round(Number($('vol').value) * 100) + '%';
+  }
+  function fromControls() {
+    var v = panelVoices.find(function (x) { return x.name === $('v').value; });
+    return { voice_name: $('v').value, voice_accent: v ? v.lang : '', voice_rate: Number($('rate').value), voice_pitch: Number($('pitch').value),
+             voice_volume: Number($('vol').value), voice_pause_scale: Number($('pause').value) };
+  }
+  async function openPanel() {
+    document.title = 'Amit Talk (voice settings)';
+    $panel.style.display = 'block'; $s.style.display = 'none'; $('msg').textContent = '';
+    var contact = {};
+    try { var r = await fetch('/api/talk/voice?x=1' + K, { cache: 'no-store' }); contact = await r.json(); } catch (x) {}
+    panelVoices = await getVoices();
+    var d = (typeof AMIT_DEFAULT_VOICE !== 'undefined') ? AMIT_DEFAULT_VOICE : { voice_rate: 1.1, voice_pitch: 1, voice_volume: 1, voice_pause_scale: 1.2 };
+    var chosen = resolve(panelVoices, contact || {});
+    var isEn = function (v) { return /^en/i.test(v.lang); }, nat = function (v) { return /natural|online/i.test(v.name); };
+    var list = panelVoices.slice().sort(function (a, b) {
+      var sa = (isEn(a) ? 0 : 2) + (nat(a) ? 0 : 1), sb = (isEn(b) ? 0 : 2) + (nat(b) ? 0 : 1);
+      return sa - sb || a.name.localeCompare(b.name);
+    });
+    var sel = $('v'); sel.innerHTML = '';
+    list.forEach(function (v) { var o = document.createElement('option'); o.value = v.name; o.textContent = shortName(v.name) + '  (' + v.lang + ')'; sel.appendChild(o); });
+    if (chosen) sel.value = chosen.name;
+    $('rate').value = contact.voice_rate || d.voice_rate;
+    $('pause').value = contact.voice_pause_scale || d.voice_pause_scale;
+    $('pitch').value = contact.voice_pitch || d.voice_pitch;
+    $('vol').value = contact.voice_volume != null ? contact.voice_volume : d.voice_volume;
+    lbl();
+  }
+  function closePanel() {
+    if (run && run.opts && run.opts.test) { token++; run = null; try { speechSynthesis.cancel(); } catch (x) {} }   // only the test sentence stops; a real reading carries on
+    $panel.style.display = 'none'; $s.style.display = 'block'; document.title = 'Amit Talk (speaking page)';
+    post('settingsclosed', '');
+  }
+  /* interactive: whatever Amit is reading right now follows the controls (a short wait after the last movement, so dragging does not stutter) */
+  ['rate', 'pause', 'pitch', 'vol'].forEach(function (id) { ['input', 'change'].forEach(function (ev) { $(id).addEventListener(ev, function () { lbl(); applyLiveSoon(350); }); }); });
+  $('v').addEventListener('change', function () { applyLiveSoon(0); });
+  /* Test: a sample sentence to hear the settings when nothing is being read; the controls act on it live too. While something is being read, it just applies the controls at once. */
+  $('test').onclick = function () {
+    if (run && run.my === token && run.i < run.parts.length) { applyLive(); return; }
+    var my = ++token;
+    try { speechSynthesis.cancel(); } catch (x) {}
+    startRun('Hello. This is how I sound when I read to you. Move the sliders and you can hear the change right away.', fromControls(), panelVoices, my, { test: true, onStart: function () {}, onEnd: function () {} });
+  };
+  $('save').onclick = function () {
+    fetch('/api/talk/voice-save?x=1' + K, { method: 'POST', body: JSON.stringify(fromControls()) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { $('msg').style.color = j && j.ok ? '#7fd49a' : '#e07a6a'; $('msg').textContent = j && j.ok ? 'Saved. This is now your reading voice.' : 'Could not save. Try again.'; })
+      .catch(function () { $('msg').style.color = '#e07a6a'; $('msg').textContent = 'Could not save. Try again.'; });
+  };
+  $('close').onclick = closePanel;
+
+  function handle(j) {
+    if (j.cmd === 'speak') speak(j.text || '');
+    else if (j.cmd === 'pause') { paused = true; try { speechSynthesis.pause(); } catch (x) {} post('paused', ''); }
+    else if (j.cmd === 'resume') {
+      paused = false;
+      if (run && run.dirty && run.my === token) { run.dirty = false; restartHere(run); }   // settings changed while paused: carry on from the same spot with them
+      else { try { speechSynthesis.resume(); } catch (x) {} }
+      post('resumed', '');
+    }
+    else if (j.cmd === 'stop') { token++; run = null; paused = false; try { speechSynthesis.cancel(); } catch (x) {} post('stopped', ''); }
+    else if (j.cmd === 'settings') openPanel();
+  }
+
+  function loop() {
+    fetch('/api/talk/wait?seq=' + seq + K, { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j.error) { setTimeout(loop, 1500); return; }
+        var first = seq < 0;
+        seq = j.seq;
+        if (!first && j.cmd && j.cmd !== 'none') handle(j);
+        loop();
+      })
+      .catch(function () { setTimeout(loop, 1000); });
+  }
+  loop();
+})();
+</script>
+</body>
+</html>
