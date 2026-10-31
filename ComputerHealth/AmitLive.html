@@ -265,7 +265,16 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
     signedIn=true;
     AmitChat.appName='amitlive';
     /* Amit is told where the person is: recorded with every question, so the answer knows this is the floating Amit Live window on their own computer */
-    AmitChat.placeProvider=function(){ return { page:'amitlive', label:'the Amit Live window on the person\'s own computer (opened from the Amit Live ring, tabs: Ask Amit, My Computer, My Words)' }; };
+    /* Amit is told where the person is AND how this computer is doing right now: the window runs on their computer, so it reads the helper's health snapshot every 10 seconds and sends the latest one with each question (the answering Amit cannot reach the helper itself) */
+    var snap=null, snapAt=0;
+    function pollSnap(){ if(document.hidden) return; fetch(HELPER+'/api/health-snapshot').then(function(r){ return r.json(); }).then(function(j){ if(j&&!j.error){ snap=j; snapAt=Date.now(); } }).catch(function(){}); }
+    pollSnap(); setInterval(pollSnap,10000);
+    function snapText(){
+      if(!snap||Date.now()-snapAt>60000) return 'Live readings of this computer were not available just now (the Amit helper could not be reached).';
+      var gb=function(mb){ return mb>=1024?(mb/1024).toFixed(1)+' GB':mb+' MB'; };
+      return 'Read '+Math.max(0,Math.round((Date.now()-snapAt)/1000))+' seconds ago from the tracker on this computer ('+(snap.device||'this computer')+'): processor '+snap.cpuPct+'% busy, memory '+snap.ramPct+'% in use of '+snap.ramTotalGb+' GB, main drive '+snap.diskFreePct+'% free ('+snap.diskFreeGb+' GB), on for '+Math.round(snap.uptimeHours)+' hours since the last restart'+((snap.top&&snap.top.length)?'; using the most memory: '+snap.top.map(function(x){ return x.name+' '+gb(x.mb); }).join(', '):'')+(snap.tracking?'; Computer Health is tracking.':'.');
+    }
+    AmitChat.placeProvider=function(){ return { page:'amitlive', label:'Amit Live', where:'the Amit Live window on the person\'s own computer, opened from the Amit Live ring (the Aurora). Tabs: Ask Amit (this chat), My Computer (the helper status and the Whisper setup), My Words, and Computer Health (the live health snapshot with a verdict).', computer:snapText() }; };
     /* the box's "open full screen" button: a NEW Hub tab in the browser opens straight on Communications > Chats with this conversation (Hub ?chat=<id>); this window keeps its chat */
     AmitChat.onMaximize=function(id){
       try{ window.open('https://ask-amit.github.io/Amit/Hub/amit-hub.html?chat='+encodeURIComponent(id||''),'amit_hub_chat'); }catch(e){}
