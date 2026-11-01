@@ -1,4 +1,6 @@
-# open_preview.ps1 v1.10 (2026-10-31) - opens an Amit preview page in ONE app window, SPLIT-SCREEN beside the person's coding window.
+# open_preview.ps1 v1.20 (2026-10-31) - opens an Amit preview page in ONE app window, SPLIT-SCREEN beside the window the person is in
+# (VS Code, the Hub in a browser, anything). From Amit Live program v1.50 on the program does this by itself for any window titled "... Preview";
+# this script is the fallback and does -Restore.
 # What it does, every time:
 #   1. Finds the person's current window (VS Code) before anything else.
 #   2. Closes any earlier preview window (gracefully), so previews never pile up.
@@ -63,6 +65,15 @@ public class AmitWin {
     EnumWindows(delegate(IntPtr h, IntPtr l) { if (found == IntPtr.Zero && IsWindowVisible(h) && Title(h).IndexOf("Visual Studio Code") >= 0) found = h; return true; }, IntPtr.Zero);
     return found;
   }
+  [DllImport("user32.dll")] static extern bool IsWindow(IntPtr h);
+  public static bool Alive(IntPtr h) { return h != IntPtr.Zero && IsWindow(h); }
+  // the window the person is in: the one in front when this runs (not a preview, not the desktop); VS Code is the fallback
+  public static IntPtr FindCurrent() {
+    IntPtr fg = GetForegroundWindow();
+    string ft = Title(fg);
+    if (fg != IntPtr.Zero && IsWindowVisible(fg) && ft.Length > 0 && !IsPreviewTitle(ft) && ft != "Program Manager") return fg;
+    return FindVsCode();
+  }
   public static int[] WorkArea(IntPtr h) {
     MONITORINFO mi = new MONITORINFO(); mi.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
     GetMonitorInfo(MonitorFromWindow(h, 2), ref mi);
@@ -93,17 +104,18 @@ if ($List) {
   $p = [AmitWin]::Previews()
   "preview windows open: " + $p.Count
   foreach ($h in $p) { "  preview rect: " + ([AmitWin]::Rect($h) -join ",") }
-  $v = [AmitWin]::FindVsCode()
+  $v = [AmitWin]::FindCurrent()
   if ($v -ne [IntPtr]::Zero) { "  VS Code rect: " + ([AmitWin]::Rect($v) -join ",") + "  maximized=" + [AmitWin]::Maximized($v) }
   exit 0
 }
 
 if ($Restore) {
-  $v = [AmitWin]::FindVsCode()
+  $v = [AmitWin]::FindCurrent()
   [AmitWin]::ClosePreviews()
   Start-Sleep -Milliseconds 500
   if ((Test-Path $stateFile) -and ($v -ne [IntPtr]::Zero)) {
     $s = Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json
+    if ($s.hwnd) { $hh = [IntPtr][long]$s.hwnd; if ([AmitWin]::Alive($hh)) { $v = $hh } }   # put back the window that was moved, whatever it is
     if ($s.maximized) { [AmitWin]::Maximize($v) } else { [AmitWin]::Place($v, [int]$s.l, [int]$s.t, [int]($s.r - $s.l), [int]($s.b - $s.t)) }
     Remove-Item -LiteralPath $stateFile -Force
     "preview closed; VS Code put back the way it was"
@@ -116,7 +128,7 @@ $full = (Resolve-Path -LiteralPath $Path).Path
 $url = ([System.Uri]$full).AbsoluteUri
 
 # 1. find the person's window FIRST, while it is still the front one
-$vs = [AmitWin]::FindVsCode()
+$vs = [AmitWin]::FindCurrent()
 
 # 2. close earlier preview windows
 $had = [AmitWin]::Previews().Count
@@ -139,7 +151,7 @@ if ($NoSplit -or ($vs -eq [IntPtr]::Zero)) {
 }
 if (-not (Test-Path $stateFile)) {
   $rc = [AmitWin]::Rect($vs)
-  @{ maximized = [AmitWin]::Maximized($vs); l = $rc[0]; t = $rc[1]; r = $rc[2]; b = $rc[3] } | ConvertTo-Json | Set-Content -LiteralPath $stateFile -Encoding ascii
+  @{ maximized = [AmitWin]::Maximized($vs); l = $rc[0]; t = $rc[1]; r = $rc[2]; b = $rc[3]; hwnd = $vs.ToInt64() } | ConvertTo-Json | Set-Content -LiteralPath $stateFile -Encoding ascii
 }
 $wa = [AmitWin]::WorkArea($vs)
 $mid = $wa[0] + [int](($wa[2] - $wa[0]) * $LeftPercent / 100)
@@ -154,4 +166,4 @@ if ($pv -eq [IntPtr]::Zero) { "the preview window did not appear in time; nothin
 [AmitWin]::Place($pv, $mid, $wa[1], ($wa[2] - $mid), ($wa[3] - $wa[1]))
 Start-Sleep -Milliseconds 300
 [AmitWin]::Focus($vs)
-"split done: VS Code on the left, preview on the right (focus is back on VS Code)"
+"split done: your window on the left, preview on the right (focus is back on your window)"
