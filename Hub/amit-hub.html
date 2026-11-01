@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1391,7 +1391,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.56</div>
+      <div class="page-version" id="hubVersionBadge">v8.57</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2499,6 +2499,8 @@ header{
           <button class="ch-tab-btn" id="ch-tab-btn-comm-chats" onclick="showChTab('comm',2)">Chats</button>
           <button class="ch-tab-btn" onclick="showChTab('comm',3);scLoad()">Shortcuts</button>
           <button class="ch-tab-btn" id="ch-tab-btn-comm-morning" onclick="showChTab('comm',4);mmLoad()">My Morning</button>
+          <button class="ch-tab-btn" id="ch-tab-btn-comm-live" onclick="showChTab('comm',5)">Amit Live</button>
+          <button class="ch-tab-btn" id="ch-tab-btn-comm-helper" onclick="showChTab('comm',6);hlLoad()">Amit Helper</button>
         </div>
         <div class="ch-tab-main">
 
@@ -2653,6 +2655,68 @@ header{
             <label class="amw-small" style="display:flex;align-items:center;gap:8px;margin-bottom:16px"><input type="checkbox" id="mmAgenda" checked> Offer my agenda (my pursuits due today) when I ask for it</label>
             <button class="btn btn-gold" onclick="mmSave()">Save my morning</button>
             <div id="mmNote" class="amw-small" style="min-height:18px;margin-top:8px"></div>
+          </div>
+        </div>
+
+        <!-- TAB 5: AMIT LIVE (Ryan, 2026-11-01): the ring, voice and dictation settings of the Amit Live program. Page built, contents still to be settled with Ryan. -->
+        <div class="ch-tab-content" id="ch-tab-comm-5">
+          <div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.08em;color:var(--gold2);margin-bottom:8px">Amit Live</div>
+          <p style="font-size:14px;line-height:1.7;color:var(--muted);margin:0">The ring (hold the right mouse button), the voice and dictation settings of the Amit Live program will be set here. For now your voice settings are still in About Me. Your bar is in the Amit Helper tab.</p>
+        </div>
+
+        <!-- TAB 6: AMIT HELPER (Ryan, 2026-11-01): profiles on the left, buttons on the right, a pop-up to edit a button, bar settings. Own rows only in hel_settings / hel_profiles / hel_buttons (migration 035). -->
+        <div class="ch-tab-content" id="ch-tab-comm-6">
+          <style>
+            #panel-mail .hl-wrap{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
+            #panel-mail .hl-side{width:210px;flex-shrink:0}
+            #panel-mail .hl-main{flex:1;min-width:300px}
+            #panel-mail .hl-prof{display:flex;align-items:center;gap:6px;padding:8px 10px;margin-bottom:6px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:8px;cursor:pointer;font-size:14px}
+            #panel-mail .hl-prof.on{background:rgba(var(--amit-accent-rgb,201,168,76),.14);border-color:var(--gold2);color:var(--gold2)}
+            #panel-mail .hl-prof small{margin-left:auto;font-size:11px;color:var(--muted)}
+            #panel-mail .hl-tr{display:grid;grid-template-columns:76px 130px minmax(120px,1fr) minmax(140px,1.2fr);gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid rgba(var(--amit-accent-rgb,201,168,76),.15)}
+            #panel-mail .hl-tr.th{font-size:11px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;border-bottom-color:rgba(var(--amit-accent-rgb,201,168,76),.4)}
+            #panel-mail .hl-cell{padding:6px 8px;border-radius:8px;border:1px dashed transparent;cursor:pointer;font-size:13.5px;line-height:1.4;min-height:34px;display:flex;align-items:center}
+            #panel-mail .hl-cell:hover{border-color:var(--gold2)}
+            #panel-mail .hl-sl{width:44px;height:44px;border-radius:10px;border:2px solid var(--hlc);border-bottom-width:4px;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font-size:20px}
+            #panel-mail .hl-wd{width:96px;min-height:56px;border-radius:10px;border:2px solid var(--hlc);border-bottom-width:4px;background:rgba(0,0,0,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;line-height:1.2;text-align:center;padding:2px 4px}
+            #panel-mail .hl-wd i{font-style:normal;font-size:18px}
+            #panel-mail .hl-grid{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+            #panel-mail .hl-btn{width:104px;min-height:78px;padding:8px 6px;border-radius:10px;background:rgba(0,0,0,.35);border:1px solid var(--hlc,#c9a84c);border-bottom-width:3px;text-align:center;cursor:pointer;color:inherit;font-size:12px;line-height:1.3}
+            #panel-mail .hl-btn .g{display:block;font-size:24px;margin-bottom:3px}
+            #panel-mail .hl-btn:hover{box-shadow:0 0 0 2px rgba(var(--amit-accent-rgb,201,168,76),.4)}
+            #panel-mail .hl-add{border-style:dashed;color:var(--muted)}
+            #panel-mail .hl-key{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);margin:0 0 16px}
+            #panel-mail .hl-key i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+            .hl-icons{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+            .hl-icons span{font-size:20px;padding:3px 5px;border-radius:6px;cursor:pointer;border:1px solid transparent}
+            .hl-icons span.on{border-color:var(--gold2);background:rgba(var(--amit-accent-rgb,201,168,76),.18)}
+            .hl-step{display:flex;gap:6px;margin-bottom:6px}
+          </style>
+          <div id="hlSignedOut" class="amw-small" style="display:none">Sign in to set up your bar.</div>
+          <div id="hlForm">
+            <div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.08em;color:var(--gold2);margin-bottom:8px">Amit Helper</div>
+            <p style="font-size:14px;line-height:1.7;color:var(--muted);margin:0 0 12px">Your bar on the right edge of the screen. Make a profile for each way you work, put buttons in it, and the bar shows the profile you choose. Bring the bar up with a double-right-click.</p>
+            <div class="hl-key" id="hlKey"></div>
+            <div class="hl-wrap">
+              <div class="hl-side">
+                <label class="fg-label" style="display:block;margin-bottom:6px">MY PROFILES</label>
+                <div id="hlProfiles"></div>
+                <div style="display:flex;gap:6px;margin-top:8px"><input class="fg-input" id="hlNewProf" maxlength="24" placeholder="New profile name" style="flex:1;min-width:0"><button class="btn btn-gold" onclick="hlAddProfile()">Add</button></div>
+              </div>
+              <div class="hl-main">
+                <div id="hlProfHead" style="margin-bottom:10px"></div>
+                <div id="hlTable"></div>
+                <p class="amw-small" style="margin:8px 0 0">Click any cell to change it. The color follows what the button does.</p>
+              </div>
+            </div>
+            <hr class="modal-hr" style="margin:20px 0">
+            <label class="fg-label" style="display:block;margin-bottom:8px">THE BAR</label>
+            <label class="amw-small" style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><input type="checkbox" id="hlAlways"> Always on (stays on the screen, no double-right-click needed)</label>
+            <label class="amw-small" style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><input type="checkbox" id="hlWiden" checked> Clicking the bar makes it wider (shows the names)</label>
+            <label class="amw-small" style="display:block;margin-bottom:10px">Goes away after <select class="fg-input" id="hlIdle" style="display:inline-block;width:auto"><option value="1">1</option><option value="2">2</option><option value="5">5</option><option value="10">10</option></select> minutes unused</label>
+            <label class="amw-small" style="display:block;margin-bottom:14px">Width <select class="fg-input" id="hlRail" style="display:inline-block;width:auto"><option value="narrow">Narrow</option><option value="medium">Medium</option><option value="wide">Wide</option></select></label>
+            <button class="btn btn-gold" onclick="hlSaveSettings()">Save the bar settings</button>
+            <div id="hlNote" class="amw-small" style="min-height:18px;margin-top:8px"></div>
           </div>
         </div>
 
@@ -3084,6 +3148,44 @@ header{
 </div>
 
 <!-- ── FUTURE TOOLS MODAL — added 2026-09-11 ── -->
+<!-- Amit Helper: edit one button (Ryan, 2026-11-01) -->
+<div class="overlay" id="hlEditOverlay" onclick="if(event.target===this)hlCloseEdit()">
+  <div class="modal" onclick="event.stopPropagation()" style="width:520px">
+    <div class="modal-hdr"><div class="modal-title" id="hlEditTitle">Button</div></div>
+    <div id="hlSecIcon">
+      <label class="fg-label" style="display:block;margin:10px 0 5px">ICON</label>
+      <div class="hl-icons" id="hlIcons"></div>
+      <button class="btn" onclick="hlSuggestIcons()">Ask Amit to suggest</button>
+      <div id="hlIconAsk" class="amw-small" style="display:none;margin-top:8px"></div>
+    </div>
+    <div id="hlSecName">
+      <label class="fg-label" style="display:block;margin:8px 0 5px">NAME ON THE WIDE BAR</label>
+      <input class="fg-input" id="hlName" maxlength="24" placeholder="e.g. Books">
+    </div>
+    <div id="hlSecDesc">
+      <label class="fg-label" style="display:block;margin:10px 0 5px">DESCRIPTION (SHOWN WHEN YOU POINT AT IT)</label>
+      <input class="fg-input" id="hlDesc" maxlength="200" placeholder="e.g. Opens AmitBooks, already signed in">
+    </div>
+    <div id="hlSecDoes">
+      <label class="fg-label" style="display:block;margin:10px 0 5px">WHAT IT DOES &mdash; IN YOUR OWN WORDS, IN ORDER</label>
+      <textarea class="fg-input" id="hlSay" rows="4" maxlength="1000" placeholder="for example: First open AmitBooks. Then do a J search for unmatched deposits and tell me what you find." style="margin-bottom:6px"></textarea>
+      <button class="btn btn-gold" onclick="hlGenerate()">Generate the button</button>
+      <p class="amw-small" style="margin:6px 0 8px">This copies a full request for Amit. Paste it to Amit in your Amit session (your own Claude account), then paste Amit&rsquo;s answer below.</p>
+      <textarea class="fg-input" id="hlPaste" rows="3" placeholder="Paste Amit&rsquo;s steps here" style="margin-bottom:6px"></textarea>
+      <button class="btn" onclick="hlReadPaste()">Show me the steps</button>
+      <label class="fg-label" style="display:block;margin:12px 0 5px" id="hlStepsLabel">THE STEPS &mdash; CHECK THEM, THEN SAVE</label>
+      <div id="hlSteps"></div>
+      <button class="btn" onclick="hlAddStep()" style="margin-bottom:6px">+ Add a step by hand</button>
+    </div>
+    <div id="hlEditNote" class="amw-small" style="min-height:18px;margin:6px 0"></div>
+    <div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" id="hlDelBtn" onclick="hlDeleteButton()" style="margin-right:auto">Delete</button>
+      <button class="btn" onclick="hlCloseEdit()">Cancel</button>
+      <button class="btn btn-gold" onclick="hlSaveButton()">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="futureToolsOverlay" onclick="if(event.target===this)closeFutureToolsModal()">
   <div class="modal" onclick="event.stopPropagation()" style="width:460px">
     <div class="modal-hdr">
@@ -5944,6 +6046,208 @@ async function mmSave(){
   const r=await db.from('mor_settings').upsert(row,{onConflict:'user_id'});
   if(r.error){ mmNote('Could not save: '+(r.error.message||'unknown error'),true); return; }
   mmNote('Saved. The Amit Live window will use this the next time you open it.');
+}
+// ---- Communications > Amit Helper (Ryan, 2026-11-01). Own rows only in hel_settings / hel_profiles / hel_buttons (migration 035, safe step types enforced by the database). ----
+const HL_KINDS={app:['Amit app','#c9a84c'],web:['Website','#5b9bd5'],music:['Music','#9b7fd1'],program:['Program','#3fb5a8'],multi:['Several steps','#e0826a'],ask:['Ask Amit','#5cb85c']};
+const HL_STEPS={open_app:['Open an Amit app','app','e.g. AmitBooks'],open_url:['Open a website','web','https://...'],open_program:['Open a program','program','e.g. Notepad'],play_music:['Play music','music','e.g. Devotions'],speak:['Speak','ask','what Amit says'],ask_amit:['Ask Amit','ask','the question to ask'],wait:['Wait (seconds)','multi','1 to 60']};
+const HL_ICONS=['📚','💰','🛒','✉️','📅','🎵','🙏','📖','💻','🔧','🌐','🏠','🏥','🚗','📷','📝','☀️','⭐','🔔','📞','🎯','🧭','🕊️','🛠️'];
+const HL_DEFAULTS={always_on:false,idle_minutes:2,widen_on_click:true,rail_width:'medium'};
+let hl={profiles:[],buttons:[],sel:null,editId:null,icon:'⭐',steps:[]};
+function hlEl(id){ return document.getElementById(id); }
+function hlEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function hlNote(msg,bad){ const n=hlEl('hlNote'); if(!n) return; n.textContent=msg||''; n.style.color=bad?'var(--amit-danger,#e07a6a)':''; }
+function hlSigned(){ return (typeof currentUser!=='undefined'&&currentUser&&typeof db!=='undefined'&&db); }
+async function hlLoad(){
+  const signed=hlSigned();
+  hlEl('hlSignedOut').style.display=signed?'none':''; hlEl('hlForm').style.display=signed?'':'none';
+  if(!signed) return;
+  hlNote('');
+  hlEl('hlKey').innerHTML=Object.keys(HL_KINDS).map(function(k){ return '<span><i style="background:'+HL_KINDS[k][1]+'"></i>'+HL_KINDS[k][0]+'</span>'; }).join('');
+  const rs=await Promise.all([db.from('hel_settings').select('*').eq('user_id',currentUser.id).maybeSingle(),
+    db.from('hel_profiles').select('*').eq('user_id',currentUser.id).order('sort_order').order('created_at'),
+    db.from('hel_buttons').select('*').eq('user_id',currentUser.id).order('sort_order').order('created_at')]);
+  const bad=rs.find(function(r){ return r.error; });
+  if(bad){
+    const missing=/does not exist|42P01|PGRST205|schema cache/i.test((bad.error.message||'')+' '+(bad.error.code||''));
+    hlNote(missing?'Amit Helper is not set up in the database yet. The owner needs to run migration 035 once.':'Could not load your bar: '+(bad.error.message||'unknown error'),true);
+    hl.profiles=[]; hl.buttons=[]; hlFillSettings(HL_DEFAULTS); hlRender(); return;
+  }
+  hl.profiles=rs[1].data||[]; hl.buttons=rs[2].data||[];
+  if(!hl.profiles.some(function(p){ return p.id===hl.sel; })){ const c=hl.profiles.find(function(p){ return p.is_current; })||hl.profiles[0]; hl.sel=c?c.id:null; }
+  hlFillSettings(Object.assign({},HL_DEFAULTS,rs[0].data||{})); hlRender();
+}
+function hlFillSettings(s){ hlEl('hlAlways').checked=!!s.always_on; hlEl('hlWiden').checked=!!s.widen_on_click; hlEl('hlIdle').value=String(s.idle_minutes); hlEl('hlRail').value=s.rail_width; }
+function hlRender(){
+  hlEl('hlProfiles').innerHTML=hl.profiles.length?hl.profiles.map(function(p){
+    return '<div class="hl-prof'+(p.id===hl.sel?' on':'')+'" onclick="hlSelect(\''+p.id+'\')">'+hlEsc(p.name)+(p.is_current?'<small>on the bar</small>':'')+'</div>'; }).join(''):'<p class="amw-small" style="margin:0">No profiles yet. Add your first one below.</p>';
+  const p=hl.profiles.find(function(x){ return x.id===hl.sel; });
+  if(!p){ hlEl('hlProfHead').innerHTML=''; hlEl('hlTable').innerHTML=''; return; }
+  hlEl('hlProfHead').innerHTML='<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><b style="color:var(--gold2)">'+hlEsc(p.name)+'</b>'
+    +(p.is_current?'':'<button class="btn" onclick="hlSetCurrent()">Show this on the bar</button>')
+    +'<button class="btn" onclick="hlRenameProfile()">Rename</button><button class="btn" onclick="hlDeleteProfile()">Delete</button></div>'
+    +'<div style="margin-top:8px"><label class="amw-small">Say &ldquo;profile&rdquo; and then <input class="fg-input" id="hlVoice" maxlength="40" value="'+hlEsc(p.voice_phrase||'')+'" placeholder="'+hlEsc(p.name.toLowerCase())+'" style="display:inline-block;width:160px"></label> <button class="btn" onclick="hlSaveVoice()">Save</button></div>';
+  const bs=hl.buttons.filter(function(b){ return b.profile_id===p.id; });
+  hlEl('hlTable').innerHTML='<div class="hl-tr th"><span>Slim bar</span><span>Wide bar</span><span>Description</span><span>What it does</span></div>'
+    +bs.map(function(b){ const c=(HL_KINDS[b.kind]||HL_KINDS.app)[1], i="'"+b.id+"'";
+      return '<div class="hl-tr" style="--hlc:'+c+'">'
+        +'<div class="hl-cell" title="Change the icon" onclick="hlOpenEdit('+i+',\'icon\')"><div class="hl-sl" style="color:'+c+'">'+hlEsc(b.icon)+'</div></div>'
+        +'<div class="hl-cell" title="Change the name" onclick="hlOpenEdit('+i+',\'name\')"><div class="hl-wd"><i style="color:'+c+'">'+hlEsc(b.icon)+'</i>'+hlEsc(b.name)+'</div></div>'
+        +'<div class="hl-cell" title="Change the description" onclick="hlOpenEdit('+i+',\'desc\')">'+(hlEsc(b.description)||'<span style="color:var(--muted)">Add a description</span>')+'</div>'
+        +'<div class="hl-cell" title="Change what it does" onclick="hlOpenEdit('+i+',\'does\')">'+hlEsc(hlSummary(b))+'</div></div>'; }).join('')
+    +'<div style="margin-top:10px"><button class="btn btn-gold" onclick="hlOpenEdit(null,\'new\')">+ Add a button</button></div>';
+}
+function hlSummary(b){
+  if(b.says) return b.says.length>90?b.says.slice(0,90)+'...':b.says;
+  return (b.steps||[]).map(function(s,i){ return (b.steps.length>1?(i+1)+'. ':'')+(HL_STEPS[s.t]?HL_STEPS[s.t][0]:s.t)+(s.v!==''&&s.v!=null?': '+s.v:''); }).join('  ');
+}
+function hlSelect(id){ hl.sel=id; hlRender(); }
+async function hlAddProfile(){
+  const inp=hlEl('hlNewProf'), name=inp.value.trim();
+  if(!name){ hlNote('Type a name for the profile.',true); return; }
+  if(name.length>24){ hlNote('Keep the name to 24 letters or fewer.',true); return; }
+  const first=!hl.profiles.length;
+  const r=await db.from('hel_profiles').insert({user_id:currentUser.id,name:name,sort_order:hl.profiles.length,is_current:first}).select().single();
+  if(r.error){ hlNote(/duplicate|unique/i.test(r.error.message||'')?'You already have a profile with that name.':'Could not add it: '+(r.error.message||'unknown error'),true); return; }
+  inp.value=''; hlNote(''); hl.profiles.push(r.data); hl.sel=r.data.id; hlRender();
+}
+async function hlRenameProfile(){
+  const p=hl.profiles.find(function(x){ return x.id===hl.sel; }); if(!p) return;
+  const name=(prompt('New name for this profile:',p.name)||'').trim(); if(!name||name===p.name) return;
+  if(name.length>24){ hlNote('Keep the name to 24 letters or fewer.',true); return; }
+  const r=await db.from('hel_profiles').update({name:name}).eq('id',p.id);
+  if(r.error){ hlNote('Could not rename it: '+(r.error.message||'unknown error'),true); return; }
+  p.name=name; hlNote(''); hlRender();
+}
+async function hlDeleteProfile(){
+  const p=hl.profiles.find(function(x){ return x.id===hl.sel; }); if(!p) return;
+  const n=hl.buttons.filter(function(b){ return b.profile_id===p.id; }).length;
+  if(!confirm('Delete the profile "'+p.name+'"'+(n?' and its '+n+' button'+(n>1?'s':''):'')+'? This cannot be undone.')) return;
+  const r=await db.from('hel_profiles').delete().eq('id',p.id);
+  if(r.error){ hlNote('Could not delete it: '+(r.error.message||'unknown error'),true); return; }
+  hl.profiles=hl.profiles.filter(function(x){ return x.id!==p.id; }); hl.buttons=hl.buttons.filter(function(b){ return b.profile_id!==p.id; });
+  if(p.is_current&&hl.profiles.length){ await db.from('hel_profiles').update({is_current:true}).eq('id',hl.profiles[0].id); hl.profiles[0].is_current=true; }
+  hl.sel=hl.profiles.length?hl.profiles[0].id:null; hlNote(''); hlRender();
+}
+async function hlSetCurrent(){
+  const p=hl.profiles.find(function(x){ return x.id===hl.sel; }); if(!p) return;
+  const a=await db.from('hel_profiles').update({is_current:false}).eq('user_id',currentUser.id).eq('is_current',true);
+  if(a.error){ hlNote('Could not switch: '+(a.error.message||'unknown error'),true); return; }
+  const r=await db.from('hel_profiles').update({is_current:true}).eq('id',p.id);
+  if(r.error){ hlNote('Could not switch: '+(r.error.message||'unknown error'),true); return; }
+  hl.profiles.forEach(function(x){ x.is_current=(x.id===p.id); }); hlNote(''); hlRender();
+}
+async function hlSaveVoice(){
+  const p=hl.profiles.find(function(x){ return x.id===hl.sel; }); if(!p) return;
+  const v=hlEl('hlVoice').value.trim().slice(0,40);
+  const r=await db.from('hel_profiles').update({voice_phrase:v||null}).eq('id',p.id);
+  if(r.error){ hlNote('Could not save the words: '+(r.error.message||'unknown error'),true); return; }
+  p.voice_phrase=v||null; hlNote('Saved the words for this profile.');
+}
+function hlOpenEdit(id,mode){
+  const p=hl.profiles.find(function(x){ return x.id===hl.sel; }); if(!p) return;
+  const b=id?hl.buttons.find(function(x){ return x.id===id; }):null;
+  hl.editId=b?b.id:null; hl.mode=b?(mode||'does'):'new'; hl.icon=b?b.icon:'⭐';
+  hl.steps=b?(b.steps||[]).map(function(s){ return {t:s.t,v:s.v==null?'':String(s.v)}; }):[{t:'open_app',v:''}];
+  const titles={icon:'Icon for '+(b?b.name:''),name:'Name on the wide bar',desc:'Description',does:'What it does: '+(b?b.name:''),'new':'New button in '+p.name};
+  hlEl('hlEditTitle').textContent=titles[hl.mode];
+  const m=hl.mode, all=(m==='new');
+  hlEl('hlSecIcon').style.display=(all||m==='icon')?'':'none'; hlEl('hlSecName').style.display=(all||m==='name')?'':'none';
+  hlEl('hlSecDesc').style.display=(all||m==='desc')?'':'none'; hlEl('hlSecDoes').style.display=(all||m==='does')?'':'none';
+  hlEl('hlName').value=b?b.name:''; hlEl('hlDesc').value=b?b.description:''; hlEl('hlSay').value=b?(b.says||''):''; hlEl('hlPaste').value='';
+  hlEl('hlIconAsk').style.display='none'; hlEl('hlIconAsk').textContent='';
+  hlEl('hlDelBtn').style.display=(b&&m==='does')?'':'none'; hlEl('hlEditNote').textContent='';
+  hlRenderIcons(); hlRenderSteps(); hlEl('hlEditOverlay').classList.add('open');
+}
+function hlRequestText(){
+  const p=hl.profiles.find(function(x){ return x.id===hl.sel; });
+  const name=hlEl('hlName').value.trim();
+  return 'Amit, please build one button for my Amit Helper bar'+(p?' in my profile "'+p.name+'"':'')+(name?', called "'+name+'"':'')+'.\n\nWhat I want it to do, in my words, in order:\n'
+    +hlEl('hlSay').value.trim()+'\n\nUse ONLY these step types: '+Object.keys(HL_STEPS).map(function(k){ return k+' ('+HL_STEPS[k][0].toLowerCase()+')'; }).join(', ')
+    +'. A J shortcut or a search I name is an ask_amit step whose v is the question to ask. open_url must start with https://. wait is a number of seconds from 1 to 60. Use at most 12 steps. '
+    +'Reply with ONLY this JSON and nothing else: {"steps":[{"t":"open_app","v":"AmitBooks"}]}. If something I asked for cannot be done with those step types, say so in plain words instead.';
+}
+function hlCopy(text,okMsg){
+  (navigator.clipboard?navigator.clipboard.writeText(text):Promise.reject()).then(function(){ hlEditMsg(okMsg); },function(){ hlEditMsg('Could not copy. Select and copy it by hand.',true); });
+}
+function hlEditMsg(m,bad){ const n=hlEl('hlEditNote'); n.textContent=m||''; n.style.color=bad?'var(--amit-danger,#e07a6a)':''; }
+function hlGenerate(){
+  if(!hlEl('hlSay').value.trim()){ hlEditMsg('Write what the button should do first.',true); return; }
+  hlCopy(hlRequestText(),'Copied. Paste it to Amit in your Amit session, then paste Amit\'s answer in the box below.');
+}
+function hlReadPaste(){
+  const raw=hlEl('hlPaste').value; const a=raw.indexOf('{'), z=raw.lastIndexOf('}');
+  if(a<0||z<a){ hlEditMsg('I could not find steps in what you pasted. Paste Amit\'s whole answer.',true); return; }
+  let data; try{ data=JSON.parse(raw.slice(a,z+1)); }catch(e){ hlEditMsg('That is not in the steps format. Ask Amit to answer with only the JSON.',true); return; }
+  const list=Array.isArray(data)?data:data.steps;
+  if(!Array.isArray(list)||!list.length||list.length>12){ hlEditMsg('Amit\'s answer has no usable steps (1 to 12 are allowed).',true); return; }
+  const out=[];
+  for(let i=0;i<list.length;i++){
+    const s=list[i]; if(!s||!HL_STEPS[s.t]||s.v==null||String(s.v).trim()===''){ hlEditMsg('Step '+(i+1)+' is not one of the safe steps, so nothing was changed.',true); return; }
+    out.push({t:s.t,v:String(s.v)});
+  }
+  hl.steps=out; hlRenderSteps(); hlEditMsg('Here are the steps. Check them, change anything you want, then press Save.');
+}
+function hlSuggestIcons(){
+  const name=hlEl('hlName').value.trim()||((hl.buttons.find(function(x){ return x.id===hl.editId; })||{}).name)||'this button';
+  const box=hlEl('hlIconAsk'); box.style.display='';
+  box.textContent='Copied a request for Amit. Paste it to Amit in your Amit session and Amit will suggest icons from the library and say why. Then pick one above.';
+  hlCopy('Amit, suggest two or three icons for my Amit Helper button "'+name+'" from this library: '+HL_ICONS.join(' ')+'. For each, say in one short line why it fits what I do. If you do not know enough about me yet, say so.','Copied for Amit.');
+}
+function hlCloseEdit(){ hlEl('hlEditOverlay').classList.remove('open'); }
+function hlRenderIcons(){ hlEl('hlIcons').innerHTML=HL_ICONS.map(function(g){ return '<span class="'+(g===hl.icon?'on':'')+'" onclick="hl.icon=this.textContent;hlRenderIcons()">'+g+'</span>'; }).join(''); }
+function hlRenderSteps(){
+  hlEl('hlSteps').innerHTML=hl.steps.map(function(s,i){
+    return '<div class="hl-step"><select class="fg-input" style="width:170px;flex-shrink:0" onchange="hl.steps['+i+'].t=this.value;hlRenderSteps()">'
+      +Object.keys(HL_STEPS).map(function(k){ return '<option value="'+k+'"'+(k===s.t?' selected':'')+'>'+HL_STEPS[k][0]+'</option>'; }).join('')+'</select>'
+      +'<input class="fg-input" style="flex:1;min-width:0" maxlength="300" value="'+hlEsc(s.v)+'" placeholder="'+hlEsc(HL_STEPS[s.t][2])+'" oninput="hl.steps['+i+'].v=this.value">'
+      +'<button class="btn" onclick="hl.steps.splice('+i+',1);hlRenderSteps()" title="Remove this step">&times;</button></div>'; }).join('');
+}
+function hlAddStep(){ if(hl.steps.length>=12){ return; } hl.steps.push({t:'open_app',v:''}); hlRenderSteps(); }
+async function hlSaveButton(){
+  const note=function(m){ hlEl('hlEditNote').textContent=m; hlEl('hlEditNote').style.color='var(--amit-danger,#e07a6a)'; };
+  const name=hlEl('hlName').value.trim(), desc=hlEl('hlDesc').value.trim();
+  if(hl.editId&&(hl.mode==='icon'||hl.mode==='name'||hl.mode==='desc')){
+    const part=hl.mode==='icon'?{icon:hl.icon}:hl.mode==='name'?{name:name}:{description:desc.slice(0,200)};
+    if(hl.mode==='name'&&!name){ note('Give the button a name.'); return; }
+    part.updated_at=new Date().toISOString();
+    const q=await db.from('hel_buttons').update(part).eq('id',hl.editId).select().single();
+    if(q.error){ note('Could not save: '+(q.error.message||'unknown error')); return; }
+    hl.buttons=hl.buttons.map(function(b){ return b.id===hl.editId?q.data:b; }); hlCloseEdit(); hlRender(); return;
+  }
+  if(!name&&hl.mode==='new'){ note('Give the button a name.'); return; }
+  if(!hl.steps.length){ note('Add at least one step.'); return; }
+  const steps=[];
+  for(let i=0;i<hl.steps.length;i++){
+    const s=hl.steps[i], v=String(s.v).trim();
+    if(!v){ note('Step '+(i+1)+' needs something filled in.'); return; }
+    if(s.t==='open_url'&&!/^https:\/\//i.test(v)){ note('A website link must start with https://'); return; }
+    if(s.t==='wait'){ const n=Number(v); if(!(n>=1&&n<=60)){ note('Wait needs a number from 1 to 60.'); return; } steps.push({t:s.t,v:n}); }
+    else steps.push({t:s.t,v:v});
+  }
+  const kind=steps.length>1?'multi':HL_STEPS[steps[0].t][1];
+  const say=hlEl('hlSay').value.trim().slice(0,1000);
+  const row={kind:kind,steps:steps,says:say||null,updated_at:new Date().toISOString()};
+  if(hl.mode==='new'){ row.name=name; row.icon=hl.icon; row.description=desc.slice(0,200); }
+  let r;
+  if(hl.editId){ r=await db.from('hel_buttons').update(row).eq('id',hl.editId).select().single(); }
+  else { row.user_id=currentUser.id; row.profile_id=hl.sel; row.sort_order=hl.buttons.filter(function(b){ return b.profile_id===hl.sel; }).length; r=await db.from('hel_buttons').insert(row).select().single(); }
+  if(r.error){ note('Could not save: '+(r.error.message||'unknown error')); return; }
+  if(hl.editId){ hl.buttons=hl.buttons.map(function(b){ return b.id===hl.editId?r.data:b; }); } else { hl.buttons.push(r.data); }
+  hlCloseEdit(); hlRender();
+}
+async function hlDeleteButton(){
+  if(!hl.editId||!confirm('Delete this button?')) return;
+  const r=await db.from('hel_buttons').delete().eq('id',hl.editId);
+  if(r.error){ hlEl('hlEditNote').textContent='Could not delete: '+(r.error.message||'unknown error'); return; }
+  hl.buttons=hl.buttons.filter(function(b){ return b.id!==hl.editId; }); hlCloseEdit(); hlRender();
+}
+async function hlSaveSettings(){
+  if(!hlSigned()){ hlNote('Sign in first.',true); return; }
+  const row={user_id:currentUser.id,always_on:hlEl('hlAlways').checked,widen_on_click:hlEl('hlWiden').checked,idle_minutes:parseInt(hlEl('hlIdle').value,10),rail_width:hlEl('hlRail').value,updated_at:new Date().toISOString()};
+  hlNote('Saving...');
+  const r=await db.from('hel_settings').upsert(row,{onConflict:'user_id'});
+  if(r.error){ hlNote('Could not save: '+(r.error.message||'unknown error'),true); return; }
+  hlNote('Saved.');
 }
 // the Amit Live window's "Set up my morning" link opens ...amit-hub.html?mm=1: go to Communications > My Morning once signed in
 (function(){
