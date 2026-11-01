@@ -200,7 +200,7 @@ $handlerScript = {
     # file the bar reads (amit_bar.json). The bar reloads by itself when the file changes. Every call replaces the whole file, so nothing old survives a delete.
     # Parsed with .NET's JavaScriptSerializer and written by hand: ConvertTo-Json/ConvertFrom-Json can hang on a cold runspace (see ConvertTo-JsonString below).
     function Write-AmitBarConfig([string]$Body, [string]$Path) {
-        $safe = @('open_app','open_url','open_program','play_music','speak','ask_amit','wait','open_file')
+        $safe = @('open_app','open_url','open_program','play_music','speak','ask_amit','wait','open_file','audio')
         $kinds = @('app','web','music','program','multi','ask')
         $fnFail = { param($m) return @{ ok = $false; error = $m } }
         $fnGet = { param($d, $k) if ($d -is [System.Collections.IDictionary] -and $d.ContainsKey($k)) { return $d[$k] } else { return $null } }
@@ -236,6 +236,7 @@ $handlerScript = {
                     $pv = & $fnGet $s 'path'; if ($null -ne $pv -and [string]$pv -ne '') { $pa = [string]$pv; if ($pa.Length -gt 260) { return (& $fnFail ("a program path in '" + $bn + "' is too long")) }; if ($pa -like 'shell:*' -and $pa -notmatch '^shell:AppsFolder\\.{1,240}$') { return (& $fnFail ("a program address in '" + $bn + "' is not a Start menu address")) } }
                     $xv = & $fnGet $s 'text'; if ($null -ne $xv -and [string]$xv -ne '') { $tx = [string]$xv; if ($tx.Length -gt 300) { $tx = $tx.Substring(0, 300) } }
                     $mv = & $fnGet $s 'ms';   if ($null -ne $mv) { $ms = [int][Math]::Max(0, [Math]::Min(60000, [double]$mv)) }
+                    if ($st -eq 'audio') { $u = $null; $pa = $null; $ac = Get-AmitAudioCfg ([string](& $fnGet $s 'text')); if ($null -eq $ac) { return (& $fnFail ("the audio setting in '" + $bn + "' is not valid")) }; $tx = $ac; foreach ($lm in [regex]::Matches($ac, '"l":"([^"]*)"')) { if (-not (Get-AmitAudioBoundId $lm.Groups[1].Value)) { $missing++; break } } }
                     if ($st -eq 'open_file') { $u = $null; $pa = $null; $bp = Get-AmitBoundPath ([string](& $fnGet $s 'token')); if ($bp -and (Test-AmitFileOk $bp $true)) { $pa = $bp } else { $missing++ } }
                     [void]$stepJson.Add('{"t":' + (& $fnQuote $st) + ',"url":' + (& $fnQuote $u) + ',"path":' + (& $fnQuote $pa) + ',"text":' + (& $fnQuote $tx) + ',"ms":' + $ms + '}')
                 }
@@ -316,6 +317,56 @@ $handlerScript = {
         return $out.ToArray()
     }
     function ConvertTo-AmitQ($s) { if ($null -eq $s) { return 'null' }; return '"' + ([string]$s).Replace('\', '\\').Replace('"', '\"').Replace("`r", ' ').Replace("`n", ' ').Replace("`t", ' ') + '"' }
+    # ---- Audio setting (Ryan, 2026-11-01) ----
+    # The sound devices come from Windows on THIS computer (the bar program lists them: AmitBar.exe --audio-list); a button saves LABELS ("Speakers", "Headphones") and this
+    # computer keeps its own label -> device list (audio_bindings.json). Every audio step is re-checked here (mode, labels, volumes capped at 80) before it reaches the bar.
+    $amitAudioMax = 80
+    $amitAudioBind = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\audio_bindings.json'
+    function Invoke-AmitBarTool([string[]]$toolArgs) {
+        $exe = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\Watchers\AmitBar.exe'
+        if (-not (Test-Path $exe)) { return $null }
+        $out = Join-Path $env:TEMP ('amit_audio_' + ([guid]::NewGuid().ToString('N')).Substring(0, 12) + '.json')
+        $argList = @($toolArgs | ForEach-Object { if ($_ -eq '{OUT}') { '"' + $out + '"' } else { $_ } })
+        $p = Start-Process -FilePath $exe -ArgumentList $argList -PassThru -WindowStyle Hidden
+        if (-not $p.WaitForExit(12000)) { try { $p.Kill() } catch {}; return $null }
+        if (Test-Path $out) { $txt = [System.IO.File]::ReadAllText($out); Remove-Item $out -Force -ErrorAction SilentlyContinue; return $txt }
+        return $null
+    }
+    function Get-AmitAudioBindings {
+        Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+        $js = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+        try { if (Test-Path $amitAudioBind) { $d = $js.DeserializeObject([System.IO.File]::ReadAllText($amitAudioBind)); if ($d -is [System.Collections.IDictionary]) { return $d } } } catch {}
+        return (New-Object 'System.Collections.Generic.Dictionary[string,object]')
+    }
+    function Get-AmitAudioBoundId([string]$label) {
+        $d = Get-AmitAudioBindings
+        foreach ($k in @($d.Keys)) { if ([string]$k -ieq $label -and $d[$k] -is [System.Collections.IDictionary]) { return [string]$d[$k]['id'] } }
+        return $null
+    }
+    # the person's audio step, checked and rebuilt as clean compact JSON (or $null when it is not valid)
+    function Get-AmitAudioCfg([string]$json) {
+        Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+        $js = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+        try { $o = $js.DeserializeObject($json) } catch { return $null }
+        if ($o -isnot [System.Collections.IDictionary]) { return $null }
+        $g = { param($d, $k) if ($d -is [System.Collections.IDictionary] -and $d.ContainsKey($k)) { return $d[$k] } else { return $null } }
+        $vol = { param($v) if ($null -eq $v -or [string]$v -eq '') { return -1 }; try { $n = [int][double]$v } catch { return -1 }; if ($n -lt 0) { return -1 }; return [Math]::Min($n, $amitAudioMax) }
+        $dev = { param($d) if ($d -isnot [System.Collections.IDictionary]) { return $null }; $l = ([string](& $g $d 'l')).Trim(); if ($l -notmatch "^[A-Za-z0-9 ._'()-]{1,24}$") { return $null }; return ('{"l":"' + $l.Replace('\', '\\').Replace('"', '\"') + '","v":' + (& $vol (& $g $d 'v')) + '}') }
+        $m = [string](& $g $o 'm')
+        if ($m -eq 'settings') { return '{"m":"settings"}' }
+        if ($m -eq 'volume') {
+            $mu = [string](& $g $o 'mute'); if (@('', 'mute', 'unmute') -notcontains $mu) { return $null }
+            return ('{"m":"volume","vol":' + (& $vol (& $g $o 'vol')) + ',"mute":"' + $mu + '"}')
+        }
+        if ($m -eq 'set') { $a = & $dev (& $g $o 'a'); if ($null -eq $a) { return $null }; return ('{"m":"set","a":' + $a + '}') }
+        if ($m -eq 'toggle') {
+            $a = & $dev (& $g $o 'a'); $b = & $dev (& $g $o 'b'); if ($null -eq $a -or $null -eq $b) { return $null }
+            $la = ($a | Select-String '"l":"([^"]*)"').Matches[0].Groups[1].Value; $lb = ($b | Select-String '"l":"([^"]*)"').Matches[0].Groups[1].Value
+            if ($la -ieq $lb) { return $null }
+            return ('{"m":"toggle","a":' + $a + ',"b":' + $b + '}')
+        }
+        return $null
+    }
     # Installed programs (Ryan, 2026-11-01): what Windows itself lists in the Start menu on THIS computer, i.e. exactly the programs that can be opened, each with the address Windows opens it by.
     # Web shortcuts, documentation and uninstallers are left out. Written by hand (no ConvertTo-Json, see ConvertTo-JsonString below).
     function Get-AmitProgramsJson {
@@ -1599,6 +1650,72 @@ try {
                         if ($foP -and (Test-AmitFileOk $foP $true)) { Start-Process -FilePath $foP; Send-JsonRaw $response '{"ok":true}' }
                         else { Send-JsonRaw $response '{"ok":false,"error":"that file is not set up on this computer"}' }
                     } catch { Send-JsonRaw $response '{"ok":false,"error":"could not open the file"}' }
+                }
+            }
+            "/api/audio/devices" {
+                # the playback devices on THIS computer, read from Windows by the bar program. Microphones are never listed.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    try {
+                        $adTxt = Invoke-AmitBarTool @('--audio-list', '{OUT}')
+                        if ($adTxt -and $adTxt.TrimStart().StartsWith('{')) { Send-JsonRaw $response $adTxt }
+                        else { Send-JsonRaw $response '{"ok":false,"error":"The Amit bar program is not on this computer yet, so the sound devices cannot be listed. Press Update and reload on the bar."}' }
+                    } catch { Send-JsonRaw $response '{"ok":false,"error":"could not read the sound devices"}' }
+                }
+            }
+            "/api/audio/status" {
+                # which labels have a device chosen on THIS computer (the Ready here? check); body = labels separated by |
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $asR = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8); $asBody = $asR.ReadToEnd(); $asR.Dispose()
+                    try {
+                        $asBind = Get-AmitAudioBindings; $asParts = New-Object System.Collections.ArrayList
+                        foreach ($asL in @($asBody.Split('|') | ForEach-Object { $_.Trim() } | Where-Object { $_ -match "^[A-Za-z0-9 ._'()-]{1,24}$" } | Select-Object -First 20)) {
+                            $asId = $null; $asName = $null
+                            foreach ($asK in @($asBind.Keys)) { if ([string]$asK -ieq $asL -and $asBind[$asK] -is [System.Collections.IDictionary]) { $asId = [string]$asBind[$asK]['id']; $asName = [string]$asBind[$asK]['name'] } }
+                            [void]$asParts.Add((ConvertTo-AmitQ $asL) + ':{"chosen":' + $(if ($asId) { 'true' } else { 'false' }) + ',"id":' + (ConvertTo-AmitQ $asId) + ',"name":' + (ConvertTo-AmitQ $asName) + '}')
+                        }
+                        Send-JsonRaw $response ('{"ok":true,"items":{' + ($asParts -join ',') + '}}')
+                    } catch { Send-JsonRaw $response '{"ok":false,"error":"could not check the sound choices"}' }
+                }
+            }
+            "/api/audio/bind" {
+                # the person chose which of THIS computer's devices is their "Speakers" (or "Headphones"...): body = label|deviceId; the device must really be on this computer
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $abR = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8); $abBody = ($abR.ReadToEnd()).Trim(); $abR.Dispose()
+                    try {
+                        $abBar = $abBody.IndexOf('|'); $abL = if ($abBar -gt 0) { $abBody.Substring(0, $abBar).Trim() } else { '' }; $abId = if ($abBar -gt 0) { $abBody.Substring($abBar + 1).Trim() } else { '' }
+                        if ($abL -notmatch "^[A-Za-z0-9 ._'()-]{1,24}$" -or $abId -notmatch '^\{[0-9A-Fa-f.\-]+\}\.\{[0-9A-Fa-f\-]+\}$') { Send-JsonRaw $response '{"ok":false,"error":"that is not a device choice"}' }
+                        else {
+                            $abTxt = Invoke-AmitBarTool @('--audio-list', '{OUT}'); $abName = $null
+                            Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue; $abJs = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+                            if ($abTxt) { $abD = $abJs.DeserializeObject($abTxt); foreach ($abX in @($abD['devices'])) { if ([string]$abX['id'] -ieq $abId) { $abName = [string]$abX['name'] } } }
+                            if (-not $abName) { Send-JsonRaw $response '{"ok":false,"error":"that device is not on this computer"}' }
+                            else {
+                                $abBind = Get-AmitAudioBindings; foreach ($abK in @($abBind.Keys)) { if ([string]$abK -ieq $abL) { [void]$abBind.Remove($abK) } }
+                                $abBind[$abL] = @{ id = $abId; name = $abName }
+                                $abTmp = $amitAudioBind + '.tmp'; [System.IO.File]::WriteAllText($abTmp, $abJs.Serialize($abBind), (New-Object System.Text.UTF8Encoding($false))); Move-Item -LiteralPath $abTmp -Destination $amitAudioBind -Force
+                                Send-JsonRaw $response ('{"ok":true,"label":' + (ConvertTo-AmitQ $abL) + ',"name":' + (ConvertTo-AmitQ $abName) + '}')
+                            }
+                        }
+                    } catch { Send-JsonRaw $response '{"ok":false,"error":"could not save that choice"}' }
+                }
+            }
+            "/api/audio/apply" {
+                # runs ONE audio step now (the Test button in the Hub); the step is checked first, exactly as in a saved button
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $aaR = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8); $aaBody = $aaR.ReadToEnd(); $aaR.Dispose()
+                    try {
+                        $aaCfg = Get-AmitAudioCfg $aaBody
+                        if ($null -eq $aaCfg) { Send-JsonRaw $response '{"ok":false,"msg":"This audio setting is not valid."}' }
+                        else {
+                            $aaB64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($aaCfg))
+                            $aaTxt = Invoke-AmitBarTool @('--audio-step', $aaB64, '{OUT}')
+                            if ($aaTxt -and $aaTxt.TrimStart().StartsWith('{')) { Send-JsonRaw $response $aaTxt } else { Send-JsonRaw $response '{"ok":false,"msg":"The Amit bar program did not answer. Press Update and reload on the bar."}' }
+                        }
+                    } catch { Send-JsonRaw $response '{"ok":false,"msg":"could not run the audio setting"}' }
                 }
             }
             "/api/amit-mobile-status" {

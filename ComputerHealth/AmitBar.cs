@@ -40,6 +40,12 @@ static class Program
     static void Main(string[] args)
     {
         try { SetProcessDPIAware(); } catch { }
+        for (int q = 0; q < args.Length; q++)
+        {
+            if (args[q] == "--audio-list" && q + 1 < args.Length) { AudioCtl.WriteList(args[q + 1]); return; }
+            if (args[q] == "--audio-step" && q + 2 < args.Length) { AudioCtl.RunToFile(args[q + 1], args[q + 2]); return; }
+            if (args[q] == "--audio-selftest" && q + 1 < args.Length) { AudioCtl.SelfTest(args[q + 1]); return; }
+        }
         string shot = null; bool wide = false, showNow = false;
         for (int i = 0; i < args.Length; i++) { if (args[i] == "--shot" && i + 1 < args.Length) shot = args[i + 1]; if (args[i] == "--wide") wide = true; if (args[i] == "--show") showNow = true; }
         Application.EnableVisualStyles();
@@ -466,6 +472,7 @@ public class BarForm : Form
                     if (s.t == "open_app" || s.t == "open_url" || s.t == "ask_amit") { if (!String.IsNullOrEmpty(s.url) && (s.url.StartsWith("https://") || s.url.StartsWith("http://"))) Process.Start(s.url); }
                     else if (s.t == "open_program") { if (!String.IsNullOrEmpty(s.path)) { if (s.path.StartsWith("shell:AppsFolder\\", StringComparison.OrdinalIgnoreCase)) Process.Start("explorer.exe", s.path); else Process.Start(s.path); } }   // a program picked from the Start menu list opens by its Start menu address
                     else if (s.t == "open_file") { OpenFileStep(s); }
+                    else if (s.t == "audio") { string am = AudioCtl.RunStep(s.text); if (am != null) Say("Audio setting", am); }
                     else if (s.t == "play_music") { if (!String.IsNullOrEmpty(s.path)) Process.Start(s.path); else if (!String.IsNullOrEmpty(s.url)) Process.Start(s.url); }
                     else if (s.t == "speak") { using (System.Speech.Synthesis.SpeechSynthesizer sp = new System.Speech.Synthesis.SpeechSynthesizer()) sp.Speak(s.text ?? ""); }
                     else if (s.t == "wait") { Thread.Sleep(Math.Max(0, Math.Min(5000, s.ms))); }
@@ -484,6 +491,223 @@ public class BarForm : Form
     }
 }
 
+// ---------- Audio setting (Ryan, 2026-11-01): the sound devices on THIS computer, switching the default output, and the volume ----------
+// Nothing here is tied to one computer: the device list is read from Windows each time, a button saves LABELS ("Speakers", "Headphones") and this computer keeps its own
+// label-to-device list (audio_bindings.json, written by the helper). Setting the volume and opening Sound settings use documented Windows features. Switching the DEFAULT
+// output device has no documented Windows interface; the audio tools people use go through the same undocumented one (IPolicyConfig). If Windows ever changes it, the step says so
+// and opens the Sound settings page instead. Microphones are never listed or touched.
+[ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IMMDeviceEnumerator
+{
+    [PreserveSig] int EnumAudioEndpoints(int dataFlow, int stateMask, out IMMDeviceCollection devices);
+    [PreserveSig] int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice device);
+    [PreserveSig] int GetDevice([MarshalAs(UnmanagedType.LPWStr)] string id, out IMMDevice device);
+    [PreserveSig] int RegisterEndpointNotificationCallback(IntPtr client);
+    [PreserveSig] int UnregisterEndpointNotificationCallback(IntPtr client);
+}
+[ComImport, Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IMMDeviceCollection
+{
+    [PreserveSig] int GetCount(out int count);
+    [PreserveSig] int Item(int index, out IMMDevice device);
+}
+[ComImport, Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IMMDevice
+{
+    [PreserveSig] int Activate(ref Guid iid, int clsCtx, IntPtr activationParams, [MarshalAs(UnmanagedType.IUnknown)] out object iface);
+    [PreserveSig] int OpenPropertyStore(int access, out IPropertyStore props);
+    [PreserveSig] int GetId([MarshalAs(UnmanagedType.LPWStr)] out string id);
+    [PreserveSig] int GetState(out int state);
+}
+[ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IPropertyStore
+{
+    [PreserveSig] int GetCount(out int count);
+    [PreserveSig] int GetAt(int index, out PropertyKey key);
+    [PreserveSig] int GetValue(ref PropertyKey key, out PropVariant value);
+    [PreserveSig] int SetValue(ref PropertyKey key, ref PropVariant value);
+    [PreserveSig] int Commit();
+}
+[StructLayout(LayoutKind.Sequential)] struct PropertyKey { public Guid fmtid; public int pid; }
+[StructLayout(LayoutKind.Sequential)] struct PropVariant { public ushort vt; public ushort r1, r2, r3; public IntPtr p; public IntPtr p2; }
+[ComImport, Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IAudioEndpointVolume
+{
+    [PreserveSig] int RegisterControlChangeNotify(IntPtr notify);
+    [PreserveSig] int UnregisterControlChangeNotify(IntPtr notify);
+    [PreserveSig] int GetChannelCount(out int count);
+    [PreserveSig] int SetMasterVolumeLevel(float level, ref Guid context);
+    [PreserveSig] int SetMasterVolumeLevelScalar(float level, ref Guid context);
+    [PreserveSig] int GetMasterVolumeLevel(out float level);
+    [PreserveSig] int GetMasterVolumeLevelScalar(out float level);
+    [PreserveSig] int SetChannelVolumeLevel(uint channel, float level, ref Guid context);
+    [PreserveSig] int SetChannelVolumeLevelScalar(uint channel, float level, ref Guid context);
+    [PreserveSig] int GetChannelVolumeLevel(uint channel, out float level);
+    [PreserveSig] int GetChannelVolumeLevelScalar(uint channel, out float level);
+    [PreserveSig] int SetMute([MarshalAs(UnmanagedType.Bool)] bool mute, ref Guid context);
+    [PreserveSig] int GetMute([MarshalAs(UnmanagedType.Bool)] out bool mute);
+}
+[ComImport, Guid("F8679F50-850A-41CF-9C72-430F290290C8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IPolicyConfig
+{
+    [PreserveSig] int GetMixFormat([MarshalAs(UnmanagedType.LPWStr)] string deviceName, IntPtr format);
+    [PreserveSig] int GetDeviceFormat([MarshalAs(UnmanagedType.LPWStr)] string deviceName, [MarshalAs(UnmanagedType.Bool)] bool isDefault, IntPtr format);
+    [PreserveSig] int ResetDeviceFormat([MarshalAs(UnmanagedType.LPWStr)] string deviceName);
+    [PreserveSig] int SetDeviceFormat([MarshalAs(UnmanagedType.LPWStr)] string deviceName, IntPtr endpointFormat, IntPtr mixFormat);
+    [PreserveSig] int GetProcessingPeriod([MarshalAs(UnmanagedType.LPWStr)] string deviceName, [MarshalAs(UnmanagedType.Bool)] bool isDefault, IntPtr defaultPeriod, IntPtr minimumPeriod);
+    [PreserveSig] int SetProcessingPeriod([MarshalAs(UnmanagedType.LPWStr)] string deviceName, IntPtr period);
+    [PreserveSig] int GetShareMode([MarshalAs(UnmanagedType.LPWStr)] string deviceName, IntPtr mode);
+    [PreserveSig] int SetShareMode([MarshalAs(UnmanagedType.LPWStr)] string deviceName, IntPtr mode);
+    [PreserveSig] int GetPropertyValue([MarshalAs(UnmanagedType.LPWStr)] string deviceName, [MarshalAs(UnmanagedType.Bool)] bool fxStore, IntPtr key, IntPtr value);
+    [PreserveSig] int SetPropertyValue([MarshalAs(UnmanagedType.LPWStr)] string deviceName, [MarshalAs(UnmanagedType.Bool)] bool fxStore, IntPtr key, IntPtr value);
+    [PreserveSig] int SetDefaultEndpoint([MarshalAs(UnmanagedType.LPWStr)] string deviceName, int role);
+    [PreserveSig] int SetEndpointVisibility([MarshalAs(UnmanagedType.LPWStr)] string deviceName, [MarshalAs(UnmanagedType.Bool)] bool visible);
+}
 
+public static class AudioCtl
+{
+    public const int AudioMax = 80;     // the top volume a button can set (Ryan's suggestion 2026-11-01): switching to headphones must never blast the ears
+    public class Dev { public string id; public string name; public string state; public bool isDefault; public int vol; }
+    [DllImport("ole32.dll")] static extern int PropVariantClear(ref PropVariant pv);
 
+    static IMMDeviceEnumerator Enumerator() { return (IMMDeviceEnumerator)Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("BCDE0395-E52F-467C-8E3D-C4579291692E"))); }
+    static string Friendly(IMMDevice d)
+    {
+        IPropertyStore ps; if (d.OpenPropertyStore(0, out ps) != 0 || ps == null) return "";
+        string s = "";
+        try
+        {
+            PropertyKey k = new PropertyKey(); k.fmtid = new Guid("A45C254E-DF1C-4EFD-8020-67D146A850E0"); k.pid = 14;
+            PropVariant pv; if (ps.GetValue(ref k, out pv) == 0) { if (pv.vt == 31 && pv.p != IntPtr.Zero) s = Marshal.PtrToStringUni(pv.p); PropVariantClear(ref pv); }
+        }
+        finally { Marshal.ReleaseComObject(ps); }
+        return s;
+    }
+    static IAudioEndpointVolume Volume(IMMDevice d)
+    {
+        object o; Guid iid = new Guid("5CDF2C82-841E-4546-9722-0CF74078229A");
+        if (d.Activate(ref iid, 23, IntPtr.Zero, out o) != 0 || o == null) return null;
+        return (IAudioEndpointVolume)o;
+    }
+    public static string DefaultId()
+    {
+        IMMDevice d; if (Enumerator().GetDefaultAudioEndpoint(0, 0, out d) != 0 || d == null) return null;
+        string id; d.GetId(out id); return id;
+    }
+    // every playback device Windows knows about on this computer that is connected or merely unplugged (microphones are never included)
+    public static List<Dev> List()
+    {
+        List<Dev> res = new List<Dev>(); IMMDeviceEnumerator e = Enumerator(); string def = DefaultId();
+        IMMDeviceCollection col; if (e.EnumAudioEndpoints(0, 0x9, out col) != 0 || col == null) return res;
+        int n; col.GetCount(out n);
+        for (int i = 0; i < n; i++)
+        {
+            IMMDevice d; if (col.Item(i, out d) != 0 || d == null) continue;
+            string id; d.GetId(out id); int st; d.GetState(out st);
+            Dev x = new Dev(); x.id = id; x.name = Friendly(d); x.state = (st == 1) ? "active" : "not connected"; x.isDefault = (def != null && id == def); x.vol = -1;
+            if (st == 1) { try { IAudioEndpointVolume ev = Volume(d); float f; if (ev != null && ev.GetMasterVolumeLevelScalar(out f) == 0) x.vol = (int)Math.Round(f * 100); } catch { } }
+            res.Add(x);
+        }
+        return res;
+    }
+    public static bool SetDefault(string id)
+    {
+        IPolicyConfig pc = (IPolicyConfig)Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("870AF99C-171D-4F9E-AF0D-E63DF40C2BC9")));
+        int r0 = pc.SetDefaultEndpoint(id, 0), r1 = pc.SetDefaultEndpoint(id, 1), r2 = pc.SetDefaultEndpoint(id, 2);
+        return r0 == 0 && r1 == 0 && r2 == 0;
+    }
+    public static bool SetVolume(string id, int pct, bool unmute)
+    {
+        IMMDevice d; if (Enumerator().GetDevice(id, out d) != 0 || d == null) return false;
+        IAudioEndpointVolume ev = Volume(d); if (ev == null) return false;
+        Guid ctx = Guid.Empty; pct = ClampVol(pct); if (pct < 0) return true;
+        bool ok = ev.SetMasterVolumeLevelScalar(pct / 100f, ref ctx) == 0;
+        if (unmute && pct > 0) ev.SetMute(false, ref ctx);
+        return ok;
+    }
+    public static bool SetMute(string id, bool mute)
+    {
+        IMMDevice d; if (Enumerator().GetDevice(id, out d) != 0 || d == null) return false;
+        IAudioEndpointVolume ev = Volume(d); if (ev == null) return false; Guid ctx = Guid.Empty; return ev.SetMute(mute, ref ctx) == 0;
+    }
+    // -1 = leave the volume alone; otherwise 0 to the top allowed
+    public static int ClampVol(int v) { if (v < 0) return -1; return Math.Min(v, AudioMax); }
+    // pressing the button again flips to the other device; if the current device is neither, go to the first
+    public static string NextDevice(string current, string a, string b) { return string.Equals(current, a, StringComparison.OrdinalIgnoreCase) ? b : a; }
 
+    static string Str(Dictionary<string, object> o, string k) { object v; return (o != null && o.TryGetValue(k, out v) && v != null) ? Convert.ToString(v) : ""; }
+    static int Num(Dictionary<string, object> o, string k, int dflt) { object v; try { return (o != null && o.TryGetValue(k, out v) && v != null) ? Convert.ToInt32(v) : dflt; } catch { return dflt; } }
+    static Dictionary<string, object> Sub(Dictionary<string, object> o, string k) { object v; if (o != null && o.TryGetValue(k, out v)) return v as Dictionary<string, object>; return null; }
+    static string BindFile() { return Path.Combine(Path.Combine(Environment.GetEnvironmentVariable("LOCALAPPDATA") ?? "", "AmitComputerHealth"), "audio_bindings.json"); }
+    static string BoundId(string label)
+    {
+        try
+        {
+            if (!File.Exists(BindFile())) return null;
+            Dictionary<string, Dictionary<string, object>> b = new JavaScriptSerializer().Deserialize<Dictionary<string, Dictionary<string, object>>>(File.ReadAllText(BindFile()));
+            foreach (KeyValuePair<string, Dictionary<string, object>> kv in b) if (string.Equals(kv.Key, label, StringComparison.OrdinalIgnoreCase)) return Str(kv.Value, "id");
+        }
+        catch { }
+        return null;
+    }
+    // returns null when it worked, otherwise a plain sentence for the person
+    static string Go(string label, int vol, List<Dev> devs)
+    {
+        string id = BoundId(label);
+        if (string.IsNullOrEmpty(id)) return "Choose which device is your \"" + label + "\" in the Hub (Amit Helper), on this computer.";
+        Dev d = devs.Find(delegate (Dev x) { return string.Equals(x.id, id, StringComparison.OrdinalIgnoreCase); });
+        if (d == null) return "The device you chose for \"" + label + "\" is not on this computer any more. Choose it again in the Hub (Amit Helper).";
+        if (d.state != "active") return "\"" + d.name + "\" is not connected right now.";
+        if (!SetDefault(id)) { try { Process.Start("ms-settings:sound"); } catch { } return "Windows would not switch to \"" + d.name + "\" from here, so Sound settings was opened for you."; }
+        if (vol >= 0) SetVolume(id, vol, true);
+        return null;
+    }
+    public static string RunStep(string json)
+    {
+        try
+        {
+            Dictionary<string, object> o = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(json); string m = Str(o, "m");
+            if (m == "settings") { Process.Start("ms-settings:sound"); return null; }
+            List<Dev> devs = List(); if (devs.Count == 0) return "No sound devices were found on this computer.";
+            if (m == "volume")
+            {
+                string cur = DefaultId(); if (cur == null) return "No sound output is set on this computer.";
+                string mu = Str(o, "mute"); if (mu == "mute") { SetMute(cur, true); return null; } if (mu == "unmute") SetMute(cur, false);
+                int v = Num(o, "vol", -1); if (v >= 0) SetVolume(cur, v, true); return null;
+            }
+            Dictionary<string, object> a = Sub(o, "a"), b = Sub(o, "b");
+            if (m == "set") { if (a == null) return "This audio step has no device."; return Go(Str(a, "l"), ClampVol(Num(a, "v", -1)), devs); }
+            if (m == "toggle")
+            {
+                if (a == null || b == null) return "This audio step needs two devices.";
+                string la = Str(a, "l"), lb = Str(b, "l"), ia = BoundId(la), ib = BoundId(lb);
+                if (string.IsNullOrEmpty(ia) || string.IsNullOrEmpty(ib)) return "Choose which device is your \"" + (string.IsNullOrEmpty(ia) ? la : lb) + "\" in the Hub (Amit Helper), on this computer.";
+                bool toB = string.Equals(DefaultId(), ia, StringComparison.OrdinalIgnoreCase);
+                return toB ? Go(lb, ClampVol(Num(b, "v", -1)), devs) : Go(la, ClampVol(Num(a, "v", -1)), devs);
+            }
+            return "This audio step is not one this version knows.";
+        }
+        catch (Exception ex) { return "The audio setting did not work: " + ex.Message; }
+    }
+    // command-line helpers used by the Amit helper (output goes to a file, because this is a window program)
+    public static void WriteList(string outFile)
+    {
+        JavaScriptSerializer js = new JavaScriptSerializer(); string text;
+        try { List<Dev> l = List(); text = js.Serialize(new Dictionary<string, object> { { "ok", true }, { "devices", l }, { "max", AudioMax } }); }
+        catch (Exception ex) { text = js.Serialize(new Dictionary<string, object> { { "ok", false }, { "error", ex.Message } }); }
+        File.WriteAllText(outFile, text);
+    }
+    public static void RunToFile(string b64, string outFile)
+    {
+        string msg; try { msg = RunStep(System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(b64))); } catch (Exception ex) { msg = ex.Message; }
+        File.WriteAllText(outFile, new JavaScriptSerializer().Serialize(new Dictionary<string, object> { { "ok", msg == null }, { "msg", msg ?? "done" } }));
+    }
+    public static void SelfTest(string outFile)
+    {
+        List<string> bad = new List<string>();
+        if (NextDevice("a", "a", "b") != "b") bad.Add("flip a->b"); if (NextDevice("b", "a", "b") != "a") bad.Add("flip b->a"); if (NextDevice("x", "a", "b") != "a") bad.Add("neither->a");
+        if (NextDevice("A", "a", "b") != "b") bad.Add("case");
+        if (ClampVol(120) != AudioMax) bad.Add("cap"); if (ClampVol(-5) != -1) bad.Add("leave"); if (ClampVol(40) != 40) bad.Add("keep");
+        File.WriteAllText(outFile, bad.Count == 0 ? "OK" : "FAILED: " + string.Join(", ", bad.ToArray()));
+    }
+}
