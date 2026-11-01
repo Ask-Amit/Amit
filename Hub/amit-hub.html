@@ -1391,7 +1391,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.59</div>
+      <div class="page-version" id="hubVersionBadge">v8.60</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2678,7 +2678,7 @@ header{
             #panel-mail .hl-addp{display:inline-block;padding:7px 14px;border:1.5px dashed var(--gold2);border-radius:9px;color:var(--gold2);font-size:14px;cursor:pointer;background:none}
             #panel-mail .hl-bar{display:flex;flex-wrap:wrap;gap:12px 26px;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);font-size:14px}
             #panel-mail .hl-bar label{display:flex;align-items:center;gap:8px}
-            #panel-mail .hl-tr{display:grid;grid-template-columns:76px 130px minmax(120px,1fr) minmax(140px,1.2fr);gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid rgba(var(--amit-accent-rgb,201,168,76),.15)}
+            #panel-mail .hl-tr{display:grid;grid-template-columns:76px 130px minmax(120px,1fr) minmax(140px,1.2fr) 150px;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid rgba(var(--amit-accent-rgb,201,168,76),.15)}
             #panel-mail .hl-tr.th{font-size:11px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;border-bottom-color:rgba(var(--amit-accent-rgb,201,168,76),.4)}
             #panel-mail .hl-cell{padding:6px 8px;border-radius:8px;border:1px dashed transparent;cursor:pointer;font-size:13.5px;line-height:1.4;min-height:34px;display:flex;align-items:center}
             #panel-mail .hl-cell:hover{border-color:var(--gold2)}
@@ -2711,6 +2711,7 @@ header{
               <div class="hl-main">
                 <div id="hlProfHead" class="hl-h"></div>
                 <div id="hlTable"></div>
+                <div id="hlRowTestOut" class="amw-small" style="margin-top:10px;line-height:1.6"></div>
               </div>
             </div>
             <div class="hl-bar"><b style="color:var(--gold2);font-size:17px">The bar</b>
@@ -6155,13 +6156,14 @@ function hlRender(){
   if(!p){ hlEl('hlProfHead').innerHTML=''; hlEl('hlTable').innerHTML=''; return; }
   hlEl('hlProfHead').innerHTML='Buttons in &ldquo;'+hlEsc(p.name)+'&rdquo;<small>&mdash; click any cell to change it</small>';
   const bs=hl.buttons.filter(function(b){ return b.profile_id===p.id; });
-  hlEl('hlTable').innerHTML='<div class="hl-tr th"><span>Slim bar</span><span>Wide bar</span><span>Description</span><span>What it does</span></div>'
+  hlEl('hlTable').innerHTML='<div class="hl-tr th"><span>Slim bar</span><span>Wide bar</span><span>Description</span><span>What it does</span><span>Test / delete</span></div>'
     +bs.map(function(b){ const c=(HL_KINDS[b.kind]||HL_KINDS.app)[1], i="'"+b.id+"'";
       return '<div class="hl-tr" style="--hlc:'+c+'">'
         +'<div class="hl-cell" title="Change the icon" onclick="hlOpenEdit('+i+',\'icon\')"><div class="hl-sl" style="color:'+c+'">'+hlEsc(b.icon)+'</div></div>'
         +'<div class="hl-cell" title="Change the name" onclick="hlOpenEdit('+i+',\'name\')"><div class="hl-wd"><i style="color:'+c+'">'+hlEsc(b.icon)+'</i>'+hlEsc(b.name)+'</div></div>'
         +'<div class="hl-cell" title="Change the description" onclick="hlOpenEdit('+i+',\'desc\')">'+(hlEsc(b.description)||'<span style="color:var(--muted)">Add a description</span>')+'</div>'
-        +'<div class="hl-cell" title="Change what it does" onclick="hlOpenEdit('+i+',\'does\')">'+hlEsc(hlSummary(b))+'</div></div>'; }).join('')
+        +'<div class="hl-cell" title="Change what it does" onclick="hlOpenEdit('+i+',\'does\')">'+hlEsc(hlSummary(b))+'</div>'
+        +'<div style="display:flex;gap:6px"><button class="btn btn-gold" title="Run this button here" onclick="hlRowTest('+i+')">&#9654; Test</button><button class="btn" title="Delete this button" onclick="hlRowDelete('+i+')">Delete</button></div></div>'; }).join('')
     +'<div style="margin-top:10px"><span class="hl-addp" onclick="hlOpenEdit(null,\'new\')">+ Add a button</span></div>';
 }
 function hlSummary(b){
@@ -6290,8 +6292,8 @@ function hlRenderTile(){
   t.style.setProperty('--hlc',c); t.innerHTML='<i style="color:'+c+'">'+hlEsc(hl.icon)+'</i>'+hlEsc(nm);
 }
 function hlTestLine(i,msg,bad){
-  const o=hlEl('hlTestOut'); if(!o) return; let d=hlEl('hlTl'+i);
-  if(!d){ d=document.createElement('div'); d.id='hlTl'+i; o.appendChild(d); }
+  const oid=hl.testOut||'hlTestOut', o=hlEl(oid); if(!o) return; let d=hlEl(oid+'_'+i);
+  if(!d){ d=document.createElement('div'); d.id=oid+'_'+i; o.appendChild(d); }
   d.textContent='Step '+(i+1)+': '+msg; d.style.color=bad?'var(--amit-danger,#e07a6a)':'';
 }
 async function hlTestOne(i){
@@ -6319,6 +6321,17 @@ async function hlTestOne(i){
   if(s.t==='open_program'){ hlTestLine(i,'"'+v+'" opens only from the bar on your computer, so it is not run here.'); return true; }
   return false;
 }
+// the Test and Delete buttons on each row of the table
+async function hlRowTest(id){
+  const b=hl.buttons.find(function(x){ return x.id===id; }); if(!b) return;
+  const keepSteps=hl.steps, keepOut=hl.testOut;
+  hl.steps=(b.steps||[]).map(function(s){ return {t:s.t,v:s.v==null?'':String(s.v)}; }); hl.testOut='hlRowTestOut';
+  const o=hlEl('hlRowTestOut'); o.innerHTML='<b>Testing &ldquo;'+hlEsc(b.name)+'&rdquo;</b>';
+  let all=true;
+  try{ for(let i=0;i<hl.steps.length;i++){ if(!(await hlTestOne(i))){ all=false; break; } } }
+  finally{ const d=document.createElement('div'); d.textContent=all?'Test finished.':'Test stopped.'; o.appendChild(d); hl.steps=keepSteps; hl.testOut=keepOut; }
+}
+function hlRowDelete(id){ hl.editId=id; hlDeleteButton(); }
 async function hlTestAll(){
   const o=hlEl('hlTestOut'); if(o) o.innerHTML='';
   for(let i=0;i<hl.steps.length;i++){ if(!(await hlTestOne(i))) return; }
@@ -6359,7 +6372,8 @@ async function hlSaveButton(){
   hlCloseEdit(); hlRender(); hlSyncBar(false);
 }
 async function hlDeleteButton(){
-  if(!hl.editId||!confirm('Delete this button?')) return;
+  const gone=hl.buttons.find(function(x){ return x.id===hl.editId; });
+  if(!hl.editId||!gone||!confirm('Delete the button "'+gone.name+'"? This cannot be undone.')) return;
   const r=await db.from('hel_buttons').delete().eq('id',hl.editId);
   if(r.error){ hlEl('hlEditNote').textContent='Could not delete: '+(r.error.message||'unknown error'); return; }
   hl.buttons=hl.buttons.filter(function(b){ return b.id!==hl.editId; }); hlCloseEdit(); hlRender(); hlSyncBar(false);

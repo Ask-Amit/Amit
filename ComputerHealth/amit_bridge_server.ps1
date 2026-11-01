@@ -136,60 +136,6 @@ if (-not $alreadyRunning -and (Test-Path $amitMobileWatcherPath)) {
     Write-Host "Amit Mobile listener already running."
 }
 
-# ── Amit Helper bar (2026-11-01, Ryan): the Hub (which holds the login) sends the person's WHOLE bar down; this checks it against the safe step list and writes the
-# file the bar reads (amit_bar.json). The bar reloads by itself when the file changes. Every call replaces the whole file, so nothing old survives a delete.
-function Write-AmitBarConfig([string]$Body, [string]$Path) {
-    $safe = @('open_app','open_url','open_program','play_music','speak','ask_amit','wait')
-    $kinds = @('app','web','music','program','multi','ask')
-    try { $in = $Body | ConvertFrom-Json } catch { return @{ ok = $false; error = 'not readable' } }
-    if ($null -eq $in -or $null -eq $in.profiles) { return @{ ok = $false; error = 'no profiles' } }
-    $profs = @($in.profiles)
-    if ($profs.Count -lt 1 -or $profs.Count -gt 30) { return @{ ok = $false; error = 'a bar needs 1 to 30 profiles' } }
-    $old = $null
-    if (Test-Path $Path) { try { $old = [System.IO.File]::ReadAllText($Path) | ConvertFrom-Json } catch { $old = $null } }
-    $outProfs = New-Object System.Collections.ArrayList
-    $nBtn = 0
-    foreach ($p in $profs) {
-        $pn = [string]$p.name
-        if ([string]::IsNullOrWhiteSpace($pn) -or $pn.Length -gt 24) { return @{ ok = $false; error = 'a profile name is missing or too long' } }
-        $btns = New-Object System.Collections.ArrayList
-        if ($null -ne $p.buttons) { foreach ($b in @($p.buttons)) {
-            $bn = [string]$b.name; $bk = [string]$b.kind
-            if ([string]::IsNullOrWhiteSpace($bn) -or $bn.Length -gt 24 -or $kinds -notcontains $bk -or @($b.steps).Count -lt 1 -or @($b.steps).Count -gt 12 -or $btns.Count -ge 60) { return @{ ok = $false; error = "button '$bn' is not valid" } }
-            $steps = New-Object System.Collections.ArrayList
-            foreach ($s in @($b.steps)) {
-                $st = [string]$s.t
-                if ($safe -notcontains $st) { return @{ ok = $false; error = "step type '$st' is not a safe step" } }
-                $u = $null; $pa = $null; $tx = $null; $ms = 0
-                if ($null -ne $s.url -and [string]$s.url -ne '') { $u = [string]$s.url; if ($u -notmatch '^https?://' -or $u.Length -gt 1500) { return @{ ok = $false; error = "a web address in '$bn' is not valid" } } }
-                if ($null -ne $s.path -and [string]$s.path -ne '') { $pa = [string]$s.path; if ($pa.Length -gt 260) { return @{ ok = $false; error = "a program path in '$bn' is too long" } } }
-                if ($null -ne $s.text -and [string]$s.text -ne '') { $tx = [string]$s.text; if ($tx.Length -gt 300) { $tx = $tx.Substring(0, 300) } }
-                if ($null -ne $s.ms) { $ms = [int][Math]::Max(0, [Math]::Min(60000, [double]$s.ms)) }
-                [void]$steps.Add([ordered]@{ t = $st; url = $u; path = $pa; text = $tx; ms = $ms })
-            }
-            $bd = [string]$b.desc; if ($bd.Length -gt 200) { $bd = $bd.Substring(0, 200) }
-            [void]$btns.Add([ordered]@{ name = $bn; kind = $bk; desc = $bd; steps = $steps.ToArray() }); $nBtn++
-        } }
-        $ps = [string]$p.say; if ($ps.Length -gt 40) { $ps = $ps.Substring(0, 40) }
-        [void]$outProfs.Add([ordered]@{ name = $pn; say = $ps; buttons = $btns.ToArray() })
-    }
-    $names = @($outProfs | ForEach-Object { $_['name'] })
-    $cur = [string]$in.current
-    if ($in.keep -and $null -ne $old -and $names -contains [string]$old.current) { $cur = [string]$old.current }
-    if ($names -notcontains $cur) { $cur = $names[0] }
-    $idle = 2; if ($null -ne $in.idleMinutes) { $idle = [int][Math]::Max(1, [Math]::Min(30, [double]$in.idleMinutes)) }
-    $obj = [ordered]@{
-        alwaysOn = [bool]$in.alwaysOn; idleMinutes = $idle; widenOnClick = ($null -eq $in.widenOnClick -or [bool]$in.widenOnClick)
-        startWide = ($null -ne $old -and [bool]$old.startWide); ownHook = ($null -ne $old -and [bool]$old.ownHook)
-        current = $cur; profiles = $outProfs.ToArray()
-    }
-    $json = $obj | ConvertTo-Json -Depth 8 -Compress
-    $tmp = $Path + '.tmp'
-    [System.IO.File]::WriteAllText($tmp, $json, (New-Object System.Text.UTF8Encoding($false)))
-    Move-Item -LiteralPath $tmp -Destination $Path -Force
-    return @{ ok = $true; profiles = $outProfs.Count; buttons = $nBtn }
-}
-
 # ── Ask Amit answering computer (AmitChat\amit_ask_watcher.js) — auto-start (2026-10-18, Ryan's request) ──
 # Same idea as the Amit Mobile listener above: the moment the shared bridge starts, Amit's answering computer starts with it, so the "Amit
 # Tracker" desktop shortcut (which starts this bridge) brings up everything in one double-click. It needs ask_watcher.json, which the watcher
@@ -250,6 +196,69 @@ if (-not (Test-Path $amitTrackingDisabledFlag)) {
 $handlerScript = {
     param($context, $watcherDir, $dashboardPath, $deviceId, $deviceName, $bridgeState)
 
+    # Amit Helper bar (2026-11-01, Ryan): the Hub (which holds the login) sends the person's WHOLE bar down; this checks it against the safe step list and writes the
+    # file the bar reads (amit_bar.json). The bar reloads by itself when the file changes. Every call replaces the whole file, so nothing old survives a delete.
+    # Parsed with .NET's JavaScriptSerializer and written by hand: ConvertTo-Json/ConvertFrom-Json can hang on a cold runspace (see ConvertTo-JsonString below).
+    function Write-AmitBarConfig([string]$Body, [string]$Path) {
+        $safe = @('open_app','open_url','open_program','play_music','speak','ask_amit','wait')
+        $kinds = @('app','web','music','program','multi','ask')
+        $fnFail = { param($m) return @{ ok = $false; error = $m } }
+        $fnGet = { param($d, $k) if ($d -is [System.Collections.IDictionary] -and $d.ContainsKey($k)) { return $d[$k] } else { return $null } }
+        $fnQuote = { param($s) if ($null -eq $s) { return 'null' }; return '"' + ([string]$s).Replace('\', '\\').Replace('"', '\"').Replace("`r", '\r').Replace("`n", '\n').Replace("`t", '\t') + '"' }
+        $fnBool = { param($v) if ($v) { return 'true' } else { return 'false' } }
+        Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+        $js = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+        $js.MaxJsonLength = 4000000
+        try { $in = $js.DeserializeObject($Body) } catch { return (& $fnFail 'not readable') }
+        $pl = & $fnGet $in 'profiles'
+        if ($null -eq $pl) { return (& $fnFail 'no profiles') }
+        $profs = @($pl)
+        if ($profs.Count -lt 1 -or $profs.Count -gt 30) { return (& $fnFail 'a bar needs 1 to 30 profiles') }
+        $old = $null
+        if (Test-Path $Path) { try { $old = $js.DeserializeObject([System.IO.File]::ReadAllText($Path)) } catch { $old = $null } }
+        $names = New-Object System.Collections.ArrayList
+        $profJson = New-Object System.Collections.ArrayList
+        $nBtn = 0
+        foreach ($p in $profs) {
+            $pn = [string](& $fnGet $p 'name')
+            if ([string]::IsNullOrWhiteSpace($pn) -or $pn.Length -gt 24) { return (& $fnFail 'a profile name is missing or too long') }
+            $btnJson = New-Object System.Collections.ArrayList
+            $bl = & $fnGet $p 'buttons'
+            if ($null -ne $bl) { foreach ($b in @($bl)) {
+                $bn = [string](& $fnGet $b 'name'); $bk = [string](& $fnGet $b 'kind'); $sl = @(& $fnGet $b 'steps')
+                if ([string]::IsNullOrWhiteSpace($bn) -or $bn.Length -gt 24 -or $kinds -notcontains $bk -or $sl.Count -lt 1 -or $sl.Count -gt 12 -or $btnJson.Count -ge 60) { return (& $fnFail ("button '" + $bn + "' is not valid")) }
+                $stepJson = New-Object System.Collections.ArrayList
+                foreach ($s in $sl) {
+                    $st = [string](& $fnGet $s 't')
+                    if ($safe -notcontains $st) { return (& $fnFail ("step type '" + $st + "' is not a safe step")) }
+                    $u = $null; $pa = $null; $tx = $null; $ms = 0
+                    $uv = & $fnGet $s 'url';  if ($null -ne $uv -and [string]$uv -ne '') { $u = [string]$uv; if ($u -notmatch '^https?://' -or $u.Length -gt 1500) { return (& $fnFail ("a web address in '" + $bn + "' is not valid")) } }
+                    $pv = & $fnGet $s 'path'; if ($null -ne $pv -and [string]$pv -ne '') { $pa = [string]$pv; if ($pa.Length -gt 260) { return (& $fnFail ("a program path in '" + $bn + "' is too long")) } }
+                    $xv = & $fnGet $s 'text'; if ($null -ne $xv -and [string]$xv -ne '') { $tx = [string]$xv; if ($tx.Length -gt 300) { $tx = $tx.Substring(0, 300) } }
+                    $mv = & $fnGet $s 'ms';   if ($null -ne $mv) { $ms = [int][Math]::Max(0, [Math]::Min(60000, [double]$mv)) }
+                    [void]$stepJson.Add('{"t":' + (& $fnQuote $st) + ',"url":' + (& $fnQuote $u) + ',"path":' + (& $fnQuote $pa) + ',"text":' + (& $fnQuote $tx) + ',"ms":' + $ms + '}')
+                }
+                $bd = [string](& $fnGet $b 'desc'); if ($bd.Length -gt 200) { $bd = $bd.Substring(0, 200) }
+                [void]$btnJson.Add('{"name":' + (& $fnQuote $bn) + ',"kind":' + (& $fnQuote $bk) + ',"desc":' + (& $fnQuote $bd) + ',"steps":[' + ($stepJson -join ',') + ']}'); $nBtn++
+            } }
+            $ps = [string](& $fnGet $p 'say'); if ($ps.Length -gt 40) { $ps = $ps.Substring(0, 40) }
+            [void]$names.Add($pn)
+            [void]$profJson.Add('{"name":' + (& $fnQuote $pn) + ',"say":' + (& $fnQuote $ps) + ',"buttons":[' + ($btnJson -join ',') + ']}')
+        }
+        $cur = [string](& $fnGet $in 'current')
+        $oldCur = [string](& $fnGet $old 'current')
+        if ((& $fnGet $in 'keep') -eq $true -and $oldCur -and $names -contains $oldCur) { $cur = $oldCur }
+        if ($names -notcontains $cur) { $cur = [string]$names[0] }
+        $idle = 2; $iv = & $fnGet $in 'idleMinutes'; if ($null -ne $iv) { $idle = [int][Math]::Max(1, [Math]::Min(30, [double]$iv)) }
+        $wv = & $fnGet $in 'widenOnClick'
+        $json = '{"alwaysOn":' + (& $fnBool ((& $fnGet $in 'alwaysOn') -eq $true)) + ',"idleMinutes":' + $idle + ',"widenOnClick":' + (& $fnBool ($null -eq $wv -or $wv -eq $true)) +
+            ',"startWide":' + (& $fnBool ((& $fnGet $old 'startWide') -eq $true)) + ',"ownHook":' + (& $fnBool ((& $fnGet $old 'ownHook') -eq $true)) +
+            ',"current":' + (& $fnQuote $cur) + ',"profiles":[' + ($profJson -join ',') + ']}'
+        $tmp = $Path + '.tmp'
+        [System.IO.File]::WriteAllText($tmp, $json, (New-Object System.Text.UTF8Encoding($false)))
+        Move-Item -LiteralPath $tmp -Destination $Path -Force
+        return @{ ok = $true; profiles = $profJson.Count; buttons = $nBtn }
+    }
     function ConvertTo-JsonString($text) {
         # Manual JSON string escaping - avoids ConvertTo-Json, which has a real
         # slowness/hang issue on some fresh runspaces in Windows PowerShell 5.1
@@ -1330,7 +1339,7 @@ try {
                 # KEEP THE FILE LIST THE SAME AS make_helper_manifest.ps1.
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else {
-                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_talk.html','amit_update.ps1')
+                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_talk.html','amit_update.ps1','amit_reload.ps1')
                     $hsSha = [System.Security.Cryptography.SHA256]::Create()
                     $hsParts = @()
                     foreach ($hsN in $hsNames) {
