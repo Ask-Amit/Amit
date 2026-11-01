@@ -1391,7 +1391,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.61</div>
+      <div class="page-version" id="hubVersionBadge">v8.63</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -3175,6 +3175,7 @@ header{
 <div class="overlay" id="hlEditOverlay" onclick="if(event.target===this)hlCloseEdit()" style="align-items:flex-start;justify-content:flex-end;padding:96px 56px 16px;background:rgba(0,0,0,.4)">
   <div class="modal" onclick="event.stopPropagation()" style="width:480px">
     <div class="modal-hdr"><div class="modal-title" id="hlEditTitle">Button</div></div>
+    <div style="margin:4px 0 6px"><button class="btn" onclick="hlCreateInfo()">Ask Amit to create this button</button></div>
     <div id="hlSecIcon">
       <label class="fg-label" style="display:block;margin:10px 0 5px">ICON</label>
       <div class="hl-icons" id="hlIcons"></div>
@@ -3212,6 +3213,24 @@ header{
       <button class="btn" onclick="hlCloseEdit()">Cancel</button>
       <button class="btn btn-gold" onclick="hlSaveButton()">Save</button>
     </div>
+  </div>
+</div>
+
+<!-- Amit Helper: "Ask Amit to create this button" - placeholder that states the scope until it is built (Ryan, 2026-11-01) -->
+<div class="overlay" id="hlCreateOverlay" onclick="if(event.target===this)hlCloseCreateInfo()" style="align-items:flex-start;justify-content:flex-end;padding:120px 80px 16px;background:rgba(0,0,0,.4)">
+  <div class="modal" onclick="event.stopPropagation()" style="width:460px">
+    <div class="modal-hdr"><div class="modal-title">Ask Amit to create this button</div></div>
+    <p style="font-size:14px;line-height:1.7;margin:6px 0 10px"><b style="color:var(--gold2)">Not built yet.</b> This is what it will do:</p>
+    <ol style="font-size:14px;line-height:1.7;margin:0 0 10px;padding-left:20px">
+      <li>You press this and Amit opens, already knowing a button is being made.</li>
+      <li>Amit asks what the button is called and what you want it to do, a question at a time. You only talk.</li>
+      <li>Amit builds the whole button: its name, icon, description, the group it belongs in, and the part that makes it work.</li>
+      <li>Amit refuses anything unsafe, and tells you why: deleting or emptying things, changing system settings, downloading and running things, collecting passwords or personal data, sending or buying, anything needing administrator rights.</li>
+      <li>Amit sends you one sealed packet. You press Insert. It is installed on this button for you only, and it will not work if it came from anywhere else.</li>
+      <li>You can press Test. You never see or edit the code; to change it, you ask Amit.</li>
+    </ol>
+    <p class="amw-small" style="margin:0 0 12px">Until then, make the button with the choices below, or press Generate and paste Amit&rsquo;s steps.</p>
+    <div class="modal-actions" style="display:flex;justify-content:flex-end"><button class="btn btn-gold" onclick="hlCloseCreateInfo()">Close</button></div>
   </div>
 </div>
 
@@ -6078,8 +6097,8 @@ async function mmSave(){
 }
 // ---- Communications > Amit Helper (Ryan, 2026-11-01). Own rows only in hel_settings / hel_profiles / hel_buttons (migration 035, safe step types enforced by the database). ----
 const HL_KINDS={app:['Amit app','#c9a84c'],web:['Website','#5b9bd5'],music:['Music','#9b7fd1'],program:['Program','#3fb5a8'],multi:['Several steps','#e0826a'],ask:['Ask Amit','#5cb85c']};
-const HL_STEPS={open_app:['Open an Amit app','app','e.g. AmitBooks'],open_url:['Open a website','web','https://...'],open_program:['Open a program','program','e.g. Notepad'],play_music:['Play music','music','e.g. Devotions'],speak:['Speak','ask','what Amit says'],ask_amit:['Ask Amit','ask','the question to ask'],wait:['Wait (seconds)','multi','1 to 60']};
-const HL_ICONS=['📚','💰','🛒','✉️','📅','🎵','🙏','📖','💻','🔧','🌐','🏠','🏥','🚗','📷','📝','☀️','⭐','🔔','📞','🎯','🧭','🕊️','🛠️'];
+const HL_STEPS={open_app:['Open an Amit app','app','e.g. AmitBooks'],open_url:['Open a website','web','https://...'],open_program:['Open a program','program','e.g. Notepad'],open_file:['Open a file','program','choose a file'],play_music:['Play music','music','e.g. Devotions'],speak:['Speak','ask','what Amit says'],ask_amit:['Ask Amit','ask','the question to ask'],wait:['Wait (seconds)','multi','1 to 60']};
+const HL_ICONS=['📚','💰','🛒','✉️','📅','🎵','🙏','📖','💻','🔧','🌐','🏠','🏥','🚗','📷','📝','☀️','⭐','🔔','📞','🎯','🧭','🕊️','🛠️','📊','📄','📕','📽️','🖼️','🎬'];
 const HL_DEFAULTS={always_on:false,idle_minutes:2,widen_on_click:true,rail_width:'medium'};
 const HL_BASE='https://ask-amit.github.io/Amit/';
 const HL_APPS={'hub':'Hub/amit-hub.html','amit hub':'Hub/amit-hub.html','amitcoder':'AmitCoder/AmitCoder.html','amitbooks':'AmitBooks/NEW.html','books':'AmitBooks/NEW.html','amitscan':'AmitBooks/AmitScan/AmitScan.html',
@@ -6087,12 +6106,81 @@ const HL_APPS={'hub':'Hub/amit-hub.html','amit hub':'Hub/amit-hub.html','amitcod
   'computer health':'ComputerHealth/ComputerHealth_Dashboard.html','amit live':'ComputerHealth/AmitLive.html','amit mobile':'AmitMobile/AmitMobile.html','amit health':'AmitHealth/amit-health.html','amitroll':'AmitRoll/AmitRoll.html',
   'amitcapacity':'AmitCapacity/AmitCapacity.html','amitfix':'AmitFix/AmitFix.html','medical prep':'EMS_StudyGuide/EMS_Paramedic_StudyGuide.html','living testimony':'Amit, Are You There/Amit_Living_Testimony.html'};
 const HL_ASK_URL=HL_BASE+'Hub/amit-hub.html?ask=amit';
+// THE LIST OF EVERY APPLICATION: the Living Testimony's own list (Amit, Are You There\living_testimony_apps.json) is where the "open an Amit app" step gets its apps and their pages.
+// A new application added to that list shows up here by itself. HL_APPS above is only the fallback when the list cannot be read.
+const HL_APPS_URL='https://ask-amit.github.io/Amit/Amit,%20Are%20You%20There/living_testimony_apps.json';
+function hlNorm(v){ return String(v||'').trim().toLowerCase().replace(/\s+/g,' '); }
 // an Amit app named by the person ("AmitBooks") or a web address -> the real address, or null when it is neither
 function hlAppUrl(v){
   v=String(v||'').trim(); if(/^https?:\/\//i.test(v)) return v;
-  const p=HL_APPS[v.toLowerCase().replace(/\s+/g,' ')]; return p?HL_BASE+encodeURI(p):null;
+  const a=(hl.apps||[]).find(function(x){ return hlNorm(x.name)===hlNorm(v); });
+  if(a) return (hl.appBase||HL_BASE)+encodeURI(a.path);
+  const p=HL_APPS[hlNorm(v)]; return p?HL_BASE+encodeURI(p):null;
 }
-let hl={profiles:[],buttons:[],sel:null,editId:null,icon:'⭐',steps:[],settings:Object.assign({},HL_DEFAULTS),syncing:false};
+let hl={profiles:[],buttons:[],sel:null,editId:null,icon:'⭐',steps:[],settings:Object.assign({},HL_DEFAULTS),syncing:false,apps:[],appGroups:[],appBase:HL_BASE,appsTried:false,programs:[]};
+// the programs installed on THIS computer, from the shared helper (/api/programs: what the Windows Start menu lists, each with the address Windows opens it by).
+// A button stores the program's NAME, so it still means the same thing on another computer; the address is looked up here, on the computer that runs the bar.
+async function hlLoadPrograms(){
+  try{
+    const r=await Promise.race([fetch('http://localhost:8710/api/programs'),new Promise(function(_,rej){ setTimeout(function(){ rej(new Error('slow')); },5000); })]);
+    const j=await r.json(); hl.programs=(j&&j.ok&&Array.isArray(j.programs))?j.programs:[];
+  }catch(e){ hl.programs=[]; }
+}
+function hlProgramPath(v){
+  const p=(hl.programs||[]).find(function(x){ return hlNorm(x.name)===hlNorm(v); });
+  return p?'shell:AppsFolder\\'+p.id:null;
+}
+function hlProgControl(s,i){
+  const v=String(s.v==null?'':s.v);
+  if(!hl.programs.length) return '<input class="fg-input" style="flex:1;min-width:0" maxlength="300" value="'+hlEsc(v)+'" placeholder="'+hlEsc(HL_STEPS.open_program[2])+'" oninput="hl.steps['+i+'].v=this.value">';
+  const known=hl.programs.some(function(p){ return hlNorm(p.name)===hlNorm(v); }), looksFile=/\.(exe|msc|bat|cmd|lnk)$/i.test(v)||/[\\\/]/.test(v);
+  const other=!!s._other||looksFile, missing=(!known&&!other&&v!=='');
+  let o='<select class="fg-input" style="flex:1;min-width:0" onchange="hlPickProg('+i+',this.value)"><option value="">Choose a program on this computer...</option>';
+  if(missing) o+='<option value="'+hlEsc(v)+'" selected>'+hlEsc(v)+' (not installed on this computer)</option>';
+  o+=hl.programs.map(function(p){ return '<option value="'+hlEsc(p.name)+'"'+(hlNorm(p.name)===hlNorm(v)?' selected':'')+'>'+hlEsc(p.name)+'</option>'; }).join('');
+  o+='<option value="__other__"'+(other?' selected':'')+'>A program file name or path instead...</option></select>';
+  if(other) o+='<input class="fg-input" style="flex:1;min-width:0" maxlength="300" value="'+hlEsc(v)+'" placeholder="e.g. notepad.exe" oninput="hl.steps['+i+'].v=this.value">';
+  return o;
+}
+function hlPickProg(i,val){
+  const s=hl.steps[i]; if(!s) return;
+  if(val==='__other__'){ s._other=true; if(!/\.(exe|msc|bat|cmd|lnk)$/i.test(String(s.v||''))&&!/[\\\/]/.test(String(s.v||''))) s.v=''; } else { s._other=false; s.v=val; }
+  hlRenderSteps();
+}
+async function hlLoadApps(){
+  if(hl.appsTried&&hl.apps.length) return; hl.appsTried=true;
+  try{
+    const r=await Promise.race([fetch(HL_APPS_URL,{cache:'no-cache'}),new Promise(function(_,rej){ setTimeout(function(){ rej(new Error('slow')); },6000); })]);
+    const j=await r.json(), seen={}, groups=[];
+    (j.groups||[]).forEach(function(g){
+      const apps=[];
+      (g.apps||[]).forEach(function(a){ if(a&&a.name&&/\.html?$/i.test(a.path||'')&&!seen[hlNorm(a.name)]){ seen[hlNorm(a.name)]=1; apps.push({name:a.name,path:a.path,desc:a.desc||''}); } });   // only entries that are a page can be opened
+      if(apps.length) groups.push({title:g.title||'Apps',apps:apps});
+    });
+    hl.appGroups=groups; hl.apps=[].concat.apply([],groups.map(function(g){ return g.apps; }));
+    hl.appBase=String(j.baseUrl||HL_BASE).replace(/\/?$/,'/');
+  }catch(e){ hl.apps=[]; hl.appGroups=[]; hl.appsTried=false; }
+}
+// the value box of an "open an Amit app" step: a picker built from the list, or a web address when the person chooses that
+function hlAppControl(s,i){
+  const v=String(s.v==null?'':s.v);
+  if(!hl.apps.length) return '<input class="fg-input" style="flex:1;min-width:0" maxlength="300" value="'+hlEsc(v)+'" placeholder="'+hlEsc(HL_STEPS.open_app[2])+'" oninput="hl.steps['+i+'].v=this.value">';
+  const known=hl.apps.some(function(a){ return hlNorm(a.name)===hlNorm(v); }), isUrl=/^https?:\/\//i.test(v);
+  const other=!!s._other||isUrl, missing=(!known&&!other&&v!=='');
+  let o='<select class="fg-input" style="flex:1;min-width:0" onchange="hlPickApp('+i+',this.value)"><option value="">Choose an Amit app...</option>';
+  if(missing) o+='<option value="'+hlEsc(v)+'" selected>'+hlEsc(v)+' (not in the list any more)</option>';
+  hl.appGroups.forEach(function(g){
+    o+='<optgroup label="'+hlEsc(g.title)+'">'+g.apps.map(function(a){ return '<option value="'+hlEsc(a.name)+'" title="'+hlEsc(a.desc)+'"'+(hlNorm(a.name)===hlNorm(v)?' selected':'')+'>'+hlEsc(a.name)+'</option>'; }).join('')+'</optgroup>';
+  });
+  o+='<option value="__other__"'+(other?' selected':'')+'>A web address instead...</option></select>';
+  if(other) o+='<input class="fg-input" style="flex:1;min-width:0" maxlength="300" value="'+hlEsc(v)+'" placeholder="https://..." oninput="hl.steps['+i+'].v=this.value">';
+  return o;
+}
+function hlPickApp(i,val){
+  const s=hl.steps[i]; if(!s) return;
+  if(val==='__other__'){ s._other=true; if(!/^https?:\/\//i.test(String(s.v||''))) s.v=''; } else { s._other=false; s.v=val; }
+  hlRenderSteps();
+}
 function hlEl(id){ return document.getElementById(id); }
 function hlEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function hlNote(msg,bad){ const n=hlEl('hlNote'); if(!n) return; n.textContent=msg||''; n.style.color=bad?'var(--amit-danger,#e07a6a)':''; }
@@ -6104,7 +6192,8 @@ function hlStepToBar(s){
   if(s.t==='open_app'){ o.url=hlAppUrl(v); }
   else if(s.t==='open_url'){ o.url=v; }
   else if(s.t==='ask_amit'){ o.url=HL_ASK_URL; }
-  else if(s.t==='open_program'){ o.path=v; }
+  else if(s.t==='open_program'){ o.path=hlProgramPath(v)||v; }
+  else if(s.t==='open_file'){ o.token=s.token||''; o.text=s.name||v; }
   else if(s.t==='play_music'){ const u=hlAppUrl(v); if(u) o.url=u; else o.path=v; }
   else if(s.t==='speak'){ o.text=v; }
   else if(s.t==='wait'){ o.ms=Math.round(Number(v)*1000)||0; }
@@ -6118,13 +6207,13 @@ async function hlSyncBar(keepCurrent){
     const st=hl.settings||HL_DEFAULTS, cur=hl.profiles.find(function(p){ return p.is_current; })||hl.profiles[0];
     const body={alwaysOn:!!st.always_on,idleMinutes:st.idle_minutes,widenOnClick:!!st.widen_on_click,current:cur.name,keep:!!keepCurrent,
       profiles:hl.profiles.map(function(p){ return {name:p.name,say:p.voice_phrase||('profile '+p.name.toLowerCase()),
-        buttons:hl.buttons.filter(function(b){ return b.profile_id===p.id; }).map(function(b){ return {name:b.name,kind:b.kind,desc:b.description||'',icon:b.icon||'',steps:(b.steps||[]).map(hlStepToBar)}; })}; })};
+        buttons:hl.buttons.filter(function(b){ return b.profile_id===p.id; }).map(function(b){ return {name:b.name,kind:b.kind,desc:b.description||'',icon:b.icon||'',steps:(b.steps||[]).map(function(s){ return hlStepToBar(hlDec(s)); })}; })}; })};
     let res;
     try{ res=await fetch('http://localhost:8710/api/bar/sync',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)}); }
     catch(e){ hlSyncNote("This computer's Amit helper did not answer, so the bar on this computer was not changed. Either it is not running, or your browser is asking whether this site may reach your computer: choose Allow. It is sent again the next time you change something or open this tab.",true); return; }
     let j=null; try{ j=await res.json(); }catch(e){}
     const hh=new Date(), t=('0'+hh.getHours()).slice(-2)+':'+('0'+hh.getMinutes()).slice(-2);
-    if(j&&j.ok){ hlSyncNote('Your bar on this computer is up to date ('+j.profiles+' profile'+(j.profiles>1?'s':'')+', '+j.buttons+' button'+(j.buttons===1?'':'s')+', sent at '+t+').',false); }
+    if(j&&j.ok){ hlSyncNote('Your bar on this computer is up to date ('+j.profiles+' profile'+(j.profiles>1?'s':'')+', '+j.buttons+' button'+(j.buttons===1?'':'s')+', sent at '+t+').'+(j.missing?' '+j.missing+' file step'+(j.missing>1?'s need':' needs')+' choosing on this computer: open the button and choose the file.':''),!!j.missing); }
     else if(j&&j.error&&res.status!==404){ hlSyncNote('This computer did not accept the bar: '+j.error+'.',true); }
     else { hlSyncNote("The Amit helper on this computer is older and cannot receive your bar yet. It updates itself shortly. If Amit Live is busy listening or tracking, the update waits: turn Amit Live off and on again for it to take effect, then change anything here (or reopen this tab) to send the bar again.",true); }
   }
@@ -6135,6 +6224,7 @@ async function hlLoad(){
   hlEl('hlSignedOut').style.display=signed?'none':''; hlEl('hlForm').style.display=signed?'':'none';
   if(!signed) return;
   hlNote('');
+  await Promise.all([hlLoadApps(),hlLoadPrograms()]);
   const rs=await Promise.all([db.from('hel_settings').select('*').eq('user_id',currentUser.id).maybeSingle(),
     db.from('hel_profiles').select('*').eq('user_id',currentUser.id).order('sort_order').order('created_at'),
     db.from('hel_buttons').select('*').eq('user_id',currentUser.id).order('sort_order').order('created_at')]);
@@ -6167,8 +6257,8 @@ function hlRender(){
     +'<div style="margin-top:10px"><span class="hl-addp" onclick="hlOpenEdit(null,\'new\')">+ Add a button</span></div>';
 }
 function hlSummary(b){
-  const st=b.steps||[], v=function(s){ return s.v==null?'':String(s.v); },
-    lab=function(s){ return ({open_app:'open '+v(s),open_url:'open the website',open_program:'open '+v(s),play_music:'play '+v(s),speak:'say something',ask_amit:'ask Amit',wait:'wait '+v(s)+' s'})[s.t]||s.t; };
+  const st=(b.steps||[]).map(hlDec), v=function(s){ return s.v==null?'':String(s.v); },
+    lab=function(s){ return ({open_app:'open '+v(s),open_url:'open the website',open_program:'open '+v(s),open_file:'open '+v(s),play_music:'play '+v(s),speak:'say something',ask_amit:'ask Amit',wait:'wait '+v(s)+' s'})[s.t]||s.t; };
   if(st.length===1){ const s=st[0], n=HL_STEPS[s.t]?HL_STEPS[s.t][0]:s.t; return n+(s.v!==''&&s.v!=null&&s.t!=='ask_amit'?': '+s.v:''); }
   return st.length+' steps: '+st.map(lab).join(', then ');
 }
@@ -6226,7 +6316,7 @@ function hlOpenEdit(id,mode){
   const p=hl.profiles.find(function(x){ return x.id===hl.sel; }); if(!p) return;
   const b=id?hl.buttons.find(function(x){ return x.id===id; }):null;
   hl.editId=b?b.id:null; hl.mode=b?(mode||'does'):'new'; hl.icon=b?b.icon:'⭐';
-  hl.steps=b?(b.steps||[]).map(function(s){ return {t:s.t,v:s.v==null?'':String(s.v)}; }):[{t:'open_app',v:''}];
+  hl.steps=b?(b.steps||[]).map(hlDec):[{t:'open_app',v:''}]; hl.recentTried=false;
   const titles={icon:'Icon for '+(b?b.name:''),name:'Name on the wide bar',desc:'Description',does:'What it does: '+(b?b.name:''),'new':'New button in '+p.name};
   hlEl('hlEditTitle').textContent=titles[hl.mode];
   const m=hl.mode, all=(m==='new');
@@ -6241,8 +6331,8 @@ function hlRequestText(){
   const p=hl.profiles.find(function(x){ return x.id===hl.sel; });
   const name=hlEl('hlName').value.trim();
   return 'Amit, please build one button for my Amit Helper bar'+(p?' in my profile "'+p.name+'"':'')+(name?', called "'+name+'"':'')+'.\n\nWhat I want it to do, in my words, in order:\n'
-    +hlEl('hlSay').value.trim()+'\n\nUse ONLY these step types: '+Object.keys(HL_STEPS).map(function(k){ return k+' ('+HL_STEPS[k][0].toLowerCase()+')'; }).join(', ')
-    +'. A J shortcut or a search I name is an ask_amit step whose v is the question to ask. open_url must start with https://. wait is a number of seconds from 1 to 60. Use at most 12 steps. '
+    +hlEl('hlSay').value.trim()+'\n\nUse ONLY these step types: '+Object.keys(HL_STEPS).filter(function(k){ return k!=='open_file'; }).map(function(k){ return k+' ('+HL_STEPS[k][0].toLowerCase()+')'; }).join(', ')
+    +'. A J shortcut or a search I name is an ask_amit step whose v is the question to ask. For open_app, v must be exactly one of these Amit app names'+(hl.apps.length?': '+hl.apps.map(function(a){ return a.name; }).join('; '):' (or a web address)')+'. For open_program, v is the name of the program exactly as the Windows Start menu shows it (for example Calculator), or its file name such as notepad.exe. open_url must start with https://. wait is a number of seconds from 1 to 60. Use at most 12 steps. '
     +'Reply with ONLY this JSON and nothing else: {"steps":[{"t":"open_app","v":"AmitBooks"}]}. If something I asked for cannot be done with those step types, say so in plain words instead.';
 }
 function hlCopy(text,okMsg){
@@ -6261,7 +6351,8 @@ function hlReadPaste(){
   if(!Array.isArray(list)||!list.length||list.length>12){ hlEditMsg('Amit\'s answer has no usable steps (1 to 12 are allowed).',true); return; }
   const out=[];
   for(let i=0;i<list.length;i++){
-    const s=list[i]; if(!s||!HL_STEPS[s.t]||s.v==null||String(s.v).trim()===''){ hlEditMsg('Step '+(i+1)+' is not one of the safe steps, so nothing was changed.',true); return; }
+    const s=list[i]; if(s&&s.t==='open_file'){ hlEditMsg('Step '+(i+1)+' opens a file. Files are chosen with the file picker in the step, not through Amit, so nothing was changed.',true); return; }
+    if(!s||!HL_STEPS[s.t]||s.v==null||String(s.v).trim()===''){ hlEditMsg('Step '+(i+1)+' is not one of the safe steps, so nothing was changed.',true); return; }
     if(s.t==='open_app'&&!hlAppUrl(s.v)){ hlEditMsg('Step '+(i+1)+' names an app I do not know ("'+s.v+'"), so nothing was changed. Ask Amit to use an Amit app name or a web address.',true); return; }
     out.push({t:s.t,v:String(s.v)});
   }
@@ -6274,15 +6365,87 @@ function hlSuggestIcons(){
   hlCopy('Amit, suggest two or three icons for my Amit Helper button "'+name+'" from this library: '+HL_ICONS.join(' ')+'. For each, say in one short line why it fits what I do. If you do not know enough about me yet, say so.','Copied for Amit.');
 }
 function hlCloseEdit(){ hlEl('hlEditOverlay').classList.remove('open'); }
+function hlCreateInfo(){ hlEl('hlCreateOverlay').classList.add('open'); }
+function hlCloseCreateInfo(){ hlEl('hlCreateOverlay').classList.remove('open'); }
 function hlRenderIcons(){ hlEl('hlIcons').innerHTML=HL_ICONS.map(function(g){ return '<span class="'+(g===hl.icon?'on':'')+'" onclick="hl.icon=this.textContent;hlRenderIcons()">'+g+'</span>'; }).join(''); hlRenderTile(); }
 function hlRenderSteps(){
   hlEl('hlSteps').innerHTML=hl.steps.map(function(s,i){
-    return '<div class="hl-step"><select class="fg-input" style="width:170px;flex-shrink:0" onchange="hl.steps['+i+'].t=this.value;hlRenderSteps()">'
+    return '<div class="hl-step"><select class="fg-input" style="width:170px;flex-shrink:0" onchange="hlSetType('+i+',this.value)">'
       +Object.keys(HL_STEPS).map(function(k){ return '<option value="'+k+'"'+(k===s.t?' selected':'')+'>'+HL_STEPS[k][0]+'</option>'; }).join('')+'</select>'
-      +'<input class="fg-input" style="flex:1;min-width:0" maxlength="300" value="'+hlEsc(s.v)+'" placeholder="'+hlEsc(HL_STEPS[s.t][2])+'" oninput="hl.steps['+i+'].v=this.value">'
+      +(s.t==='open_app'?hlAppControl(s,i):s.t==='open_program'?hlProgControl(s,i):s.t==='open_file'?hlFileControl(s,i):'<input class="fg-input" style="flex:1;min-width:0" maxlength="300" value="'+hlEsc(s.v)+'" placeholder="'+hlEsc(HL_STEPS[s.t][2])+'" oninput="hl.steps['+i+'].v=this.value">')
       +'<button class="btn" onclick="hlTestOne('+i+')" title="Run just this step">&#9654;</button>'
       +'<button class="btn" onclick="hl.steps.splice('+i+',1);hlRenderSteps()" title="Remove this step">&times;</button></div>'; }).join('');
   hlRenderTile();
+}
+// ---- Open a file (Ryan, 2026-11-01) ----
+// The Hub (a web page) cannot see files on the computer, so the helper on THIS computer shows the Windows file picker and lists recent files. A button keeps only a token,
+// a name and a type; each computer keeps its own private token-to-path list, so the same button on another computer says "choose the file here" instead of using a wrong path.
+// A file step is stored under an existing step type (open_program with the value file:<token>|<name>) because the database only allows its fixed list of steps;
+// a later migration (Database\migration_2026-11-01_036_helper_open_file_DRAFT.sql) makes it a real type. hlDec/hlEnc are the only two places that know this.
+const HL_HELPER='http://localhost:8710';
+function hlDec(s){
+  const v=(s&&s.v!=null)?String(s.v):''; const m=(s&&s.t==='open_program')?v.match(/^file:(f[0-9a-f]{6,16})\|(.*)$/):null;
+  if(m) return {t:'open_file',v:m[2],token:m[1],name:m[2]};
+  if(s&&s.t==='open_file') return {t:'open_file',v:v,token:s.token||'',name:v};   // once the database allows open_file as a real step type
+  return {t:s.t,v:v};
+}
+function hlEnc(s){ return {t:'open_program',v:'file:'+s.token+'|'+String(s.name||s.v||'file').slice(0,120)}; }
+function hlSetType(i,val){ const s=hl.steps[i]; if(!s) return; s.t=val; if(val==='open_file'){ s.v=''; s.token=''; s.name=''; } else { delete s.token; delete s.name; } hlRenderSteps(); }
+const HL_FILE_ICONS={xls:'📊',xlsx:'📊',csv:'📊',tsv:'📊',ods:'📊',doc:'📝',docx:'📝',rtf:'📝',odt:'📝',txt:'📝',md:'📝',pdf:'📕',ppt:'📽️',pptx:'📽️',odp:'📽️',png:'🖼️',jpg:'🖼️',jpeg:'🖼️',gif:'🖼️',bmp:'🖼️',webp:'🖼️',tif:'🖼️',tiff:'🖼️',mp3:'🎵',wav:'🎵',m4a:'🎵',flac:'🎵',mp4:'🎬',mov:'🎬',wmv:'🎬',mkv:'🎬',epub:'📚'};
+// a new button takes its icon (and its name, when empty) from the file the person chose; an icon the person already picked is left alone
+function hlAutoIcon(ext,name){
+  if(hl.editId&&hl.mode!=='new') return;
+  if(!hl.icon||hl.icon==='⭐'){ hl.icon=HL_FILE_ICONS[String(ext||'').toLowerCase()]||'📄'; hlRenderIcons(); }
+  const nm=hlEl('hlName'); if(nm&&!String(nm.value||'').trim()){ nm.value=String(name||'').replace(/\.[^.]+$/,'').slice(0,24); }
+}
+async function hlLoadRecent(){
+  try{
+    const r=await Promise.race([fetch(HL_HELPER+'/api/files/recent'),new Promise(function(_,rej){ setTimeout(function(){ rej(new Error('slow')); },6000); })]);
+    const j=await r.json(); hl.recent=(j&&j.ok&&Array.isArray(j.files))?j.files:[]; hl.helperOk=true;
+  }catch(e){ hl.recent=[]; hl.helperOk=false; }
+}
+function hlFileControl(s,i){
+  if(!hl.recentTried){ hl.recentTried=true; hlLoadRecent().then(function(){ hlRenderSteps(); }); }
+  const has=!!s.token;
+  let o='<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+    +(has?'<span style="font-size:14px">'+hlEsc(s.name||s.v)+'</span><span class="amw-small" id="hlFs'+i+'"></span>':'<span class="amw-small">No file chosen yet</span>')
+    +'<button class="btn" onclick="hlPickFile('+i+')">'+(has?'Choose another file...':'Choose a file...')+'</button></div>';
+  if((hl.recent||[]).length) o+='<select class="fg-input" onchange="hlPickRecent('+i+',this.value)"><option value="">Or pick a recent file...</option>'+hl.recent.map(function(f){ return '<option value="'+hlEsc(f.rid)+'">'+hlEsc(f.name)+(f.where?' - '+hlEsc(f.where):'')+'</option>'; }).join('')+'</select>';
+  else if(hl.helperOk===false) o+='<span class="amw-small" style="color:var(--amit-danger,#e07a6a)">The Amit helper on this computer did not answer, so files cannot be chosen from here yet.</span>';
+  setTimeout(hlFileStatuses,0); return o+'</div>';
+}
+async function hlPickFile(i){
+  const s=hl.steps[i]; if(!s) return;
+  hlEditMsg('Choose the file in the window that just opened on your computer...');
+  let id; try{ const r=await fetch(HL_HELPER+'/api/files/pick',{method:'POST',headers:{'Content-Type':'text/plain'},body:'go'}); const j=await r.json(); if(!(j&&j.ok)){ hlEditMsg((j&&j.error)||'Could not open the file picker.',true); return; } id=j.id; }
+  catch(e){ hlEditMsg('The Amit helper on this computer did not answer, so the file picker could not open.',true); return; }
+  for(let n=0;n<120;n++){
+    await new Promise(function(res){ setTimeout(res,1500); });
+    let j; try{ const r=await fetch(HL_HELPER+'/api/files/pick-result?id='+id); j=await r.json(); }catch(e){ continue; }
+    if(j&&j.pending) continue;
+    if(j&&j.ok){ hlTakeFile(i,j); return; }
+    hlEditMsg((j&&j.cancelled)?'No file was chosen.':((j&&j.error)||'No file was chosen.'),!(j&&j.cancelled)); return;
+  }
+  hlEditMsg('No file was chosen in time. Press Choose a file again when you are ready.',true);
+}
+function hlTakeFile(i,j){
+  const s=hl.steps[i]; if(!s) return;
+  s.t='open_file'; s.token=j.token; s.name=j.name; s.v=j.name; s.ext=j.ext;
+  hlAutoIcon(j.ext,j.name); hlRenderSteps(); hlEditMsg('Chosen: '+j.name+'. Press Test it to see it open, then Save.');
+}
+async function hlPickRecent(i,rid){
+  if(!rid) return;
+  try{ const r=await fetch(HL_HELPER+'/api/files/bind',{method:'POST',headers:{'Content-Type':'text/plain'},body:rid}); const j=await r.json(); if(j&&j.ok) hlTakeFile(i,j); else hlEditMsg((j&&j.error)||'Could not choose that file.',true); }
+  catch(e){ hlEditMsg('The Amit helper on this computer did not answer.',true); }
+}
+// the Ready here? check for each chosen file: is it set up on THIS computer?
+async function hlFileStatuses(){
+  const toks=hl.steps.filter(function(s){ return s.t==='open_file'&&s.token; }).map(function(s){ return s.token; }); if(!toks.length) return;
+  try{
+    const r=await fetch(HL_HELPER+'/api/files/status',{method:'POST',headers:{'Content-Type':'text/plain'},body:toks.join(',')}); const j=await r.json(); if(!(j&&j.ok)) return;
+    hl.steps.forEach(function(s,i){ const el=hlEl('hlFs'+i); if(!el||s.t!=='open_file') return; const it=j.items&&j.items[s.token]; const ok=!!(it&&it.ready);
+      el.textContent=ok?'Ready on this computer':'Not set up on this computer: choose the file here'; el.style.color=ok?'':'var(--amit-danger,#e07a6a)'; });
+  }catch(e){}
 }
 function hlKindOf(steps){ return steps.length>1?'multi':((HL_STEPS[(steps[0]||{}).t]||[0,'app'])[1]); }
 function hlRenderTile(){
@@ -6318,6 +6481,11 @@ async function hlTestOne(i){
     const n=Number(v); if(!(n>=1&&n<=60)){ hlTestLine(i,'wait needs a number from 1 to 60.',true); return false; }
     hlTestLine(i,'waiting '+n+' second'+(n>1?'s':'')+'...'); await new Promise(function(res){ setTimeout(res,n*1000); }); hlTestLine(i,'waited '+n+' second'+(n>1?'s':'')+'.'); return true;
   }
+  if(s.t==='open_file'){
+    if(!s.token){ hlTestLine(i,'choose a file first.',true); return false; }
+    try{ const r=await fetch(HL_HELPER+'/api/files/open',{method:'POST',headers:{'Content-Type':'text/plain'},body:s.token}); const j=await r.json(); if(j&&j.ok){ hlTestLine(i,'opened '+(s.name||'the file')+' in its own program.'); return true; } hlTestLine(i,(j&&j.error)||'could not open it.',true); return false; }
+    catch(e){ hlTestLine(i,'the Amit helper on this computer did not answer.',true); return false; }
+  }
   if(s.t==='open_program'){ hlTestLine(i,'"'+v+'" opens only from the bar on your computer, so it is not run here.'); return true; }
   return false;
 }
@@ -6325,7 +6493,7 @@ async function hlTestOne(i){
 async function hlRowTest(id){
   const b=hl.buttons.find(function(x){ return x.id===id; }); if(!b) return;
   const keepSteps=hl.steps, keepOut=hl.testOut;
-  hl.steps=(b.steps||[]).map(function(s){ return {t:s.t,v:s.v==null?'':String(s.v)}; }); hl.testOut='hlRowTestOut';
+  hl.steps=(b.steps||[]).map(hlDec); hl.testOut='hlRowTestOut';
   const o=hlEl('hlRowTestOut'); o.innerHTML='<b>Testing &ldquo;'+hlEsc(b.name)+'&rdquo;</b>';
   let all=true;
   try{ for(let i=0;i<hl.steps.length;i++){ if(!(await hlTestOne(i))){ all=false; break; } } }
@@ -6354,10 +6522,12 @@ async function hlSaveButton(){
   const steps=[];
   for(let i=0;i<hl.steps.length;i++){
     const s=hl.steps[i], v=String(s.v).trim();
+    if(s.t==='open_file'&&!s.token){ note('Step '+(i+1)+': choose a file first.'); return; }
     if(!v){ note('Step '+(i+1)+' needs something filled in.'); return; }
     if(s.t==='open_url'&&!/^https:\/\//i.test(v)){ note('A website link must start with https://'); return; }
     if(s.t==='open_app'&&!hlAppUrl(v)){ note('Step '+(i+1)+': I do not know an app called "'+v+'". Use an Amit app name, or an address starting with https://'); return; }
     if(s.t==='wait'){ const n=Number(v); if(!(n>=1&&n<=60)){ note('Wait needs a number from 1 to 60.'); return; } steps.push({t:s.t,v:n}); }
+    else if(s.t==='open_file') steps.push(hlEnc(s));
     else steps.push({t:s.t,v:v});
   }
   const kind=steps.length>1?'multi':HL_STEPS[steps[0].t][1];

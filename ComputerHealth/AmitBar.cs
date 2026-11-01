@@ -434,6 +434,25 @@ public class BarForm : Form
         catch { }
     }
 
+    // ---------- Open a file: the helper puts THIS computer's path for the person's chosen file into the step; only ordinary document and media types open ----------
+    static readonly string[] FileExt = new string[] { "pdf", "doc", "docx", "rtf", "txt", "md", "csv", "tsv", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp", "png", "jpg", "jpeg", "gif", "bmp", "webp", "tif", "tiff", "mp3", "wav", "m4a", "flac", "mp4", "mov", "wmv", "mkv", "epub" };
+    void Say(string title, string text)
+    {
+        try { BeginInvoke(new MethodInvoker(delegate { if (tray != null) { tray.BalloonTipTitle = title; tray.BalloonTipText = text; tray.ShowBalloonTip(6000); } })); } catch { }
+    }
+    void OpenFileStep(Step s)
+    {
+        string name = String.IsNullOrEmpty(s.text) ? "the file" : s.text; string p = s.path;
+        try
+        {
+            string ext = String.IsNullOrEmpty(p) ? "" : Path.GetExtension(p).TrimStart('.').ToLowerInvariant();
+            bool ok = !String.IsNullOrEmpty(p) && !p.StartsWith("\\\\") && File.Exists(p) && Array.IndexOf(FileExt, ext) >= 0;
+            if (!ok) { Say("Could not open " + name, "It is not set up on this computer yet. Open the Hub, Amit Helper, and choose the file again."); return; }
+            ProcessStartInfo psi = new ProcessStartInfo(p); psi.UseShellExecute = true; Process.Start(psi);
+        }
+        catch (Exception) { Say("Could not open " + name, "Windows could not open it. Check that a program is set to open this kind of file."); }
+    }
+
     // ---------- what a button does: only these safe steps ----------
     void RunButton(Btn b)
     {
@@ -445,7 +464,8 @@ public class BarForm : Form
                 try
                 {
                     if (s.t == "open_app" || s.t == "open_url" || s.t == "ask_amit") { if (!String.IsNullOrEmpty(s.url) && (s.url.StartsWith("https://") || s.url.StartsWith("http://"))) Process.Start(s.url); }
-                    else if (s.t == "open_program") { if (!String.IsNullOrEmpty(s.path)) Process.Start(s.path); }
+                    else if (s.t == "open_program") { if (!String.IsNullOrEmpty(s.path)) { if (s.path.StartsWith("shell:AppsFolder\\", StringComparison.OrdinalIgnoreCase)) Process.Start("explorer.exe", s.path); else Process.Start(s.path); } }   // a program picked from the Start menu list opens by its Start menu address
+                    else if (s.t == "open_file") { OpenFileStep(s); }
                     else if (s.t == "play_music") { if (!String.IsNullOrEmpty(s.path)) Process.Start(s.path); else if (!String.IsNullOrEmpty(s.url)) Process.Start(s.url); }
                     else if (s.t == "speak") { using (System.Speech.Synthesis.SpeechSynthesizer sp = new System.Speech.Synthesis.SpeechSynthesizer()) sp.Speak(s.text ?? ""); }
                     else if (s.t == "wait") { Thread.Sleep(Math.Max(0, Math.Min(5000, s.ms))); }
