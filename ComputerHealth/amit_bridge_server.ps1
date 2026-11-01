@@ -136,6 +136,60 @@ if (-not $alreadyRunning -and (Test-Path $amitMobileWatcherPath)) {
     Write-Host "Amit Mobile listener already running."
 }
 
+# ── Amit Helper bar (2026-11-01, Ryan): the Hub (which holds the login) sends the person's WHOLE bar down; this checks it against the safe step list and writes the
+# file the bar reads (amit_bar.json). The bar reloads by itself when the file changes. Every call replaces the whole file, so nothing old survives a delete.
+function Write-AmitBarConfig([string]$Body, [string]$Path) {
+    $safe = @('open_app','open_url','open_program','play_music','speak','ask_amit','wait')
+    $kinds = @('app','web','music','program','multi','ask')
+    try { $in = $Body | ConvertFrom-Json } catch { return @{ ok = $false; error = 'not readable' } }
+    if ($null -eq $in -or $null -eq $in.profiles) { return @{ ok = $false; error = 'no profiles' } }
+    $profs = @($in.profiles)
+    if ($profs.Count -lt 1 -or $profs.Count -gt 30) { return @{ ok = $false; error = 'a bar needs 1 to 30 profiles' } }
+    $old = $null
+    if (Test-Path $Path) { try { $old = [System.IO.File]::ReadAllText($Path) | ConvertFrom-Json } catch { $old = $null } }
+    $outProfs = New-Object System.Collections.ArrayList
+    $nBtn = 0
+    foreach ($p in $profs) {
+        $pn = [string]$p.name
+        if ([string]::IsNullOrWhiteSpace($pn) -or $pn.Length -gt 24) { return @{ ok = $false; error = 'a profile name is missing or too long' } }
+        $btns = New-Object System.Collections.ArrayList
+        if ($null -ne $p.buttons) { foreach ($b in @($p.buttons)) {
+            $bn = [string]$b.name; $bk = [string]$b.kind
+            if ([string]::IsNullOrWhiteSpace($bn) -or $bn.Length -gt 24 -or $kinds -notcontains $bk -or @($b.steps).Count -lt 1 -or @($b.steps).Count -gt 12 -or $btns.Count -ge 60) { return @{ ok = $false; error = "button '$bn' is not valid" } }
+            $steps = New-Object System.Collections.ArrayList
+            foreach ($s in @($b.steps)) {
+                $st = [string]$s.t
+                if ($safe -notcontains $st) { return @{ ok = $false; error = "step type '$st' is not a safe step" } }
+                $u = $null; $pa = $null; $tx = $null; $ms = 0
+                if ($null -ne $s.url -and [string]$s.url -ne '') { $u = [string]$s.url; if ($u -notmatch '^https?://' -or $u.Length -gt 1500) { return @{ ok = $false; error = "a web address in '$bn' is not valid" } } }
+                if ($null -ne $s.path -and [string]$s.path -ne '') { $pa = [string]$s.path; if ($pa.Length -gt 260) { return @{ ok = $false; error = "a program path in '$bn' is too long" } } }
+                if ($null -ne $s.text -and [string]$s.text -ne '') { $tx = [string]$s.text; if ($tx.Length -gt 300) { $tx = $tx.Substring(0, 300) } }
+                if ($null -ne $s.ms) { $ms = [int][Math]::Max(0, [Math]::Min(60000, [double]$s.ms)) }
+                [void]$steps.Add([ordered]@{ t = $st; url = $u; path = $pa; text = $tx; ms = $ms })
+            }
+            $bd = [string]$b.desc; if ($bd.Length -gt 200) { $bd = $bd.Substring(0, 200) }
+            [void]$btns.Add([ordered]@{ name = $bn; kind = $bk; desc = $bd; steps = $steps.ToArray() }); $nBtn++
+        } }
+        $ps = [string]$p.say; if ($ps.Length -gt 40) { $ps = $ps.Substring(0, 40) }
+        [void]$outProfs.Add([ordered]@{ name = $pn; say = $ps; buttons = $btns.ToArray() })
+    }
+    $names = @($outProfs | ForEach-Object { $_['name'] })
+    $cur = [string]$in.current
+    if ($in.keep -and $null -ne $old -and $names -contains [string]$old.current) { $cur = [string]$old.current }
+    if ($names -notcontains $cur) { $cur = $names[0] }
+    $idle = 2; if ($null -ne $in.idleMinutes) { $idle = [int][Math]::Max(1, [Math]::Min(30, [double]$in.idleMinutes)) }
+    $obj = [ordered]@{
+        alwaysOn = [bool]$in.alwaysOn; idleMinutes = $idle; widenOnClick = ($null -eq $in.widenOnClick -or [bool]$in.widenOnClick)
+        startWide = ($null -ne $old -and [bool]$old.startWide); ownHook = ($null -ne $old -and [bool]$old.ownHook)
+        current = $cur; profiles = $outProfs.ToArray()
+    }
+    $json = $obj | ConvertTo-Json -Depth 8 -Compress
+    $tmp = $Path + '.tmp'
+    [System.IO.File]::WriteAllText($tmp, $json, (New-Object System.Text.UTF8Encoding($false)))
+    Move-Item -LiteralPath $tmp -Destination $Path -Force
+    return @{ ok = $true; profiles = $outProfs.Count; buttons = $nBtn }
+}
+
 # ── Ask Amit answering computer (AmitChat\amit_ask_watcher.js) — auto-start (2026-10-18, Ryan's request) ──
 # Same idea as the Amit Mobile listener above: the moment the shared bridge starts, Amit's answering computer starts with it, so the "Amit
 # Tracker" desktop shortcut (which starts this bridge) brings up everything in one double-click. It needs ask_watcher.json, which the watcher
@@ -1339,6 +1393,19 @@ try {
                     $waBody = $waReader.ReadToEnd(); $waReader.Dispose()
                     [void][AmitWhisper]::WordsAck($waBody)
                     Send-JsonRaw $response '{"ok":true}'
+                }
+            }
+            "/api/bar/sync" {
+                # Amit Helper (2026-11-01): the Hub sends the person's whole bar; written to amit_bar.json, which the bar reloads by itself. Only the Amit site or a local program may send.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $bsReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $bsBody = $bsReader.ReadToEnd(); $bsReader.Dispose()
+                    try {
+                        $bsRes = Write-AmitBarConfig $bsBody (Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\amit_bar.json')
+                        if ($bsRes.ok) { Send-JsonRaw $response ('{"ok":true,"profiles":' + $bsRes.profiles + ',"buttons":' + $bsRes.buttons + '}') }
+                        else { Send-JsonRaw $response ('{"ok":false,"error":"' + ([string]$bsRes.error).Replace('\', '\\').Replace('"', '\"') + '"}') }
+                    } catch { Send-JsonRaw $response '{"ok":false,"error":"could not write the bar"}' }
                 }
             }
             "/api/amit-mobile-status" {

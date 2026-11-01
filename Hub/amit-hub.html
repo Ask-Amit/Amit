@@ -1391,7 +1391,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.57</div>
+      <div class="page-version" id="hubVersionBadge">v8.58</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2691,11 +2691,14 @@ header{
             .hl-icons span{font-size:20px;padding:3px 5px;border-radius:6px;cursor:pointer;border:1px solid transparent}
             .hl-icons span.on{border-color:var(--gold2);background:rgba(var(--amit-accent-rgb,201,168,76),.18)}
             .hl-step{display:flex;gap:6px;margin-bottom:6px}
+            .hl-tile{width:96px;min-height:56px;border-radius:10px;border:2px solid var(--hlc,#c9a84c);border-bottom-width:4px;background:rgba(0,0,0,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;line-height:1.2;text-align:center;padding:2px 4px;flex-shrink:0}
+            .hl-tile i{font-style:normal;font-size:18px}
           </style>
           <div id="hlSignedOut" class="amw-small" style="display:none">Sign in to set up your bar.</div>
           <div id="hlForm">
             <div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.08em;color:var(--gold2);margin-bottom:8px">Amit Helper</div>
             <p style="font-size:14px;line-height:1.7;color:var(--muted);margin:0 0 12px">Your bar on the right edge of the screen. Make a profile for each way you work, put buttons in it, and the bar shows the profile you choose. Bring the bar up with a double-right-click.</p>
+            <div id="hlSyncNote" class="amw-small" style="min-height:18px;margin:0 0 10px"></div>
             <div class="hl-key" id="hlKey"></div>
             <div class="hl-wrap">
               <div class="hl-side">
@@ -3176,6 +3179,12 @@ header{
       <label class="fg-label" style="display:block;margin:12px 0 5px" id="hlStepsLabel">THE STEPS &mdash; CHECK THEM, THEN SAVE</label>
       <div id="hlSteps"></div>
       <button class="btn" onclick="hlAddStep()" style="margin-bottom:6px">+ Add a step by hand</button>
+      <div style="margin-top:12px;padding:10px 12px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.35);border-radius:10px">
+        <label class="fg-label" style="display:block;margin-bottom:6px">TEST IT HERE</label>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px"><div class="hl-tile" id="hlTile"></div><button class="btn btn-gold" onclick="hlTestAll()">Test it</button></div>
+        <div id="hlTestOut" class="amw-small" style="line-height:1.6"></div>
+        <p class="amw-small" style="margin:6px 0 0">Here it can open pages, speak and wait. Opening a program or playing music on your computer can only be done by the bar itself. An &ldquo;ask Amit&rdquo; step opens Ask Amit; the ready question is not carried into it yet.</p>
+      </div>
     </div>
     <div id="hlEditNote" class="amw-small" style="min-height:18px;margin:6px 0"></div>
     <div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end">
@@ -6052,11 +6061,55 @@ const HL_KINDS={app:['Amit app','#c9a84c'],web:['Website','#5b9bd5'],music:['Mus
 const HL_STEPS={open_app:['Open an Amit app','app','e.g. AmitBooks'],open_url:['Open a website','web','https://...'],open_program:['Open a program','program','e.g. Notepad'],play_music:['Play music','music','e.g. Devotions'],speak:['Speak','ask','what Amit says'],ask_amit:['Ask Amit','ask','the question to ask'],wait:['Wait (seconds)','multi','1 to 60']};
 const HL_ICONS=['📚','💰','🛒','✉️','📅','🎵','🙏','📖','💻','🔧','🌐','🏠','🏥','🚗','📷','📝','☀️','⭐','🔔','📞','🎯','🧭','🕊️','🛠️'];
 const HL_DEFAULTS={always_on:false,idle_minutes:2,widen_on_click:true,rail_width:'medium'};
-let hl={profiles:[],buttons:[],sel:null,editId:null,icon:'⭐',steps:[]};
+const HL_BASE='https://ask-amit.github.io/Amit/';
+const HL_APPS={'hub':'Hub/amit-hub.html','amit hub':'Hub/amit-hub.html','amitcoder':'AmitCoder/AmitCoder.html','amitbooks':'AmitBooks/NEW.html','books':'AmitBooks/NEW.html','amitscan':'AmitBooks/AmitScan/AmitScan.html',
+  'who is god':'who_is_god/who_is_god.html','devotions':'Devotions/Devotions.html','amit music':'Devotions/AmitMusic.html','speak to me':'SpeakToMe.html','the council':'TheCouncil/Amit_Council.html','council':'TheCouncil/Amit_Council.html',
+  'computer health':'ComputerHealth/ComputerHealth_Dashboard.html','amit live':'ComputerHealth/AmitLive.html','amit mobile':'AmitMobile/AmitMobile.html','amit health':'AmitHealth/amit-health.html','amitroll':'AmitRoll/AmitRoll.html',
+  'amitcapacity':'AmitCapacity/AmitCapacity.html','amitfix':'AmitFix/AmitFix.html','medical prep':'EMS_StudyGuide/EMS_Paramedic_StudyGuide.html','living testimony':'Amit, Are You There/Amit_Living_Testimony.html'};
+const HL_ASK_URL=HL_BASE+'Hub/amit-hub.html?ask=amit';
+// an Amit app named by the person ("AmitBooks") or a web address -> the real address, or null when it is neither
+function hlAppUrl(v){
+  v=String(v||'').trim(); if(/^https?:\/\//i.test(v)) return v;
+  const p=HL_APPS[v.toLowerCase().replace(/\s+/g,' ')]; return p?HL_BASE+encodeURI(p):null;
+}
+let hl={profiles:[],buttons:[],sel:null,editId:null,icon:'⭐',steps:[],settings:Object.assign({},HL_DEFAULTS),syncing:false};
 function hlEl(id){ return document.getElementById(id); }
 function hlEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function hlNote(msg,bad){ const n=hlEl('hlNote'); if(!n) return; n.textContent=msg||''; n.style.color=bad?'var(--amit-danger,#e07a6a)':''; }
 function hlSigned(){ return (typeof currentUser!=='undefined'&&currentUser&&typeof db!=='undefined'&&db); }
+// ---- the bar on THIS computer: after every load, add, change or delete the whole bar is sent to the shared helper (localhost:8710 /api/bar/sync), the same way My Words is. ----
+function hlSyncNote(msg,bad){ const n=hlEl('hlSyncNote'); if(!n) return; n.textContent=msg||''; n.style.color=bad?'rgba(235,190,110,.95)':''; }
+function hlStepToBar(s){
+  const o={t:s.t,url:null,path:null,text:null,ms:0}, v=String(s.v==null?'':s.v);
+  if(s.t==='open_app'){ o.url=hlAppUrl(v); }
+  else if(s.t==='open_url'){ o.url=v; }
+  else if(s.t==='ask_amit'){ o.url=HL_ASK_URL; }
+  else if(s.t==='open_program'){ o.path=v; }
+  else if(s.t==='play_music'){ const u=hlAppUrl(v); if(u) o.url=u; else o.path=v; }
+  else if(s.t==='speak'){ o.text=v; }
+  else if(s.t==='wait'){ o.ms=Math.round(Number(v)*1000)||0; }
+  return o;
+}
+async function hlSyncBar(keepCurrent){
+  if(!hlSigned()||!hl.profiles.length) return;
+  if(hl.syncing){ hl.again=true; return; }
+  hl.syncing=true;
+  try{
+    const st=hl.settings||HL_DEFAULTS, cur=hl.profiles.find(function(p){ return p.is_current; })||hl.profiles[0];
+    const body={alwaysOn:!!st.always_on,idleMinutes:st.idle_minutes,widenOnClick:!!st.widen_on_click,current:cur.name,keep:!!keepCurrent,
+      profiles:hl.profiles.map(function(p){ return {name:p.name,say:p.voice_phrase||('profile '+p.name.toLowerCase()),
+        buttons:hl.buttons.filter(function(b){ return b.profile_id===p.id; }).map(function(b){ return {name:b.name,kind:b.kind,desc:b.description||'',steps:(b.steps||[]).map(hlStepToBar)}; })}; })};
+    let res;
+    try{ res=await fetch('http://localhost:8710/api/bar/sync',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)}); }
+    catch(e){ hlSyncNote("This computer's Amit helper did not answer, so the bar on this computer was not changed. Either it is not running, or your browser is asking whether this site may reach your computer: choose Allow. It is sent again the next time you change something or open this tab.",true); return; }
+    let j=null; try{ j=await res.json(); }catch(e){}
+    const hh=new Date(), t=('0'+hh.getHours()).slice(-2)+':'+('0'+hh.getMinutes()).slice(-2);
+    if(j&&j.ok){ hlSyncNote('Your bar on this computer is up to date ('+j.profiles+' profile'+(j.profiles>1?'s':'')+', '+j.buttons+' button'+(j.buttons===1?'':'s')+', sent at '+t+').',false); }
+    else if(j&&j.error&&res.status!==404){ hlSyncNote('This computer did not accept the bar: '+j.error+'.',true); }
+    else { hlSyncNote("The Amit helper on this computer is older and cannot receive your bar yet. It updates itself shortly. If Amit Live is busy listening or tracking, the update waits: turn Amit Live off and on again for it to take effect, then change anything here (or reopen this tab) to send the bar again.",true); }
+  }
+  finally{ hl.syncing=false; if(hl.again){ hl.again=false; hlSyncBar(false); } }
+}
 async function hlLoad(){
   const signed=hlSigned();
   hlEl('hlSignedOut').style.display=signed?'none':''; hlEl('hlForm').style.display=signed?'':'none';
@@ -6074,7 +6127,7 @@ async function hlLoad(){
   }
   hl.profiles=rs[1].data||[]; hl.buttons=rs[2].data||[];
   if(!hl.profiles.some(function(p){ return p.id===hl.sel; })){ const c=hl.profiles.find(function(p){ return p.is_current; })||hl.profiles[0]; hl.sel=c?c.id:null; }
-  hlFillSettings(Object.assign({},HL_DEFAULTS,rs[0].data||{})); hlRender();
+  hl.settings=Object.assign({},HL_DEFAULTS,rs[0].data||{}); hlFillSettings(hl.settings); hlRender(); hlSyncBar(true);
 }
 function hlFillSettings(s){ hlEl('hlAlways').checked=!!s.always_on; hlEl('hlWiden').checked=!!s.widen_on_click; hlEl('hlIdle').value=String(s.idle_minutes); hlEl('hlRail').value=s.rail_width; }
 function hlRender(){
@@ -6108,7 +6161,7 @@ async function hlAddProfile(){
   const first=!hl.profiles.length;
   const r=await db.from('hel_profiles').insert({user_id:currentUser.id,name:name,sort_order:hl.profiles.length,is_current:first}).select().single();
   if(r.error){ hlNote(/duplicate|unique/i.test(r.error.message||'')?'You already have a profile with that name.':'Could not add it: '+(r.error.message||'unknown error'),true); return; }
-  inp.value=''; hlNote(''); hl.profiles.push(r.data); hl.sel=r.data.id; hlRender();
+  inp.value=''; hlNote(''); hl.profiles.push(r.data); hl.sel=r.data.id; hlRender(); hlSyncBar(false);
 }
 async function hlRenameProfile(){
   const p=hl.profiles.find(function(x){ return x.id===hl.sel; }); if(!p) return;
@@ -6116,7 +6169,7 @@ async function hlRenameProfile(){
   if(name.length>24){ hlNote('Keep the name to 24 letters or fewer.',true); return; }
   const r=await db.from('hel_profiles').update({name:name}).eq('id',p.id);
   if(r.error){ hlNote('Could not rename it: '+(r.error.message||'unknown error'),true); return; }
-  p.name=name; hlNote(''); hlRender();
+  p.name=name; hlNote(''); hlRender(); hlSyncBar(false);
 }
 async function hlDeleteProfile(){
   const p=hl.profiles.find(function(x){ return x.id===hl.sel; }); if(!p) return;
@@ -6126,7 +6179,7 @@ async function hlDeleteProfile(){
   if(r.error){ hlNote('Could not delete it: '+(r.error.message||'unknown error'),true); return; }
   hl.profiles=hl.profiles.filter(function(x){ return x.id!==p.id; }); hl.buttons=hl.buttons.filter(function(b){ return b.profile_id!==p.id; });
   if(p.is_current&&hl.profiles.length){ await db.from('hel_profiles').update({is_current:true}).eq('id',hl.profiles[0].id); hl.profiles[0].is_current=true; }
-  hl.sel=hl.profiles.length?hl.profiles[0].id:null; hlNote(''); hlRender();
+  hl.sel=hl.profiles.length?hl.profiles[0].id:null; hlNote(''); hlRender(); hlSyncBar(false);
 }
 async function hlSetCurrent(){
   const p=hl.profiles.find(function(x){ return x.id===hl.sel; }); if(!p) return;
@@ -6134,14 +6187,14 @@ async function hlSetCurrent(){
   if(a.error){ hlNote('Could not switch: '+(a.error.message||'unknown error'),true); return; }
   const r=await db.from('hel_profiles').update({is_current:true}).eq('id',p.id);
   if(r.error){ hlNote('Could not switch: '+(r.error.message||'unknown error'),true); return; }
-  hl.profiles.forEach(function(x){ x.is_current=(x.id===p.id); }); hlNote(''); hlRender();
+  hl.profiles.forEach(function(x){ x.is_current=(x.id===p.id); }); hlNote(''); hlRender(); hlSyncBar(false);
 }
 async function hlSaveVoice(){
   const p=hl.profiles.find(function(x){ return x.id===hl.sel; }); if(!p) return;
   const v=hlEl('hlVoice').value.trim().slice(0,40);
   const r=await db.from('hel_profiles').update({voice_phrase:v||null}).eq('id',p.id);
   if(r.error){ hlNote('Could not save the words: '+(r.error.message||'unknown error'),true); return; }
-  p.voice_phrase=v||null; hlNote('Saved the words for this profile.');
+  p.voice_phrase=v||null; hlNote('Saved the words for this profile.'); hlSyncBar(false);
 }
 function hlOpenEdit(id,mode){
   const p=hl.profiles.find(function(x){ return x.id===hl.sel; }); if(!p) return;
@@ -6183,6 +6236,7 @@ function hlReadPaste(){
   const out=[];
   for(let i=0;i<list.length;i++){
     const s=list[i]; if(!s||!HL_STEPS[s.t]||s.v==null||String(s.v).trim()===''){ hlEditMsg('Step '+(i+1)+' is not one of the safe steps, so nothing was changed.',true); return; }
+    if(s.t==='open_app'&&!hlAppUrl(s.v)){ hlEditMsg('Step '+(i+1)+' names an app I do not know ("'+s.v+'"), so nothing was changed. Ask Amit to use an Amit app name or a web address.',true); return; }
     out.push({t:s.t,v:String(s.v)});
   }
   hl.steps=out; hlRenderSteps(); hlEditMsg('Here are the steps. Check them, change anything you want, then press Save.');
@@ -6194,13 +6248,57 @@ function hlSuggestIcons(){
   hlCopy('Amit, suggest two or three icons for my Amit Helper button "'+name+'" from this library: '+HL_ICONS.join(' ')+'. For each, say in one short line why it fits what I do. If you do not know enough about me yet, say so.','Copied for Amit.');
 }
 function hlCloseEdit(){ hlEl('hlEditOverlay').classList.remove('open'); }
-function hlRenderIcons(){ hlEl('hlIcons').innerHTML=HL_ICONS.map(function(g){ return '<span class="'+(g===hl.icon?'on':'')+'" onclick="hl.icon=this.textContent;hlRenderIcons()">'+g+'</span>'; }).join(''); }
+function hlRenderIcons(){ hlEl('hlIcons').innerHTML=HL_ICONS.map(function(g){ return '<span class="'+(g===hl.icon?'on':'')+'" onclick="hl.icon=this.textContent;hlRenderIcons()">'+g+'</span>'; }).join(''); hlRenderTile(); }
 function hlRenderSteps(){
   hlEl('hlSteps').innerHTML=hl.steps.map(function(s,i){
     return '<div class="hl-step"><select class="fg-input" style="width:170px;flex-shrink:0" onchange="hl.steps['+i+'].t=this.value;hlRenderSteps()">'
       +Object.keys(HL_STEPS).map(function(k){ return '<option value="'+k+'"'+(k===s.t?' selected':'')+'>'+HL_STEPS[k][0]+'</option>'; }).join('')+'</select>'
       +'<input class="fg-input" style="flex:1;min-width:0" maxlength="300" value="'+hlEsc(s.v)+'" placeholder="'+hlEsc(HL_STEPS[s.t][2])+'" oninput="hl.steps['+i+'].v=this.value">'
+      +'<button class="btn" onclick="hlTestOne('+i+')" title="Run just this step">&#9654;</button>'
       +'<button class="btn" onclick="hl.steps.splice('+i+',1);hlRenderSteps()" title="Remove this step">&times;</button></div>'; }).join('');
+  hlRenderTile();
+}
+function hlKindOf(steps){ return steps.length>1?'multi':((HL_STEPS[(steps[0]||{}).t]||[0,'app'])[1]); }
+function hlRenderTile(){
+  const t=hlEl('hlTile'); if(!t) return;
+  const b=hl.buttons.find(function(x){ return x.id===hl.editId; });
+  const nm=hlEl('hlName').value.trim()||(b?b.name:'')||'Your button', c=HL_KINDS[hlKindOf(hl.steps)][1];
+  t.style.setProperty('--hlc',c); t.innerHTML='<i style="color:'+c+'">'+hlEsc(hl.icon)+'</i>'+hlEsc(nm);
+}
+function hlTestLine(i,msg,bad){
+  const o=hlEl('hlTestOut'); if(!o) return; let d=hlEl('hlTl'+i);
+  if(!d){ d=document.createElement('div'); d.id='hlTl'+i; o.appendChild(d); }
+  d.textContent='Step '+(i+1)+': '+msg; d.style.color=bad?'var(--amit-danger,#e07a6a)':'';
+}
+async function hlTestOne(i){
+  const s=hl.steps[i], v=String(s.v==null?'':s.v).trim();
+  if(!v){ hlTestLine(i,'fill this step in first.',true); return false; }
+  if(s.t==='open_app'||s.t==='open_url'||s.t==='ask_amit'||s.t==='play_music'){
+    let u=null;
+    if(s.t==='open_url'){ u=/^https:\/\//i.test(v)?v:null; if(!u){ hlTestLine(i,'a website address must start with https://',true); return false; } }
+    else if(s.t==='ask_amit'){ u=HL_ASK_URL; }
+    else { u=hlAppUrl(v); if(!u){ hlTestLine(i,s.t==='play_music'?'music from a file or program can only be played by the bar itself.':'I do not know an app called "'+v+'". Use an Amit app name or an address starting with https://',s.t!=='play_music'); return s.t==='play_music'; } }
+    const w=window.open(u,'_blank'); if(w){ try{ w.opener=null; }catch(e){} }
+    if(!w){ hlTestLine(i,'your browser blocked the page. Allow pop-ups for this site, or press this step\'s run button yourself.',true); return false; }
+    hlTestLine(i,'opened '+u); return true;
+  }
+  if(s.t==='speak'){
+    if(!window.speechSynthesis){ hlTestLine(i,'this browser cannot speak.',true); return false; }
+    hlTestLine(i,'speaking: '+v);
+    await new Promise(function(res){ const u=new SpeechSynthesisUtterance(v.replace(/Amit/g,'uh-MEET')); u.onend=res; u.onerror=res; setTimeout(res,20000); window.speechSynthesis.speak(u); });
+    return true;
+  }
+  if(s.t==='wait'){
+    const n=Number(v); if(!(n>=1&&n<=60)){ hlTestLine(i,'wait needs a number from 1 to 60.',true); return false; }
+    hlTestLine(i,'waiting '+n+' second'+(n>1?'s':'')+'...'); await new Promise(function(res){ setTimeout(res,n*1000); }); hlTestLine(i,'waited '+n+' second'+(n>1?'s':'')+'.'); return true;
+  }
+  if(s.t==='open_program'){ hlTestLine(i,'"'+v+'" opens only from the bar on your computer, so it is not run here.'); return true; }
+  return false;
+}
+async function hlTestAll(){
+  const o=hlEl('hlTestOut'); if(o) o.innerHTML='';
+  for(let i=0;i<hl.steps.length;i++){ if(!(await hlTestOne(i))) return; }
+  hlEditMsg('Test finished. If it did what you wanted, press Save.');
 }
 function hlAddStep(){ if(hl.steps.length>=12){ return; } hl.steps.push({t:'open_app',v:''}); hlRenderSteps(); }
 async function hlSaveButton(){
@@ -6212,7 +6310,7 @@ async function hlSaveButton(){
     part.updated_at=new Date().toISOString();
     const q=await db.from('hel_buttons').update(part).eq('id',hl.editId).select().single();
     if(q.error){ note('Could not save: '+(q.error.message||'unknown error')); return; }
-    hl.buttons=hl.buttons.map(function(b){ return b.id===hl.editId?q.data:b; }); hlCloseEdit(); hlRender(); return;
+    hl.buttons=hl.buttons.map(function(b){ return b.id===hl.editId?q.data:b; }); hlCloseEdit(); hlRender(); hlSyncBar(false); return;
   }
   if(!name&&hl.mode==='new'){ note('Give the button a name.'); return; }
   if(!hl.steps.length){ note('Add at least one step.'); return; }
@@ -6221,6 +6319,7 @@ async function hlSaveButton(){
     const s=hl.steps[i], v=String(s.v).trim();
     if(!v){ note('Step '+(i+1)+' needs something filled in.'); return; }
     if(s.t==='open_url'&&!/^https:\/\//i.test(v)){ note('A website link must start with https://'); return; }
+    if(s.t==='open_app'&&!hlAppUrl(v)){ note('Step '+(i+1)+': I do not know an app called "'+v+'". Use an Amit app name, or an address starting with https://'); return; }
     if(s.t==='wait'){ const n=Number(v); if(!(n>=1&&n<=60)){ note('Wait needs a number from 1 to 60.'); return; } steps.push({t:s.t,v:n}); }
     else steps.push({t:s.t,v:v});
   }
@@ -6233,13 +6332,13 @@ async function hlSaveButton(){
   else { row.user_id=currentUser.id; row.profile_id=hl.sel; row.sort_order=hl.buttons.filter(function(b){ return b.profile_id===hl.sel; }).length; r=await db.from('hel_buttons').insert(row).select().single(); }
   if(r.error){ note('Could not save: '+(r.error.message||'unknown error')); return; }
   if(hl.editId){ hl.buttons=hl.buttons.map(function(b){ return b.id===hl.editId?r.data:b; }); } else { hl.buttons.push(r.data); }
-  hlCloseEdit(); hlRender();
+  hlCloseEdit(); hlRender(); hlSyncBar(false);
 }
 async function hlDeleteButton(){
   if(!hl.editId||!confirm('Delete this button?')) return;
   const r=await db.from('hel_buttons').delete().eq('id',hl.editId);
   if(r.error){ hlEl('hlEditNote').textContent='Could not delete: '+(r.error.message||'unknown error'); return; }
-  hl.buttons=hl.buttons.filter(function(b){ return b.id!==hl.editId; }); hlCloseEdit(); hlRender();
+  hl.buttons=hl.buttons.filter(function(b){ return b.id!==hl.editId; }); hlCloseEdit(); hlRender(); hlSyncBar(false);
 }
 async function hlSaveSettings(){
   if(!hlSigned()){ hlNote('Sign in first.',true); return; }
@@ -6247,7 +6346,7 @@ async function hlSaveSettings(){
   hlNote('Saving...');
   const r=await db.from('hel_settings').upsert(row,{onConflict:'user_id'});
   if(r.error){ hlNote('Could not save: '+(r.error.message||'unknown error'),true); return; }
-  hlNote('Saved.');
+  hl.settings=Object.assign(hl.settings||{},row); hlNote('Saved.'); hlSyncBar(true);
 }
 // the Amit Live window's "Set up my morning" link opens ...amit-hub.html?mm=1: go to Communications > My Morning once signed in
 (function(){
