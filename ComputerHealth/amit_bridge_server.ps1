@@ -239,7 +239,8 @@ $handlerScript = {
                     [void]$stepJson.Add('{"t":' + (& $fnQuote $st) + ',"url":' + (& $fnQuote $u) + ',"path":' + (& $fnQuote $pa) + ',"text":' + (& $fnQuote $tx) + ',"ms":' + $ms + '}')
                 }
                 $bd = [string](& $fnGet $b 'desc'); if ($bd.Length -gt 200) { $bd = $bd.Substring(0, 200) }
-                [void]$btnJson.Add('{"name":' + (& $fnQuote $bn) + ',"kind":' + (& $fnQuote $bk) + ',"desc":' + (& $fnQuote $bd) + ',"steps":[' + ($stepJson -join ',') + ']}'); $nBtn++
+                $bi = [string](& $fnGet $b 'icon'); if ($bi.Length -gt 12) { $bi = $bi.Substring(0, 12) }
+                [void]$btnJson.Add('{"name":' + (& $fnQuote $bn) + ',"kind":' + (& $fnQuote $bk) + ',"desc":' + (& $fnQuote $bd) + ',"icon":' + (& $fnQuote $bi) + ',"steps":[' + ($stepJson -join ',') + ']}'); $nBtn++
             } }
             $ps = [string](& $fnGet $p 'say'); if ($ps.Length -gt 40) { $ps = $ps.Substring(0, 40) }
             [void]$names.Add($pn)
