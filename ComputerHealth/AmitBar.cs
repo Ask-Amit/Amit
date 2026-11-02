@@ -897,30 +897,76 @@ public static class PrintCtl
 
     static Form BuildPreview(Bitmap pic, Dictionary<string, string> st)
     {
-        Form f = new Form(); f.Text = "Amit - Print preview"; f.StartPosition = FormStartPosition.CenterScreen; f.ClientSize = new Size(1000, 680); f.MinimumSize = new Size(760, 520);
+        Form f = new Form(); f.Text = "Amit - Print preview"; f.StartPosition = FormStartPosition.CenterScreen; f.ClientSize = new Size(1000, 680); f.MinimumSize = new Size(760, 600);
         f.BackColor = PanelBg; f.ForeColor = Ink; f.ShowInTaskbar = true; f.TopMost = true;
         PrintDocument doc = new PrintDocument(); doc.DocumentName = "Amit screen print";
         doc.DefaultPageSettings.Margins = new Margins(50, 50, 50, 50);
-        bool fill = st.ContainsKey("fit") && st["fit"] == "fill";
+        int fitMode = 0;   // 0 fit to page, 1 fill page (may crop), 2 actual size (may take several pages)
+        if (st.ContainsKey("fit")) fitMode = st["fit"] == "fill" ? 1 : (st["fit"] == "actual" ? 2 : 0);
+        bool bw = st.ContainsKey("color") && st["color"] == "bw";
+        int pgFrom = 0, pgTo = 0;   // 0 = all pages; otherwise the 1-based first and last page to print
+        List<int> todo = new List<int>(); int pageNo = 0;
+        // the pages (columns x rows) the picture takes at the chosen size; fit and fill are always one page
+        Func<RectangleF, Size> grid = delegate(RectangleF box)
+        {
+            if (fitMode != 2 || box.Width < 1 || box.Height < 1) return new Size(1, 1);
+            return new Size(Math.Max(1, (int)Math.Ceiling(pic.Width * 100f / 96f / box.Width - 0.001f)), Math.Max(1, (int)Math.Ceiling(pic.Height * 100f / 96f / box.Height - 0.001f)));
+        };
+        Func<RectangleF> marginBox = delegate
+        {
+            Rectangle b = doc.DefaultPageSettings.Bounds; return new RectangleF(50, 50, Math.Max(1, b.Width - 100), Math.Max(1, b.Height - 100));
+        };
+        doc.BeginPrint += delegate
+        {
+            todo.Clear(); pageNo = 0; Size gs = grid(marginBox()); int total = gs.Width * gs.Height;
+            int a = pgFrom <= 0 ? 1 : Math.Min(pgFrom, total), z = pgTo <= 0 ? total : Math.Min(Math.Max(pgTo, a), total);
+            for (int n = a; n <= z; n++) todo.Add(n - 1);
+        };
         doc.PrintPage += delegate(object o, PrintPageEventArgs e)
         {
             Graphics g = e.Graphics; g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            RectangleF box = e.MarginBounds; float sx = box.Width / pic.Width, sy = box.Height / pic.Height; float sc = fill ? Math.Max(sx, sy) : Math.Min(sx, sy);
-            float dw = pic.Width * sc, dh = pic.Height * sc;
-            g.SetClip(box); g.DrawImage(pic, box.X + (box.Width - dw) / 2f, box.Y + (box.Height - dh) / 2f, dw, dh); e.HasMorePages = false;
+            RectangleF box = e.MarginBounds; int idx = pageNo < todo.Count ? todo[pageNo] : 0; pageNo++;
+            System.Drawing.Imaging.ImageAttributes ia = null;
+            if (bw)
+            {
+                ia = new System.Drawing.Imaging.ImageAttributes();
+                ia.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(new float[][] { new float[] { .3f, .3f, .3f, 0, 0 }, new float[] { .59f, .59f, .59f, 0, 0 }, new float[] { .11f, .11f, .11f, 0, 0 }, new float[] { 0, 0, 0, 1, 0 }, new float[] { 0, 0, 0, 0, 1 } }));
+            }
+            float dw, dh, dx, dy;
+            if (fitMode == 2)
+            {
+                Size gs = grid(box); float s = 100f / 96f; dw = pic.Width * s; dh = pic.Height * s;
+                dx = box.X - (idx % gs.Width) * box.Width; dy = box.Y - (idx / gs.Width) * box.Height;
+            }
+            else
+            {
+                float sx = box.Width / pic.Width, sy = box.Height / pic.Height; float sc = fitMode == 1 ? Math.Max(sx, sy) : Math.Min(sx, sy);
+                dw = pic.Width * sc; dh = pic.Height * sc; dx = box.X + (box.Width - dw) / 2f; dy = box.Y + (box.Height - dh) / 2f;
+            }
+            g.SetClip(box);
+            if (ia == null) g.DrawImage(pic, dx, dy, dw, dh);
+            else { g.DrawImage(pic, new Rectangle((int)dx, (int)dy, (int)dw, (int)dh), 0, 0, pic.Width, pic.Height, GraphicsUnit.Pixel, ia); ia.Dispose(); }
+            e.HasMorePages = pageNo < todo.Count;
         };
         Panel side = new Panel(); side.Dock = DockStyle.Left; side.Width = 280; side.BackColor = PanelBg;
         PrintPreviewControl ppc = new PrintPreviewControl(); ppc.Dock = DockStyle.Fill; ppc.Document = doc; ppc.AutoZoom = true; ppc.UseAntiAlias = true; ppc.BackColor = Color.FromArgb(85, 90, 102);
-        ComboBox prn = SideCombo(30), pap = SideCombo(86), dir = SideCombo(142), fit = SideCombo(198);
-        NumericUpDown cop = new NumericUpDown(); cop.SetBounds(14, 254, 100, 26); cop.Minimum = 1; cop.Maximum = 20; cop.Value = 1; cop.BackColor = Field; cop.ForeColor = Ink;
-        Label status = new Label(); status.SetBounds(14, 350, 252, 60); status.ForeColor = Color.FromArgb(60, 208, 210);
-        Button bp = new Button(); bp.Text = "Print"; bp.SetBounds(166, 300, 100, 34); bp.FlatStyle = FlatStyle.Flat; bp.BackColor = Gold; bp.ForeColor = Color.FromArgb(26, 21, 0); bp.Font = new Font("Segoe UI", 10f, FontStyle.Bold); bp.FlatAppearance.BorderColor = Gold;
-        Button bc = new Button(); bc.Text = "Cancel"; bc.SetBounds(14, 300, 100, 34); bc.FlatStyle = FlatStyle.Flat; bc.BackColor = Color.FromArgb(26, 32, 48); bc.ForeColor = Ink; bc.FlatAppearance.BorderColor = Line;
-        side.Controls.AddRange(new Control[] { SideLbl("Printer", 10), prn, SideLbl("Paper", 66), pap, SideLbl("Direction", 122), dir, SideLbl("Size on the page", 178), fit, SideLbl("Copies", 234), cop, bc, bp, status });
+        ComboBox prn = SideCombo(30), pap = SideCombo(86), dir = SideCombo(142), fit = SideCombo(198), col = SideCombo(254), pgs = SideCombo(366);
+        NumericUpDown cop = new NumericUpDown(); cop.SetBounds(14, 310, 100, 26); cop.Minimum = 1; cop.Maximum = 20; cop.Value = 1; cop.BackColor = Field; cop.ForeColor = Ink;
+        NumericUpDown pf = new NumericUpDown(), pt = new NumericUpDown();
+        pf.SetBounds(14, 398, 70, 26); pt.SetBounds(120, 398, 70, 26);
+        foreach (NumericUpDown nn in new NumericUpDown[] { pf, pt }) { nn.Minimum = 1; nn.Maximum = 99; nn.Value = 1; nn.BackColor = Field; nn.ForeColor = Ink; nn.Enabled = false; }
+        Label pto = new Label(); pto.Text = "to"; pto.ForeColor = Mute; pto.AutoSize = true; pto.Location = new Point(92, 402);
+        Label pof = new Label(); pof.ForeColor = Mute; pof.AutoSize = true; pof.Location = new Point(198, 402);
+        Label status = new Label(); status.SetBounds(14, 506, 252, 60); status.ForeColor = Color.FromArgb(60, 208, 210);
+        Button bp = new Button(); bp.Text = "Print"; bp.SetBounds(166, 452, 100, 34); bp.FlatStyle = FlatStyle.Flat; bp.BackColor = Gold; bp.ForeColor = Color.FromArgb(26, 21, 0); bp.Font = new Font("Segoe UI", 10f, FontStyle.Bold); bp.FlatAppearance.BorderColor = Gold;
+        Button bc = new Button(); bc.Text = "Cancel"; bc.SetBounds(14, 452, 100, 34); bc.FlatStyle = FlatStyle.Flat; bc.BackColor = Color.FromArgb(26, 32, 48); bc.ForeColor = Ink; bc.FlatAppearance.BorderColor = Line;
+        side.Controls.AddRange(new Control[] { SideLbl("Printer", 10), prn, SideLbl("Paper", 66), pap, SideLbl("Direction", 122), dir, SideLbl("Size on the page", 178), fit, SideLbl("Color", 234), col, SideLbl("Copies", 290), cop, SideLbl("Pages", 346), pgs, pf, pto, pt, pof, bc, bp, status });
         f.Controls.Add(ppc); f.Controls.Add(side);
         dir.Items.AddRange(new object[] { "Landscape (wide)", "Portrait (tall)" }); dir.SelectedIndex = pic.Width >= pic.Height ? 0 : 1;
-        fit.Items.AddRange(new object[] { "Fit to page", "Fill page (may crop)" }); fit.SelectedIndex = fill ? 1 : 0;
-        bool loading = true;
+        fit.Items.AddRange(new object[] { "Fit to page", "Fill page (may crop)", "Actual size (may use several pages)" }); fit.SelectedIndex = fitMode;
+        col.Items.AddRange(new object[] { "Color", "Black and white" }); col.SelectedIndex = bw ? 1 : 0;
+        pgs.Items.AddRange(new object[] { "All pages", "Only these pages" }); pgs.SelectedIndex = 0;
+        bool loading = true, busy = false;
         foreach (string p in PrinterSettings.InstalledPrinters) prn.Items.Add(p);
         if (prn.Items.Count == 0) { status.ForeColor = Color.FromArgb(255, 132, 98); status.Text = "No printer is set up on this computer. Add one in Windows settings (Printers and scanners)."; bp.Enabled = false; }
         else
@@ -943,18 +989,29 @@ public static class PrintCtl
         };
         MethodInvoker apply = delegate
         {
-            if (loading || prn.SelectedItem == null) return;
+            if (loading || busy || prn.SelectedItem == null) return;
+            busy = true;
             try
             {
                 doc.PrinterSettings.PrinterName = (string)prn.SelectedItem;
                 int i = 0; foreach (PaperSize ps in doc.PrinterSettings.PaperSizes) { if (i == pap.SelectedIndex) { doc.DefaultPageSettings.PaperSize = ps; break; } i++; }
                 doc.DefaultPageSettings.Landscape = dir.SelectedIndex == 0; doc.DefaultPageSettings.Margins = new Margins(50, 50, 50, 50);
-                fill = fit.SelectedIndex == 1; ppc.InvalidatePreview();
+                fitMode = fit.SelectedIndex; bw = col.SelectedIndex == 1;
+                try { doc.DefaultPageSettings.Color = !bw; } catch { }
+                Size gs = grid(marginBox()); int total = gs.Width * gs.Height;
+                pgs.Enabled = total > 1; if (total <= 1) pgs.SelectedIndex = 0;
+                bool some = pgs.SelectedIndex == 1; pf.Enabled = some; pt.Enabled = some;
+                pf.Maximum = total; pt.Maximum = total; if (pf.Value > total) pf.Value = total; if (pt.Value > total) pt.Value = total; if (pt.Value < pf.Value) pt.Value = pf.Value;
+                pgFrom = some ? (int)pf.Value : 0; pgTo = some ? (int)pt.Value : 0;
+                pof.Text = total > 1 ? "of " + total : "(1 page)";
+                ppc.InvalidatePreview();
             }
             catch { }
+            busy = false;
         };
         prn.SelectedIndexChanged += delegate { loading = true; fillPapers(); loading = false; apply(); };
         pap.SelectedIndexChanged += delegate { apply(); }; dir.SelectedIndexChanged += delegate { apply(); }; fit.SelectedIndexChanged += delegate { apply(); };
+        col.SelectedIndexChanged += delegate { apply(); }; pgs.SelectedIndexChanged += delegate { apply(); }; pf.ValueChanged += delegate { apply(); }; pt.ValueChanged += delegate { apply(); };
         loading = true; fillPapers(); loading = false; apply();
         bc.Click += delegate { f.Close(); };
         bp.Click += delegate
@@ -962,7 +1019,7 @@ public static class PrintCtl
             try
             {
                 apply(); doc.PrinterSettings.Copies = (short)cop.Value; doc.Print();
-                st["printer"] = (string)prn.SelectedItem; st["paper"] = pap.SelectedItem == null ? "" : (string)pap.SelectedItem; st["fit"] = fill ? "fill" : "fit"; SaveSettings(st);
+                st["printer"] = (string)prn.SelectedItem; st["paper"] = pap.SelectedItem == null ? "" : (string)pap.SelectedItem; st["fit"] = fitMode == 1 ? "fill" : (fitMode == 2 ? "actual" : "fit"); st["color"] = bw ? "bw" : "color"; SaveSettings(st);
                 status.ForeColor = Color.FromArgb(60, 208, 210); status.Text = "Sent to " + prn.SelectedItem + ". You can close this window."; bp.Enabled = false; bc.Text = "Close";
             }
             catch (Exception ex) { status.ForeColor = Color.FromArgb(255, 132, 98); status.Text = "Could not print: " + ex.Message; }
