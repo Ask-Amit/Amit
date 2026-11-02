@@ -114,7 +114,7 @@ public class BarForm : Form
     int hover = -1; List<Rectangle> tiles = new List<Rectangle>(); Rectangle iconRect, chipRect, reloadRect; bool reloadHot = false;
     System.Windows.Forms.Timer idleTimer; ToolTip tip = new ToolTip(); NotifyIcon tray;
     LLProc hookProc; IntPtr hook = IntPtr.Zero; int lastRDown = 0, lastRX = 0, lastRY = 0; bool swallowRUp = false;
-    EventWaitHandle showEvent;
+    EventWaitHandle showEvent, runEvent;
 
     public BarForm(bool test, bool showNow)
     {
@@ -136,6 +136,10 @@ public class BarForm : Form
         bool created; showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "Local\\AmitBarShow", out created);
         Thread t = new Thread(delegate () { while (true) { try { showEvent.WaitOne(); BeginInvoke(new MethodInvoker(delegate { ShowBar(); })); } catch { return; } } });
         t.IsBackground = true; t.Start();
+        // Amit Live's voice menu runs a button by its title: it writes the request to bar_run.txt and sets this event (nothing is polled)
+        bool created2; runEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "Local\\AmitBarRun", out created2);
+        Thread t2 = new Thread(delegate () { while (true) { try { runEvent.WaitOne(); BeginInvoke(new MethodInvoker(delegate { RunByVoice(); })); } catch { return; } } });
+        t2.IsBackground = true; t2.Start();
         if (cfg.ownHook) { hookProc = HookCb; hook = SetWindowsHookEx(14, hookProc, GetModuleHandle(null), 0); }
         if (cfg.alwaysOn || showNow) ShowBar();
     }
@@ -191,6 +195,36 @@ public class BarForm : Form
         if (cfg == null || cfg.profiles == null || cfg.profiles.Count == 0) { cfg = Default(); SaveCfg(); }
         if (cfg.idleMinutes < 1) cfg.idleMinutes = 2;
         try { cfgStamp = File.GetLastWriteTimeUtc(cfgPath); } catch { }
+        WriteVoiceList();
+    }
+    // ---------- Voice: every button can be said by its title (2026-11-01) ----------
+    // Nothing is set up per button. The bar keeps a plain list of every profile and button title (bar_buttons.txt, one "profile<TAB>title" per line) that Amit Live's
+    // voice menu reads when someone speaks; a button added later is on the list the moment the bar takes in the new copy of its settings.
+    string VoiceFile(string name) { return Path.Combine(Path.GetDirectoryName(cfgPath), name); }
+    static string OneLine(string s) { return (s ?? "").Replace("\t", " ").Replace("\r", " ").Replace("\n", " ").Trim(); }
+    void WriteVoiceList()
+    {
+        try
+        {
+            StringBuilder sb = new StringBuilder();
+            foreach (Prof p in cfg.profiles) foreach (Btn b in p.buttons) if (!String.IsNullOrEmpty(b.name)) sb.Append(OneLine(p.name)).Append('\t').Append(OneLine(b.name)).Append("\r\n");
+            File.WriteAllText(VoiceFile("bar_buttons.txt"), sb.ToString(), new UTF8Encoding(false));
+        }
+        catch { }
+    }
+    void RunByVoice()
+    {
+        try
+        {
+            string f = VoiceFile("bar_run.txt"); if (!File.Exists(f)) return;
+            string[] a = File.ReadAllText(f, Encoding.UTF8).Split(new char[] { '\t' }, 2); try { File.Delete(f); } catch { }
+            string prof = a.Length > 1 ? a[0].Trim() : "", name = (a.Length > 1 ? a[1] : a[0]).Trim();
+            Btn hit = null;
+            foreach (Prof p in cfg.profiles) { if (prof.Length > 0 && OneLine(p.name) != prof) continue; foreach (Btn b in p.buttons) if (OneLine(b.name) == name) { hit = b; break; } if (hit != null) break; }
+            if (hit == null) { Say("Voice", "There is no button called " + name + " any more."); return; }
+            lastUse = DateTime.Now; RunButton(hit);
+        }
+        catch { }
     }
     void SaveCfg() { try { File.WriteAllText(cfgPath, new JavaScriptSerializer().Serialize(cfg)); cfgStamp = File.GetLastWriteTimeUtc(cfgPath); } catch { } }
     // The Hub writes this file through the shared helper after every add, change or delete (2026-11-01): when it changes, take the new copy in whole.
@@ -204,7 +238,7 @@ public class BarForm : Form
             cfgStamp = t;
             if (c == null || c.profiles == null || c.profiles.Count == 0) return;
             if (c.idleMinutes < 1) c.idleMinutes = 2;
-            cfg = c; hover = -1; tip.Hide(this); Current();
+            cfg = c; WriteVoiceList(); hover = -1; tip.Hide(this); Current();
             if (Visible) Invalidate(); else if (cfg.alwaysOn) ShowBar();
         }
         catch { }
