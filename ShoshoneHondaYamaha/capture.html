@@ -108,7 +108,12 @@
 <script>
 const SUPABASE_URL = "https://hleqtjqojksurvkyqixt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF";
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// This tool's storage and table rules are for the signed-out ("anon") visitor only. The page shares a website with the Hub, so without
+// these options the client picks up a Hub login from the browser and is turned away ("violates row-level security policy").
+// No stored session is read or written here: it always acts as signed out.
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'shy-recon-no-session' }
+});
 const BUCKET = "shy-recon";
 const TYPE_LABELS = {dailies:"Dailies (POS)", merchant:"Merchant Services", bank:"Bank Statement"};
 
