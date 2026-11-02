@@ -12,8 +12,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Printing;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
@@ -45,6 +47,7 @@ static class Program
             if (args[q] == "--audio-list" && q + 1 < args.Length) { AudioCtl.WriteList(args[q + 1]); return; }
             if (args[q] == "--audio-step" && q + 2 < args.Length) { AudioCtl.RunToFile(args[q + 1], args[q + 2]); return; }
             if (args[q] == "--audio-selftest" && q + 1 < args.Length) { AudioCtl.SelfTest(args[q + 1]); return; }
+            if (args[q] == "--print-selftest" && q + 1 < args.Length) { PrintCtl.SelfTest(args[q + 1]); return; }
         }
         string shot = null; bool wide = false, showNow = false;
         for (int i = 0; i < args.Length; i++) { if (args[i] == "--shot" && i + 1 < args.Length) shot = args[i + 1]; if (args[i] == "--wide") wide = true; if (args[i] == "--show") showNow = true; }
@@ -472,6 +475,7 @@ public class BarForm : Form
                     if (s.t == "open_app" || s.t == "open_url" || s.t == "ask_amit") { if (!String.IsNullOrEmpty(s.url) && (s.url.StartsWith("https://") || s.url.StartsWith("http://"))) Process.Start(s.url); }
                     else if (s.t == "open_program") { if (!String.IsNullOrEmpty(s.path)) { if (s.path.StartsWith("shell:AppsFolder\\", StringComparison.OrdinalIgnoreCase)) Process.Start("explorer.exe", s.path); else Process.Start(s.path); } }   // a program picked from the Start menu list opens by its Start menu address
                     else if (s.t == "open_file") { OpenFileStep(s); }
+                    else if (s.t == "print") { PrintCtl.RunSta(); }
                     else if (s.t == "audio") { string am = AudioCtl.RunStep(s.text); if (am != null) Say("Audio setting", am); }
                     else if (s.t == "play_music") { if (!String.IsNullOrEmpty(s.path)) Process.Start(s.path); else if (!String.IsNullOrEmpty(s.url)) Process.Start(s.url); }
                     else if (s.t == "speak") { using (System.Speech.Synthesis.SpeechSynthesizer sp = new System.Speech.Synthesis.SpeechSynthesizer()) sp.Speak(s.text ?? ""); }
@@ -709,5 +713,276 @@ public static class AudioCtl
         if (NextDevice("A", "a", "b") != "b") bad.Add("case");
         if (ClampVol(120) != AudioMax) bad.Add("cap"); if (ClampVol(-5) != -1) bad.Add("leave"); if (ClampVol(40) != 40) bad.Add("keep");
         File.WriteAllText(outFile, bad.Count == 0 ? "OK" : "FAILED: " + string.Join(", ", bad.ToArray()));
+    }
+}
+
+// ---------- Print from the screen (Ryan, 2026-11-01) ----------
+// The button shows a small choice (this window / select an area / whole screen), takes a picture of the screen, and shows Windows' own print preview with the printer,
+// paper, direction, size and copies. Nothing prints until the person presses Print in the preview. The picture lives in memory only: it is never saved to disk.
+// "This window" is the topmost ordinary window that is not this program (the one the person was just working in).
+public static class PrintCtl
+{
+    [StructLayout(LayoutKind.Sequential)] struct RECT { public int L, T, R, B; }
+    [DllImport("user32.dll")] static extern IntPtr GetTopWindow(IntPtr h);
+    [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr h, uint cmd);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+    [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
+    [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder s, int n);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+    [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr h, int i);
+    [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int attr, out RECT r, int size);
+    [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int attr, out int v, int size);
+
+    static readonly Color Ink = Color.FromArgb(236, 232, 218), Mute = Color.FromArgb(154, 148, 132), Gold = Color.FromArgb(232, 190, 70);
+    static readonly Color PanelBg = Color.FromArgb(20, 24, 36), Line = Color.FromArgb(42, 48, 66), Field = Color.FromArgb(15, 19, 32);
+
+    static string SettingsFile { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AmitComputerHealth\\print_settings.txt"); } }
+    static Dictionary<string, string> LoadSettings()
+    {
+        Dictionary<string, string> d = new Dictionary<string, string>();
+        try { foreach (string ln in File.ReadAllLines(SettingsFile)) { int i = ln.IndexOf('='); if (i > 0) d[ln.Substring(0, i)] = ln.Substring(i + 1); } } catch { }
+        return d;
+    }
+    static void SaveSettings(Dictionary<string, string> d)
+    {
+        try { Directory.CreateDirectory(Path.GetDirectoryName(SettingsFile)); List<string> l = new List<string>(); foreach (KeyValuePair<string, string> kv in d) l.Add(kv.Key + "=" + kv.Value); File.WriteAllLines(SettingsFile, l.ToArray()); } catch { }
+    }
+
+    public static void RunSta()
+    {
+        Thread t = new Thread(delegate() { try { Run(); } catch { } });
+        t.SetApartmentState(ApartmentState.STA); t.Start(); t.Join(900000);
+    }
+
+    static bool TargetWindow(out Rectangle rc)
+    {
+        rc = Rectangle.Empty; uint me = (uint)Process.GetCurrentProcess().Id;
+        IntPtr h = GetTopWindow(IntPtr.Zero); int guard = 0;
+        while (h != IntPtr.Zero && guard++ < 500)
+        {
+            try
+            {
+                uint pid; GetWindowThreadProcessId(h, out pid); int ex = GetWindowLong(h, -20);
+                if (pid != me && IsWindowVisible(h) && !IsIconic(h) && (ex & 0x80) == 0 && (ex & 0x08000000) == 0 && (ex & 0x20) == 0)
+                {
+                    int cloaked = 0; DwmGetWindowAttribute(h, 14, out cloaked, 4);
+                    StringBuilder t = new StringBuilder(256); GetWindowText(h, t, 256);
+                    StringBuilder c = new StringBuilder(128); GetClassName(h, c, 128); string cn = c.ToString();
+                    if (cloaked == 0 && t.Length > 0 && cn != "Progman" && cn != "WorkerW" && cn != "Shell_TrayWnd" && cn != "Shell_SecondaryTrayWnd")
+                    {
+                        RECT r; if (DwmGetWindowAttribute(h, 9, out r, 16) != 0) GetWindowRect(h, out r);
+                        Rectangle w = Rectangle.FromLTRB(r.L, r.T, r.R, r.B); w.Intersect(SystemInformation.VirtualScreen);
+                        if (w.Width >= 120 && w.Height >= 80) { rc = w; return true; }
+                    }
+                }
+            }
+            catch { }
+            h = GetWindow(h, 2);
+        }
+        return false;
+    }
+
+    static Bitmap Grab(Rectangle r)
+    {
+        Bitmap b = new Bitmap(r.Width, r.Height, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+        using (Graphics g = Graphics.FromImage(b)) g.CopyFromScreen(r.Location, Point.Empty, r.Size);
+        return b;
+    }
+
+    static void Run()
+    {
+        Rectangle winRc; bool haveWin = TargetWindow(out winRc);
+        Dictionary<string, string> st = LoadSettings();
+        string last = st.ContainsKey("mode") ? st["mode"] : "area";
+        string mode = ChooseMode(last, haveWin);
+        if (mode == null) return;
+        st["mode"] = mode; SaveSettings(st);
+        Thread.Sleep(350);   // let the choice window disappear before the picture is taken
+        Bitmap pic = null;
+        try
+        {
+            if (mode == "win") pic = Grab(winRc);
+            else if (mode == "all") pic = Grab(Screen.PrimaryScreen.Bounds);
+            else pic = PickArea();
+            if (pic == null) return;
+            using (Form f = BuildPreview(pic, st)) f.ShowDialog();
+        }
+        finally { if (pic != null) pic.Dispose(); }
+    }
+
+    static Button Opt(string title, string sub, int y, bool isLast, bool enabled)
+    {
+        Button b = new Button(); b.Text = title + "\r\n" + sub; b.Font = new Font("Segoe UI", 10f); b.TextAlign = ContentAlignment.MiddleLeft;
+        b.SetBounds(16, y, 368, 62); b.FlatStyle = FlatStyle.Flat; b.BackColor = Color.FromArgb(26, 32, 48); b.ForeColor = Ink; b.Enabled = enabled;
+        b.FlatAppearance.BorderSize = 2; b.FlatAppearance.BorderColor = isLast ? Gold : Line; b.Padding = new Padding(10, 0, 0, 0);
+        return b;
+    }
+    static string ChooseMode(string last, bool haveWin)
+    {
+        string result = null;
+        using (Form f = new Form())
+        {
+            f.FormBorderStyle = FormBorderStyle.None; f.StartPosition = FormStartPosition.CenterScreen; f.TopMost = true; f.ShowInTaskbar = false; f.KeyPreview = true;
+            f.BackColor = PanelBg; f.ClientSize = new Size(400, 340);
+            f.Paint += delegate(object o, PaintEventArgs e) { using (Pen p = new Pen(Line, 2)) e.Graphics.DrawRectangle(p, 1, 1, f.Width - 3, f.Height - 3); };
+            Label h = new Label(); h.Text = "Print from the screen"; h.Font = new Font("Segoe UI", 13f, FontStyle.Bold); h.ForeColor = Ink; h.SetBounds(16, 12, 368, 28); f.Controls.Add(h);
+            Label sub = new Label(); sub.Text = "Nothing prints until you have seen the preview and pressed Print."; sub.ForeColor = Mute; sub.SetBounds(16, 42, 368, 20); f.Controls.Add(sub);
+            Button bw = Opt("Print this window", "The window you were just in", 72, last == "win", haveWin);
+            Button ba = Opt("Select area to print", "Drag a box around only what you want", 142, last == "area", true);
+            Button bs = Opt("Whole screen", "Everything you can see", 212, last == "all", true);
+            bw.Click += delegate { result = "win"; f.Close(); };
+            ba.Click += delegate { result = "area"; f.Close(); };
+            bs.Click += delegate { result = "all"; f.Close(); };
+            Button cn = new Button(); cn.Text = "Cancel"; cn.SetBounds(284, 290, 100, 32); cn.FlatStyle = FlatStyle.Flat; cn.BackColor = Color.FromArgb(26, 32, 48); cn.ForeColor = Ink; cn.FlatAppearance.BorderColor = Line;
+            cn.Click += delegate { f.Close(); };
+            Label gl = new Label(); gl.Text = "Gold edge = the way you used last time"; gl.ForeColor = Mute; gl.Font = new Font("Segoe UI", 8.5f); gl.SetBounds(16, 298, 260, 20);
+            f.Controls.Add(bw); f.Controls.Add(ba); f.Controls.Add(bs); f.Controls.Add(cn); f.Controls.Add(gl);
+            f.KeyDown += delegate(object o, KeyEventArgs e) { if (e.KeyCode == Keys.Escape) f.Close(); };
+            f.Shown += delegate { f.Activate(); };
+            f.ShowDialog();
+        }
+        return result;
+    }
+
+    class PickForm : Form
+    {
+        public Bitmap Full; public Rectangle Sel = Rectangle.Empty; Point start; bool drag;
+        public PickForm(Bitmap full, Rectangle vs)
+        {
+            Full = full; DoubleBuffered = true; FormBorderStyle = FormBorderStyle.None; StartPosition = FormStartPosition.Manual; Bounds = vs; TopMost = true; ShowInTaskbar = false; Cursor = Cursors.Cross; KeyPreview = true;
+            MouseDown += delegate(object o, MouseEventArgs e) { start = e.Location; drag = true; Sel = Rectangle.Empty; };
+            MouseMove += delegate(object o, MouseEventArgs e) { if (!drag) return; Sel = Rectangle.FromLTRB(Math.Min(start.X, e.X), Math.Min(start.Y, e.Y), Math.Max(start.X, e.X), Math.Max(start.Y, e.Y)); Invalidate(); };
+            MouseUp += delegate(object o, MouseEventArgs e) { if (!drag) return; drag = false; if (Sel.Width >= 12 && Sel.Height >= 12) DialogResult = DialogResult.OK; else { Sel = Rectangle.Empty; Invalidate(); } };
+            KeyDown += delegate(object o, KeyEventArgs e) { if (e.KeyCode == Keys.Escape) DialogResult = DialogResult.Cancel; };
+            Shown += delegate { Activate(); };
+        }
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics; g.DrawImage(Full, 0, 0);
+            using (SolidBrush dim = new SolidBrush(Color.FromArgb(130, 0, 0, 0)))
+            {
+                if (Sel.Width > 0 && Sel.Height > 0)
+                {
+                    Region keep = new Region(ClientRectangle); keep.Exclude(Sel); g.FillRegion(dim, keep); keep.Dispose();
+                    using (Pen p = new Pen(Gold, 2)) { p.DashStyle = DashStyle.Dash; g.DrawRectangle(p, Sel); }
+                    string lbl = Sel.Width + " x " + Sel.Height + " pixels"; SizeF sz = g.MeasureString(lbl, Font); int ly = Sel.Top > 26 ? Sel.Top - 24 : Sel.Top + 4;
+                    g.FillRectangle(Brushes.Black, Sel.Left, ly, sz.Width + 8, sz.Height + 2); g.DrawString(lbl, Font, Brushes.White, Sel.Left + 4, ly + 1);
+                }
+                else g.FillRectangle(dim, ClientRectangle);
+            }
+            string hint = "Drag to choose the area. Release to continue. Esc to cancel."; SizeF hs = g.MeasureString(hint, Font);
+            float hx = (ClientSize.Width - hs.Width) / 2f; g.FillRectangle(Brushes.Black, hx - 8, 8, hs.Width + 16, hs.Height + 8); g.DrawString(hint, Font, Brushes.White, hx, 12);
+        }
+    }
+    static Bitmap PickArea()
+    {
+        Rectangle vs = SystemInformation.VirtualScreen;
+        using (Bitmap full = Grab(vs))
+        using (PickForm f = new PickForm(full, vs))
+        {
+            if (f.ShowDialog() != DialogResult.OK) return null;
+            Rectangle s = f.Sel; s.Intersect(new Rectangle(0, 0, full.Width, full.Height));
+            if (s.Width < 1 || s.Height < 1) return null;
+            return full.Clone(s, full.PixelFormat);
+        }
+    }
+
+    static Label SideLbl(string t, int y) { Label l = new Label(); l.Text = t; l.ForeColor = Mute; l.AutoSize = true; l.Location = new Point(14, y); return l; }
+    static ComboBox SideCombo(int y) { ComboBox c = new ComboBox(); c.DropDownStyle = ComboBoxStyle.DropDownList; c.SetBounds(14, y, 252, 26); c.BackColor = Field; c.ForeColor = Ink; c.FlatStyle = FlatStyle.Flat; return c; }
+
+    static Form BuildPreview(Bitmap pic, Dictionary<string, string> st)
+    {
+        Form f = new Form(); f.Text = "Amit - Print preview"; f.StartPosition = FormStartPosition.CenterScreen; f.ClientSize = new Size(1000, 680); f.MinimumSize = new Size(760, 520);
+        f.BackColor = PanelBg; f.ForeColor = Ink; f.ShowInTaskbar = true; f.TopMost = true;
+        PrintDocument doc = new PrintDocument(); doc.DocumentName = "Amit screen print";
+        doc.DefaultPageSettings.Margins = new Margins(50, 50, 50, 50);
+        bool fill = st.ContainsKey("fit") && st["fit"] == "fill";
+        doc.PrintPage += delegate(object o, PrintPageEventArgs e)
+        {
+            Graphics g = e.Graphics; g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            RectangleF box = e.MarginBounds; float sx = box.Width / pic.Width, sy = box.Height / pic.Height; float sc = fill ? Math.Max(sx, sy) : Math.Min(sx, sy);
+            float dw = pic.Width * sc, dh = pic.Height * sc;
+            g.SetClip(box); g.DrawImage(pic, box.X + (box.Width - dw) / 2f, box.Y + (box.Height - dh) / 2f, dw, dh); e.HasMorePages = false;
+        };
+        Panel side = new Panel(); side.Dock = DockStyle.Left; side.Width = 280; side.BackColor = PanelBg;
+        PrintPreviewControl ppc = new PrintPreviewControl(); ppc.Dock = DockStyle.Fill; ppc.Document = doc; ppc.AutoZoom = true; ppc.UseAntiAlias = true; ppc.BackColor = Color.FromArgb(85, 90, 102);
+        ComboBox prn = SideCombo(30), pap = SideCombo(86), dir = SideCombo(142), fit = SideCombo(198);
+        NumericUpDown cop = new NumericUpDown(); cop.SetBounds(14, 254, 100, 26); cop.Minimum = 1; cop.Maximum = 20; cop.Value = 1; cop.BackColor = Field; cop.ForeColor = Ink;
+        Label status = new Label(); status.SetBounds(14, 350, 252, 60); status.ForeColor = Color.FromArgb(60, 208, 210);
+        Button bp = new Button(); bp.Text = "Print"; bp.SetBounds(166, 300, 100, 34); bp.FlatStyle = FlatStyle.Flat; bp.BackColor = Gold; bp.ForeColor = Color.FromArgb(26, 21, 0); bp.Font = new Font("Segoe UI", 10f, FontStyle.Bold); bp.FlatAppearance.BorderColor = Gold;
+        Button bc = new Button(); bc.Text = "Cancel"; bc.SetBounds(14, 300, 100, 34); bc.FlatStyle = FlatStyle.Flat; bc.BackColor = Color.FromArgb(26, 32, 48); bc.ForeColor = Ink; bc.FlatAppearance.BorderColor = Line;
+        side.Controls.AddRange(new Control[] { SideLbl("Printer", 10), prn, SideLbl("Paper", 66), pap, SideLbl("Direction", 122), dir, SideLbl("Size on the page", 178), fit, SideLbl("Copies", 234), cop, bc, bp, status });
+        f.Controls.Add(ppc); f.Controls.Add(side);
+        dir.Items.AddRange(new object[] { "Landscape (wide)", "Portrait (tall)" }); dir.SelectedIndex = pic.Width >= pic.Height ? 0 : 1;
+        fit.Items.AddRange(new object[] { "Fit to page", "Fill page (may crop)" }); fit.SelectedIndex = fill ? 1 : 0;
+        bool loading = true;
+        foreach (string p in PrinterSettings.InstalledPrinters) prn.Items.Add(p);
+        if (prn.Items.Count == 0) { status.ForeColor = Color.FromArgb(255, 132, 98); status.Text = "No printer is set up on this computer. Add one in Windows settings (Printers and scanners)."; bp.Enabled = false; }
+        else
+        {
+            string want = st.ContainsKey("printer") ? st["printer"] : doc.PrinterSettings.PrinterName;
+            int pi = prn.Items.IndexOf(want); if (pi < 0) pi = prn.Items.IndexOf(doc.PrinterSettings.PrinterName); prn.SelectedIndex = pi < 0 ? 0 : pi;
+        }
+        MethodInvoker fillPapers = delegate
+        {
+            pap.Items.Clear(); if (prn.SelectedItem == null) return;
+            doc.PrinterSettings.PrinterName = (string)prn.SelectedItem; int pick = -1, k = 0;
+            foreach (PaperSize ps in doc.PrinterSettings.PaperSizes)
+            {
+                pap.Items.Add(ps.PaperName);
+                if (st.ContainsKey("paper") && ps.PaperName == st["paper"]) pick = k;
+                else if (pick < 0 && (ps.PaperName == "Letter" || ps.PaperName == "A4") && !st.ContainsKey("paper")) pick = k;
+                k++;
+            }
+            if (pap.Items.Count > 0) pap.SelectedIndex = pick < 0 ? 0 : pick;
+        };
+        MethodInvoker apply = delegate
+        {
+            if (loading || prn.SelectedItem == null) return;
+            try
+            {
+                doc.PrinterSettings.PrinterName = (string)prn.SelectedItem;
+                int i = 0; foreach (PaperSize ps in doc.PrinterSettings.PaperSizes) { if (i == pap.SelectedIndex) { doc.DefaultPageSettings.PaperSize = ps; break; } i++; }
+                doc.DefaultPageSettings.Landscape = dir.SelectedIndex == 0; doc.DefaultPageSettings.Margins = new Margins(50, 50, 50, 50);
+                fill = fit.SelectedIndex == 1; ppc.InvalidatePreview();
+            }
+            catch { }
+        };
+        prn.SelectedIndexChanged += delegate { loading = true; fillPapers(); loading = false; apply(); };
+        pap.SelectedIndexChanged += delegate { apply(); }; dir.SelectedIndexChanged += delegate { apply(); }; fit.SelectedIndexChanged += delegate { apply(); };
+        loading = true; fillPapers(); loading = false; apply();
+        bc.Click += delegate { f.Close(); };
+        bp.Click += delegate
+        {
+            try
+            {
+                apply(); doc.PrinterSettings.Copies = (short)cop.Value; doc.Print();
+                st["printer"] = (string)prn.SelectedItem; st["paper"] = pap.SelectedItem == null ? "" : (string)pap.SelectedItem; st["fit"] = fill ? "fill" : "fit"; SaveSettings(st);
+                status.ForeColor = Color.FromArgb(60, 208, 210); status.Text = "Sent to " + prn.SelectedItem + ". You can close this window."; bp.Enabled = false; bc.Text = "Close";
+            }
+            catch (Exception ex) { status.ForeColor = Color.FromArgb(255, 132, 98); status.Text = "Could not print: " + ex.Message; }
+        };
+        f.KeyPreview = true; f.KeyDown += delegate(object o, KeyEventArgs e) { if (e.KeyCode == Keys.Escape) f.Close(); };
+        return f;
+    }
+
+    // a picture of the preview (with a sample picture of the screen), to check the layout without printing anything
+    public static void SelfTest(string outPrefix)
+    {
+        try
+        {
+            using (Bitmap pic = Grab(Screen.PrimaryScreen.Bounds))
+            using (Form f = BuildPreview(pic, new Dictionary<string, string>()))
+            {
+                f.StartPosition = FormStartPosition.Manual; f.Location = new Point(20, 20); f.Show(); f.Activate();
+                for (int n = 0; n < 20; n++) { Application.DoEvents(); Thread.Sleep(100); }   // the preview draws its page a moment after the window appears
+                using (Bitmap bmp = Grab(f.Bounds)) bmp.Save(outPrefix + "_preview.png", System.Drawing.Imaging.ImageFormat.Png);
+                f.Close();
+            }
+            File.WriteAllText(outPrefix + "_result.txt", "OK");
+        }
+        catch (Exception ex) { File.WriteAllText(outPrefix + "_result.txt", "FAILED: " + ex.Message); }
     }
 }

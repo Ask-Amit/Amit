@@ -1391,7 +1391,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.65</div>
+      <div class="page-version" id="hubVersionBadge">v8.66</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -6097,8 +6097,8 @@ async function mmSave(){
 }
 // ---- Communications > Amit Helper (Ryan, 2026-11-01). Own rows only in hel_settings / hel_profiles / hel_buttons (migration 035, safe step types enforced by the database). ----
 const HL_KINDS={app:['Amit app','#c9a84c'],web:['Website','#5b9bd5'],music:['Music','#9b7fd1'],program:['Program','#3fb5a8'],multi:['Several steps','#e0826a'],ask:['Ask Amit','#5cb85c']};
-const HL_STEPS={open_app:['Open an Amit app','app','e.g. AmitBooks'],open_url:['Open a website','web','https://...'],open_program:['Open a program','program','e.g. Notepad'],open_file:['Open a file','program','choose a file'],audio:['Audio setting','program','sound'],settings:['Windows settings page','program','choose a page'],play_music:['Play music','music','e.g. Devotions'],speak:['Speak','ask','what Amit says'],ask_amit:['Ask Amit','ask','the question to ask'],wait:['Wait (seconds)','multi','1 to 60']};
-const HL_ICONS=['📚','💰','🛒','✉️','📅','🎵','🙏','📖','💻','🔧','🌐','🏠','🏥','🚗','📷','📝','☀️','⭐','🔔','📞','🎯','🧭','🕊️','🛠️','📊','📄','📕','📽️','🖼️','🎬','🔊','🎧'];
+const HL_STEPS={open_app:['Open an Amit app','app','e.g. AmitBooks'],open_url:['Open a website','web','https://...'],open_program:['Open a program','program','e.g. Notepad'],open_file:['Open a file','program','choose a file'],audio:['Audio setting','program','sound'],settings:['Windows settings page','program','choose a page'],print:['Print from the screen','program','shows a print choice'],play_music:['Play music','music','e.g. Devotions'],speak:['Speak','ask','what Amit says'],ask_amit:['Ask Amit','ask','the question to ask'],wait:['Wait (seconds)','multi','1 to 60']};
+const HL_ICONS=['📚','💰','🛒','✉️','📅','🎵','🙏','📖','💻','🔧','🌐','🏠','🏥','🚗','📷','📝','☀️','⭐','🔔','📞','🎯','🧭','🕊️','🛠️','📊','📄','📕','📽️','🖼️','🎬','🔊','🎧','🖨️','⚙️'];
 const HL_DEFAULTS={always_on:false,idle_minutes:2,widen_on_click:true,rail_width:'medium'};
 const HL_BASE='https://ask-amit.github.io/Amit/';
 const HL_APPS={'hub':'Hub/amit-hub.html','amit hub':'Hub/amit-hub.html','amitcoder':'AmitCoder/AmitCoder.html','amitbooks':'AmitBooks/NEW.html','books':'AmitBooks/NEW.html','amitscan':'AmitBooks/AmitScan/AmitScan.html',
@@ -6194,6 +6194,7 @@ function hlStepToBar(s){
   else if(s.t==='ask_amit'){ o.url=HL_ASK_URL; }
   else if(s.t==='open_program'){ o.path=hlProgramPath(v)||v; }
   else if(s.t==='open_file'){ o.token=s.token||''; o.text=s.name||v; }
+  else if(s.t==='print'){ o.text='menu'; }   // the bar shows the print choice itself
   else if(s.t==='settings'){ const pg=hlSettingsPage(s.sid); o.t='open_program'; o.path='ms-settings:'+(pg?pg[2]:''); }   // the bar opens it like any program; Windows owns the address
   else if(s.t==='audio'){ o.text=JSON.stringify(s.cfg||hlAudioDefault()); }
   else if(s.t==='play_music'){ const u=hlAppUrl(v); if(u) o.url=u; else o.path=v; }
@@ -6260,7 +6261,7 @@ function hlRender(){
 }
 function hlSummary(b){
   const st=(b.steps||[]).map(hlDec), v=function(s){ return s.v==null?'':String(s.v); },
-    lab=function(s){ return ({open_app:'open '+v(s),open_url:'open the website',open_program:'open '+v(s),open_file:'open '+v(s),audio:'audio setting',settings:'open Windows settings: '+v(s),play_music:'play '+v(s),speak:'say something',ask_amit:'ask Amit',wait:'wait '+v(s)+' s'})[s.t]||s.t; };
+    lab=function(s){ return ({open_app:'open '+v(s),open_url:'open the website',open_program:'open '+v(s),open_file:'open '+v(s),audio:'audio setting',settings:'open Windows settings: '+v(s),print:'print from the screen',play_music:'play '+v(s),speak:'say something',ask_amit:'ask Amit',wait:'wait '+v(s)+' s'})[s.t]||s.t; };
   if(st.length===1){ const s=st[0], n=HL_STEPS[s.t]?HL_STEPS[s.t][0]:s.t; return n+(s.v!==''&&s.v!=null&&s.t!=='ask_amit'?': '+s.v:''); }
   return st.length+' steps: '+st.map(lab).join(', then ');
 }
@@ -6333,7 +6334,7 @@ function hlRequestText(){
   const p=hl.profiles.find(function(x){ return x.id===hl.sel; });
   const name=hlEl('hlName').value.trim();
   return 'Amit, please build one button for my Amit Helper bar'+(p?' in my profile "'+p.name+'"':'')+(name?', called "'+name+'"':'')+'.\n\nWhat I want it to do, in my words, in order:\n'
-    +hlEl('hlSay').value.trim()+'\n\nUse ONLY these step types: '+Object.keys(HL_STEPS).filter(function(k){ return k!=='open_file'&&k!=='audio'&&k!=='settings'; }).map(function(k){ return k+' ('+HL_STEPS[k][0].toLowerCase()+')'; }).join(', ')
+    +hlEl('hlSay').value.trim()+'\n\nUse ONLY these step types: '+Object.keys(HL_STEPS).filter(function(k){ return k!=='open_file'&&k!=='audio'&&k!=='settings'&&k!=='print'; }).map(function(k){ return k+' ('+HL_STEPS[k][0].toLowerCase()+')'; }).join(', ')
     +'. A J shortcut or a search I name is an ask_amit step whose v is the question to ask. For open_app, v must be exactly one of these Amit app names'+(hl.apps.length?': '+hl.apps.map(function(a){ return a.name; }).join('; '):' (or a web address)')+'. For open_program, v is the name of the program exactly as the Windows Start menu shows it (for example Calculator), or its file name such as notepad.exe. open_url must start with https://. wait is a number of seconds from 1 to 60. Use at most 12 steps. '
     +'Reply with ONLY this JSON and nothing else: {"steps":[{"t":"open_app","v":"AmitBooks"}]}. If something I asked for cannot be done with those step types, say so in plain words instead.';
 }
@@ -6374,7 +6375,7 @@ function hlRenderSteps(){
   hlEl('hlSteps').innerHTML=hl.steps.map(function(s,i){
     const sel='<select class="fg-input" style="flex:1 1 170px;min-width:150px;max-width:230px" onchange="hlSetType('+i+',this.value)">'
       +Object.keys(HL_STEPS).map(function(k){ return '<option value="'+k+'"'+(k===s.t?' selected':'')+'>'+HL_STEPS[k][0]+'</option>'; }).join('')+'</select>';
-    const ctl=(s.t==='open_app'?hlAppControl(s,i):s.t==='open_program'?hlProgControl(s,i):s.t==='open_file'?hlFileControl(s,i):s.t==='audio'?hlAudioControl(s,i):s.t==='settings'?hlSettingsControl(s,i):'<input class="fg-input" style="flex:1;min-width:0" maxlength="300" value="'+hlEsc(s.v)+'" placeholder="'+hlEsc(HL_STEPS[s.t][2])+'" oninput="hl.steps['+i+'].v=this.value">');
+    const ctl=(s.t==='open_app'?hlAppControl(s,i):s.t==='open_program'?hlProgControl(s,i):s.t==='open_file'?hlFileControl(s,i):s.t==='audio'?hlAudioControl(s,i):s.t==='settings'?hlSettingsControl(s,i):s.t==='print'?'<div class="hint" style="flex:1;min-width:0">When pressed on the bar, it asks: print this window, select an area to print, or the whole screen. You see a print preview first; nothing prints until you press Print there.</div>':'<input class="fg-input" style="flex:1;min-width:0" maxlength="300" value="'+hlEsc(s.v)+'" placeholder="'+hlEsc(HL_STEPS[s.t][2])+'" oninput="hl.steps['+i+'].v=this.value">');
     const btns='<button class="btn" onclick="hlTestOne('+i+')" title="Run just this step">&#9654;</button><button class="btn" onclick="hl.steps.splice('+i+',1);hlRenderSteps()" title="Remove this step">&times;</button>';
     // a step with a bigger form (the sound settings, a file) gets its own full-width row under the type and the buttons
     return (s.t==='audio'||s.t==='open_file'||s.t==='settings')
@@ -6391,6 +6392,7 @@ function hlDec(s){
   const v=(s&&s.v!=null)?String(s.v):''; const m=(s&&s.t==='open_program')?v.match(/^file:(f[0-9a-f]{6,16})\|(.*)$/):null;
   if(m) return {t:'open_file',v:m[2],token:m[1],name:m[2]};
   if(s&&s.t==='open_file') return {t:'open_file',v:v,token:s.token||'',name:v};   // once the database allows open_file as a real step type
+  if(s&&s.t==='open_program'&&v==='print:menu') return {t:'print',v:'Print from the screen'};
   const sm=(s&&s.t==='open_program')?v.match(/^settings:([a-z0-9-]{1,40})$/):null;
   if(sm){ const pg=hlSettingsPage(sm[1]); if(pg) return {t:'settings',v:pg[1],sid:pg[0]}; }
   const am=(s&&s.t==='open_program')?v.match(/^audio:(\{.*\})$/):null;
@@ -6426,11 +6428,12 @@ function hlSettingsPick(i,id){
   if(pg&&hl.mode==='new'){ if(!hl.icon||hl.icon==='⭐'){ hl.icon='⚙️'; hlRenderIcons(); } const nm=hlEl('hlName'); if(nm&&!String(nm.value||'').trim()) nm.value=pg[1].slice(0,24); }
   hlRenderSteps();
 }
-function hlEnc(s){ if(s.t==='settings') return {t:'open_program',v:'settings:'+s.sid}; if(s.t==='audio') return {t:'open_program',v:'audio:'+JSON.stringify(s.cfg)}; return {t:'open_program',v:'file:'+s.token+'|'+String(s.name||s.v||'file').slice(0,120)}; }
+function hlEnc(s){ if(s.t==='print') return {t:'open_program',v:'print:menu'}; if(s.t==='settings') return {t:'open_program',v:'settings:'+s.sid}; if(s.t==='audio') return {t:'open_program',v:'audio:'+JSON.stringify(s.cfg)}; return {t:'open_program',v:'file:'+s.token+'|'+String(s.name||s.v||'file').slice(0,120)}; }
 function hlSetType(i,val){
   const s=hl.steps[i]; if(!s) return; s.t=val; delete s.cfg;
   if(val==='open_file'){ s.v=''; s.token=''; s.name=''; } else { delete s.token; delete s.name; }
   if(val==='settings'){ s.v=''; s.sid=''; } else { delete s.sid; }
+  if(val==='print'){ s.v='Print from the screen'; if(hl.mode==='new'&&(!hl.icon||hl.icon==='⭐')){ hl.icon='🖨️'; hlRenderIcons(); } const nm=hlEl('hlName'); if(hl.mode==='new'&&nm&&!String(nm.value||'').trim()) nm.value='Print'; }
   if(val==='audio'){ s.cfg=hlAudioDefault(); s.v=hlAudioSummary(s.cfg); if(hl.mode==='new'&&(!hl.icon||hl.icon==='⭐')){ hl.icon='🔊'; hlRenderIcons(); } }
   hlRenderSteps();
 }
@@ -6599,6 +6602,7 @@ async function hlTestOne(i){
     try{ const r=await fetch(HL_HELPER+'/api/audio/apply',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(s.cfg)}); const j=await r.json(); hlTestLine(i,(j&&j.ok)?'done: '+hlAudioSummary(s.cfg)+'.':((j&&j.msg)||'it did not work.'),!(j&&j.ok)); return !!(j&&j.ok); }
     catch(e){ hlTestLine(i,'the Amit helper on this computer did not answer.',true); return false; }
   }
+  if(s.t==='print'){ hlTestLine(i,'printing from the screen opens only from the bar on your computer, so it is not run here.'); return true; }
   if(s.t==='settings'){
     const pg=hlSettingsPage(s.sid); if(!pg){ hlTestLine(i,'choose a settings page first.',true); return false; }
     try{ const a=document.createElement('a'); a.href='ms-settings:'+pg[2]; document.body.appendChild(a); a.click(); a.remove(); hlTestLine(i,'asked Windows to open '+pg[1]+' (your browser may ask you to allow it).'); return true; }
@@ -6649,7 +6653,7 @@ async function hlSaveButton(){
     if(s.t==='open_url'&&!/^https:\/\//i.test(v)){ note('A website link must start with https://'); return; }
     if(s.t==='open_app'&&!hlAppUrl(v)){ note('Step '+(i+1)+': I do not know an app called "'+v+'". Use an Amit app name, or an address starting with https://'); return; }
     if(s.t==='wait'){ const n=Number(v); if(!(n>=1&&n<=60)){ note('Wait needs a number from 1 to 60.'); return; } steps.push({t:s.t,v:n}); }
-    else if(s.t==='open_file'||s.t==='audio'||s.t==='settings') steps.push(hlEnc(s));
+    else if(s.t==='open_file'||s.t==='audio'||s.t==='settings'||s.t==='print') steps.push(hlEnc(s));
     else steps.push({t:s.t,v:v});
   }
   const kind=steps.length>1?'multi':HL_STEPS[steps[0].t][1];
