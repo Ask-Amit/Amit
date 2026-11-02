@@ -6,6 +6,9 @@ Fast, no-bloat running record of current state. Full behavioral/identity rules c
 
 ---
 
+## 2026-11-02 - Hub v8.68: Yamaha tile (local only, NOT pushed)
+Sidebar tile "Yamaha" added directly under AmitCapacity (Ryan's instruction). Opens `ShoshoneHondaYamaha/capture.html` (his client's monthly books capture, same Supabase table `shy_recon_captures` on phone and computer). Hidden by default and switched on in the `onAuthStateChange` callback only when the signed-in user is Ryan (`AMIT_DEMO_UID`), so nobody else sees it; this hides the tile only, the page and its data stay as open as before (Ryan's choice). Backup: `amit-hub-pre-v8.68-yamaha.html`. Waits for "push".
+
 ## 2026-10-23 (evening) - Hub v8.46: About Me > My Words tab
 New tab in About Me (after Connect Amit): the person's own list of common transcription errors and what they actually mean (Fix) and their own shortcut phrases that stand for a longer instruction (Shortcut). Add, edit in place, change type, delete (two steps), filter by type, sort, search. Stored in cha_user_words under the person's own login (row security); Amit reads only the asker's list. Also v8.45: loads chat engine v0.26. Details: AmitChat\Sessions.md.
 
