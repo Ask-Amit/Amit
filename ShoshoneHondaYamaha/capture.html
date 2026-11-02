@@ -30,6 +30,12 @@
   .cap-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
   .dailies .cap-dot{background:var(--dailies)} .merchant .cap-dot{background:var(--merchant)} .bank .cap-dot{background:var(--bank)}
   .cap-btn:active{opacity:.7}
+  .cap-row{display:flex;gap:10px;align-items:stretch}
+  .cap-row .cap-btn{flex:1}
+  /* "Scan" buttons: only shown on a computer where the Amit helper answers (the phone never sees them) */
+  .scan-btn{display:none;padding:0 18px;border-radius:10px;border:1px solid var(--gold);background:var(--panel);color:var(--gold2);font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap}
+  body.has-helper .scan-btn{display:block}
+  .scan-btn:disabled{opacity:.5;cursor:wait}
   .status{font-size:13px;color:var(--gold2);min-height:18px;margin-bottom:10px}
   .section-title{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:22px 0 10px;border-top:1px solid var(--border);padding-top:16px}
   .group{margin-bottom:16px}
@@ -69,15 +75,24 @@
   <div class="status" id="statusLine"></div>
 
   <div class="capture-grid">
-    <label class="cap-btn dailies"><span class="cap-dot"></span> Dailies (POS)
-      <input type="file" accept="image/*" capture="environment" onchange="shyCapture(this,'dailies')">
-    </label>
-    <label class="cap-btn merchant"><span class="cap-dot"></span> Merchant Services
-      <input type="file" accept="image/*" capture="environment" onchange="shyCapture(this,'merchant')">
-    </label>
-    <label class="cap-btn bank"><span class="cap-dot"></span> Bank Statement
-      <input type="file" accept="image/*" capture="environment" onchange="shyCapture(this,'bank')">
-    </label>
+    <div class="cap-row">
+      <label class="cap-btn dailies"><span class="cap-dot"></span> Dailies (POS)
+        <input type="file" accept="image/*" capture="environment" onchange="shyCapture(this,'dailies')">
+      </label>
+      <button class="scan-btn" onclick="shyScan('dailies',this)" title="Scan a page on the scanner connected to this computer">Scan</button>
+    </div>
+    <div class="cap-row">
+      <label class="cap-btn merchant"><span class="cap-dot"></span> Merchant Services
+        <input type="file" accept="image/*" capture="environment" onchange="shyCapture(this,'merchant')">
+      </label>
+      <button class="scan-btn" onclick="shyScan('merchant',this)" title="Scan a page on the scanner connected to this computer">Scan</button>
+    </div>
+    <div class="cap-row">
+      <label class="cap-btn bank"><span class="cap-dot"></span> Bank Statement
+        <input type="file" accept="image/*" capture="environment" onchange="shyCapture(this,'bank')">
+      </label>
+      <button class="scan-btn" onclick="shyScan('bank',this)" title="Scan a page on the scanner connected to this computer">Scan</button>
+    </div>
   </div>
 
   <div class="section-title">This month's captures</div>
@@ -107,22 +122,57 @@ function shyCurrentMonth(){
 }
 document.getElementById('monthInput').addEventListener('change', shyRenderGroups);
 
-async function shyCapture(inputEl, type){
-  const file = inputEl.files[0];
-  if(!file) return;
+async function shyUploadFile(file, type){
   const month = shyCurrentMonth();
   const statusEl = document.getElementById('statusLine');
   statusEl.textContent = 'Uploading ' + TYPE_LABELS[type] + '...';
   const ts = Date.now();
   const path = month + '/' + type + '/' + ts + '-' + file.name.replace(/[^a-zA-Z0-9.]/g,'_');
   const {error: upErr} = await db.storage.from(BUCKET).upload(path, file, {contentType: file.type});
-  if(upErr){ statusEl.textContent = 'Upload failed: ' + upErr.message; return; }
+  if(upErr){ statusEl.textContent = 'Upload failed: ' + upErr.message; return false; }
   const {error: insErr} = await db.from('shy_recon_captures').insert({month, type, storage_path: path});
-  if(insErr){ statusEl.textContent = 'Saved photo but failed to record it: ' + insErr.message; return; }
+  if(insErr){ statusEl.textContent = 'Saved photo but failed to record it: ' + insErr.message; return false; }
   statusEl.textContent = TYPE_LABELS[type] + ' saved.';
-  inputEl.value = '';
   shyRenderGroups();
+  return true;
 }
+
+async function shyCapture(inputEl, type){
+  const file = inputEl.files[0];
+  if(!file) return;
+  await shyUploadFile(file, type);
+  inputEl.value = '';
+}
+
+// ── Scan from the scanner on this computer (the Amit helper's /scan route; same one AmitBooks' Scan Now uses) ──
+const HELPER_URL = 'http://localhost:8710';
+async function shyDetectHelper(){
+  try{
+    const r = await fetch(HELPER_URL + '/api/tracker-status', {signal: AbortSignal.timeout(1500)});
+    if(r.ok) document.body.classList.add('has-helper');
+  }catch(e){ /* no helper here (a phone, or it is not running): the Scan buttons stay hidden */ }
+}
+async function shyScan(type, btn){
+  const statusEl = document.getElementById('statusLine');
+  const all = document.querySelectorAll('.scan-btn');
+  all.forEach(b => b.disabled = true);
+  statusEl.textContent = 'Scanning ' + TYPE_LABELS[type] + ' - put the page on the scanner. This can take up to a minute...';
+  try{
+    const res = await fetch(HELPER_URL + '/scan', {signal: AbortSignal.timeout(120000)});
+    const out = await res.json();
+    if(!res.ok || out.error){ statusEl.textContent = out.error || ('Scan failed (HTTP ' + res.status + ').'); return; }
+    const bin = atob(out.image);
+    const bytes = new Uint8Array(bin.length);
+    for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const file = new File([bytes], out.filename || 'scan.jpg', {type: 'image/jpeg'});
+    await shyUploadFile(file, type);
+  }catch(e){
+    statusEl.textContent = 'Could not scan: ' + (e && e.message ? e.message : String(e));
+  }finally{
+    all.forEach(b => b.disabled = false);
+  }
+}
+shyDetectHelper();
 
 function shyPublicUrl(path){
   return db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
