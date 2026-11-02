@@ -1391,7 +1391,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.66</div>
+      <div class="page-version" id="hubVersionBadge">v8.67</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -6602,7 +6602,12 @@ async function hlTestOne(i){
     try{ const r=await fetch(HL_HELPER+'/api/audio/apply',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(s.cfg)}); const j=await r.json(); hlTestLine(i,(j&&j.ok)?'done: '+hlAudioSummary(s.cfg)+'.':((j&&j.msg)||'it did not work.'),!(j&&j.ok)); return !!(j&&j.ok); }
     catch(e){ hlTestLine(i,'the Amit helper on this computer did not answer.',true); return false; }
   }
-  if(s.t==='print'){ hlTestLine(i,'printing from the screen opens only from the bar on your computer, so it is not run here.'); return true; }
+  if(s.t==='print'){
+    try{ const r=await fetch(HL_HELPER+'/api/print/open',{method:'POST',headers:{'Content-Type':'text/plain'},body:'menu'}); const j=await r.json();
+      if(j&&j.ok){ hlTestLine(i,'the print choice opened on your screen (look for a small window in the middle). Nothing prints until you press Print in the preview.'); return true; }
+      hlTestLine(i,(j&&j.msg)||'it did not open. Press Update and reload on the bar.',true); return false; }
+    catch(e){ hlTestLine(i,'the Amit helper on this computer did not answer. Press Update and reload on the bar.',true); return false; }
+  }
   if(s.t==='settings'){
     const pg=hlSettingsPage(s.sid); if(!pg){ hlTestLine(i,'choose a settings page first.',true); return false; }
     try{ const a=document.createElement('a'); a.href='ms-settings:'+pg[2]; document.body.appendChild(a); a.click(); a.remove(); hlTestLine(i,'asked Windows to open '+pg[1]+' (your browser may ask you to allow it).'); return true; }

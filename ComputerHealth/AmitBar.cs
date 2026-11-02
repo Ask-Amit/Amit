@@ -47,6 +47,7 @@ static class Program
             if (args[q] == "--audio-list" && q + 1 < args.Length) { AudioCtl.WriteList(args[q + 1]); return; }
             if (args[q] == "--audio-step" && q + 2 < args.Length) { AudioCtl.RunToFile(args[q + 1], args[q + 2]); return; }
             if (args[q] == "--audio-selftest" && q + 1 < args.Length) { AudioCtl.SelfTest(args[q + 1]); return; }
+            if (args[q] == "--print") { Application.EnableVisualStyles(); PrintCtl.RunHere(); return; }   // the Hub's Test button for a Print step (started by the helper)
             if (args[q] == "--print-selftest" && q + 1 < args.Length) { PrintCtl.SelfTest(args[q + 1]); return; }
         }
         string shot = null; bool wide = false, showNow = false;
@@ -749,6 +750,8 @@ public static class PrintCtl
     {
         try { Directory.CreateDirectory(Path.GetDirectoryName(SettingsFile)); List<string> l = new List<string>(); foreach (KeyValuePair<string, string> kv in d) l.Add(kv.Key + "=" + kv.Value); File.WriteAllLines(SettingsFile, l.ToArray()); } catch { }
     }
+
+    public static void RunHere() { try { Run(); } catch { } }   // on the calling (already STA) thread
 
     public static void RunSta()
     {

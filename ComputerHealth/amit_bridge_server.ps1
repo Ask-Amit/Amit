@@ -1703,6 +1703,17 @@ try {
                     } catch { Send-JsonRaw $response '{"ok":false,"error":"could not save that choice"}' }
                 }
             }
+            "/api/print/open" {
+                # the Test button for a Print step: starts the bar program's print choice on this computer (it asks, previews, and prints nothing until the person presses Print)
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    try {
+                        $poExe = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\Watchers\AmitBar.exe'
+                        if (-not (Test-Path $poExe)) { Send-JsonRaw $response '{"ok":false,"msg":"The Amit bar program is not installed on this computer."}' }
+                        else { Start-Process -FilePath $poExe -ArgumentList '--print'; Send-JsonRaw $response '{"ok":true}' }
+                    } catch { Send-JsonRaw $response '{"ok":false,"msg":"could not start the print choice"}' }
+                }
+            }
             "/api/audio/apply" {
                 # runs ONE audio step now (the Test button in the Hub); the step is checked first, exactly as in a saved button
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
