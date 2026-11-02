@@ -196,6 +196,193 @@ if (-not (Test-Path $amitTrackingDisabledFlag)) {
 $handlerScript = {
     param($context, $watcherDir, $dashboardPath, $deviceId, $deviceName, $bridgeState)
 
+    # Amit Helper bar (2026-11-01, Ryan): the Hub (which holds the login) sends the person's WHOLE bar down; this checks it against the safe step list and writes the
+    # file the bar reads (amit_bar.json). The bar reloads by itself when the file changes. Every call replaces the whole file, so nothing old survives a delete.
+    # Parsed with .NET's JavaScriptSerializer and written by hand: ConvertTo-Json/ConvertFrom-Json can hang on a cold runspace (see ConvertTo-JsonString below).
+    function Write-AmitBarConfig([string]$Body, [string]$Path) {
+        $safe = @('open_app','open_url','open_program','play_music','speak','ask_amit','wait','open_file','audio')
+        $kinds = @('app','web','music','program','multi','ask')
+        $fnFail = { param($m) return @{ ok = $false; error = $m } }
+        $fnGet = { param($d, $k) if ($d -is [System.Collections.IDictionary] -and $d.ContainsKey($k)) { return $d[$k] } else { return $null } }
+        $fnQuote = { param($s) if ($null -eq $s) { return 'null' }; return '"' + ([string]$s).Replace('\', '\\').Replace('"', '\"').Replace("`r", '\r').Replace("`n", '\n').Replace("`t", '\t') + '"' }
+        $fnBool = { param($v) if ($v) { return 'true' } else { return 'false' } }
+        Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+        $js = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+        $js.MaxJsonLength = 4000000
+        try { $in = $js.DeserializeObject($Body) } catch { return (& $fnFail 'not readable') }
+        $pl = & $fnGet $in 'profiles'
+        if ($null -eq $pl) { return (& $fnFail 'no profiles') }
+        $profs = @($pl)
+        if ($profs.Count -lt 1 -or $profs.Count -gt 30) { return (& $fnFail 'a bar needs 1 to 30 profiles') }
+        $old = $null
+        if (Test-Path $Path) { try { $old = $js.DeserializeObject([System.IO.File]::ReadAllText($Path)) } catch { $old = $null } }
+        $names = New-Object System.Collections.ArrayList
+        $profJson = New-Object System.Collections.ArrayList
+        $nBtn = 0; $missing = 0
+        foreach ($p in $profs) {
+            $pn = [string](& $fnGet $p 'name')
+            if ([string]::IsNullOrWhiteSpace($pn) -or $pn.Length -gt 24) { return (& $fnFail 'a profile name is missing or too long') }
+            $btnJson = New-Object System.Collections.ArrayList
+            $bl = & $fnGet $p 'buttons'
+            if ($null -ne $bl) { foreach ($b in @($bl)) {
+                $bn = [string](& $fnGet $b 'name'); $bk = [string](& $fnGet $b 'kind'); $sl = @(& $fnGet $b 'steps')
+                if ([string]::IsNullOrWhiteSpace($bn) -or $bn.Length -gt 24 -or $kinds -notcontains $bk -or $sl.Count -lt 1 -or $sl.Count -gt 12 -or $btnJson.Count -ge 60) { return (& $fnFail ("button '" + $bn + "' is not valid")) }
+                $stepJson = New-Object System.Collections.ArrayList
+                foreach ($s in $sl) {
+                    $st = [string](& $fnGet $s 't')
+                    if ($safe -notcontains $st) { return (& $fnFail ("step type '" + $st + "' is not a safe step")) }
+                    $u = $null; $pa = $null; $tx = $null; $ms = 0
+                    $uv = & $fnGet $s 'url';  if ($null -ne $uv -and [string]$uv -ne '') { $u = [string]$uv; if ($u -notmatch '^https?://' -or $u.Length -gt 1500) { return (& $fnFail ("a web address in '" + $bn + "' is not valid")) } }
+                    $pv = & $fnGet $s 'path'; if ($null -ne $pv -and [string]$pv -ne '') { $pa = [string]$pv; if ($pa.Length -gt 260) { return (& $fnFail ("a program path in '" + $bn + "' is too long")) }; if ($pa -like 'shell:*' -and $pa -notmatch '^shell:AppsFolder\\.{1,240}$') { return (& $fnFail ("a program address in '" + $bn + "' is not a Start menu address")) }; if ($pa -like 'ms-settings:*' -and $pa -notmatch '^ms-settings:[a-z0-9-]{0,40}$') { return (& $fnFail ("a settings address in '" + $bn + "' is not valid")) } }
+                    $xv = & $fnGet $s 'text'; if ($null -ne $xv -and [string]$xv -ne '') { $tx = [string]$xv; if ($tx.Length -gt 300) { $tx = $tx.Substring(0, 300) } }
+                    $mv = & $fnGet $s 'ms';   if ($null -ne $mv) { $ms = [int][Math]::Max(0, [Math]::Min(60000, [double]$mv)) }
+                    if ($st -eq 'audio') { $u = $null; $pa = $null; $ac = Get-AmitAudioCfg ([string](& $fnGet $s 'text')); if ($null -eq $ac) { return (& $fnFail ("the audio setting in '" + $bn + "' is not valid")) }; $tx = $ac; foreach ($lm in [regex]::Matches($ac, '"l":"([^"]*)"')) { if (-not (Get-AmitAudioBoundId $lm.Groups[1].Value)) { $missing++; break } } }
+                    if ($st -eq 'open_file') { $u = $null; $pa = $null; $bp = Get-AmitBoundPath ([string](& $fnGet $s 'token')); if ($bp -and (Test-AmitFileOk $bp $true)) { $pa = $bp } else { $missing++ } }
+                    [void]$stepJson.Add('{"t":' + (& $fnQuote $st) + ',"url":' + (& $fnQuote $u) + ',"path":' + (& $fnQuote $pa) + ',"text":' + (& $fnQuote $tx) + ',"ms":' + $ms + '}')
+                }
+                $bd = [string](& $fnGet $b 'desc'); if ($bd.Length -gt 200) { $bd = $bd.Substring(0, 200) }
+                $bi = [string](& $fnGet $b 'icon'); if ($bi.Length -gt 12) { $bi = $bi.Substring(0, 12) }
+                [void]$btnJson.Add('{"name":' + (& $fnQuote $bn) + ',"kind":' + (& $fnQuote $bk) + ',"desc":' + (& $fnQuote $bd) + ',"icon":' + (& $fnQuote $bi) + ',"steps":[' + ($stepJson -join ',') + ']}'); $nBtn++
+            } }
+            $ps = [string](& $fnGet $p 'say'); if ($ps.Length -gt 40) { $ps = $ps.Substring(0, 40) }
+            [void]$names.Add($pn)
+            [void]$profJson.Add('{"name":' + (& $fnQuote $pn) + ',"say":' + (& $fnQuote $ps) + ',"buttons":[' + ($btnJson -join ',') + ']}')
+        }
+        $cur = [string](& $fnGet $in 'current')
+        $oldCur = [string](& $fnGet $old 'current')
+        if ((& $fnGet $in 'keep') -eq $true -and $oldCur -and $names -contains $oldCur) { $cur = $oldCur }
+        if ($names -notcontains $cur) { $cur = [string]$names[0] }
+        $idle = 2; $iv = & $fnGet $in 'idleMinutes'; if ($null -ne $iv) { $idle = [int][Math]::Max(1, [Math]::Min(30, [double]$iv)) }
+        $wv = & $fnGet $in 'widenOnClick'
+        $json = '{"alwaysOn":' + (& $fnBool ((& $fnGet $in 'alwaysOn') -eq $true)) + ',"idleMinutes":' + $idle + ',"widenOnClick":' + (& $fnBool ($null -eq $wv -or $wv -eq $true)) +
+            ',"startWide":' + (& $fnBool ((& $fnGet $old 'startWide') -eq $true)) + ',"ownHook":' + (& $fnBool ((& $fnGet $old 'ownHook') -eq $true)) +
+            ',"current":' + (& $fnQuote $cur) + ',"profiles":[' + ($profJson -join ',') + ']}'
+        $tmp = $Path + '.tmp'
+        [System.IO.File]::WriteAllText($tmp, $json, (New-Object System.Text.UTF8Encoding($false)))
+        Move-Item -LiteralPath $tmp -Destination $Path -Force
+        return @{ ok = $true; profiles = $profJson.Count; buttons = $nBtn; missing = $missing }
+    }
+    # ---- Open a file (Ryan, 2026-11-01) ----
+    # The Hub (a web page) cannot see files on this computer, so the helper does the picking. A button keeps only a TOKEN, a name and a type; THIS computer keeps its own private
+    # token -> path list (file_bindings.json), so the same button on another computer says "choose the file on this computer" instead of using the wrong path.
+    # Only ordinary document and media types open. Programs, scripts, shortcuts, installers, network paths and macro-enabled Office files are refused here and again in the bar.
+    $amitFileExt = @('pdf','doc','docx','rtf','txt','md','csv','tsv','xls','xlsx','ppt','pptx','odt','ods','odp','png','jpg','jpeg','gif','bmp','webp','tif','tiff','mp3','wav','m4a','flac','mp4','mov','wmv','mkv','epub')
+    $amitBindPath = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\file_bindings.json'
+    function Test-AmitFileOk([string]$p, [bool]$mustExist) {
+        if ([string]::IsNullOrWhiteSpace($p) -or $p.Length -gt 400 -or $p.StartsWith('\\')) { return $false }
+        $e = [System.IO.Path]::GetExtension($p).TrimStart('.').ToLowerInvariant()
+        if ($amitFileExt -notcontains $e) { return $false }
+        if ($mustExist -and -not [System.IO.File]::Exists($p)) { return $false }
+        return $true
+    }
+    function Get-AmitBindings {
+        Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+        $js = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+        try { if (Test-Path $amitBindPath) { $d = $js.DeserializeObject([System.IO.File]::ReadAllText($amitBindPath)); if ($d -is [System.Collections.IDictionary]) { return $d } } } catch {}
+        return (New-Object 'System.Collections.Generic.Dictionary[string,object]')
+    }
+    function Set-AmitBindings($d) {
+        Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+        $js = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+        $tmp = $amitBindPath + '.tmp'
+        [System.IO.File]::WriteAllText($tmp, $js.Serialize($d), (New-Object System.Text.UTF8Encoding($false)))
+        Move-Item -LiteralPath $tmp -Destination $amitBindPath -Force
+    }
+    function Add-AmitBinding([string]$path) {
+        $d = Get-AmitBindings
+        foreach ($k in @($d.Keys)) { $v = $d[$k]; if ($v -is [System.Collections.IDictionary] -and [string]$v['path'] -eq $path) { return [string]$k } }
+        $tok = 'f' + ([guid]::NewGuid().ToString('N')).Substring(0, 10)
+        $d[$tok] = @{ path = $path; name = [System.IO.Path]::GetFileName($path); at = (Get-Date).ToString('s') }
+        Set-AmitBindings $d
+        return $tok
+    }
+    function Get-AmitBoundPath([string]$tok) {
+        if ($tok -notmatch '^f[0-9a-f]{6,16}$') { return $null }
+        $d = Get-AmitBindings
+        if ($d.ContainsKey($tok) -and $d[$tok] -is [System.Collections.IDictionary]) { return [string]$d[$tok]['path'] }
+        return $null
+    }
+    function Get-AmitRecentFiles {
+        $dir = [Environment]::GetFolderPath('Recent'); $out = New-Object System.Collections.ArrayList; $seen = @{}
+        if (-not (Test-Path $dir)) { return @() }
+        $wsh = New-Object -ComObject WScript.Shell
+        foreach ($l in @(Get-ChildItem -LiteralPath $dir -Filter *.lnk -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 150)) {
+            try { $tp = [string]$wsh.CreateShortcut($l.FullName).TargetPath } catch { continue }
+            if (-not (Test-AmitFileOk $tp $true)) { continue }
+            $k = $tp.ToLowerInvariant(); if ($seen.ContainsKey($k)) { continue }; $seen[$k] = 1
+            $sha = [System.Security.Cryptography.SHA1]::Create(); $rid = ([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($k)))).Replace('-', '').Substring(0, 12).ToLowerInvariant(); $sha.Dispose()
+            [void]$out.Add([pscustomobject]@{ rid = $rid; path = $tp; name = [System.IO.Path]::GetFileName($tp); ext = [System.IO.Path]::GetExtension($tp).TrimStart('.').ToLowerInvariant(); where = [System.IO.Path]::GetFileName([System.IO.Path]::GetDirectoryName($tp)) })
+            if ($out.Count -ge 30) { break }
+        }
+        return $out.ToArray()
+    }
+    function ConvertTo-AmitQ($s) { if ($null -eq $s) { return 'null' }; return '"' + ([string]$s).Replace('\', '\\').Replace('"', '\"').Replace("`r", ' ').Replace("`n", ' ').Replace("`t", ' ') + '"' }
+    # ---- Audio setting (Ryan, 2026-11-01) ----
+    # The sound devices come from Windows on THIS computer (the bar program lists them: AmitBar.exe --audio-list); a button saves LABELS ("Speakers", "Headphones") and this
+    # computer keeps its own label -> device list (audio_bindings.json). Every audio step is re-checked here (mode, labels, volumes capped at 80) before it reaches the bar.
+    $amitAudioMax = 80
+    $amitAudioBind = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\audio_bindings.json'
+    function Invoke-AmitBarTool([string[]]$toolArgs) {
+        $exe = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\Watchers\AmitBar.exe'
+        if (-not (Test-Path $exe)) { return $null }
+        $out = Join-Path $env:TEMP ('amit_audio_' + ([guid]::NewGuid().ToString('N')).Substring(0, 12) + '.json')
+        $argList = @($toolArgs | ForEach-Object { if ($_ -eq '{OUT}') { '"' + $out + '"' } else { $_ } })
+        $p = Start-Process -FilePath $exe -ArgumentList $argList -PassThru -WindowStyle Hidden
+        if (-not $p.WaitForExit(12000)) { try { $p.Kill() } catch {}; return $null }
+        if (Test-Path $out) { $txt = [System.IO.File]::ReadAllText($out); Remove-Item $out -Force -ErrorAction SilentlyContinue; return $txt }
+        return $null
+    }
+    function Get-AmitAudioBindings {
+        Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+        $js = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+        try { if (Test-Path $amitAudioBind) { $d = $js.DeserializeObject([System.IO.File]::ReadAllText($amitAudioBind)); if ($d -is [System.Collections.IDictionary]) { return $d } } } catch {}
+        return (New-Object 'System.Collections.Generic.Dictionary[string,object]')
+    }
+    function Get-AmitAudioBoundId([string]$label) {
+        $d = Get-AmitAudioBindings
+        foreach ($k in @($d.Keys)) { if ([string]$k -ieq $label -and $d[$k] -is [System.Collections.IDictionary]) { return [string]$d[$k]['id'] } }
+        return $null
+    }
+    # the person's audio step, checked and rebuilt as clean compact JSON (or $null when it is not valid)
+    function Get-AmitAudioCfg([string]$json) {
+        Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+        $js = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+        try { $o = $js.DeserializeObject($json) } catch { return $null }
+        if ($o -isnot [System.Collections.IDictionary]) { return $null }
+        $g = { param($d, $k) if ($d -is [System.Collections.IDictionary] -and $d.ContainsKey($k)) { return $d[$k] } else { return $null } }
+        $vol = { param($v) if ($null -eq $v -or [string]$v -eq '') { return -1 }; try { $n = [int][double]$v } catch { return -1 }; if ($n -lt 0) { return -1 }; return [Math]::Min($n, $amitAudioMax) }
+        $dev = { param($d) if ($d -isnot [System.Collections.IDictionary]) { return $null }; $l = ([string](& $g $d 'l')).Trim(); if ($l -notmatch "^[A-Za-z0-9 ._'()-]{1,24}$") { return $null }; return ('{"l":"' + $l.Replace('\', '\\').Replace('"', '\"') + '","v":' + (& $vol (& $g $d 'v')) + '}') }
+        $m = [string](& $g $o 'm')
+        if ($m -eq 'settings') { return '{"m":"settings"}' }
+        if ($m -eq 'volume') {
+            $mu = [string](& $g $o 'mute'); if (@('', 'mute', 'unmute') -notcontains $mu) { return $null }
+            return ('{"m":"volume","vol":' + (& $vol (& $g $o 'vol')) + ',"mute":"' + $mu + '"}')
+        }
+        if ($m -eq 'set') { $a = & $dev (& $g $o 'a'); if ($null -eq $a) { return $null }; return ('{"m":"set","a":' + $a + '}') }
+        if ($m -eq 'toggle') {
+            $a = & $dev (& $g $o 'a'); $b = & $dev (& $g $o 'b'); if ($null -eq $a -or $null -eq $b) { return $null }
+            $la = ($a | Select-String '"l":"([^"]*)"').Matches[0].Groups[1].Value; $lb = ($b | Select-String '"l":"([^"]*)"').Matches[0].Groups[1].Value
+            if ($la -ieq $lb) { return $null }
+            return ('{"m":"toggle","a":' + $a + ',"b":' + $b + '}')
+        }
+        return $null
+    }
+    # Installed programs (Ryan, 2026-11-01): what Windows itself lists in the Start menu on THIS computer, i.e. exactly the programs that can be opened, each with the address Windows opens it by.
+    # Web shortcuts, documentation and uninstallers are left out. Written by hand (no ConvertTo-Json, see ConvertTo-JsonString below).
+    function Get-AmitProgramsJson {
+        $q = { param($s) return '"' + ([string]$s).Replace('\', '\\').Replace('"', '\"').Replace("`r", ' ').Replace("`n", ' ').Replace("`t", ' ') + '"' }
+        $skip = 'uninstall|release notes|documentation|on the web|website|readme|\bmanual\b'
+        $seen = @{}; $rows = New-Object System.Collections.ArrayList
+        foreach ($a in @(Get-StartApps -ErrorAction Stop)) {
+            $n = [string]$a.Name; $id = [string]$a.AppID
+            if ([string]::IsNullOrWhiteSpace($n) -or [string]::IsNullOrWhiteSpace($id) -or $id.Length -gt 240 -or $n.Length -gt 80) { continue }
+            if ($id -match '\.url$' -or $n -match $skip) { continue }
+            $k = $n.ToLowerInvariant(); if ($seen.ContainsKey($k)) { continue }; $seen[$k] = 1
+            [void]$rows.Add([pscustomobject]@{ n = $n; i = $id })
+        }
+        $parts = @($rows | Sort-Object n | ForEach-Object { '{"name":' + (& $q $_.n) + ',"id":' + (& $q $_.i) + '}' })
+        return '{"ok":true,"programs":[' + ($parts -join ',') + ']}'
+    }
     function ConvertTo-JsonString($text) {
         # Manual JSON string escaping - avoids ConvertTo-Json, which has a real
         # slowness/hang issue on some fresh runspaces in Windows PowerShell 5.1
@@ -1276,7 +1463,7 @@ try {
                 # KEEP THE FILE LIST THE SAME AS make_helper_manifest.ps1.
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else {
-                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_talk.html','amit_update.ps1')
+                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_talk.html','amit_update.ps1','amit_reload.ps1','AmitBar.cs')
                     $hsSha = [System.Security.Cryptography.SHA256]::Create()
                     $hsParts = @()
                     foreach ($hsN in $hsNames) {
@@ -1339,6 +1526,196 @@ try {
                     $waBody = $waReader.ReadToEnd(); $waReader.Dispose()
                     [void][AmitWhisper]::WordsAck($waBody)
                     Send-JsonRaw $response '{"ok":true}'
+                }
+            }
+            "/api/bar/sync" {
+                # Amit Helper (2026-11-01): the Hub sends the person's whole bar; written to amit_bar.json, which the bar reloads by itself. Only the Amit site or a local program may send.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $bsReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $bsBody = $bsReader.ReadToEnd(); $bsReader.Dispose()
+                    try {
+                        $bsRes = Write-AmitBarConfig $bsBody (Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\amit_bar.json')
+                        if ($bsRes.ok) { Send-JsonRaw $response ('{"ok":true,"profiles":' + $bsRes.profiles + ',"buttons":' + $bsRes.buttons + ',"missing":' + $bsRes.missing + '}') }
+                        else { Send-JsonRaw $response ('{"ok":false,"error":"' + ([string]$bsRes.error).Replace('\', '\\').Replace('"', '\"') + '"}') }
+                    } catch { Send-JsonRaw $response '{"ok":false,"error":"could not write the bar"}' }
+                }
+            }
+            "/api/programs" {
+                # the programs installed on THIS computer (what the Start menu lists), for the Amit Helper "open a program" picker. Only the Amit site or a local program may ask.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    try { Send-JsonRaw $response (Get-AmitProgramsJson) }
+                    catch { Send-JsonRaw $response '{"ok":false,"error":"could not read the program list"}' }
+                }
+            }
+            "/api/files/recent" {
+                # recent files of an allowed type (what Windows lists), for the Open a file picker. No full paths leave this computer.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    try {
+                        $parts = @(Get-AmitRecentFiles | ForEach-Object { '{"rid":' + (ConvertTo-AmitQ $_.rid) + ',"name":' + (ConvertTo-AmitQ $_.name) + ',"ext":' + (ConvertTo-AmitQ $_.ext) + ',"where":' + (ConvertTo-AmitQ $_.where) + '}' })
+                        Send-JsonRaw $response ('{"ok":true,"files":[' + ($parts -join ',') + ']}')
+                    } catch { Send-JsonRaw $response '{"ok":false,"error":"could not read the recent files"}' }
+                }
+            }
+            "/api/files/bind" {
+                # the person picked one recent file: give it a token for THIS computer
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $fbR = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8); $fbRid = ($fbR.ReadToEnd()).Trim(); $fbR.Dispose()
+                    try {
+                        $fbHit = $null; if ($fbRid -match '^[0-9a-f]{12}$') { $fbHit = @(Get-AmitRecentFiles | Where-Object { $_.rid -eq $fbRid })[0] }
+                        if ($null -eq $fbHit) { Send-JsonRaw $response '{"ok":false,"error":"that file is not in the recent list any more"}' }
+                        else { $fbTok = Add-AmitBinding $fbHit.path; Send-JsonRaw $response ('{"ok":true,"token":' + (ConvertTo-AmitQ $fbTok) + ',"name":' + (ConvertTo-AmitQ $fbHit.name) + ',"ext":' + (ConvertTo-AmitQ $fbHit.ext) + ',"where":' + (ConvertTo-AmitQ $fbHit.where) + '}') }
+                    } catch { Send-JsonRaw $response '{"ok":false,"error":"could not choose that file"}' }
+                }
+            }
+            "/api/files/pick" {
+                # shows the normal Windows file picker on this computer (in its own window); the Hub then asks /api/files/pick-result until the person has chosen
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    try {
+                        $fpHome = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth'
+                        Get-ChildItem -LiteralPath $fpHome -Filter 'file_pick_*.json' -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -lt (Get-Date).AddMinutes(-15) } | Remove-Item -Force -ErrorAction SilentlyContinue
+                        $fpId = ([guid]::NewGuid().ToString('N')).Substring(0, 16)
+                        $fpOut = Join-Path $fpHome ('file_pick_' + $fpId + '.json')
+                        $fpOutQ = $fpOut.Replace("'", "''")
+                        $fpFilter = 'Documents and media|' + (($amitFileExt | ForEach-Object { '*.' + $_ }) -join ';')
+                        $fpScript = @"
+`$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Windows.Forms
+`$o = @{ ok = `$false; error = 'no answer' }
+try {
+  `$f = New-Object System.Windows.Forms.Form; `$f.TopMost = `$true; `$f.ShowInTaskbar = `$false; `$f.FormBorderStyle = 'None'; `$f.Opacity = 0; `$f.Width = 1; `$f.Height = 1; `$f.StartPosition = 'CenterScreen'; `$f.Show(); `$f.Activate()
+  `$d = New-Object System.Windows.Forms.OpenFileDialog; `$d.Title = 'Choose the file for this button'; `$d.Filter = '$fpFilter'; `$d.CheckFileExists = `$true; `$d.Multiselect = `$false
+  if (`$d.ShowDialog(`$f) -eq [System.Windows.Forms.DialogResult]::OK) { `$o = @{ ok = `$true; path = `$d.FileName } } else { `$o = @{ ok = `$false; cancelled = `$true } }
+} catch { `$o = @{ ok = `$false; error = `$_.Exception.Message } }
+[System.IO.File]::WriteAllText('$fpOutQ', (`$o | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding(`$false)))
+"@
+                        $fpEnc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($fpScript))
+                        Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -ArgumentList '-STA', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-EncodedCommand', $fpEnc
+                        Send-JsonRaw $response ('{"ok":true,"id":"' + $fpId + '"}')
+                    } catch { Send-JsonRaw $response '{"ok":false,"error":"could not open the file picker"}' }
+                }
+            }
+            "/api/files/pick-result" {
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    try {
+                        $prId = [string]$request.QueryString['id']
+                        if ($prId -notmatch '^[0-9a-f]{16}$') { Send-JsonRaw $response '{"ok":false,"error":"bad id"}' }
+                        else {
+                            $prFile = Join-Path (Join-Path $env:LOCALAPPDATA 'AmitComputerHealth') ('file_pick_' + $prId + '.json')
+                            if (-not (Test-Path $prFile)) { Send-JsonRaw $response '{"ok":true,"pending":true}' }
+                            else {
+                                Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+                                $prJs = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+                                $prD = $prJs.DeserializeObject([System.IO.File]::ReadAllText($prFile)); Remove-Item $prFile -Force -ErrorAction SilentlyContinue
+                                if ($prD['ok'] -eq $true -and (Test-AmitFileOk ([string]$prD['path']) $true)) {
+                                    $prP = [string]$prD['path']; $prTok = Add-AmitBinding $prP
+                                    Send-JsonRaw $response ('{"ok":true,"token":' + (ConvertTo-AmitQ $prTok) + ',"name":' + (ConvertTo-AmitQ ([System.IO.Path]::GetFileName($prP))) + ',"ext":' + (ConvertTo-AmitQ ([System.IO.Path]::GetExtension($prP).TrimStart('.').ToLowerInvariant())) + ',"where":' + (ConvertTo-AmitQ ([System.IO.Path]::GetFileName([System.IO.Path]::GetDirectoryName($prP)))) + '}')
+                                }
+                                elseif ($prD['cancelled'] -eq $true) { Send-JsonRaw $response '{"ok":false,"cancelled":true}' }
+                                elseif ($prD['ok'] -eq $true) { Send-JsonRaw $response '{"ok":false,"error":"that kind of file cannot be used in a button (programs, scripts, shortcuts and installers are not allowed)"}' }
+                                else { Send-JsonRaw $response '{"ok":false,"error":"no file was chosen"}' }
+                            }
+                        }
+                    } catch { Send-JsonRaw $response '{"ok":false,"error":"could not read the choice"}' }
+                }
+            }
+            "/api/files/status" {
+                # which tokens are ready on THIS computer (the Ready here? check); body = tokens separated by commas
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $fsR = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8); $fsBody = $fsR.ReadToEnd(); $fsR.Dispose()
+                    try {
+                        $fsParts = New-Object System.Collections.ArrayList; $fsBind = Get-AmitBindings
+                        foreach ($fsT in @($fsBody.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^f[0-9a-f]{6,16}$' } | Select-Object -First 60)) {
+                            $fsP = $null; if ($fsBind.ContainsKey($fsT) -and $fsBind[$fsT] -is [System.Collections.IDictionary]) { $fsP = [string]$fsBind[$fsT]['path'] }
+                            $fsOk = ($fsP -and (Test-AmitFileOk $fsP $true))
+                            [void]$fsParts.Add('"' + $fsT + '":{"ready":' + $(if ($fsOk) { 'true' } else { 'false' }) + ',"name":' + (ConvertTo-AmitQ $(if ($fsP) { [System.IO.Path]::GetFileName($fsP) } else { $null })) + '}')
+                        }
+                        Send-JsonRaw $response ('{"ok":true,"items":{' + ($fsParts -join ',') + '}}')
+                    } catch { Send-JsonRaw $response '{"ok":false,"error":"could not check the files"}' }
+                }
+            }
+            "/api/files/open" {
+                # opens the chosen file in its own program (used by the Test button in the Hub); body = the token
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $foR = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8); $foTok = ($foR.ReadToEnd()).Trim(); $foR.Dispose()
+                    try {
+                        $foP = Get-AmitBoundPath $foTok
+                        if ($foP -and (Test-AmitFileOk $foP $true)) { Start-Process -FilePath $foP; Send-JsonRaw $response '{"ok":true}' }
+                        else { Send-JsonRaw $response '{"ok":false,"error":"that file is not set up on this computer"}' }
+                    } catch { Send-JsonRaw $response '{"ok":false,"error":"could not open the file"}' }
+                }
+            }
+            "/api/audio/devices" {
+                # the playback devices on THIS computer, read from Windows by the bar program. Microphones are never listed.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    try {
+                        $adTxt = Invoke-AmitBarTool @('--audio-list', '{OUT}')
+                        if ($adTxt -and $adTxt.TrimStart().StartsWith('{')) { Send-JsonRaw $response $adTxt }
+                        else { Send-JsonRaw $response '{"ok":false,"error":"The Amit bar program is not on this computer yet, so the sound devices cannot be listed. Press Update and reload on the bar."}' }
+                    } catch { Send-JsonRaw $response '{"ok":false,"error":"could not read the sound devices"}' }
+                }
+            }
+            "/api/audio/status" {
+                # which labels have a device chosen on THIS computer (the Ready here? check); body = labels separated by |
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $asR = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8); $asBody = $asR.ReadToEnd(); $asR.Dispose()
+                    try {
+                        $asBind = Get-AmitAudioBindings; $asParts = New-Object System.Collections.ArrayList
+                        foreach ($asL in @($asBody.Split('|') | ForEach-Object { $_.Trim() } | Where-Object { $_ -match "^[A-Za-z0-9 ._'()-]{1,24}$" } | Select-Object -First 20)) {
+                            $asId = $null; $asName = $null
+                            foreach ($asK in @($asBind.Keys)) { if ([string]$asK -ieq $asL -and $asBind[$asK] -is [System.Collections.IDictionary]) { $asId = [string]$asBind[$asK]['id']; $asName = [string]$asBind[$asK]['name'] } }
+                            [void]$asParts.Add((ConvertTo-AmitQ $asL) + ':{"chosen":' + $(if ($asId) { 'true' } else { 'false' }) + ',"id":' + (ConvertTo-AmitQ $asId) + ',"name":' + (ConvertTo-AmitQ $asName) + '}')
+                        }
+                        Send-JsonRaw $response ('{"ok":true,"items":{' + ($asParts -join ',') + '}}')
+                    } catch { Send-JsonRaw $response '{"ok":false,"error":"could not check the sound choices"}' }
+                }
+            }
+            "/api/audio/bind" {
+                # the person chose which of THIS computer's devices is their "Speakers" (or "Headphones"...): body = label|deviceId; the device must really be on this computer
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $abR = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8); $abBody = ($abR.ReadToEnd()).Trim(); $abR.Dispose()
+                    try {
+                        $abBar = $abBody.IndexOf('|'); $abL = if ($abBar -gt 0) { $abBody.Substring(0, $abBar).Trim() } else { '' }; $abId = if ($abBar -gt 0) { $abBody.Substring($abBar + 1).Trim() } else { '' }
+                        if ($abL -notmatch "^[A-Za-z0-9 ._'()-]{1,24}$" -or $abId -notmatch '^\{[0-9A-Fa-f.\-]+\}\.\{[0-9A-Fa-f\-]+\}$') { Send-JsonRaw $response '{"ok":false,"error":"that is not a device choice"}' }
+                        else {
+                            $abTxt = Invoke-AmitBarTool @('--audio-list', '{OUT}'); $abName = $null
+                            Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue; $abJs = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+                            if ($abTxt) { $abD = $abJs.DeserializeObject($abTxt); foreach ($abX in @($abD['devices'])) { if ([string]$abX['id'] -ieq $abId) { $abName = [string]$abX['name'] } } }
+                            if (-not $abName) { Send-JsonRaw $response '{"ok":false,"error":"that device is not on this computer"}' }
+                            else {
+                                $abBind = Get-AmitAudioBindings; foreach ($abK in @($abBind.Keys)) { if ([string]$abK -ieq $abL) { [void]$abBind.Remove($abK) } }
+                                $abBind[$abL] = @{ id = $abId; name = $abName }
+                                $abTmp = $amitAudioBind + '.tmp'; [System.IO.File]::WriteAllText($abTmp, $abJs.Serialize($abBind), (New-Object System.Text.UTF8Encoding($false))); Move-Item -LiteralPath $abTmp -Destination $amitAudioBind -Force
+                                Send-JsonRaw $response ('{"ok":true,"label":' + (ConvertTo-AmitQ $abL) + ',"name":' + (ConvertTo-AmitQ $abName) + '}')
+                            }
+                        }
+                    } catch { Send-JsonRaw $response '{"ok":false,"error":"could not save that choice"}' }
+                }
+            }
+            "/api/audio/apply" {
+                # runs ONE audio step now (the Test button in the Hub); the step is checked first, exactly as in a saved button
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $aaR = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8); $aaBody = $aaR.ReadToEnd(); $aaR.Dispose()
+                    try {
+                        $aaCfg = Get-AmitAudioCfg $aaBody
+                        if ($null -eq $aaCfg) { Send-JsonRaw $response '{"ok":false,"msg":"This audio setting is not valid."}' }
+                        else {
+                            $aaB64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($aaCfg))
+                            $aaTxt = Invoke-AmitBarTool @('--audio-step', $aaB64, '{OUT}')
+                            if ($aaTxt -and $aaTxt.TrimStart().StartsWith('{')) { Send-JsonRaw $response $aaTxt } else { Send-JsonRaw $response '{"ok":false,"msg":"The Amit bar program did not answer. Press Update and reload on the bar."}' }
+                        }
+                    } catch { Send-JsonRaw $response '{"ok":false,"msg":"could not run the audio setting"}' }
                 }
             }
             "/api/amit-mobile-status" {
