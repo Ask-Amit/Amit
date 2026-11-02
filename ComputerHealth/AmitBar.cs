@@ -766,6 +766,25 @@ public static class PrintCtl
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder s, int n);
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+    [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
+    [DllImport("user32.dll")] static extern bool AttachThreadInput(uint a, uint b, bool attach);
+    [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
+    [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
+    // Started from the background (the bar, a voice command) Windows will not let a new window come in front of the one the person is using, so the Print
+    // windows asked to be on top were left hidden behind it. This borrows the front window's input for a moment, which Windows allows, and takes the front.
+    static void ForceFront(Form f)
+    {
+        try
+        {
+            uint pid; uint fgT = GetWindowThreadProcessId(GetForegroundWindow(), out pid), me = GetCurrentThreadId();
+            bool att = fgT != 0 && fgT != me && AttachThreadInput(me, fgT, true);
+            SetWindowPos(f.Handle, new IntPtr(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0040);   // topmost, no move, no resize, show
+            SetForegroundWindow(f.Handle); f.Activate();
+            if (att) AttachThreadInput(me, fgT, false);
+        }
+        catch { }
+    }
     [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr h, int i);
     [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int attr, out RECT r, int size);
     [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int attr, out int v, int size);
@@ -877,7 +896,7 @@ public static class PrintCtl
             Label gl = new Label(); gl.Text = "Gold edge = the way you used last time"; gl.ForeColor = Mute; gl.Font = new Font("Segoe UI", 8.5f); gl.SetBounds(16, 298, 260, 20);
             f.Controls.Add(bw); f.Controls.Add(ba); f.Controls.Add(bs); f.Controls.Add(cn); f.Controls.Add(gl);
             f.KeyDown += delegate(object o, KeyEventArgs e) { if (e.KeyCode == Keys.Escape) f.Close(); };
-            f.Shown += delegate { f.Activate(); };
+            f.Shown += delegate { ForceFront(f); };
             f.ShowDialog();
         }
         return result;
@@ -888,7 +907,7 @@ public static class PrintCtl
         public Bitmap Full; public Rectangle Sel = Rectangle.Empty; Point start; bool drag;
         public PickForm(Bitmap full, Rectangle vs)
         {
-            Full = full; DoubleBuffered = true; FormBorderStyle = FormBorderStyle.None; StartPosition = FormStartPosition.Manual; Bounds = vs; TopMost = true; ShowInTaskbar = false; Cursor = Cursors.Cross; KeyPreview = true;
+            Full = full; DoubleBuffered = true; FormBorderStyle = FormBorderStyle.None; StartPosition = FormStartPosition.Manual; Bounds = vs; TopMost = true; ShowInTaskbar = false; Cursor = Cursors.Cross; KeyPreview = true; Shown += delegate { ForceFront(this); };
             MouseDown += delegate(object o, MouseEventArgs e) { start = e.Location; drag = true; Sel = Rectangle.Empty; };
             MouseMove += delegate(object o, MouseEventArgs e) { if (!drag) return; Sel = Rectangle.FromLTRB(Math.Min(start.X, e.X), Math.Min(start.Y, e.Y), Math.Max(start.X, e.X), Math.Max(start.Y, e.Y)); Invalidate(); };
             MouseUp += delegate(object o, MouseEventArgs e) { if (!drag) return; drag = false; if (Sel.Width >= 12 && Sel.Height >= 12) DialogResult = DialogResult.OK; else { Sel = Rectangle.Empty; Invalidate(); } };
@@ -932,7 +951,7 @@ public static class PrintCtl
     static Form BuildPreview(Bitmap pic, Dictionary<string, string> st)
     {
         Form f = new Form(); f.Text = "Amit - Print preview"; f.StartPosition = FormStartPosition.CenterScreen; f.ClientSize = new Size(1000, 680); f.MinimumSize = new Size(760, 600);
-        f.BackColor = PanelBg; f.ForeColor = Ink; f.ShowInTaskbar = true; f.TopMost = true;
+        f.BackColor = PanelBg; f.ForeColor = Ink; f.ShowInTaskbar = true; f.TopMost = true; f.Shown += delegate { ForceFront(f); };
         PrintDocument doc = new PrintDocument(); doc.DocumentName = "Amit screen print";
         doc.DefaultPageSettings.Margins = new Margins(50, 50, 50, 50);
         int fitMode = 0;   // 0 fit to page, 1 fill page (may crop), 2 actual size (may take several pages)
