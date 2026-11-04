@@ -1306,6 +1306,46 @@ try {
                 if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else { Send-JsonRaw $response ([AmitWhisper]::StartLearn()) }
             }
+            # ---- Dictate (v1.56): the Dictate window (page amit_dictate.html). The words are heard in the page itself; Place waits here for the next left click on a text box and types the message there. ----
+            "/dictate" {
+                # Gets this run's secret only when opened directly (same rule as /whisper and /talk).
+                $dictPage = Join-Path $watcherDir "amit_dictate.html"
+                if (Test-Path $dictPage) {
+                    $dTok = ''
+                    if (-not $request.Headers['Origin']) { $dTok = [AmitWhisper]::Token() }
+                    Send-Html $response ([System.IO.File]::ReadAllText($dictPage, [System.Text.Encoding]::UTF8).Replace('__WHISPER_TOKEN__', $dTok).Replace('__START__', [AmitWhisper]::StartId()))
+                }
+                else { $response.StatusCode = 404; Send-Html $response "The Dictate page is not installed." }
+            }
+            "/api/dictate/place" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $dReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $dBody = $dReader.ReadToEnd(); $dReader.Dispose()
+                    Send-JsonRaw $response ([AmitWhisper]::DictatePlace($dBody))
+                }
+            }
+            "/api/dictate/listen" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::DictateListen()) }
+            }
+            "/api/dictate/pause" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::DictatePause()) }
+            }
+            "/api/dictate/words" {
+                # The Dictate window asks "anything new?" and is held here (up to 20 s) until the listening page has words for it.
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $dwSince = -1
+                    try { $dwSince = [long]$request.QueryString["seq"] } catch {}
+                    Send-JsonRaw $response ([AmitWhisper]::DictateWait($dwSince, 20000))
+                }
+            }
+            "/api/dictate/cancel" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::DictateCancel()) }
+            }
             # ---- Talk (v1.12): the speaking half of the "Talk" choice in the Amit Live ring. The words and the speaker on the screen live in amit_whisper.cs; these routes only carry messages. ----
             "/talk" {
                 # The speaking page (a hidden Edge window of its own). Gets this run's secret only when opened directly (same rule as /whisper).
@@ -1464,7 +1504,7 @@ try {
                 # KEEP THE FILE LIST THE SAME AS make_helper_manifest.ps1.
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else {
-                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_talk.html','amit_update.ps1','amit_reload.ps1','AmitBar.cs')
+                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_dictate.html','amit_talk.html','amit_update.ps1','amit_reload.ps1','AmitBar.cs')
                     $hsSha = [System.Security.Cryptography.SHA256]::Create()
                     $hsParts = @()
                     foreach ($hsN in $hsNames) {

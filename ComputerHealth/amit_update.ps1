@@ -32,7 +32,7 @@ $stageDir   = Join-Path $amitHome 'update_staging'
 $backupDir  = Join-Path $amitHome 'update_backup'
 
 # the only files this program may ever write, and only into the install folder (no paths, no other names)
-$allowed = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_talk.html','amit_update.ps1','amit_reload.ps1','AmitBar.cs')
+$allowed = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_dictate.html','amit_talk.html','amit_update.ps1','amit_reload.ps1','AmitBar.cs')
 
 function Log([string]$m) { try { Add-Content -Path $logPath -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + ' ' + $m) } catch {} }
 function JsonEsc([string]$s) { if ($null -eq $s) { return '' }; return $s.Replace('\', '\\').Replace('"', '\"').Replace("`r", ' ').Replace("`n", ' ') }
@@ -94,6 +94,9 @@ try {
     }
     $csPath = Join-Path $InstallDir 'amit_whisper.cs'
     if (Test-Path $csPath) { $mm = [regex]::Match([System.IO.File]::ReadAllText($csPath), 'public const string Version = "([0-9.]+)"'); if ($mm.Success) { $fromVer = $mm.Groups[1].Value } }
+    # NEVER GO BACKWARDS (2026-11-04): a computer that already runs a NEWER helper than the published one (the developer's own work, or a newer install) is left alone.
+    # Seen in real use: the version on Ryan's computer was replaced by the older published one because its files merely "differed" from the published ones.
+    try { if ($fromVer -and $toVer -and ([version]$fromVer) -gt ([version]$toVer)) { Write-Result 'current' ('This computer runs version ' + $fromVer + ', which is newer than the published ' + $toVer + ': nothing is replaced') $fromVer $toVer; exit 0 } } catch {}
     if ($todo.Count -eq 0) { Write-Result 'current' 'Already the current version' $fromVer $toVer; exit 0 }
     Log ('differing files: ' + (($todo | ForEach-Object { $_.name }) -join ', '))
 
