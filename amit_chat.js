@@ -1,5 +1,6 @@
 /* ════════════════════════════════════════════════════════════════
    amit_chat.js — the ONE AmitChat engine, shared by every Amit page.
+   v0.30 — 2026-11-05. MOBILE CHAT: AmitChat.openMobile({label}) opens a NEW numbered "Mobile #N" Ask Amit chat (a photo sent from the phone through Show Amit; needs migration _037) in the same small box; AmitChat.showHelpChat() shows the chat just opened again; sendShot meta.primer replaces the press note (Amit is primed with the photo and the person's own note). Nothing existing changed.
    v0.29 — 2026-10-31. SHOW AMIT SHOT: AmitChat.sendShot(file, {title, text, name}) posts a picture into the chat the Amit Live window just opened and asks Amit to look at it; a 10-minute link made under the person's own sign-in travels with the press (never stored in the chat). Amit's answering helper downloads that one file, reads it, and deletes it.
    v0.28 — 2026-10-31. ONE ASK AMIT CHAT PER DAY (Amit Live window): AmitChat.openHelp({ day: 'YYYY-MM-DD' }) opens that day's own chat (made on the first open of the day, the same chat all day, a new one the next day); the Hub's openHelp() with no argument is unchanged. Needs migration _033 (falls back to the single running chat until it is run).
    v0.27 — 2026-10-26. OWNER'S NAME NO LONGER SHOWN: the label under Amit's replies used to read "answering through <owner's name>'s session"; it now reads "answering through Amit's helper", so nobody sees whose computer answered. The name is still recorded in the database (payload.via_name) as the audit trail; only the display changed. ALSO v0.27: when this computer can only offer a basic (robotic) voice, the chat says so once and the Reading voice box shows a line pointing to Microsoft Edge's natural voice; the better fallback order itself lives in amit_owner_contact.js (amitPickDefaultVoice).
@@ -28,7 +29,7 @@
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.29';
+  var VERSION = 'v0.30';
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
   var SCRIPT_BASE = (function () { var sc = document.currentScript; return sc && sc.src ? sc.src.replace(/[^\/?#]*([?#].*)?$/, '') : ''; })();
 
@@ -285,6 +286,8 @@
       helpChat: function (app) { return db.rpc('cha_help_chat', { p_app: app || 'hub' }).then(function (r) { fail(r); return r.data; }); },
       /* opens it for the page's Ask Amit button: finds or makes the chat, switches Amit on when he is off and posts his greeting naming the page: { id, number, created, greeted, listening, online } */
       helpOpen: function (app, page) { return db.rpc('cha_help_open', { p_app: app || 'hub', p_page: page || null }).then(function (r) { fail(r); return r.data; }); },
+      /* v0.30: a NEW numbered "Mobile #N" Ask Amit chat for a photo sent from the phone through Show Amit (migration _037): { id, number, mobile_no, greeted, online } */
+      helpOpenMobile: function (app, label) { return db.rpc('cha_help_open_mobile', { p_app: app || 'amitlive', p_label: label || '' }).then(function (r) { fail(r); return r.data; }); },
       /* the same, but ONE chat per day (the Amit Live window): same day = same chat, next day = a new one. Falls back to the single running chat until migration _033 is run. */
       helpOpenDay: function (app, page, day) {
         return db.rpc('cha_help_open_day', { p_app: app || 'amitlive', p_page: page || null, p_day: day }).then(function (r) {
@@ -2386,6 +2389,25 @@
       });
     },
     helpId: null,
+    /* v0.30: the Amit Live window opens a NEW numbered Mobile chat (a photo from the phone) in the same small box, ready to type in. Returns a promise (true when it opened). */
+    openMobile: function (opts) {
+      opts = opts || {};
+      if (!AmitChat.live || !AmitChat.source.helpOpenMobile) return Promise.resolve(false);
+      return AmitChat.source.helpOpenMobile(AmitChat.appName || 'amitlive', opts.label).then(function (r) {
+        AmitChat.helpId = r.id;
+        var p = buildPopup(); placePopup(); p.classList.add('open'); p.classList.remove('min'); markAnchor(true);
+        var ttl = p.querySelector('.acx-head .acx-title'); if (ttl) ttl.textContent = 'Ask Amit - Mobile #' + (r.mobile_no || '');
+        if (popView) popView.open('thread', r.id);
+        return true;
+      }, function (e) {
+        var m = (e && e.message) || 'Could not open the Mobile chat.';
+        if (/could not find the function|PGRST202/i.test(m)) m = 'The Mobile chat needs its database step first (migration _037).';
+        if (/birth date/i.test(m) && AmitChat.onNeedBirthDate) { try { AmitChat.onNeedBirthDate(); } catch (er) {} }
+        toast(m); return false;
+      });
+    },
+    /* shows the chat just opened (helpId) again, so a picture posted into it appears */
+    showHelpChat: function () { if (popView && AmitChat.helpId) popView.open('thread', AmitChat.helpId); },
     /* the Amit Live window's Show Amit: post a picture into the chat just opened (helpId), then ask Amit to look at it. The 10-minute link goes with the press, made under the person's own sign-in:
        Amit's helper downloads that one file, reads it, and deletes it. */
     sendShot: function (file, meta) {
@@ -2398,7 +2420,7 @@
         from.attachment = { url: att.url, name: att.name, mime: att.mime };
         var place = { type: 'help-chat', id: id, version: AmitChat.version, from: from };
         if (JSON.stringify(place).length > 1700 && from.computer) delete from.computer;     /* the place is limited to 2000 bytes */
-        var note = 'I just sent you a Show Amit picture' + (meta.title ? ' titled "' + meta.title + '"' : '') + '.' + (meta.text ? ' Words written on it: ' + meta.text : '') + ' Please look at it and tell me what you see.';
+        var note = meta.primer ? String(meta.primer) : 'I just sent you a Show Amit picture' + (meta.title ? ' titled "' + meta.title + '"' : '') + '.' + (meta.text ? ' Words written on it: ' + meta.text : '') + ' Please look at it and tell me what you see.';
         return AmitChat.source.ask(id, { app: AmitChat.appName || 'hub', place: place, note: note.slice(0, 500) });
       });
     },

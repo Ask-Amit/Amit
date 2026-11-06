@@ -1481,6 +1481,15 @@ try {
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else { Send-JsonRaw $response ([AmitWhisper]::ShotPendingJson()) }
             }
+            "/api/amitlive/dictate" {
+                # v1.58: the Amit Live window has put the cursor in its message box; this switches dictation on there (after Amit has finished speaking). Amit site only, POST only.
+                if ($request.HttpMethod -ne 'POST' -or -not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $adx = 0; $ady = 0
+                    [void][int]::TryParse([string]$request.QueryString['x'], [ref]$adx); [void][int]::TryParse([string]$request.QueryString['y'], [ref]$ady)
+                    Send-JsonRaw $response ([AmitWhisper]::ChatDictateReady($adx, $ady))
+                }
+            }
             "/api/showamit/pending.png" {
                 # v1.11: the picture itself, only while it is the pending one (the id must match), only to the Amit site.
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
@@ -1741,6 +1750,89 @@ try {
                             }
                         }
                     } catch { Send-JsonRaw $response '{"ok":false,"error":"could not save that choice"}' }
+                }
+            }
+            "/api/mobile/pull" {
+                # The "Mobile" ring slice (2026-11-05, stage 1, Ryan): the phone puts a photo in the database (amit_mobile_captures, destination 'to_computer'); pressing Mobile on the
+                # computer lands here, fetches whatever is new for THIS computer's owner, saves it in Pictures\Show Amit and marks it delivered. Called only by the Amit Live program on
+                # this computer (POST, and no Origin header, so a web page cannot start it). Stage 1 reads with the same local-only key file the Amit Mobile watcher uses; a computer
+                # without that file (or without mobile_owner.txt, the signed-in owner's id) answers "not_connected". Stage 2 replaces the key with a per-computer pairing.
+                if ($request.HttpMethod -ne 'POST' -or $request.Headers['Origin']) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    try {
+                        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]3072
+                        Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+                        $mdir = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth'
+                        $ownerFile = Join-Path $mdir 'mobile_owner.txt'
+                        $cfgPath = Join-Path (Split-Path -Parent (Split-Path -Parent $watcherDir)) 'Database\supabase_config.md'
+                        if (-not (Test-Path $cfgPath)) { $cfgPath = Join-Path $env:USERPROFILE 'OneDrive\Documents - onedrive\Amit\Database\supabase_config.md' }
+                        $owner = ''; if (Test-Path $ownerFile) { $owner = (Get-Content $ownerFile -Raw).Trim() }
+                        $mkey = $null; if (Test-Path $cfgPath) { $mm = [regex]::Match((Get-Content $cfgPath -Raw), 'sb_secret_[A-Za-z0-9_]+'); if ($mm.Success) { $mkey = $mm.Value } }
+                        if ($owner -notmatch '^[0-9a-fA-F-]{36}$' -or -not $mkey) { Send-JsonRaw $response '{"ok":false,"reason":"not_connected"}' }
+                        else {
+                            $mbase = 'https://hleqtjqojksurvkyqixt.supabase.co'
+                            $mser = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+                            $mwc = New-Object System.Net.WebClient; $mwc.Encoding = [System.Text.Encoding]::UTF8
+                            $mwc.Headers.Add('apikey', $mkey); $mwc.Headers.Add('Authorization', "Bearer $mkey"); $mwc.Headers.Add('User-Agent', 'supabase-js/2.0')
+                            $mtxt = $mwc.DownloadString("$mbase/rest/v1/amit_mobile_captures?user_id=eq.$owner&destination=eq.to_computer&select=id,created_at,photo_url&order=created_at.asc&limit=10")
+                            $mrows = $mser.DeserializeObject($mtxt)
+                            $mpics = [Environment]::GetFolderPath('MyPictures'); if (-not $mpics) { $mpics = Join-Path $env:USERPROFILE 'Pictures' }
+                            $mfolder = Join-Path $mpics 'Show Amit'; if (-not (Test-Path $mfolder)) { New-Item -ItemType Directory -Path $mfolder -Force | Out-Null }
+                            $mout = New-Object System.Collections.ArrayList
+                            foreach ($mrow in $mrows) {
+                                $mid = [int64]$mrow['id']; $mpaths = @()
+                                $mraw = [string]$mrow['photo_url']
+                                if ($mraw.TrimStart().StartsWith('[')) { $mpaths = @($mser.DeserializeObject($mraw)) } elseif ($mraw) { $mpaths = @($mraw) }
+                                $mstamp = ([DateTime]::Parse([string]$mrow['created_at'])).ToLocalTime().ToString('yyyy-MM-dd HH.mm.ss')
+                                $mok = $true; $mn = 0; $mgot = New-Object System.Collections.ArrayList
+                                foreach ($mp in $mpaths) {
+                                    $mp = [string]$mp
+                                    if ($mp -notmatch '^[A-Za-z0-9_./ -]+$' -or $mp.Contains('..')) { $mok = $false; continue }
+                                    $mext = [System.IO.Path]::GetExtension($mp).ToLowerInvariant(); if ($mext -notin @('.jpg', '.jpeg', '.png', '.webp')) { $mext = '.jpg' }
+                                    $mn++; $mname = 'Phone photo ' + $mstamp + $(if ($mn -gt 1) { " ($mn)" } else { '' })
+                                    $mdest = Join-Path $mfolder ($mname + $mext); $mk = 2
+                                    while (Test-Path $mdest) { $mdest = Join-Path $mfolder ($mname + " ($mk)" + $mext); $mk++ }
+                                    $mseg = ($mp -split '/' | ForEach-Object { [System.Uri]::EscapeDataString($_) }) -join '/'
+                                    $mwc2 = New-Object System.Net.WebClient; $mwc2.Headers.Add('apikey', $mkey); $mwc2.Headers.Add('Authorization', "Bearer $mkey"); $mwc2.Headers.Add('User-Agent', 'supabase-js/2.0')
+                                    try { $mwc2.DownloadFile("$mbase/storage/v1/object/amitmobile-captures/$mseg", $mdest); [void]$mgot.Add($mdest) } catch { $mok = $false }
+                                }
+                                if ($mok -and $mgot.Count -gt 0) {
+                                    $mwc3 = New-Object System.Net.WebClient; $mwc3.Encoding = [System.Text.Encoding]::UTF8
+                                    $mwc3.Headers.Add('apikey', $mkey); $mwc3.Headers.Add('Authorization', "Bearer $mkey"); $mwc3.Headers.Add('User-Agent', 'supabase-js/2.0'); $mwc3.Headers.Add('Content-Type', 'application/json'); $mwc3.Headers.Add('Prefer', 'return=minimal')
+                                    [void]$mwc3.UploadString("$mbase/rest/v1/amit_mobile_captures?id=eq.$mid", 'PATCH', '{"destination":"delivered"}')
+                                    foreach ($mg in $mgot) { [void]$mout.Add('{"id":' + $mid + ',"file":"' + ($mg.Replace('\', '\\').Replace('"', '\"')) + '"}') }
+                                }
+                            }
+                            Send-JsonRaw $response ('{"ok":true,"photos":[' + ($mout -join ',') + ']}')
+                        }
+                    } catch { $mErr = ([string]$_.Exception.Message -replace '[^\x20-\x7E]', '?'); $mErr = $mErr.Replace('\', '/').Replace('"', "'"); if ($mErr.Length -gt 200) { $mErr = $mErr.Substring(0, 200) }; Send-JsonRaw $response ('{"ok":false,"reason":"error","msg":"' + $mErr + '"}') }
+                }
+            }
+            "/api/mobile/note" {
+                # the note spoken or typed about a phone photo goes back onto that photo's row (its transcript column), only for this computer's owner; same caller rules as /api/mobile/pull
+                if ($request.HttpMethod -ne 'POST' -or $request.Headers['Origin']) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    try {
+                        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]3072
+                        Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+                        $nReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8); $nBody = $nReader.ReadToEnd(); $nReader.Close()
+                        $nser = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+                        $nobj = $nser.DeserializeObject($nBody)
+                        $nid = [int64]$nobj['id']; $ntext = [string]$nobj['note']
+                        if ($ntext.Length -gt 20000) { $ntext = $ntext.Substring(0, 20000) }
+                        $ndir = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth'
+                        $nowner = ''; $nof = Join-Path $ndir 'mobile_owner.txt'; if (Test-Path $nof) { $nowner = (Get-Content $nof -Raw).Trim() }
+                        $ncfg = Join-Path (Split-Path -Parent (Split-Path -Parent $watcherDir)) 'Database\supabase_config.md'
+                        if (-not (Test-Path $ncfg)) { $ncfg = Join-Path $env:USERPROFILE 'OneDrive\Documents - onedrive\Amit\Database\supabase_config.md' }
+                        $nkey = $null; if (Test-Path $ncfg) { $nm = [regex]::Match((Get-Content $ncfg -Raw), 'sb_secret_[A-Za-z0-9_]+'); if ($nm.Success) { $nkey = $nm.Value } }
+                        if ($nowner -notmatch '^[0-9a-fA-F-]{36}$' -or -not $nkey -or $nid -le 0) { Send-JsonRaw $response '{"ok":false,"reason":"not_connected"}' }
+                        else {
+                            $nwc = New-Object System.Net.WebClient; $nwc.Encoding = [System.Text.Encoding]::UTF8
+                            $nwc.Headers.Add('apikey', $nkey); $nwc.Headers.Add('Authorization', "Bearer $nkey"); $nwc.Headers.Add('User-Agent', 'supabase-js/2.0'); $nwc.Headers.Add('Content-Type', 'application/json'); $nwc.Headers.Add('Prefer', 'return=minimal')
+                            [void]$nwc.UploadString("https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/amit_mobile_captures?id=eq.$nid&user_id=eq.$nowner", 'PATCH', $nser.Serialize(@{ transcript = $ntext }))
+                            Send-JsonRaw $response '{"ok":true}'
+                        }
+                    } catch { $mErr = ([string]$_.Exception.Message -replace '[^\x20-\x7E]', '?'); $mErr = $mErr.Replace('\', '/').Replace('"', "'"); if ($mErr.Length -gt 200) { $mErr = $mErr.Substring(0, 200) }; Send-JsonRaw $response ('{"ok":false,"reason":"error","msg":"' + $mErr + '"}') }
                 }
             }
             "/api/print/open" {

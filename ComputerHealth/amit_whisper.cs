@@ -29,7 +29,7 @@ using System.Windows.Automation.Text;
 
 public static class AmitWhisper
 {
-    public const string Version = "1.56";   // 1.56: DICTATE WINDOW (page amit_dictate.html, served at /dictate): choosing Dictate on the ring (or saying it, or a bar button) while NOT in a text box opens one window in the top right of the screen (in a text box it still types there as before, one plain press of the trigger button stops it), always in front, that hears the person (its own speech recognition, in its own Edge profile dictate_profile), shows the words in a Subject and a Message that can be split into numbered sections, remembers each dictation on this computer (Recent, Settings, Help), and nothing is typed anywhere until the person presses Place and left-clicks a text box (new routes /api/dictate/place and /api/dictate/cancel; the click is checked with the same text-box test as before and the message is typed there, a new line being Shift+Enter so a chat box does not send). The window hears through the original listening page (its words are handed to the window instead of typed); hold-to-talk is unchanged. 1.55: VOICE RUNS ANY BAR BUTTON BY ITS TITLE: no shortcut per button; the title list comes from the bar (bar_buttons.txt) when someone speaks. 1.54: SHOW AMIT QUICK SNAP: a fresh capture from the ring goes straight onto the clipboard and the editor waits minimized in the taskbar without taking focus; opened from the taskbar it is the normal editor; left alone for 60 seconds it closes itself (nothing saved, clipboard untouched). 1.53: DOUBLE-RIGHT-CLICK brings up the Amit Helper bar: two short right taps close together at the same spot (while nothing else is going on with the button) show the bar (an event it listens on) or start AmitBar.exe from this folder; the first tap is replayed as a normal click as always, a menu it opened is closed with Esc, and the second press and its release are swallowed. The ring (hold) and dictation are untouched. 1.52: a preview opened as a plain browser TAB (file double-clicked, a link) also splits the screen: the whole browser window goes on the right, the window the person was in on the left, both put back when they leave that tab; only a tab titled "Amit ... Preview" counts. 1.51: the window that goes on the LEFT of a preview is the WINDOW THE PERSON WAS IN (the Hub in a browser, VS Code, anything), taken from a short history of the windows they used; VS Code is only the fallback; the same window is put back when the preview closes. 1.50: PREVIEW SPLIT: whenever a window whose title ends with " Preview" appears (however it was opened: the opener script, the "preview" voice command, a button in a page), the person's VS Code goes on the LEFT half of its screen and the preview on the RIGHT half, and the focus goes back to VS Code; when the last preview has been closed for 4 seconds VS Code is put back the way it was (unless the person moved it). 1.49: the voice command "preview" opens the Amit Preview window. 1.48: an image layer is a WINDOW onto its image: the corner handles change the window to any shape (the image inside keeps its size and place, only what shows changes); the wheel over the window zooms the image inside, like the main picture (the size % box does the same); Ctrl + drag moves the image inside the window; dragging the body moves the window. Saved in the same .amitshot format. 1.47: a placed image layer has four corner handles (drag one to make it larger or smaller, the opposite corner stays), shows move/resize cursors, drags to move, and the mouse wheel over it resizes it (the wheel anywhere else zooms the whole picture). 1.46: Capture now places the new image layer at once (no click needed) and logs the placing. 1.45: a Capture button (camera) in the Show Amit editor: the editor steps aside, a bar waits while the person shows the screen they want ("Capture now"), they drag an area, click where it goes, and it becomes a new image layer (Capture 1, 2...) that can be switched on/off, resized with the size % box and dragged to move. 1.44: the Show Amit editor has a Clear & Recapture button: it drops the picture (asking first if there are unsaved changes) and lets the person choose a new area of the screen. 1.43: each part of Amit has its own icon: the same dark circle and gold ring, only the gold symbol changes (Whisper = microphone, Read = speaker, Show Amit = camera; Ask Amit keeps the aleph). The dictation "Amit is listening" box, the Whisper window, the Read window and the Show Amit editor each show their own, in the taskbar and the title bar. The Read windows are now named "Amit Read". The dictation box says "Amit is listening" until words come through, then "Amit is dictating", and the words always show beside the icon. The icons are bigger and bolder, with real 48/32/24/16 px images (256 first) so the taskbar is not blurry. Icons live in Templates; a missing icon falls back to the Amit one. 1.42: while Read is paused for dictation, the gold highlight over the screen is hidden (it cluttered the screen the person is dictating into) and comes back, in the same place, when the reading resumes. 1.41: FIX (dictation after Read paused it): (1) the speaking/voice windows of Read are now recognised as the helper's own windows, so dictation never "types" into the hidden Edge page and gives the focus back to the window the person was using (first failure: words heard, typed nowhere); (2) the "Read is speaking" mute can no longer be left on by a late message: it is set only when Read STARTS speaking while dictation is already listening, and cleared when Read pauses, ends or stops or the listening ends (second failure: a late heartbeat after "paused" made dictation throw the words away). 1.40: (1) a live voice change carries on from the word being spoken instead of starting the sentence over (amit_talk.html v1.04); (2) when dictation or Voice starts while Read is speaking, Read pauses by itself (the speaker shows the pause bars) and carries on where it was when the listening ends; a press of the speaker by the person cancels the automatic resume. 1.39: FIX: dictation could stay blocked after Read (the "Read is speaking" signal depended on a "finished" message that can get lost after live voice changes). Now the speaking page sends a heartbeat every 1.5 s while sound really plays, dictation is only quieted for 4 seconds after the last one, and a watchdog returns the speaker to waiting if the sound stops without a "finished"; the page also waits a moment between cancelling a sentence and saying it again with new settings (Edge sometimes dropped it). 1.38: while Read is speaking, dictation and Voice ignore what the microphone hears (it is Amit's own voice, which used to be typed into the person's text box) and dictation's "Amit is listening" box is taken off the screen; they work normally again when Read is not speaking, including while it is paused. 1.37: the voice window is INTERACTIVE (moving a slider or choosing another voice while Amit is reading changes the sound within about a third of a second; the current sentence is said again with the new settings; amit_talk.html v1.02); the hidden Edge speaking window is slimmed (extra switches) and now closes 30 seconds after the last reading instead of 3 minutes, never while the voice window is open. 1.36: a DOUBLE CLICK on the reading speaker opens a small voice window beside it (voice, speed, pause between sentences, pitch, volume, Test, Save); Save keeps the new voice on this computer at once and hands it to the person's login (their saved voice, their default) the next time an Amit page loads, without the old copy from the database overwriting it (new bridge routes /api/talk/voice-save and /api/talk/voice-ack). A single click is acted on after a very short wait (the double-click time, at most 400 ms) so a double click is no longer two presses. The note "Your saved voice is not on this computer" no longer pops up on the screen (it is only logged). 1.35: the ring choice is now called READ (it reads aloud what the person points at) and works ONE SHOT: press the speaker, and the very next click or selection is what is read, then it goes back to waiting so the person can use the computer freely; to read somewhere else, press it again. A click reads from the clicked word to the end of its paragraph; a highlight reads exactly the highlight (one word if one word, the whole page after Select All). Pressing while reading pauses it and the next click or selection is read instead (pressing again with none resumes). A soft gold highlight shows the words being read (where Windows accessibility gives their place). When the words cannot be read, Amit says so out loud in the person's voice ("Sorry, I'm not able to read this") and on screen, never silently; a plain click on a button or menu only shows a note. 1.33: TALK, a fourth choice in the Amit Live ring: a small see-through speaker stays on top of everything; the person selects words (or clicks where to start) in any program and presses it, and Amit reads aloud from there in the person's own saved Amit voice (copied here from their login; with none, Talk asks them to open Amit and sign in). Press again to pause or resume; Esc or a right click on the speaker removes it. The speaking is done by a hidden Edge window (page /talk, new bridge routes /api/talk/*) because the natural voices exist only in Edge. 1.32: a SHOW AMIT button in the Show Amit editor: saves the shot, hands it to the Amit Live window, which posts it into the person's own Ask Amit chat for today (under their own sign-in; the helper holds no login) and asks Amit to look at it (new bridge routes /api/showamit/pending and /api/showamit/pending.png, offered for 5 minutes, only to the Amit site). 1.31: the Amit Live window closes itself after 60 seconds without the focus (never while music plays; the no-internet page too). ONE Amit Live window only: choosing Ask Amit when its window is already open brings that window to the front instead of opening another (and a second press while the first is still opening starts nothing). 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
+    public const string Version = "1.58";   // 1.58: ASK AMIT ABOUT A PHONE PHOTO - the editor button starts a new numbered Mobile chat in the Amit Live window with the photo and the note, and Amit greets out loud. 1.57: MOBILE RING SLICE - a phone photo (Amit Mobile > Send to computer) is fetched by the helper, saved in PicturesShow Amit, opened in the Show Amit editor on the clipboard with a note box and dictation on; the note goes back to the photo row. 1.56: DICTATE WINDOW (page amit_dictate.html, served at /dictate): choosing Dictate on the ring (or saying it, or a bar button) while NOT in a text box opens one window in the top right of the screen (in a text box it still types there as before, one plain press of the trigger button stops it), always in front, that hears the person (its own speech recognition, in its own Edge profile dictate_profile), shows the words in a Subject and a Message that can be split into numbered sections, remembers each dictation on this computer (Recent, Settings, Help), and nothing is typed anywhere until the person presses Place and left-clicks a text box (new routes /api/dictate/place and /api/dictate/cancel; the click is checked with the same text-box test as before and the message is typed there, a new line being Shift+Enter so a chat box does not send). The window hears through the original listening page (its words are handed to the window instead of typed); hold-to-talk is unchanged. 1.55: VOICE RUNS ANY BAR BUTTON BY ITS TITLE: no shortcut per button; the title list comes from the bar (bar_buttons.txt) when someone speaks. 1.54: SHOW AMIT QUICK SNAP: a fresh capture from the ring goes straight onto the clipboard and the editor waits minimized in the taskbar without taking focus; opened from the taskbar it is the normal editor; left alone for 60 seconds it closes itself (nothing saved, clipboard untouched). 1.53: DOUBLE-RIGHT-CLICK brings up the Amit Helper bar: two short right taps close together at the same spot (while nothing else is going on with the button) show the bar (an event it listens on) or start AmitBar.exe from this folder; the first tap is replayed as a normal click as always, a menu it opened is closed with Esc, and the second press and its release are swallowed. The ring (hold) and dictation are untouched. 1.52: a preview opened as a plain browser TAB (file double-clicked, a link) also splits the screen: the whole browser window goes on the right, the window the person was in on the left, both put back when they leave that tab; only a tab titled "Amit ... Preview" counts. 1.51: the window that goes on the LEFT of a preview is the WINDOW THE PERSON WAS IN (the Hub in a browser, VS Code, anything), taken from a short history of the windows they used; VS Code is only the fallback; the same window is put back when the preview closes. 1.50: PREVIEW SPLIT: whenever a window whose title ends with " Preview" appears (however it was opened: the opener script, the "preview" voice command, a button in a page), the person's VS Code goes on the LEFT half of its screen and the preview on the RIGHT half, and the focus goes back to VS Code; when the last preview has been closed for 4 seconds VS Code is put back the way it was (unless the person moved it). 1.49: the voice command "preview" opens the Amit Preview window. 1.48: an image layer is a WINDOW onto its image: the corner handles change the window to any shape (the image inside keeps its size and place, only what shows changes); the wheel over the window zooms the image inside, like the main picture (the size % box does the same); Ctrl + drag moves the image inside the window; dragging the body moves the window. Saved in the same .amitshot format. 1.47: a placed image layer has four corner handles (drag one to make it larger or smaller, the opposite corner stays), shows move/resize cursors, drags to move, and the mouse wheel over it resizes it (the wheel anywhere else zooms the whole picture). 1.46: Capture now places the new image layer at once (no click needed) and logs the placing. 1.45: a Capture button (camera) in the Show Amit editor: the editor steps aside, a bar waits while the person shows the screen they want ("Capture now"), they drag an area, click where it goes, and it becomes a new image layer (Capture 1, 2...) that can be switched on/off, resized with the size % box and dragged to move. 1.44: the Show Amit editor has a Clear & Recapture button: it drops the picture (asking first if there are unsaved changes) and lets the person choose a new area of the screen. 1.43: each part of Amit has its own icon: the same dark circle and gold ring, only the gold symbol changes (Whisper = microphone, Read = speaker, Show Amit = camera; Ask Amit keeps the aleph). The dictation "Amit is listening" box, the Whisper window, the Read window and the Show Amit editor each show their own, in the taskbar and the title bar. The Read windows are now named "Amit Read". The dictation box says "Amit is listening" until words come through, then "Amit is dictating", and the words always show beside the icon. The icons are bigger and bolder, with real 48/32/24/16 px images (256 first) so the taskbar is not blurry. Icons live in Templates; a missing icon falls back to the Amit one. 1.42: while Read is paused for dictation, the gold highlight over the screen is hidden (it cluttered the screen the person is dictating into) and comes back, in the same place, when the reading resumes. 1.41: FIX (dictation after Read paused it): (1) the speaking/voice windows of Read are now recognised as the helper's own windows, so dictation never "types" into the hidden Edge page and gives the focus back to the window the person was using (first failure: words heard, typed nowhere); (2) the "Read is speaking" mute can no longer be left on by a late message: it is set only when Read STARTS speaking while dictation is already listening, and cleared when Read pauses, ends or stops or the listening ends (second failure: a late heartbeat after "paused" made dictation throw the words away). 1.40: (1) a live voice change carries on from the word being spoken instead of starting the sentence over (amit_talk.html v1.04); (2) when dictation or Voice starts while Read is speaking, Read pauses by itself (the speaker shows the pause bars) and carries on where it was when the listening ends; a press of the speaker by the person cancels the automatic resume. 1.39: FIX: dictation could stay blocked after Read (the "Read is speaking" signal depended on a "finished" message that can get lost after live voice changes). Now the speaking page sends a heartbeat every 1.5 s while sound really plays, dictation is only quieted for 4 seconds after the last one, and a watchdog returns the speaker to waiting if the sound stops without a "finished"; the page also waits a moment between cancelling a sentence and saying it again with new settings (Edge sometimes dropped it). 1.38: while Read is speaking, dictation and Voice ignore what the microphone hears (it is Amit's own voice, which used to be typed into the person's text box) and dictation's "Amit is listening" box is taken off the screen; they work normally again when Read is not speaking, including while it is paused. 1.37: the voice window is INTERACTIVE (moving a slider or choosing another voice while Amit is reading changes the sound within about a third of a second; the current sentence is said again with the new settings; amit_talk.html v1.02); the hidden Edge speaking window is slimmed (extra switches) and now closes 30 seconds after the last reading instead of 3 minutes, never while the voice window is open. 1.36: a DOUBLE CLICK on the reading speaker opens a small voice window beside it (voice, speed, pause between sentences, pitch, volume, Test, Save); Save keeps the new voice on this computer at once and hands it to the person's login (their saved voice, their default) the next time an Amit page loads, without the old copy from the database overwriting it (new bridge routes /api/talk/voice-save and /api/talk/voice-ack). A single click is acted on after a very short wait (the double-click time, at most 400 ms) so a double click is no longer two presses. The note "Your saved voice is not on this computer" no longer pops up on the screen (it is only logged). 1.35: the ring choice is now called READ (it reads aloud what the person points at) and works ONE SHOT: press the speaker, and the very next click or selection is what is read, then it goes back to waiting so the person can use the computer freely; to read somewhere else, press it again. A click reads from the clicked word to the end of its paragraph; a highlight reads exactly the highlight (one word if one word, the whole page after Select All). Pressing while reading pauses it and the next click or selection is read instead (pressing again with none resumes). A soft gold highlight shows the words being read (where Windows accessibility gives their place). When the words cannot be read, Amit says so out loud in the person's voice ("Sorry, I'm not able to read this") and on screen, never silently; a plain click on a button or menu only shows a note. 1.33: TALK, a fourth choice in the Amit Live ring: a small see-through speaker stays on top of everything; the person selects words (or clicks where to start) in any program and presses it, and Amit reads aloud from there in the person's own saved Amit voice (copied here from their login; with none, Talk asks them to open Amit and sign in). Press again to pause or resume; Esc or a right click on the speaker removes it. The speaking is done by a hidden Edge window (page /talk, new bridge routes /api/talk/*) because the natural voices exist only in Edge. 1.32: a SHOW AMIT button in the Show Amit editor: saves the shot, hands it to the Amit Live window, which posts it into the person's own Ask Amit chat for today (under their own sign-in; the helper holds no login) and asks Amit to look at it (new bridge routes /api/showamit/pending and /api/showamit/pending.png, offered for 5 minutes, only to the Amit site). 1.31: the Amit Live window closes itself after 60 seconds without the focus (never while music plays; the no-internet page too). ONE Amit Live window only: choosing Ask Amit when its window is already open brings that window to the front instead of opening another (and a second press while the first is still opening starts nothing). 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
 
     // v1.03 (2026-10-29, Ryan): LATCH MODE. Hold the button to start; let go and dictation keeps going, so long dictations do not need the
     // button held. Hold the button again (same hold time) to stop; a quick tap during dictation is still a normal click. Dictation also
@@ -2116,6 +2116,7 @@ public static class AmitWhisper
         l.Add(new LiveItem("showamit", "Show Amit", "Show an area"));
         l.Add(new LiveItem("voice", "Voice", "Say what to do"));
         l.Add(new LiveItem("talk", "Read", "Read it aloud"));
+        l.Add(new LiveItem("mobile", "Mobile", "Photo from phone"));
         return l;
     }
 
@@ -2264,6 +2265,12 @@ public static class AmitWhisper
                 g.DrawLines(p, new PointF[] { new PointF(cx - 11f, cy - 4f), new PointF(cx - 5f, cy - 4f), new PointF(cx + 2f, cy - 10f), new PointF(cx + 2f, cy + 10f), new PointF(cx - 5f, cy + 4f), new PointF(cx - 11f, cy + 4f), new PointF(cx - 11f, cy - 4f) });
                 g.DrawArc(p, cx + 3f, cy - 6f, 8f, 12f, -55f, 110f);
                 g.DrawArc(p, cx + 3f, cy - 11f, 14f, 22f, -55f, 110f);
+            }
+            else if (id == "mobile")       // a phone with its camera lens
+            {
+                g.DrawRectangle(p, cx - 7f, cy - 13f, 14f, 26f);
+                g.DrawEllipse(p, cx - 2.5f, cy - 8f, 5f, 5f);
+                g.DrawLine(p, cx - 2f, cy + 9f, cx + 2f, cy + 9f);
             }
             else g.DrawEllipse(p, cx - 6f, cy - 6f, 12f, 12f);
         }
@@ -2567,6 +2574,84 @@ public static class AmitWhisper
         else if (it.Id == "showamit") StartShowAmit();
         else if (it.Id == "voice") StartVoiceListen(menuOpenX, menuOpenY, 1);
         else if (it.Id == "talk") StartTalk();
+        else if (it.Id == "mobile") StartMobile();
+    }
+
+    // =====================================================================================================
+    //  Mobile (2026-11-05, stage 1, Ryan): a photo taken on the phone (Amit Mobile > Send to computer) is waiting in the database; pressing Mobile
+    //  in the ring asks the shared helper (/api/mobile/pull) for whatever is new for this computer's owner. Each photo is saved in Pictures\Show Amit
+    //  by the helper; the newest opens in the Show Amit editor in front, on the clipboard, with a note box that has dictation switched on, so the
+    //  person can talk a note about the picture. The note is saved beside the photo and written back to the photo's row in the database.
+    // =====================================================================================================
+    static volatile bool mobileBusy = false;
+
+    // posts to the helper on this computer (no Origin header: the helper only accepts these two routes from a program, never from a web page)
+    static string MobileCall(string path, string body)
+    {
+        try
+        {
+            System.Net.HttpWebRequest rq = (System.Net.HttpWebRequest)System.Net.WebRequest.Create("http://localhost:" + bridgePort + path);
+            rq.Method = "POST"; rq.ContentType = "text/plain; charset=utf-8"; rq.Timeout = 120000; rq.ReadWriteTimeout = 120000;
+            byte[] b = Encoding.UTF8.GetBytes(body ?? "");
+            rq.ContentLength = b.Length;
+            using (Stream s = rq.GetRequestStream()) s.Write(b, 0, b.Length);
+            using (System.Net.HttpWebResponse rs = (System.Net.HttpWebResponse)rq.GetResponse())
+            using (StreamReader sr = new StreamReader(rs.GetResponseStream(), Encoding.UTF8)) return sr.ReadToEnd();
+        }
+        catch (Exception ex) { Log("Mobile: the helper did not answer " + path + " (" + ex.Message + ")"); return null; }
+    }
+
+    static string JsonQuote(string s)
+    {
+        StringBuilder sb = new StringBuilder("\"");
+        foreach (char c in s ?? "")
+        {
+            if (c == '\\') sb.Append("\\\\"); else if (c == '"') sb.Append("\\\"");
+            else if (c == '\n') sb.Append("\\n"); else if (c == '\r') sb.Append("\\r"); else if (c == '\t') sb.Append("\\t");
+            else if (c < ' ') sb.Append("\\u" + ((int)c).ToString("x4")); else sb.Append(c);
+        }
+        return sb.Append('"').ToString();
+    }
+
+    static void StartMobile()
+    {
+        if (mobileBusy) return;
+        mobileBusy = true;
+        ThreadPool.QueueUserWorkItem(delegate
+        {
+            try
+            {
+                ShowOverlay("Looking for photos from your phone...");
+                string reply = MobileCall("/api/mobile/pull", "{}");
+                if (reply == null) { ShowOverlay("Mobile\nThe Amit helper did not answer. Try Update and reload on the bar."); HideOverlayLater(5000); return; }
+                if (reply.IndexOf("\"not_connected\"") >= 0) { ShowOverlay("Mobile\nThis computer is not connected to your phone yet."); HideOverlayLater(5000); return; }
+                if (reply.IndexOf("\"ok\":true") < 0) { ShowOverlay("Mobile\nCould not look for photos just now. Try again in a moment."); HideOverlayLater(5000); return; }
+                List<string> files = new List<string>(); List<long> ids = new List<long>();
+                foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(reply, "\\{\"id\":(\\d+),\"file\":\"((?:[^\"\\\\]|\\\\.)*)\"\\}"))
+                {
+                    ids.Add(long.Parse(m.Groups[1].Value)); files.Add(m.Groups[2].Value.Replace("\\\\", "\u0001").Replace("\\\"", "\"").Replace("\u0001", "\\"));
+                }
+                if (files.Count == 0) { ShowOverlay("No new photos from your phone.\nOn the phone: Amit Mobile, then Send to computer."); HideOverlayLater(5000); return; }
+                int last = files.Count - 1;
+                Log("Mobile: " + files.Count + " new photo(s); opening " + files[last]);
+                Bitmap bmp;
+                using (Bitmap raw = new Bitmap(files[last])) bmp = new Bitmap(raw);
+                if (files.Count > 1) { ShowOverlay("Mobile\n" + files.Count + " new photos. The newest is open; the others are in the Show Amit folder."); HideOverlayLater(6000); }
+                else HideOverlay();
+                string file = files[last]; long rowId = ids[last];
+                Thread t = new Thread(delegate ()
+                {
+                    try
+                    {
+                        using (ShowAmitForm ef = new ShowAmitForm(bmp)) { ef.AttachPhoneNote(file, rowId); Application.Run(ef); }
+                    }
+                    catch (Exception ex) { Log("Mobile: the editor: " + ex.Message); }
+                });
+                t.IsBackground = true; t.SetApartmentState(ApartmentState.STA); t.Start();
+            }
+            catch (Exception ex) { Log("Mobile: " + ex.Message); ShowOverlay("Mobile\nSomething went wrong. Try again."); HideOverlayLater(4000); }
+            finally { mobileBusy = false; }
+        });
     }
 
     // v1.26: the Amit icon in the middle of the ring IS Ask Amit: a click on it closes the ring and opens the Amit Live window (Ask Amit tab first)
@@ -2893,6 +2978,31 @@ public static class AmitWhisper
         TalkCommand("speak", text);
         TalkMarkShow();
         TalkWaitStarted();
+    }
+
+    // 1.58: Amit says something out loud with the Read voice (the person's own), no screen text: used for the greeting when a phone photo is sent to Amit
+    public static void TalkSay(string msg)
+    {
+        try { if (TalkEnsureHost()) { TalkCommand("speak", msg); TalkWaitStarted(); } }
+        catch (Exception ex) { Log("Talk: could not say the greeting (" + ex.Message + ")"); }
+    }
+
+    // 1.58: the Amit Live window has just put the cursor in its message box (x, y = where, on the screen): switch dictation on there so the person can just start talking.
+    // If Amit is still saying his greeting it waits (up to 25 seconds) until he has finished, so the microphone never hears him; the words are then typed into the box.
+    public static string ChatDictateReady(int x, int y)
+    {
+        ThreadPool.QueueUserWorkItem(delegate
+        {
+            try
+            {
+                for (int i = 0; i < 125 && (talkState == "reading" || talkState == "loading"); i++) Thread.Sleep(200);
+                Thread.Sleep(500);
+                Log("Amit Live window: chat is ready, starting dictation at " + x + "," + y);
+                StartDictationFromMenu(x, y);
+            }
+            catch (Exception ex) { Log("ChatDictateReady: " + ex.Message); }
+        });
+        return "{\"ok\":true}";
     }
 
     // Amit says it out loud, in the person's own voice, and the words also show on the screen: never a silent failure
@@ -4703,6 +4813,67 @@ public static class AmitWhisper
                 Log("Show Amit: editor in front = " + (GetForegroundWindow() == Handle));
             };
             tm.Start();
+            if (noteBox != null)      // a phone photo: the note box takes the keyboard and dictation is switched on, so the person can just talk
+            {
+                System.Windows.Forms.Timer dt = new System.Windows.Forms.Timer();
+                dt.Interval = 1200;
+                dt.Tick += delegate
+                {
+                    dt.Stop(); dt.Dispose();
+                    try
+                    {
+                        noteBox.Focus();
+                        Point c = noteBox.PointToScreen(new Point(noteBox.Width / 2, noteBox.Height / 2));
+                        Log("Mobile: note box ready, starting dictation in it");
+                        StartDictationFromMenu(c.X, c.Y);
+                    }
+                    catch (Exception ex) { Log("Mobile: could not start dictation in the note box (" + ex.Message + ")"); }
+                };
+                dt.Start();
+            }
+        }
+
+        // ---- a photo from the phone (2026-11-05): a note box under the picture, dictation on, saved beside the photo and back onto its row ----
+        TextBox noteBox; Panel notePanel; Label noteStatus;
+        long phoneRow; string phonePhoto, lastNoteSaved = "";
+        bool keepOriginal;
+        public void AttachPhoneNote(string photoPath, long rowId)
+        {
+            phonePhoto = photoPath; phoneRow = rowId;
+            title.Text = Path.GetFileNameWithoutExtension(photoPath);
+            keepOriginal = true; lastBase = BaseName(); dirty = false;
+            CopyToClipboard(img);
+            notePanel = new Panel(); notePanel.Dock = DockStyle.Bottom; notePanel.Height = 132; notePanel.BackColor = Dark;
+            Label nl = new Label(); nl.Text = "Note about this photo"; nl.ForeColor = Gold; nl.Font = new Font("Segoe UI", 10f, FontStyle.Bold); nl.AutoSize = true; nl.Location = new Point(12, 6);
+            noteStatus = new Label(); noteStatus.ForeColor = Color.FromArgb(180, 186, 200); noteStatus.Font = new Font("Segoe UI", 9f); noteStatus.AutoSize = true; noteStatus.Location = new Point(170, 8);
+            noteStatus.Text = "Dictation is on: just talk. It is saved with the photo and on your phone's list.";
+            noteBox = new TextBox(); noteBox.Multiline = true; noteBox.ScrollBars = ScrollBars.Vertical; noteBox.Font = new Font("Segoe UI", 11f);
+            noteBox.SetBounds(12, 30, ClientSize.Width - 24 - 120, 92); noteBox.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
+            Button bn = MakeButton("Save note", ClientSize.Width - 12 - 104, 104, true); bn.Location = new Point(ClientSize.Width - 12 - 104, 30); bn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            bn.Click += delegate { SaveNote(); };
+            noteBox.Leave += delegate { SaveNote(); };
+            notePanel.Controls.Add(nl); notePanel.Controls.Add(noteStatus); notePanel.Controls.Add(noteBox); notePanel.Controls.Add(bn);
+            Controls.Add(notePanel);
+            bAmit.Text = "Ask Amit";      // for a phone photo this button starts a new Mobile chat with Amit about it
+            ClientSize = new Size(ClientSize.Width, ClientSize.Height + notePanel.Height);
+            status.Text = "A photo from your phone, saved in the Show Amit folder. Mouse wheel zooms. Anything you draw or write on it is saved as a new picture; the original stays.";
+        }
+
+        void SaveNote()
+        {
+            if (noteBox == null || phonePhoto == null) return;
+            string txt = noteBox.Text.Trim();
+            if (txt == lastNoteSaved) return;
+            lastNoteSaved = txt;
+            try { File.WriteAllText(Path.Combine(Path.GetDirectoryName(phonePhoto), Path.GetFileNameWithoutExtension(phonePhoto) + " note.txt"), txt, new UTF8Encoding(true)); }
+            catch (Exception ex) { Log("Mobile: could not save the note file (" + ex.Message + ")"); }
+            long row = phoneRow; string body = "{\"id\":" + row + ",\"note\":" + JsonQuote(txt) + "}";
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                string r = MobileCall("/api/mobile/note", body);
+                Log("Mobile: note " + (r != null && r.IndexOf("\"ok\":true") >= 0 ? "saved to your phone's list" : "saved here only (the database did not take it)"));
+            });
+            try { noteStatus.Text = "Note saved."; } catch { }
         }
 
         // tests set this so a test run never touches the person's clipboard
@@ -4725,6 +4896,7 @@ public static class AmitWhisper
         // so Ctrl+V pastes it anywhere.
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            try { if (noteBox != null) SaveNote(); } catch { }
             if (discardOnClose) { base.OnFormClosing(e); return; }     // Clear & Recapture: nothing is saved or put on the clipboard
             try
             {
@@ -5263,6 +5435,18 @@ public static class AmitWhisper
                     if (!L.Visible) continue;
                     foreach (LayerItem it in L.Items)
                         if (it.Kind == "text" && !String.IsNullOrEmpty(it.Text)) { if (tx.Length > 0) tx.Append(" | "); tx.Append(it.Text.Replace("\r", " ").Replace("\n", " ")); }
+                }
+                if (noteBox != null && phoneRow > 0)      // a phone photo: a new numbered Mobile chat, Amit primed with the photo and the person's note, and he greets out loud
+                {
+                    SaveNote();
+                    string r2 = SendShotToAmit(lastViewPath, title.Text, tx.ToString(), true, noteBox.Text);
+                    if (r2.IndexOf("\"ok\":true") >= 0)
+                    {
+                        status.Text = "Sent to Amit. A new Mobile chat is opening in the Amit Live window with your photo and note. It goes to Amit's team in your own chat.";
+                        ThreadPool.QueueUserWorkItem(delegate { TalkSay("Hi, this is uh-MEET. I have the photo from your phone, and your note. I'm ready to help you work through it. What would you like to know?"); });
+                    }
+                    else status.Text = "Could not send to Amit: " + r2;
+                    return;
                 }
                 string res = SendShotToAmit(lastViewPath, title.Text, tx.ToString());
                 status.Text = res.IndexOf("\"ok\":true") >= 0 ? "Sent to Amit. The Amit Live window is opening on your Ask Amit chat for today. It goes to Amit's team in your own chat." : "Could not send to Amit: " + res;
@@ -6154,7 +6338,11 @@ public static class AmitWhisper
             return "font=" + fFont.Visible + " size=" + fSize.Visible + " B/I/U=" + fBold.Visible + " color=" + fColor.Visible + " width=" + fWidth.Visible + " size%=" + fPct.Visible + " hint=" + fLbl.Visible;
         }
 
-        bool NeedsSave() { return lastPath == null || dirty || lastBase != BaseName() || !File.Exists(lastPath); }
+        bool NeedsSave()
+        {
+            if (keepOriginal && !dirty && lastBase == BaseName()) return false;   // a phone photo already saved as it came: closing it unchanged makes no second copy
+            return lastPath == null || dirty || lastBase != BaseName() || !File.Exists(lastPath);
+        }
 
         // ---- the pictures panel: everything saved in the Show Amit folder, newest first, click one to open it here ----
         void BuildSidePanel()
@@ -7054,15 +7242,18 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
     }
     // v1.32: the Show Amit button hands a saved picture to the Amit Live window, which posts it into the person's chat for today under their own sign-in
     // (the helper holds no login). The window asks /api/showamit/pending for it; it is offered for 5 minutes, then forgotten.
-    static string shotPath, shotTitle = "", shotText = "", shotId = "";
+    static string shotPath, shotTitle = "", shotText = "", shotId = "", shotNote = "";
+    static bool shotMobile = false;      // 1.58: a photo from the phone: the window opens a NEW numbered "Mobile #N" chat for it instead of today's chat, and primes Amit with the person's note
     static DateTime shotAt = DateTime.MinValue;
-    public static string SendShotToAmit(string pngPath, string title, string text)
+    public static string SendShotToAmit(string pngPath, string title, string text) { return SendShotToAmit(pngPath, title, text, false, null); }
+    public static string SendShotToAmit(string pngPath, string title, string text, bool mobile, string note)
     {
         try
         {
             if (String.IsNullOrEmpty(pngPath) || !File.Exists(pngPath)) return "{\"ok\":false,\"error\":\"no picture\"}";
             if (new FileInfo(pngPath).Length > 25 * 1024 * 1024) return "{\"ok\":false,\"error\":\"the picture is too large\"}";
             shotPath = pngPath; shotTitle = (title ?? "").Trim(); shotText = (text ?? "").Trim();
+            shotMobile = mobile; shotNote = (note ?? "").Trim(); if (shotNote.Length > 400) shotNote = shotNote.Substring(0, 400);
             if (shotText.Length > 600) shotText = shotText.Substring(0, 600);
             shotId = ((long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalMilliseconds).ToString(); shotAt = DateTime.UtcNow;
             Log("Show Amit: picture handed to the Amit Live window (" + Path.GetFileName(pngPath) + ")");
@@ -7076,7 +7267,7 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
         try
         {
             if (shotPath == null || !File.Exists(shotPath) || (DateTime.UtcNow - shotAt).TotalMinutes > 5) return "{\"id\":\"\"}";
-            return "{\"id\":\"" + shotId + "\",\"name\":\"" + JsonEsc(Path.GetFileName(shotPath)) + "\",\"title\":\"" + JsonEsc(shotTitle) + "\",\"text\":\"" + JsonEsc(shotText) + "\",\"bytes\":" + new FileInfo(shotPath).Length + "}";
+            return "{\"id\":\"" + shotId + "\",\"name\":\"" + JsonEsc(Path.GetFileName(shotPath)) + "\",\"title\":\"" + JsonEsc(shotTitle) + "\",\"text\":\"" + JsonEsc(shotText) + "\",\"mobile\":" + (shotMobile ? "true" : "false") + ",\"note\":\"" + JsonEsc(shotNote) + "\",\"bytes\":" + new FileInfo(shotPath).Length + "}";
         }
         catch { return "{\"id\":\"\"}"; }
     }
@@ -7171,7 +7362,7 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
     static string hotkeyWarn = "";
     const int MaxWordRows = 2000;
     const int VoiceListenSeconds = 12;
-    static readonly string[] KnownActions = new string[] { "dictate", "showamit", "openhub", "cancel", "voice", "ring", "preview" };
+    static readonly string[] KnownActions = new string[] { "dictate", "showamit", "openhub", "cancel", "voice", "ring", "preview", "mobile" };
 
     static string WordsPath()
     {
@@ -7437,6 +7628,7 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
         AddBuiltIn(l, "showamit", "Show Amit", false, "show amit", "snapshot", "screenshot", "show an area");
         AddBuiltIn(l, "openhub", "Open the Amit Hub", false, "open amit hub", "open hub", "amit hub", "open my hub", "go to hub");
         AddBuiltIn(l, "preview", "Amit Preview", false, "preview", "open preview", "amit preview", "html preview", "previewer", "open previewer");
+        AddBuiltIn(l, "mobile", "Mobile", false, "mobile", "phone photo", "photo from my phone", "from my phone", "check my phone");
         AddBuiltIn(l, "cancel", "Cancel", false, "cancel", "never mind", "stop", "close");
         return l;
     }
@@ -7751,6 +7943,7 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
         if (c.Action == "dictate") { HideOverlay(); StartDictationFromMenu(x, y); return; }
         if (c.Action == "showamit") { HideOverlay(); StartShowAmit(); return; }
         if (c.Action == "openhub") { ShowOverlay("Opening the Amit Hub"); HideOverlayLater(1500); OpenHub(); return; }
+        if (c.Action == "mobile") { HideOverlay(); StartMobile(); return; }
         if (c.Action == "preview") { ShowOverlay("Opening Amit Preview"); HideOverlayLater(1500); ThreadPool.QueueUserWorkItem(delegate { OpenPreviewWindow(); }); return; }
         if (c.Action == "cancel") { ShowOverlay("Cancelled"); HideOverlayLater(1200); return; }
         if (c.Action == "barbutton") { RunBarButton(c); return; }
@@ -7886,6 +8079,7 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
         else if (a == "showamit") StartShowAmit();
         else if (a == "openhub") OpenHub();
         else if (a == "preview") OpenPreviewWindow();
+        else if (a == "mobile") StartMobile();
         else if (a == "cancel") { HideOverlay(); }
     }
 

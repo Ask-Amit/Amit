@@ -387,7 +387,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.53</div>
+<div class="amversion" id="pageVersion">v1.54</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -635,7 +635,8 @@ const AM_PAGES=[
   {id:5,icon:'🔎',name:'Search',sub:'Coming soon'},
   {id:6,icon:'🖥️',name:'My Computer',sub:'Health reports'},
   {id:7,icon:'📋',name:'Pursuits',sub:'Coming soon'},
-  {id:8,icon:'🗨️',name:'Chat',sub:'Friends & studies'}
+  {id:8,icon:'🗨️',name:'Chat',sub:'Friends & studies'},
+  {id:9,icon:'📷',name:'Send to computer',sub:'Photo to your PC'}
 ];
 
 function renderAllPages(){
@@ -665,6 +666,7 @@ function detailBodyFor(id){
   if(id===5) return `<div class="detail-empty" style="width:100%">Search — coming soon.</div>`;
   if(id===6) return amMyComputerHtml();
   if(id===8) return `<div id="amChatMount"></div>`;
+  if(id===9) return amSendToComputerHtml();
   if(id===7) return `<div class="detail-empty" style="width:100%">Pursuits — coming soon. A shortened version of your Hub to-do list will live here.</div>`;
   return '';
 }
@@ -814,6 +816,11 @@ function amDashboardHtml(){
         <div class="amdash-icon">💬</div>
         <div class="amdash-name">Amit</div>
         <div class="amdash-sub">Talk, ask, show a photo</div>
+      </div>
+      <div class="amdash-tile" onclick="openPage(9)">
+        <div class="amdash-icon">📷</div>
+        <div class="amdash-name">Send to computer</div>
+        <div class="amdash-sub">Take a photo, it opens on your PC</div>
       </div>
       <div class="amdash-tile" onclick="openPage(8)">
         <div class="amdash-icon">🗨️</div>
@@ -1691,6 +1698,81 @@ function openPage(n){
     if(title)title.textContent=p?p.name:'Amit Mobile';
   }
   if(n===8)amMountChat();
+  if(n===9)amStcLoadList();
+}
+
+// ══════════════════════════════════════════════
+// SEND TO COMPUTER (page 9) — added 2026-11-05 (Ryan, v1.54). The phone is the one that starts it: take a photo, it goes to the
+// database (the same private 'amitmobile-captures' storage and amit_mobile_captures table, destination 'to_computer'). Nothing here
+// reaches into the computer. On the computer, pressing Mobile in the Amit Live ring looks in the database for what is new, saves it in
+// Pictures\Show Amit, marks the row 'delivered' and writes the person's note back to the row's transcript. This page's list shows each
+// photo as waiting or delivered, with the note.
+// ══════════════════════════════════════════════
+function amSendToComputerHtml(){
+  return `<div style="width:100%;padding:14px 16px;overflow-y:auto">
+    <div style="font-size:15px;color:rgba(240,232,208,.9);margin-bottom:10px">Take a photo with this phone and it goes to your computer. On the computer, press <b>Mobile</b> in the Amit Live ring and it opens in Show Amit, ready for a note.</div>
+    <label for="amStcCam" style="display:block;text-align:center;background:var(--gold);color:#1a1500;padding:18px;border-radius:12px;font-family:'Cinzel',serif;font-size:17px;font-weight:700;letter-spacing:.06em;cursor:pointer">📷 TAKE A PHOTO</label>
+    <input id="amStcCam" type="file" accept="image/*" capture="environment" style="display:none" onchange="amStcPick(this)">
+    <label for="amStcPick" style="display:block;text-align:center;margin-top:10px;padding:10px;border:1px solid rgba(201,168,76,.45);border-radius:8px;color:rgba(201,168,76,.95);font-size:14px;cursor:pointer">or choose a photo from this phone</label>
+    <input id="amStcPick" type="file" accept="image/*" style="display:none" onchange="amStcPick(this)">
+    <div id="amStcStatus" style="margin:12px 0;font-size:14px;color:rgba(240,232,208,.8)"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:14px 0 6px">
+      <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:var(--gold);text-transform:uppercase">Sent from this phone</div>
+      <button onclick="amStcLoadList()" style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer">Refresh</button>
+    </div>
+    <div id="amStcList" style="font-size:13px;color:rgba(240,232,208,.7)">Loading...</div>
+  </div>`;
+}
+
+// a phone photo is shrunk to at most 2000 pixels on its long side and saved as a JPEG with the camera's turning already applied,
+// so the computer shows it the right way up (the computer's picture tools do not read that turning)
+async function amStcToJpeg(file){
+  let bmp;
+  try{ bmp=await createImageBitmap(file,{imageOrientation:'from-image'}); }
+  catch(e){
+    bmp=await new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=URL.createObjectURL(file); });
+  }
+  const w=bmp.width||bmp.naturalWidth, h=bmp.height||bmp.naturalHeight, k=Math.min(1,2000/Math.max(w,h));
+  const c=document.createElement('canvas'); c.width=Math.round(w*k); c.height=Math.round(h*k);
+  c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+  return await new Promise(res=>c.toBlob(res,'image/jpeg',0.88));
+}
+
+async function amStcPick(input){
+  const f=input.files&&input.files[0]; input.value='';
+  const st=document.getElementById('amStcStatus'); if(!f||!st)return;
+  if(!currentUser||!db){ st.innerHTML='Sign in first, then take the photo. <a href="#" onclick="openSyncModal();return false" style="color:var(--gold2)">Sign in</a>'; return; }
+  st.textContent='Sending...';
+  try{
+    const blob=await amStcToJpeg(f);
+    const path=`${currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2,7)}.jpg`;
+    const up=await db.storage.from('amitmobile-captures').upload(path,blob,{contentType:'image/jpeg'});
+    if(up.error)throw up.error;
+    const ins=await db.from('amit_mobile_captures').insert({user_id:currentUser.id,destination:'to_computer',photo_url:JSON.stringify([path])});
+    if(ins.error)throw ins.error;
+    st.innerHTML='✓ Sent. On your computer, press <b>Mobile</b> in the Amit Live ring.';
+    amStcLoadList();
+  }catch(e){
+    console.error('send to computer failed',e);
+    st.textContent='That did not send: '+((e&&e.message)||'unknown problem')+'. Try again.';
+  }
+}
+
+async function amStcLoadList(){
+  const el=document.getElementById('amStcList'); if(!el)return;
+  if(!currentUser||!db){ el.textContent='Sign in to see what you have sent.'; return; }
+  const r=await db.from('amit_mobile_captures').select('id,created_at,destination,transcript').in('destination',['to_computer','delivered']).eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(12);
+  if(r.error){ el.textContent='Could not load the list: '+r.error.message; return; }
+  if(!r.data.length){ el.textContent='Nothing sent yet.'; return; }
+  const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  el.innerHTML=r.data.map(x=>{
+    const when=new Date(x.created_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+    const done=x.destination==='delivered';
+    return `<div style="border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px 10px;margin-bottom:6px">
+      <div>${esc(when)} &nbsp; <span style="color:${done?'#7fd8a0':'var(--gold)'}">${done?'✓ on your computer':'⏳ waiting for your computer'}</span></div>
+      ${x.transcript?`<div style="margin-top:4px;color:rgba(240,232,208,.9)">Note: ${esc(x.transcript)}</div>`:''}
+    </div>`;
+  }).join('');
 }
 
 // CHAT (page 8) — the same shared chat engine the Hub uses (../amit_chat.js), mounted as one column with back arrows.

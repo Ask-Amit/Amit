@@ -7,7 +7,7 @@
 <link rel="icon" type="image/x-icon" href="../Templates/amit_icon.ico">
 <!-- the Hub's own Appearance (theme) mechanism: applies the saved theme before first paint, and re-applies when it changes in the Hub (same browser) -->
 <script src="../amit_appearance.js?v=1.06"></script>
-<!-- AMIT LIVE WINDOW v1.01 (2026-10-31): after sign-in the window copies the person's saved voice to the helper (amitSyncVoiceToHelper) so the reading speaker (Read) speaks in it, and saves back a voice changed there. v1.00 (2026-10-30, Ryan's design). The small floating window the Amit Live ring opens when the person picks "Ask Amit"
+<!-- AMIT LIVE WINDOW v1.02 (2026-11-05): a photo from the phone opens a NEW numbered Mobile chat (AmitChat.openMobile, engine v0.30) primed with the photo and the note; after any Show Amit send the cursor goes to the message box and the helper switches dictation on (/api/amitlive/dictate). v1.01 (2026-10-31): after sign-in the window copies the person's saved voice to the helper (amitSyncVoiceToHelper) so the reading speaker (Read) speaks in it, and saves back a voice changed there. v1.00 (2026-10-30, Ryan's design). The small floating window the Amit Live ring opens when the person picks "Ask Amit"
      (helper v1.25: Edge/Chrome app mode, ~430x680, movable and resizable). Three tabs: Ask Amit (opens first), My Computer, My Words.
      Login: the same browser sign-in as the Hub (same site, same profile); the helper holds no login. The chat is the shared engine amit_chat.js
      (the same box as the chat button on the Hub's right side); every message is a question to Amit and goes to the answering computer
@@ -111,7 +111,7 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../amit_owner_contact.js"></script>
-<script src="../amit_chat.js?v=0.29"></script>
+<script src="../amit_chat.js?v=0.30"></script>
 <script src="amit_morning.js"></script>
 <script>
 (function(){
@@ -368,6 +368,26 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
   /* the window closes itself after 60 seconds without the focus (Ryan, 2026-10-31), so windows do not pile up; never while music is playing. The helper also keeps it to ONE window: choosing Ask Amit again brings this one to the front. */
   /* ---------- Show Amit: the editor's Show Amit button hands a saved shot to the helper; this window posts it into today's chat (under the person's own sign-in) and asks Amit to look at it ---------- */
   var shotBusy=false;
+  function mobileLabel(){ try{ return new Date().toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}); }catch(e){ return ''; } }
+  /* what Amit is told with the photo from the phone: it is in front of him, what the person said about it, and what to do (look, say what is going on, then be ready to solve their problem or question) */
+  function mobilePrimer(j){
+    var n=String(j.note||'').replace(/\s+/g,' ').trim();
+    var p='This is a Mobile photo chat. I took this photo with my phone and sent it to you through Show Amit; it is in front of you now.'+(n?' My note about it: "'+n.slice(0,260)+'".':'')+' Please look at it and tell me in a few plain words what you see and what you think is going on. Then be ready to help me solve whatever problem or question I have about it.';
+    return p.slice(0,500);
+  }
+  /* the cursor goes to the message box and dictation is switched on: the helper starts it (after Amit has finished speaking, so the microphone never hears him) and what is said is typed into the box */
+  function chatReady(){
+    var n=0,t=setInterval(function(){
+      var ta=document.querySelector('.acx-comp textarea');
+      if(ta&&ta.offsetParent){
+        clearInterval(t);
+        try{ ta.focus(); }catch(e){}
+        var r=ta.getBoundingClientRect(),d=window.devicePixelRatio||1,ch=Math.max(0,window.outerHeight-window.innerHeight);
+        var x=Math.round((window.screenX+r.left+r.width/2)*d),y=Math.round((window.screenY+ch+r.top+r.height/2)*d);
+        fetch(HELPER+'/api/amitlive/dictate?x='+x+'&y='+y,{method:'POST',headers:{'Content-Type':'text/plain'},body:'go'}).catch(function(){});
+      } else if(++n>40) clearInterval(t);
+    },150);
+  }
   function pollShot(){
     if(shotBusy||!signedIn||!window.AmitChat||!AmitChat.live) return;
     fetch(HELPER+'/api/showamit/pending').then(function(r){ return r.json(); }).then(function(j){
@@ -378,12 +398,15 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
       try{ localStorage.setItem('amit_shot_seen',j.id); }catch(e){}
       cardUp=false; var pa=document.getElementById('paneAsk'); if(pa) pa.innerHTML='<div id="askNote"></div>';     /* the morning card steps aside: the person just sent something */
       show('ask');
-      AmitChat.openHelp({ day: dayLabel() }).then(function(ok){
+      /* v1.02: a photo from the phone (j.mobile) gets its OWN new numbered "Mobile #N" chat; Amit is primed with the photo and the person's note. Either way the cursor goes to the message box and dictation is switched on. */
+      var mobile=!!j.mobile;
+      (mobile ? AmitChat.openMobile({ label: mobileLabel() }) : AmitChat.openHelp({ day: dayLabel() })).then(function(ok){
         if(!ok) throw new Error('the chat did not open');
         return fetch(HELPER+'/api/showamit/pending.png?id='+encodeURIComponent(j.id)).then(function(r){ if(!r.ok) throw new Error('the picture is no longer available'); return r.blob(); });
       }).then(function(blob){
-        return AmitChat.sendShot(new File([blob], j.name||'shot.png', { type:'image/png' }), { title:j.title, text:j.text, name:j.name });
-      }).then(function(){ return AmitChat.openHelp({ day: dayLabel() }); })     /* reopen the same chat so it shows the picture and that Amit is looking */
+        return AmitChat.sendShot(new File([blob], j.name||'shot.png', { type:'image/png' }), { title:j.title, text:j.text, name:j.name, primer: mobile ? mobilePrimer(j) : null });
+      }).then(function(){ if(mobile){ AmitChat.showHelpChat(); return true; } return AmitChat.openHelp({ day: dayLabel() }); })     /* reopen the same chat so it shows the picture and that Amit is looking */
+      .then(function(){ chatReady(); })
       .catch(function(e){ note('Could not send the picture to Amit: '+((e&&e.message)||'try again from the Show Amit button.')); })
       .then(function(){ shotBusy=false; });
     }).catch(function(){});
