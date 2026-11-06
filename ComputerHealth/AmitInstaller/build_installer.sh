@@ -23,12 +23,18 @@ FILES=(
   install_snapshot_watcher.ps1
   Run_AmitTracker.ps1
   AmitTracker.exe
-  AmitSensorReader.exe
   amit_icon.ico
+  amit_icon_whisper.ico
+  amit_icon_read.ico
+  amit_icon_showamit.ico
   amit_whisper.cs
   amit_whisper.html
+  amit_dictate.html
   amit_talk.html
+  AmitPreview.html
   amit_update.ps1
+  amit_reload.ps1
+  AmitBar.cs
   ComputerHealth_Dashboard.html
 )
 

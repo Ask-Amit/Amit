@@ -87,7 +87,7 @@ if ($alreadyInstalled) {
         "app_behavior_watcher.ps1", "install_snapshot_watcher.ps1",
         "Run_AmitTracker.ps1", "AmitTracker.exe",      # AmitSensorReader.exe (72 MB) is no longer installed here: Computer Health's Hardware tab adds it on request (helper route /api/sensors/install)
         "process_inbox.bat", "process_inbox_prompt.txt",
-        "amit_whisper.cs", "amit_whisper.html", "amit_dictate.html", "amit_talk.html", "amit_update.ps1", "amit_reload.ps1", "AmitBar.cs",
+        "amit_whisper.cs", "amit_whisper.html", "amit_dictate.html", "amit_talk.html", "AmitPreview.html", "amit_update.ps1", "amit_reload.ps1", "AmitBar.cs",
         "amit_icon_whisper.ico", "amit_icon_read.ico", "amit_icon_showamit.ico"
     )
     foreach ($f in $filesToCopy) {

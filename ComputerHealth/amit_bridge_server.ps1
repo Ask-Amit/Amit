@@ -1309,6 +1309,78 @@ try {
                 if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else { Send-JsonRaw $response ([AmitWhisper]::StartLearn()) }
             }
+            # ---- Amit Preview, live (2026-11-06): Claude saves the preview it wants to show in preview_current.html (Templates\show_preview.ps1); the Amit Preview
+            # window asks for it here every second or two and shows it by itself, so nothing has to be pasted. Read-only: nothing is written by this route.
+            # /api/preview/current may be asked by the page itself (file:// page = Origin "null", or the Amit site); /api/preview/open only by a local script (no Origin).
+            "/api/preview/current" {
+                $pvOrigin = $request.Headers['Origin']
+                if ($pvOrigin -and $pvOrigin -ne 'null' -and $pvOrigin -ne 'https://ask-amit.github.io') { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $pvFile = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\preview_current.html'
+                    if (Test-Path $pvFile) {
+                        $pvStamp = [string](Get-Item $pvFile).LastWriteTimeUtc.Ticks
+                        if ($request.QueryString["since"] -eq $pvStamp) { Send-JsonRaw $response ('{"stamp":"' + $pvStamp + '","same":true}') }
+                        else {
+                            # the name of the version this preview belongs to (written by show_preview.ps1; "Amit" when none)
+                            $pvNameFile = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\preview_current.name'
+                            $pvName = 'Amit'; if (Test-Path $pvNameFile) { $pvN = ([System.IO.File]::ReadAllText($pvNameFile, [System.Text.Encoding]::UTF8)).Trim(); if ($pvN.Length -gt 0 -and $pvN.Length -le 24) { $pvName = $pvN } }
+                            # the details of this preview (app, title, version, date), written by show_preview.ps1
+                            $pvMetaFile = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\preview_current.meta.json'
+                            $pvMeta = 'null'; if (Test-Path $pvMetaFile) { $pvM = ([System.IO.File]::ReadAllText($pvMetaFile, [System.Text.Encoding]::UTF8)).Trim(); if ($pvM.StartsWith('{')) { $pvMeta = $pvM } }
+                            Send-JsonRaw $response ('{"stamp":"' + $pvStamp + '","name":' + (ConvertTo-JsonString $pvName) + ',"meta":' + $pvMeta + ',"html":' + (ConvertTo-JsonString ([System.IO.File]::ReadAllText($pvFile, [System.Text.Encoding]::UTF8))) + '}')
+                        }
+                    }
+                    else { Send-JsonRaw $response '{"stamp":"","html":""}' }
+                }
+            }
+            # The history of every preview Claude sent (show_preview.ps1 files each one in preview_history\ with its app, title, version and date). Read-only; same Origin rule.
+            "/api/preview/history" {
+                $pvHO = $request.Headers['Origin']
+                if ($pvHO -and $pvHO -ne 'null' -and $pvHO -ne 'https://ask-amit.github.io') { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $pvHF = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\preview_history\index.json'
+                    $pvHT = '[]'; if (Test-Path $pvHF) { $pvHR = ([System.IO.File]::ReadAllText($pvHF, [System.Text.Encoding]::UTF8)).Trim(); if ($pvHR.StartsWith('[')) { $pvHT = $pvHR } }
+                    Send-JsonRaw $response ('{"items":' + $pvHT + '}')
+                }
+            }
+            "/api/preview/item" {
+                $pvIO = $request.Headers['Origin']
+                $pvId = [string]$request.QueryString["id"]
+                if ($pvIO -and $pvIO -ne 'null' -and $pvIO -ne 'https://ask-amit.github.io') { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                elseif ($pvId -notmatch '^[0-9A-Za-z-]{6,40}$') { Send-JsonRaw $response '{"error":"bad id"}' 400 }
+                else {
+                    $pvIDir = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\preview_history'
+                    $pvIH = Join-Path $pvIDir ($pvId + '.html'); $pvIJ = Join-Path $pvIDir ($pvId + '.json')
+                    if (-not (Test-Path $pvIH)) { Send-JsonRaw $response '{"error":"not found"}' 404 }
+                    else {
+                        $pvIM = 'null'; if (Test-Path $pvIJ) { $pvIMr = ([System.IO.File]::ReadAllText($pvIJ, [System.Text.Encoding]::UTF8)).Trim(); if ($pvIMr.StartsWith('{')) { $pvIM = $pvIMr } }
+                        Send-JsonRaw $response ('{"meta":' + $pvIM + ',"html":' + (ConvertTo-JsonString ([System.IO.File]::ReadAllText($pvIH, [System.Text.Encoding]::UTF8))) + '}')
+                    }
+                }
+            }
+            # The Amit Preview page keeps the person's versions (one per AI's answer) on this computer and sends a copy here, so Claude can read them when asked
+            # ("I like version 3's look and version 1's functionality"). Written only by the page itself (Origin "null" or the Amit site); nothing is ever read back out to a web page.
+            "/api/preview/save" {
+                $pvSO = $request.Headers['Origin']
+                if ($request.HttpMethod -ne 'POST' -or ($pvSO -and $pvSO -ne 'null' -and $pvSO -ne 'https://ask-amit.github.io')) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $pvSR = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $pvSB = $pvSR.ReadToEnd(); $pvSR.Dispose()
+                    if ($pvSB.Length -gt 8000000) { Send-JsonRaw $response '{"error":"too big"}' 413 }
+                    else {
+                        $pvSDir = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth'
+                        # ?archive=N keeps a finished set as its own file (preview_set_N.json); otherwise the current set is saved as preview_versions.json
+                        $pvArch = 0; [void][int]::TryParse([string]$request.QueryString["archive"], [ref]$pvArch)
+                        $pvSName = if ($pvArch -gt 0 -and $pvArch -lt 100000) { "preview_set_$pvArch.json" } else { 'preview_versions.json' }
+                        [System.IO.File]::WriteAllText((Join-Path $pvSDir $pvSName), $pvSB, (New-Object System.Text.UTF8Encoding($false)))
+                        Send-JsonRaw $response '{"ok":true}'
+                    }
+                }
+            }
+            "/api/preview/open" {
+                if ($request.Headers['Origin']) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::OpenPreviewWindow()) }
+            }
             # ---- Dictate (v1.56): the Dictate window (page amit_dictate.html). The words are heard in the page itself; Place waits here for the next left click on a text box and types the message there. ----
             "/dictate" {
                 # Gets this run's secret only when opened directly (same rule as /whisper and /talk).
@@ -1516,7 +1588,7 @@ try {
                 # KEEP THE FILE LIST THE SAME AS make_helper_manifest.ps1.
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else {
-                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_dictate.html','amit_talk.html','amit_update.ps1','amit_reload.ps1','AmitBar.cs')
+                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_dictate.html','amit_talk.html','AmitPreview.html','amit_update.ps1','amit_reload.ps1','AmitBar.cs')
                     $hsSha = [System.Security.Cryptography.SHA256]::Create()
                     $hsParts = @()
                     foreach ($hsN in $hsNames) {
