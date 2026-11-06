@@ -558,7 +558,7 @@ table.chd-x tbody tr:hover td{background:var(--amit-row-hover,rgba(255,255,255,.
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Computer Health</div>
-      <div class="page-version" id="pageVersion">v5.10</div>
+      <div class="page-version" id="pageVersion">v5.11</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4135,6 +4135,28 @@ async function pollDriveHealth() {
   } catch (e) {}
 }
 
+// v5.11 (2026-11-05, Ryan): the 72 MB hardware sensor reader is no longer inside the installer. The Hardware tab offers it here; the helper downloads it only when asked and keeps it only when
+// its size and SHA-256 match the published fingerprint (/api/sensors/install). Starting tracking then starts it (Windows asks for permission once, because reading hardware needs it).
+function chSensorsMissingHtml() {
+  return '<div style="max-width:560px;padding:16px;border:1px solid var(--amit-border,#3a3f4b);border-radius:10px">' +
+    '<div style="font-weight:600;margin-bottom:6px">Hardware sensors are not added on this computer yet</div>' +
+    '<div style="color:var(--amit-muted,#8a8f99);margin-bottom:12px">Temperatures, fans and voltages need a small extra program (about 72 MB). It is downloaded only when you ask for it, checked against a fingerprint before it is allowed to run, and Windows asks your permission once when it starts, because reading hardware needs it.</div>' +
+    '<button id="chAddSensorsBtn" onclick="chAddSensors()" style="padding:8px 14px;cursor:pointer">Add hardware sensors (72 MB)</button>' +
+    '<span id="chAddSensorsMsg" style="margin-left:10px;color:var(--amit-muted,#8a8f99)"></span></div>';
+}
+async function chAddSensors() {
+  const b = document.getElementById('chAddSensorsBtn'), m = document.getElementById('chAddSensorsMsg');
+  if (b) b.disabled = true; if (m) m.textContent = 'Downloading... this can take a minute or two.';
+  try {
+    const r = await fetch(BRIDGE + '/api/sensors/install', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: 'go' });
+    const j = await r.json();
+    if (!j.ok) { if (m) m.textContent = (j.reason || 'It did not install.') + ' You can try again.'; if (b) b.disabled = false; return; }
+    if (m) m.textContent = 'Added. Starting it now: Windows will ask for permission once.';
+    try { await fetch(BRIDGE + '/api/start-tracking', { method: 'POST', body: '' }); } catch (e) {}
+    setTimeout(() => { try { loadHardwareTree(); } catch (e) {} }, 6000);
+  } catch (e) { if (m) m.textContent = 'Could not reach the helper on this computer.'; if (b) b.disabled = false; }
+}
+
 async function loadHardwareTree() {
   // Real gap caught live 2026-07-20 (Ryan) - this ran on its own 30-second
   // setInterval with no bridgeUp guard at all, unlike every poll* function,
@@ -4149,10 +4171,11 @@ async function loadHardwareTree() {
   const histRes = await fetch(BRIDGE + '/api/resource-history', { cache: 'no-store' }).catch(() => null);
   hardwareHistoryRows = (histRes && histRes.ok) ? parseSensorHistoryRows((await histRes.json()).lines || []) : hardwareHistoryRows;
 
-  let liveTree = null;
+  let liveTree = null, sensorsMissing = false;
   try {
     const liveRes = await fetch(BRIDGE + '/api/sensors', { cache: 'no-store' });
     if (liveRes.ok) liveTree = await liveRes.json();
+    else { try { const jm = await liveRes.json(); sensorsMissing = !!(jm && jm.notInstalled); } catch (e2) {} }
   } catch (e) { /* fall through to cached tree below */ }
 
   if (liveTree) {
@@ -4164,6 +4187,7 @@ async function loadHardwareTree() {
       // Never had a successful load at all (not just a lost connection) -
       // there's genuinely nothing to fall back to yet.
       catNav.innerHTML = ''; instNav.classList.add('hidden');
+      if (sensorsMissing) { container.innerHTML = chSensorsMissingHtml(); return; }
       container.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">Couldn\'t reach LibreHardwareMonitor\'s sensor data yet. Make sure it\'s running with Options → Remote Web Server → Run enabled.</em>';
       return;
     }

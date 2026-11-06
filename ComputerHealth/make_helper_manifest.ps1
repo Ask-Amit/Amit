@@ -62,6 +62,17 @@ if (Test-Path $cs) {
     if ($m.Success) { $ver = $m.Groups[1].Value }
 }
 
+# Computer Health's hardware sensor reader (about 72 MB) is NOT one of the helper files and is not in the installer: a computer downloads it only when the person
+# turns on the Hardware tab (the helper route /api/sensors/install). This block is what that download is checked against (size and SHA-256) before it is allowed to run.
+$optional = $null
+$sr = Join-Path $Dir "AmitSensorReader.exe"
+if (Test-Path $sr) {
+    $srBytes = [System.IO.File]::ReadAllBytes($sr)
+    $sha2 = [System.Security.Cryptography.SHA256]::Create()
+    $srHash = ([BitConverter]::ToString($sha2.ComputeHash($srBytes))).Replace("-", "").ToLowerInvariant(); $sha2.Dispose()
+    $optional = [ordered]@{ name = "AmitSensorReader.exe"; sha256 = $srHash; bytes = $srBytes.Length; url = ($baseUrl.TrimEnd('/') + "/AmitSensorReader.exe") }
+}
+
 $manifest = [ordered]@{
     manifestFormat = 1
     helperVersion  = $ver
@@ -70,6 +81,7 @@ $manifest = [ordered]@{
     notes          = $Notes
     files          = $files
 }
+if ($optional) { $manifest.sensorReader = $optional }
 $out = Join-Path $Dir "amit_helper_manifest.json"
 [System.IO.File]::WriteAllText($out, ($manifest | ConvertTo-Json -Depth 5), (New-Object System.Text.UTF8Encoding $false))
 Write-Host ("Wrote " + $out + " (helper " + $ver + ", " + $files.Count + " files)")

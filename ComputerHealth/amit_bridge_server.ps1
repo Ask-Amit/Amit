@@ -1054,6 +1054,9 @@ try {
             } catch {
                 $warnings += "Sensor reader needs admin approval to run (UAC) - sensor readings (temps/voltages/fans) won't be available this session. Resource and diagnostic tracking still work."
             }
+        } else {
+            # 2026-11-05: the sensor reader (about 72 MB) is no longer inside the installer; it is added on request from the Hardware tab (/api/sensors/install)
+            $warnings += "Hardware sensors (temperatures, fans, voltages) are not added on this computer yet. Open the Hardware tab and press Add hardware sensors. Resource and diagnostic tracking still work."
         }
 
         $activityAlready = Test-WatcherScriptRunning "activity_watcher2.ps1"
@@ -2323,7 +2326,43 @@ secret key must never appear here, ever, under any circumstance.
                     $response.OutputStream.Write($bytes, 0, $bytes.Length)
                     $response.OutputStream.Close()
                 } catch {
-                    Send-Json $response @{ error = "Sensor data not available yet - the tracker may still be starting, or admin approval (UAC) for sensor access wasn't granted this session." } 502
+                    if (-not (Test-Path $sensorReaderPath)) {
+                        Send-JsonRaw $response '{"error":"Hardware sensors are not added on this computer yet.","notInstalled":true,"sizeMb":72}' 502
+                    } else {
+                        Send-Json $response @{ error = "Sensor data not available yet - the tracker may still be starting, or admin approval (UAC) for sensor access wasn't granted this session." } 502
+                    }
+                }
+            }
+            "/api/sensors/install" {
+                # 2026-11-05 (Ryan): the 72 MB sensor reader is not in the installer any more. The Hardware tab's "Add hardware sensors" button posts here. It downloads the file from the
+                # Amit site and only keeps it when its size AND SHA-256 match the fingerprint in the published helper manifest (it runs with admin rights, so it is never trusted unchecked).
+                # POST only, Amit site or this computer only. Takes a minute or two; the tab waits.
+                if ($request.HttpMethod -ne 'POST' -or -not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    try {
+                        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]3072
+                        if ((Test-Path $sensorReaderPath) -and ((Get-Item $sensorReaderPath).Length -gt 1000000)) { Send-JsonRaw $response '{"ok":true,"already":true}' }
+                        else {
+                            Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+                            $sMan = (New-Object System.Web.Script.Serialization.JavaScriptSerializer).DeserializeObject((New-Object System.Net.WebClient).DownloadString('https://ask-amit.github.io/Amit/ComputerHealth/amit_helper_manifest.json'))
+                            $sInfo = $sMan['sensorReader']
+                            if (-not $sInfo -or $sInfo['name'] -ne 'AmitSensorReader.exe' -or $sInfo['url'] -ne 'https://ask-amit.github.io/Amit/ComputerHealth/AmitSensorReader.exe' -or [string]$sInfo['sha256'] -notmatch '^[0-9a-f]{64}$') {
+                                Send-JsonRaw $response '{"ok":false,"reason":"The published list does not offer the hardware sensors right now."}'
+                            } else {
+                                $sPart = $sensorReaderPath + '.part'
+                                Remove-Item $sPart -Force -ErrorAction SilentlyContinue
+                                $sWc = New-Object System.Net.WebClient; $sWc.Headers.Add('User-Agent', 'amit-helper')
+                                $sWc.DownloadFile([string]$sInfo['url'], $sPart)
+                                $sOk = ((Get-Item $sPart).Length -eq [int64]$sInfo['bytes'])
+                                if ($sOk) { $sHash = (Get-FileHash -Algorithm SHA256 -Path $sPart).Hash.ToLowerInvariant(); $sOk = ($sHash -eq [string]$sInfo['sha256']) }
+                                if ($sOk) { Move-Item $sPart $sensorReaderPath -Force; Send-JsonRaw $response '{"ok":true}' }
+                                else { Remove-Item $sPart -Force -ErrorAction SilentlyContinue; Send-JsonRaw $response '{"ok":false,"reason":"The download did not match its fingerprint, so it was thrown away. Nothing was installed."}' }
+                            }
+                        }
+                    } catch {
+                        $sErr = ([string]$_.Exception.Message -replace '[^\x20-\x7E]', '?').Replace('\', '/').Replace('"', "'"); if ($sErr.Length -gt 160) { $sErr = $sErr.Substring(0, 160) }
+                        Send-JsonRaw $response ('{"ok":false,"reason":"' + $sErr + '"}')
+                    }
                 }
             }
             "/api/ask-watcher-status" {

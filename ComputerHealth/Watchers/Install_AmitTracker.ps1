@@ -85,9 +85,9 @@ if ($alreadyInstalled) {
         "amit_bridge_server.ps1", "ComputerHealth_Dashboard.html",
         "activity_watcher2.ps1", "resource_watcher.ps1", "diagnostics_watcher.ps1",
         "app_behavior_watcher.ps1", "install_snapshot_watcher.ps1",
-        "Run_AmitTracker.ps1", "AmitTracker.exe", "AmitSensorReader.exe",
+        "Run_AmitTracker.ps1", "AmitTracker.exe",      # AmitSensorReader.exe (72 MB) is no longer installed here: Computer Health's Hardware tab adds it on request (helper route /api/sensors/install)
         "process_inbox.bat", "process_inbox_prompt.txt",
-        "amit_whisper.cs", "amit_whisper.html", "amit_talk.html", "amit_update.ps1",
+        "amit_whisper.cs", "amit_whisper.html", "amit_dictate.html", "amit_talk.html", "amit_update.ps1", "amit_reload.ps1", "AmitBar.cs",
         "amit_icon_whisper.ico", "amit_icon_read.ico", "amit_icon_showamit.ico"
     )
     foreach ($f in $filesToCopy) {
@@ -105,6 +105,11 @@ if ($alreadyInstalled) {
         }
     }
     if ($InstallerVersion -ne "") { try { Set-Content -Path $versionFile -Value $InstallerVersion -Encoding ASCII } catch {} }
+    # the Amit bar program is built here from AmitBar.cs with the compiler that ships with Windows (the same step "Update and reload" uses), so a new computer has its bar
+    if (Test-Path "$watcherInstallDir\amit_reload.ps1") {
+        try { Start-Process -FilePath powershell.exe -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File',"`"$watcherInstallDir\amit_reload.ps1`"",'-BuildOnly' -WindowStyle Hidden -Wait }
+        catch { Write-Host "  Warning: could not build the Amit bar ($($_.Exception.Message))" }
+    }
     Write-Host "  Done."
 }
 if ($env:AMIT_INSTALL_TEST_COPY_ONLY) { Write-Host "(test run: stopping after step 1)"; exit 0 }
