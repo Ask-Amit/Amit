@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<!--
+WHAT THIS PAGE IS: the Amit "Aurora" ring, as it works in the real Amit Helper (Amit Live) on Windows today.
+HOW IT WORKS
+ 1. The person holds the RIGHT mouse button on the desktop (about a third of a second). A round ring of choices opens around the pointer.
+ 2. They slide toward a wedge (it lights up gold) and let go: that choice runs. Letting go over the Amit icon in the middle chooses Ask Amit.
+ 3. Letting go in the middle without moving leaves the ring open, where a left click on a wedge also chooses. A click away from the ring, or Esc, closes it.
+ 4. The five choices today: Dictate (talk to type), Show Amit (take a picture of an area), Voice (say what to do), Read (read it aloud), Mobile (photo from the phone).
+THE LIST (see DATA_SOURCES in the code): the choices are fixed in the Amit Helper for now. Each choice starts a Helper action of the same name. The ring never holds more than the choices that exist.
+THIS PAGE IS A FAITHFUL REDRAW so it can be copied, changed and shown back: the CONFIG block holds the exact sizes and colors of the real ring (window 400 x 400, centre 200,200).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Amit Aurora Ring Preview</title>
+<style>
+  /* This page is a faithful redraw of the radial menu that opens on a Windows desktop when the right mouse
+     button is held. Sizes, colours, fonts and the 4 real choices match the program. It is meant to be copied,
+     changed and shown back: edit the CONFIG block and the ITEMS list in the script, or restyle the drawing. */
+  body { margin:0; min-height:100vh; font-family:"Segoe UI",system-ui,sans-serif; color:#e8e8e4;
+         background:linear-gradient(135deg,#27334d,#3b4a66 55%,#2a3550); display:flex; flex-direction:column; align-items:center; }
+  h1 { font-size:18px; font-weight:600; margin:18px 16px 4px; text-align:center; }
+  p.note { margin:0 16px 8px; font-size:13px; opacity:.8; text-align:center; max-width:560px; }
+  .controls { display:flex; gap:18px; flex-wrap:wrap; justify-content:center; margin:6px 16px; font-size:13px; align-items:center; }
+  svg { width:min(92vw,520px); height:auto; touch-action:none; }
+  #picked { height:22px; font-size:14px; color:#e8be46; }
+</style>
+</head>
+<body>
+<h1>Amit "Aurora" ring - as it is today (5 real choices) <span style="font-size:12px;opacity:.6;font-weight:400">v1.01</span></h1>
+<p class="note">Hold the right mouse button on a Windows desktop and this ring opens around the pointer. Slide to a wedge and let go to choose. Hover or tap a wedge to see the highlight.</p>
+<div class="controls">
+  <label>Choices: <input id="count" type="range" min="2" max="10" value="5"> <span id="countv">5</span></label>
+  <label><input id="caps" type="checkbox" checked> show captions</label>
+</div>
+<div id="picked"></div>
+<svg id="ring" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg"></svg>
+
+<script>
+/* ===== CONFIG: the exact numbers used by the real program (window is 400 x 400, centre at 200,200) ===== */
+var CONFIG = {
+  half: 200,          // half the window
+  dead: 66,           // pointer closer than this to the middle: nothing chosen
+  inner: 74,          // wedges drawn from here...
+  outer: 160,         // ...to here
+  reach: 176,         // pointer farther out than this: nothing chosen
+  plateExtra: 10,     // dark glass plate radius = outer + this
+  plate: 'rgba(9,11,18,0.667)',
+  gapDeg: 2.4,        // gap between wedges (only when more than 1 wedge)
+  tintAlpha: 92/255,  // normal wedge fill opacity
+  edgeWidth: 1.6, edgeWidthHot: 3,
+  hot: 'rgba(232,190,70,0.957)',      // highlighted wedge (Amit gold, solid)
+  hotEdge: 'rgb(255,244,205)',
+  hotText: 'rgb(24,22,30)',
+  text: 'rgb(240,240,236)',
+  gold: 'rgb(212,175,55)',           // ring around the centre icon
+  colors: ['232,190,70','70,160,255','80,215,140','172,110,255','255,132,98','60,208,210'], // cycled per wedge
+  centerR: 50
+};
+
+/* ===== ITEMS: the 5 real choices, then placeholders for choices we want to add ===== */
+/* where the list comes from in the real program: the choices are fixed in the Amit Helper (Amit Live); each one starts the Helper action of the same name. The Amit icon in the middle opens Ask Amit. */
+var DATA_SOURCES = [
+  {list:'Aurora choices', source:'hard-coded in the Amit Helper: Dictate, Show Amit, Voice, Read, Mobile. Choosing one starts that Helper action.'},
+  {list:'Middle icon', source:'the Amit icon in the middle of the ring opens Ask Amit.'}
+];
+var ITEMS = [
+  {id:'dictate',  label:'Dictate',  caption:'Talk to type'},
+  {id:'showamit', label:'Show Amit',caption:'Show an area'},
+  {id:'voice',    label:'Voice',    caption:'Say what to do'},
+  {id:'talk',     label:'Read',     caption:'Read it aloud'},
+  {id:'mobile',   label:'Mobile',   caption:'Photo from phone'},
+  /* ideas not built yet (they draw a plain circle glyph): */
+  {id:'calc',     label:'Calculator', caption:'Quick math'},
+  {id:'aims',     label:'Aims',       caption:'Today\'s list'},
+  {id:'remind',   label:'Remind',     caption:'Set a reminder'},
+  {id:'snippets', label:'Snippets',   caption:'Short codes'},
+  {id:'verse',    label:'Scripture',  caption:'Look up a verse'},
+  {id:'translate',label:'Translate',  caption:'Selected text'}
+];
+
+/* Glyphs: simple line drawings, 2.2 px round strokes, drawn centred on 0,0 (same shapes as the program) */
+var GLYPHS = {
+  dictate: '<path d="M-5 -8 A5 5 0 0 1 5 -8 L5 2 A5 5 0 0 1 -5 2 Z"/><path d="M9 -1 A9 8 0 0 1 -9 -1"/><path d="M0 7 L0 12 M-5 12 L5 12"/>',
+  showamit:'<rect x="-11" y="-6" width="22" height="16"/><path d="M-5 -6 L-3 -10 L3 -10 L5 -6"/><circle cx="0" cy="2" r="5"/>',
+  voice:   '<rect x="-11" y="-10" width="22" height="15"/><path d="M-5 5 L-7 11 L1 5 M-6 -4 V-1 M-2 -7 V2 M2 -5 V0 M6 -4 V-1"/>',
+  talk:    '<path d="M-11 -4 H-5 L2 -10 V10 L-5 4 H-11 Z"/><path d="M9.3 -4.9 A4 6 0 0 1 9.3 4.9"/><path d="M14 -9 A7 11 0 0 1 14 9"/>',
+  mobile:  '<rect x="-7" y="-13" width="14" height="26"/><circle cx="0" cy="-5.5" r="2.5"/><path d="M-2 9 L2 9"/>'
+};
+
+var NS = 'http://www.w3.org/2000/svg';
+var svg = document.getElementById('ring');
+var hover = -1, picked = '';
+
+function pt(r, deg) { var a = deg*Math.PI/180; return [CONFIG.half + r*Math.cos(a), CONFIG.half + r*Math.sin(a)]; }
+function sector(a0, a1) {
+  var i0 = pt(CONFIG.inner,a0), o0 = pt(CONFIG.outer,a0), o1 = pt(CONFIG.outer,a1), i1 = pt(CONFIG.inner,a1);
+  var large = (a1-a0) > 180 ? 1 : 0;
+  return 'M'+o0+' A'+CONFIG.outer+' '+CONFIG.outer+' 0 '+large+' 1 '+o1+' L'+i1+' A'+CONFIG.inner+' '+CONFIG.inner+' 0 '+large+' 0 '+i0+' Z';
+}
+function el(name, attrs, parent) {
+  var e = document.createElementNS(NS, name);
+  for (var k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+function draw() {
+  var n = +document.getElementById('count').value;
+  var showCaps = document.getElementById('caps').checked;
+  var C = CONFIG.half;
+  svg.innerHTML = '';
+  el('circle', {cx:C, cy:C, r:CONFIG.outer+CONFIG.plateExtra, fill:CONFIG.plate}, svg);
+  var w = 360/n, gap = n > 1 ? CONFIG.gapDeg : 0;
+  for (var i = 0; i < n; i++) {
+    var it = ITEMS[i], col = CONFIG.colors[i % CONFIG.colors.length], hot = (i === hover);
+    var mid = -90 + i*w, a0 = mid - w/2 + gap/2, a1 = a0 + Math.min(w-gap, 359.5);
+    var g = el('g', {'data-i':i, style:'cursor:pointer'}, svg);
+    el('path', {d:sector(a0,a1), fill: hot ? CONFIG.hot : 'rgba('+col+','+CONFIG.tintAlpha+')',
+                stroke: hot ? CONFIG.hotEdge : 'rgba('+col+',0.843)', 'stroke-width': hot ? CONFIG.edgeWidthHot : CONFIG.edgeWidth}, g);
+    var m = pt((CONFIG.inner+CONFIG.outer)/2, mid), lx = m[0], ly = m[1];
+    var glyph = GLYPHS[it.id] || '<circle cx="0" cy="0" r="6"/>';
+    var gg = el('g', {transform:'translate('+lx+','+(ly-17)+')', fill:'none',
+                      stroke: hot ? CONFIG.hotText : 'rgb('+col+')', 'stroke-width':2.2, 'stroke-linecap':'round', 'stroke-linejoin':'round'}, g);
+    gg.innerHTML = glyph;
+    var tc = hot ? CONFIG.hotText : CONFIG.text;
+    var t1 = el('text', {x:lx, y:ly+12, 'text-anchor':'middle', 'dominant-baseline':'central', fill:tc,
+                         'font-family':'Segoe UI Semibold,Segoe UI,sans-serif', 'font-size': n > 6 ? 12.7 : 16}, g);
+    t1.textContent = it.label;
+    if (showCaps && n <= 6) {
+      var t2 = el('text', {x:lx, y:ly+29, 'text-anchor':'middle', 'dominant-baseline':'central', fill:tc, 'fill-opacity': hot ? .9 : .67,
+                           'font-family':'Segoe UI,sans-serif', 'font-size':11.3}, g);
+      t2.textContent = it.caption;
+    }
+  }
+  /* the Amit icon in the middle (the real one is a round picture) */
+  el('circle', {cx:C, cy:C, r:CONFIG.centerR-2, fill:'rgba(14,16,24,0.94)'}, svg);
+  el('circle', {cx:C, cy:C, r:CONFIG.centerR, fill:'none', stroke:CONFIG.gold, 'stroke-width':3}, svg);
+  var ct = el('text', {x:C, y:C, 'text-anchor':'middle', 'dominant-baseline':'central', fill:'rgb(232,201,106)',
+                       'font-family':'Segoe UI Semibold,Segoe UI,sans-serif', 'font-size':20}, svg);
+  ct.textContent = 'Amit';
+}
+
+function hit(evt) {            // which wedge is under the pointer (same maths as the program)
+  var n = +document.getElementById('count').value;
+  var r = svg.getBoundingClientRect(), s = 400/r.width;
+  var dx = (evt.clientX - r.left)*s - CONFIG.half, dy = (evt.clientY - r.top)*s - CONFIG.half;
+  var d = Math.sqrt(dx*dx + dy*dy);
+  if (d < CONFIG.dead) return -2;            // the Amit icon in the middle: Ask Amit
+  if (d > CONFIG.reach) return -1;
+  var ang = Math.atan2(dy,dx)*180/Math.PI, w = 360/n;
+  var a = (ang + 90 + w/2) % 360; if (a < 0) a += 360;
+  return Math.min(Math.floor(a/w), n-1);
+}
+svg.addEventListener('pointermove', function(e){ var h = hit(e); if (h < 0) h = -1; if (h !== hover) { hover = h; draw(); } });
+svg.addEventListener('pointerleave', function(){ hover = -1; draw(); });
+svg.addEventListener('click', function(e){
+  var h = hit(e); picked = h >= 0 ? 'Chosen: ' + ITEMS[h].label : (h === -2 ? 'Chosen: Ask Amit (the middle icon)' : '');
+  document.getElementById('picked').textContent = picked;
+});
+document.getElementById('count').addEventListener('input', function(){ document.getElementById('countv').textContent = this.value; hover = -1; draw(); });
+document.getElementById('caps').addEventListener('change', draw);
+draw();
+</script>
+</body>
+</html>
