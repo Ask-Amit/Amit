@@ -1777,7 +1777,7 @@ try {
                             $mser = New-Object System.Web.Script.Serialization.JavaScriptSerializer
                             $mwc = New-Object System.Net.WebClient; $mwc.Encoding = [System.Text.Encoding]::UTF8
                             $mwc.Headers.Add('apikey', $mkey); $mwc.Headers.Add('Authorization', "Bearer $mkey"); $mwc.Headers.Add('User-Agent', 'supabase-js/2.0')
-                            $mtxt = $mwc.DownloadString("$mbase/rest/v1/amit_mobile_captures?user_id=eq.$owner&destination=eq.to_computer&select=id,created_at,photo_url&order=created_at.asc&limit=10")
+                            $mtxt = $mwc.DownloadString("$mbase/rest/v1/amit_mobile_captures?user_id=eq.$owner&destination=eq.to_computer&select=id,created_at,photo_url,transcript&order=created_at.asc&limit=10")
                             $mrows = $mser.DeserializeObject($mtxt)
                             $mpics = [Environment]::GetFolderPath('MyPictures'); if (-not $mpics) { $mpics = Join-Path $env:USERPROFILE 'Pictures' }
                             $mfolder = Join-Path $mpics 'Show Amit'; if (-not (Test-Path $mfolder)) { New-Item -ItemType Directory -Path $mfolder -Force | Out-Null }
@@ -1803,7 +1803,9 @@ try {
                                     $mwc3 = New-Object System.Net.WebClient; $mwc3.Encoding = [System.Text.Encoding]::UTF8
                                     $mwc3.Headers.Add('apikey', $mkey); $mwc3.Headers.Add('Authorization', "Bearer $mkey"); $mwc3.Headers.Add('User-Agent', 'supabase-js/2.0'); $mwc3.Headers.Add('Content-Type', 'application/json'); $mwc3.Headers.Add('Prefer', 'return=minimal')
                                     [void]$mwc3.UploadString("$mbase/rest/v1/amit_mobile_captures?id=eq.$mid", 'PATCH', '{"destination":"delivered"}')
-                                    foreach ($mg in $mgot) { [void]$mout.Add('{"id":' + $mid + ',"file":"' + ($mg.Replace('\', '\\').Replace('"', '\"')) + '"}') }
+                                    $mnote = [string]$mrow['transcript']; if ($mnote.Length -gt 600) { $mnote = $mnote.Substring(0, 600) }
+                                    $mnoteJson = $mser.Serialize($mnote)      # v1.60: the caption typed on the phone travels with the photo (properly quoted)
+                                    foreach ($mg in $mgot) { [void]$mout.Add('{"id":' + $mid + ',"file":"' + ($mg.Replace('\', '\\').Replace('"', '\"')) + '","note":' + $mnoteJson + '}') }
                                 }
                             }
                             Send-JsonRaw $response ('{"ok":true,"photos":[' + ($mout -join ',') + ']}')
