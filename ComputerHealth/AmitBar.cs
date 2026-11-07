@@ -497,6 +497,19 @@ public class BarForm : Form
         catch (Exception) { Say("Could not open " + name, "Windows could not open it. Check that a program is set to open this kind of file."); }
     }
 
+    // The "preview" step: asks the Helper (the one shared local agent, http://localhost:8710) to open the Amit Preview window, or bring it forward. The Helper opens
+    // the copy of the page that sits in its own folder (no internet needed) and splits the screen beside the window the person was in.
+    void OpenPreviewStep()
+    {
+        try
+        {
+            System.Net.HttpWebRequest rq = (System.Net.HttpWebRequest)System.Net.WebRequest.Create("http://localhost:8710/api/preview/open");
+            rq.Timeout = 6000;
+            using (System.Net.WebResponse rs = rq.GetResponse()) { }
+        }
+        catch (Exception) { Say("Amit Preview", "The Amit Helper is not running, so the preview window could not be opened. Start the Amit Helper and press the button again."); }
+    }
+
     // ---------- what a button does: only these safe steps ----------
     void RunButton(Btn b)
     {
@@ -515,6 +528,8 @@ public class BarForm : Form
                     else if (s.t == "play_music") { if (!String.IsNullOrEmpty(s.path)) Process.Start(s.path); else if (!String.IsNullOrEmpty(s.url)) Process.Start(s.url); }
                     else if (s.t == "speak") { using (System.Speech.Synthesis.SpeechSynthesizer sp = new System.Speech.Synthesis.SpeechSynthesizer()) sp.Speak(s.text ?? ""); }
                     else if (s.t == "wait") { Thread.Sleep(Math.Max(0, Math.Min(5000, s.ms))); }
+                    else if (s.t == "preview") { OpenPreviewStep(); }   // opens (or brings forward) the Amit Preview window through the Helper
+                    else if (s.t == "note") { }                          // carries written instructions with the button; pressing the button does nothing with it (a program or AI that presses the button through the Helper is handed the text)
                 }
                 catch { }
             }

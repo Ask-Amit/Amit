@@ -1,4 +1,4 @@
-# show_preview.ps1 v1.10 (2026-11-06) - shows a preview in the AMIT PREVIEW window (the one the voice command "preview" opens: paste box on the left,
+# show_preview.ps1 v1.20 (2026-11-07) - shows a preview in the AMIT PREVIEW window (the one the voice command "preview" opens: paste box on the left,
 # the picture on the right) with NOTHING to paste. This is how Amit shows Ryan every visual preview (Ryan, 2026-11-06: "always use that preview").
 # Every preview that is sent is ALSO FILED, with what it is, so it can be found again (Ryan, 2026-11-06: "a title of what's being displayed ... the app,
 # the date, the version number ... so it's trackable in the future ... pull up the views and the history from a menu item"):
@@ -16,6 +16,8 @@
 #   -Goal "..."      the PURPOSE in one or two plain sentences (what it is FOR, not what it looks like). The Improve / Better / Reimagine briefs carry it, so an AI is not led
 #                      by the current look. Always give it for anything that will be sent for reimagining.
 #   -How "..."       how it works, in a few plain sentences (what it does and how a person uses it). Also carried by the briefs.
+#   -Vars "..."      the sample / placeholder values in it and what each one stands for. REQUIRED by the Amit Preview page (v2.17 on): a send without Goal, How or Vars,
+#                      or without -App and -Title given on purpose, is refused by the page. This script prints the page's verdict and the rules.
 #   -Name "..."      the label of Version 1 (default "Amit"). A preview is one subject (app + title); a re-send of the same app + title updates Version 1 only.
 #   -NoOpen            only save and file it (an open window refreshes by itself)
 # Plain ASCII on purpose (PowerShell 5.1).
@@ -27,6 +29,7 @@ param(
   [string]$Title = '',
   [string]$Goal = '',
   [string]$How = '',
+  [string]$Vars = '',
   [switch]$NoOpen
 )
 $ErrorActionPreference = 'Stop'
@@ -35,6 +38,9 @@ $full = (Resolve-Path $Path).Path
 $html = [System.IO.File]::ReadAllText($full, [System.Text.Encoding]::UTF8)
 
 # ---- what is it? (App, Title) ----
+# which details were given ON PURPOSE (the page refuses a send whose App or Title was only guessed from the folder or the file)
+$given = New-Object System.Collections.ArrayList
+if ($App) { [void]$given.Add('app') }; if ($Title) { [void]$given.Add('title') }
 if (-not $App) {
   $dir = Split-Path -Parent $full
   if ((Split-Path -Leaf $dir) -ieq 'Previews') { $dir = Split-Path -Parent $dir }
@@ -83,6 +89,8 @@ $meta['id'] = $id; $meta['app'] = $App; $meta['title'] = $Title; $meta['tab'] = 
 $meta['sentAt'] = $now.ToString('yyyy-MM-ddTHH:mm:sszzz'); $meta['sizeChars'] = [int]$html.Length; $meta['source'] = 'claude'
 if ($Goal) { if ($Goal.Length -gt 500) { $Goal = $Goal.Substring(0, 500) }; $meta['goal'] = $Goal }
 if ($How) { if ($How.Length -gt 1200) { $How = $How.Substring(0, 1200) }; $meta['how'] = $How }
+if ($Vars) { if ($Vars.Length -gt 1500) { $Vars = $Vars.Substring(0, 1500) }; $meta['vars'] = $Vars }
+$meta['given'] = @($given)
 
 # ---- file it ----
 [System.IO.File]::WriteAllText((Join-Path $histDir ($id + '.html')), $html, $utf8)
@@ -102,10 +110,33 @@ Move-Item -LiteralPath $tmp -Destination $dest -Force
 (Get-Item $dest).LastWriteTimeUtc = [DateTime]::UtcNow      # a new stamp, so an open window always sees a change
 Write-Host ("Filed: {0} | {1} | version {2} | {3}" -f $App, $Title, $version, $now.ToString('yyyy-MM-dd HH:mm'))
 if ($NoOpen) { Write-Host "Saved the preview (the Amit Preview window refreshes by itself)."; exit 0 }
+# ---- what the Amit Preview page says about this send (v1.20): the page checks that the details are there and tells the Helper; read it here so the sender sees it ----
+function Get-PageVerdict {
+  $ticks = [string](Get-Item $dest).LastWriteTimeUtc.Ticks
+  for ($i = 0; $i -lt 8; $i++) {
+    try {
+      $s = Invoke-RestMethod -Uri "http://localhost:$Port/api/preview/status" -TimeoutSec 4
+      if ($s -and [string]$s.stamp -eq $ticks) { return $s }
+    } catch {
+      if ("$($_.Exception.Message)" -match '404|Not Found') { return 'old' }   # a Helper that does not have the route yet
+    }
+    Start-Sleep -Seconds 1
+  }
+  return $null
+}
+function Show-Verdict($v) {
+  if ($v -is [string] -and $v -eq 'old') { Write-Host "The Helper is an older version and cannot report what the page decided. Check the Amit Preview window: if it says the preview was not shown, a detail is missing."; return 0 }
+  if ($null -eq $v) { Write-Host "The page has not confirmed (the window may still be opening, or it is an older page that does not report back). Check the Amit Preview window."; return 0 }
+  if ($v.ok) { Write-Host "The Amit Preview page ACCEPTED the preview (all required details were there)."; return 0 }
+  Write-Host ("The Amit Preview page REFUSED the preview. Missing: " + (@($v.missing) -join '; ') + ".")
+  Write-Host "Send it again with every detail. The rules the page gave:"
+  Write-Host $v.rules
+  return 3
+}
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 try {
   $r = Invoke-RestMethod -Uri "http://localhost:$Port/api/preview/open" -TimeoutSec 8
-  if ($r.ok) { Write-Host "Amit Preview: showing the preview (live, nothing to paste)."; exit 0 }
+  if ($r.ok) { Write-Host "Amit Preview: sent to the window (live, nothing to paste)."; exit (Show-Verdict (Get-PageVerdict)) }
   throw "the Helper could not open the window"
 } catch {
   Write-Host ("Amit Preview is not available (" + $_.Exception.Message + "): opening the preview file in its own window instead.")

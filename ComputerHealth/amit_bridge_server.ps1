@@ -1381,6 +1381,59 @@ try {
                 if ($request.Headers['Origin']) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else { Send-JsonRaw $response ([AmitWhisper]::OpenPreviewWindow()) }
             }
+            # What the Amit Preview page decided about a send (page v2.17 on): it checks that the preview came with its details and reports here, stamped with the
+            # send's stamp. The page writes it (POST: Origin "null" or the Amit site); only a local script reads it back (GET, no Origin), so show_preview.ps1 can tell the sender.
+            "/api/preview/status" {
+                $pvStO = $request.Headers['Origin']
+                $pvStF = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\preview_status.json'
+                if ($request.HttpMethod -eq 'POST') {
+                    if ($pvStO -and $pvStO -ne 'null' -and $pvStO -ne 'https://ask-amit.github.io') { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                    else {
+                        $pvStR = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                        $pvStB = $pvStR.ReadToEnd(); $pvStR.Dispose()
+                        if ($pvStB.Length -gt 20000 -or -not $pvStB.TrimStart().StartsWith('{')) { Send-JsonRaw $response '{"error":"bad"}' 400 }
+                        else { [System.IO.File]::WriteAllText($pvStF, $pvStB, (New-Object System.Text.UTF8Encoding($false))); Send-JsonRaw $response '{"ok":true}' }
+                    }
+                }
+                elseif ($pvStO) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $pvStT = '{}'; if (Test-Path $pvStF) { $pvStX = ([System.IO.File]::ReadAllText($pvStF, [System.Text.Encoding]::UTF8)).Trim(); if ($pvStX.StartsWith('{')) { $pvStT = $pvStX } }
+                    Send-JsonRaw $response $pvStT
+                }
+            }
+            # Press an Amit Helper bar button from a program or an AI (not with the mouse): GET /api/bar/press?profile=Amit%20Coder&button=Amit%20PreView.
+            # Only local callers (no Origin). It runs the button's "preview" step (opens the Amit Preview window) and RETURNS the text of its "note" steps, so whoever pressed the
+            # button is handed the instructions that belong to it (for the preview button: how to send a preview, and what details are required). Any other kind of step is
+            # not run here (the bar itself does those when a person presses the button); they are listed under "skipped".
+            "/api/bar/press" {
+                if ($request.Headers['Origin']) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $bpP = [string]$request.QueryString["profile"]; $bpB = [string]$request.QueryString["button"]
+                    $bpFile = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\amit_bar.json'
+                    Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+                    $bpJs = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+                    $bpBtn = $null
+                    if (Test-Path $bpFile) {
+                        try {
+                            $bpCfg = $bpJs.DeserializeObject([System.IO.File]::ReadAllText($bpFile, [System.Text.Encoding]::UTF8))
+                            foreach ($bpPr in @($bpCfg['profiles'])) { if ([string]$bpPr['name'] -ieq $bpP) { foreach ($bpBt in @($bpPr['buttons'])) { if ([string]$bpBt['name'] -ieq $bpB) { $bpBtn = $bpBt } } } }
+                        } catch { $bpBtn = $null }
+                    }
+                    if (-not $bpBtn) { Send-JsonRaw $response '{"ok":false,"error":"no such button"}' 404 }
+                    else {
+                        $bpNotes = New-Object System.Collections.ArrayList; $bpDid = New-Object System.Collections.ArrayList; $bpSkip = New-Object System.Collections.ArrayList
+                        foreach ($bpSt in @($bpBtn['steps'])) {
+                            $bpK = [string]$bpSt['t']
+                            if ($bpK -eq 'preview') { [void][AmitWhisper]::OpenPreviewWindow(); [void]$bpDid.Add('preview') }
+                            elseif ($bpK -eq 'note') { [void]$bpNotes.Add([string]$bpSt['text']) }
+                            elseif ($bpK -ne 'wait') { [void]$bpSkip.Add($bpK) }
+                        }
+                        $bpOut = New-Object 'System.Collections.Generic.Dictionary[string,object]'
+                        $bpOut['ok'] = $true; $bpOut['button'] = [string]$bpBtn['name']; $bpOut['did'] = @($bpDid); $bpOut['notes'] = @($bpNotes); $bpOut['skipped'] = @($bpSkip)
+                        Send-JsonRaw $response ($bpJs.Serialize($bpOut))
+                    }
+                }
+            }
             # ---- Dictate (v1.56): the Dictate window (page amit_dictate.html). The words are heard in the page itself; Place waits here for the next left click on a text box and types the message there. ----
             "/dictate" {
                 # Gets this run's secret only when opened directly (same rule as /whisper and /talk).

@@ -120,7 +120,7 @@ Open previews only with `Templates/open_preview.ps1 -Path <file>` (one window, n
 
 ## Connection to Other Apps
 
-Lives beside Amit Live (the shared local helper in `ComputerHealth\Watchers\`) and uses its bridge. Profiles and buttons are stored in the shared Supabase database under the person's login and edited in the Hub. Part of AmitCoder's subscriber package (see `AmitCoder\CLAUDE.md` and `AmitCoder\Sessions.md`, 2026-10-31 product model).
+**Not part of Computer Health (Ryan, 2026-11-07):** the Helper (the bar, the Aurora, the voice menu, the mouse, the Amit Preview) is its own thing. Only its files happen to sit in `ComputerHealth\Watchers\`, because Computer Health was built first with that bridge and the updater and installer read from there; do not rename the folder. Record Helper, Aurora and previewer work in THIS folder's notes (and `AmitCoder\` for the previewer), never in Computer Health's. Lives beside Amit Live (the shared local helper in `ComputerHealth\Watchers\`) and uses its bridge. Profiles and buttons are stored in the shared Supabase database under the person's login and edited in the Hub. Part of AmitCoder's subscriber package (see `AmitCoder\CLAUDE.md` and `AmitCoder\Sessions.md`, 2026-10-31 product model).
 
 ---
 
