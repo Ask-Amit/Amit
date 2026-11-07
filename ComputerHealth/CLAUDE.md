@@ -14,6 +14,9 @@ All Computer Health development files belong here. Do not create Computer Health
 
 ---
 
+## THE AMIT HELPER IS NOT COMPUTER HEALTH (Ryan, 2026-11-07) — read before releasing anything from `Watchers\`
+The bar, the Aurora (Amit Live), the voice menu, the mouse and the Amit Preview are the Amit HELPER and AmitCoder. Their files sit in `Watchers\` only because Computer Health was built first with that bridge, and the updater and installers read from here, so the folder cannot be renamed. Computer Health's own work (the dashboard, trackers, diagnostics) is the only thing that belongs in THIS folder's notes. For ANY update / install / push / reload of the Helper follow `AmitHelper\HELPER_RELEASE_RULES.md` and run `AmitHelper\verify_helper_release.ps1`. Do not rebuild or push an installer for a Helper change: Computer Health's installer package is not updated for every Helper change (two packages; see those rules).
+
 ## THREE REAL COPIES EXIST — Read Before Fixing Any Bug (added 2026-07-19)
 
 There are three genuinely separate copies of the watcher/bridge scripts, and a bug fix only counts as done once it's actually reached the one that's running. Getting this wrong is exactly what happened on 2026-07-19: a real bug (`Invoke-WebRequest` missing `-UseBasicParsing`, causing "Couldn't reach LibreHardwareMonitor's sensor data" on the Hardware tab even though LHM was healthy) was fixed in the dev copy, declared fixed, and then Ryan tested it and it was still broken — because the actually-running tracker was a third copy that hadn't been touched.

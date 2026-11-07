@@ -1,0 +1,112 @@
+# verify_helper_release.ps1 - checks that a Helper release is complete and consistent BEFORE it is pushed (and again after).
+# Written 2026-11-07 for Ryan, who should never have to explain a Helper release again. The rules are in HELPER_RELEASE_RULES.md (same folder).
+# Every line must PASS. Run:  powershell -NoProfile -ExecutionPolicy Bypass -File verify_helper_release.ps1 [-Live] [-AllowInstaller]
+#   -Live            also compare the published manifest on the Amit site with this release
+#   -AllowInstaller  an installer program staged for the commit is allowed (otherwise it is a FAIL: see the rules, two packages)
+# Plain ASCII on purpose (PowerShell 5.1). Changes nothing. Exit code 1 when anything FAILs.
+param([switch]$Live, [switch]$AllowInstaller)
+$ErrorActionPreference = 'Continue'
+$amit = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+$watch = Join-Path $amit 'ComputerHealth\Watchers'
+$repo = Join-Path $env:USERPROFILE 'GitHub\Amit'
+$repoCH = Join-Path $repo 'ComputerHealth'
+$inst = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\Watchers'
+$git = Join-Path $env:LOCALAPPDATA 'GitHubDesktop\app-3.6.1\resources\app\git\cmd\git.exe'
+$script:fails = 0; $script:warns = 0
+function Pass($m) { Write-Host ("PASS  " + $m) }
+function Fail($m) { Write-Host ("FAIL  " + $m); $script:fails++ }
+function Warn($m) { Write-Host ("WARN  " + $m); $script:warns++ }
+
+# git stores text with LF, and the manifest fingerprints what git stores, so compare text files with their line endings normalized
+function NormHash([string]$p) {
+  $b = [System.IO.File]::ReadAllBytes($p)
+  $ext = [System.IO.Path]::GetExtension($p).ToLower()
+  if ($ext -in '.cs', '.ps1', '.html', '.json', '.md', '.txt', '.bat') {
+    $l1 = [System.Text.Encoding]::GetEncoding(28591)   # one byte per character, so the bytes come back exactly as they were, minus the carriage returns
+    $b = $l1.GetBytes($l1.GetString($b).Replace("`r`n", "`n"))
+  }
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  try { return ([BitConverter]::ToString($sha.ComputeHash($b))).Replace('-', '').ToLower() } finally { $sha.Dispose() }
+}
+function HelperVer([string]$p) {
+  if (-not (Test-Path $p)) { return $null }
+  $m = [regex]::Match([System.IO.File]::ReadAllText($p), 'public const string Version = "([0-9.]+)"')
+  if ($m.Success) { return $m.Groups[1].Value } else { return $null }
+}
+
+Write-Host "Helper release check ($(Get-Date -Format 'yyyy-MM-dd HH:mm'))"
+Write-Host ""
+
+# 1. one Helper version everywhere
+$vW = HelperVer (Join-Path $watch 'amit_whisper.cs'); $vR = HelperVer (Join-Path $repoCH 'amit_whisper.cs'); $vI = HelperVer (Join-Path $inst 'amit_whisper.cs')
+$manPath = Join-Path $repoCH 'amit_helper_manifest.json'
+$man = $null; if (Test-Path $manPath) { try { $man = [System.IO.File]::ReadAllText($manPath) | ConvertFrom-Json } catch { } }
+if (-not $man) { Fail "the manifest in the repo cannot be read: $manPath" } else {
+  $vM = [string]$man.helperVersion
+  if ($vW -and $vW -eq $vR -and $vW -eq $vI -and $vW -eq $vM) { Pass "Helper version $vW is the same in the source, the repo, the installed copy and the manifest" }
+  else { Fail "Helper version differs: source=$vW repo=$vR installed=$vI manifest=$vM (bump it in Watchers\amit_whisper.cs, copy it everywhere, rebuild the manifest)" }
+}
+
+# 2. the manifest fingerprints name exactly what the repo holds (what git will store)
+if ($man) {
+  $bad = @()
+  foreach ($e in $man.files) { $p = Join-Path $repoCH ([string]$e.name); if (-not (Test-Path $p)) { $bad += ($e.name + ' (missing in the repo)'); continue }; if ((NormHash $p) -ne [string]$e.sha256) { $bad += [string]$e.name } }
+  if ($bad.Count -eq 0) { Pass ("the manifest fingerprints match the repo for all " + @($man.files).Count + " files") } else { Fail ("the manifest is out of date for: " + ($bad -join ', ') + " (rebuild it AFTER copying the files, BEFORE committing)") }
+
+  # 3. source = repo = installed, file by file
+  $d1 = @(); $d2 = @()
+  foreach ($e in $man.files) {
+    $n = [string]$e.name; $ws = Join-Path $watch $n; $rp = Join-Path $repoCH $n; $ip = Join-Path $inst $n
+    if (-not (Test-Path $ws)) { $d1 += "$n (not in the source)"; continue }
+    if (-not (Test-Path $rp) -or (NormHash $ws) -ne (NormHash $rp)) { $d1 += $n }
+    if (-not (Test-Path $ip) -or (NormHash $ws) -ne (NormHash $ip)) { $d2 += $n }
+  }
+  if ($d1.Count -eq 0) { Pass "the source (Watchers) and the repo agree on every delivered file" } else { Fail ("source and repo differ: " + ($d1 -join ', ')) }
+  if ($d2.Count -eq 0) { Pass "the installed copy on this computer matches the source on every delivered file" } else { Fail ("installed copy differs from the source: " + ($d2 -join ', ') + " (copy them, with a backup first)") }
+
+  # 6. the updater must allow every file the manifest names, and the installed updater must be the current one
+  $ut = Join-Path $watch 'amit_update.ps1'
+  if (Test-Path $ut) {
+    $line = ([System.IO.File]::ReadAllLines($ut) | Where-Object { $_ -match '^\$allowed\s*=' } | Select-Object -First 1)
+    $names = @(); if ($line) { $names = [regex]::Matches($line, "'([^']+)'") | ForEach-Object { $_.Groups[1].Value } }
+    $notAllowed = @(); foreach ($e in $man.files) { if ($names -notcontains [string]$e.name) { $notAllowed += [string]$e.name } }
+    if ($names.Count -gt 0 -and $notAllowed.Count -eq 0) { Pass "the updater allows every file the manifest names" } else { Fail ("the updater would REFUSE this manifest, it does not allow: " + ($notAllowed -join ', ') + " (add them to `$allowed in amit_update.ps1 AND copy the updater to the installed folder once by hand)") }
+  } else { Fail "amit_update.ps1 not found in the source" }
+}
+
+# 4. the page master and the bar master
+$pm = Join-Path $amit 'AmitCoder\AmitPreview.html'
+if ((Test-Path $pm) -and (Test-Path (Join-Path $watch 'AmitPreview.html')) -and (NormHash $pm) -eq (NormHash (Join-Path $watch 'AmitPreview.html'))) { Pass "the page master (AmitCoder\AmitPreview.html) is the page that is delivered" } else { Fail "the page master AmitCoder\AmitPreview.html differs from Watchers\AmitPreview.html" }
+$rpg = Join-Path $repo 'AmitCoder\AmitPreview.html'
+if ((Test-Path $rpg) -and (Test-Path $pm) -and (NormHash $rpg) -eq (NormHash $pm)) { Pass "the web copy of the page (repo AmitCoder) matches the master" } else { Fail "the repo copy AmitCoder\AmitPreview.html differs from the master" }
+$bm = Join-Path $amit 'AmitHelper\Bar\AmitBar.cs'
+if ((Test-Path $bm) -and (NormHash $bm) -eq (NormHash (Join-Path $watch 'AmitBar.cs'))) { Pass "the bar master (AmitHelper\Bar\AmitBar.cs) is the bar source that is delivered" } else { Warn "the bar master AmitHelper\Bar\AmitBar.cs differs from Watchers\AmitBar.cs (known: unpublished changes in the master; check that nothing newer is being left out by mistake)" }
+
+# 7. the recorded installer version on this computer
+$iv = Join-Path $inst 'installed_version.txt'
+$ivt = ''; if (Test-Path $iv) { $ivt = ([System.IO.File]::ReadAllText($iv)).Trim() }
+if ($ivt) { Pass "installed_version.txt records installer version $ivt on this computer" } else { Fail "installed_version.txt is empty or missing: an installer run here would treat the install as old and replace the Helper files (write the version in)" }
+
+# 8. an installer staged for the commit
+if (Test-Path $git) {
+  Push-Location $repo
+  $staged = @(& $git diff --cached --name-only 2>$null)
+  Pop-Location
+  $ins = @($staged | Where-Object { $_ -match 'install-Amit\.exe' })
+  if ($ins.Count -gt 0 -and -not $AllowInstaller) { Fail ("an installer program is staged for this commit: " + ($ins -join ', ') + " (two packages: never push an installer for a Helper change; see the rules)") }
+  elseif ($ins.Count -gt 0) { Warn ("an installer is staged and allowed: " + ($ins -join ', ')) }
+  else { Pass "no installer program is staged for the commit" }
+} else { Warn "git was not found, so the staged files were not checked" }
+
+# 9. the published manifest (optional)
+if ($Live -and $man) {
+  try {
+    $ts = [int][double]::Parse((Get-Date -UFormat %s))
+    $lm = (Invoke-WebRequest -UseBasicParsing -Uri ("https://ask-amit.github.io/Amit/ComputerHealth/amit_helper_manifest.json?x=" + $ts) -TimeoutSec 20).Content | ConvertFrom-Json
+    if ([string]$lm.helperVersion -eq [string]$man.helperVersion) { Pass ("the published manifest is Helper " + $lm.helperVersion) } else { Fail ("the published manifest is Helper " + $lm.helperVersion + ", this release is " + $man.helperVersion + " (not pushed yet, or GitHub Pages has not published it: wait, then check again)") }
+  } catch { Warn ("the published manifest could not be read: " + $_.Exception.Message) }
+}
+
+Write-Host ""
+if ($script:fails -eq 0) { Write-Host ("ALL PASS" + $(if ($script:warns) { " (" + $script:warns + " warning" + $(if ($script:warns -gt 1) { 's' }) + ")" } else { '' })); exit 0 }
+else { Write-Host (([string]$script:fails) + " FAIL: fix them and run this again. Do not push."); exit 1 }
