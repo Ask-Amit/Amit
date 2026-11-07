@@ -2,10 +2,10 @@
 # Rebuilds install-Amit.exe from the live source scripts in the Watchers
 # folder (one level up) and embeds them directly into the exe as resources.
 #
-# *** STOP (Ryan, 2026-11-07): if the change is to the AMIT HELPER (the bar, the Aurora, the voice menu, the mouse, the Amit Preview, the bridge, the
-# *** updater), DO NOT run this and DO NOT push an installer. Ryan split the installer into two packages so Computer Health's is not updated for
-# *** every Helper change, and the Helper reaches every computer by itself through the automatic updater. Read AmitHelper/HELPER_RELEASE_RULES.md
-# *** and run AmitHelper/verify_helper_release.ps1. Only a Computer Health change (a tracker/watcher script) is a reason to run this.
+# *** (Ryan, 2026-11-07) This builds install-Amit.exe, the HELPER's package (small, about 1.9 MB). Rebuild it for EVERY Helper release (the bar, the Aurora,
+# *** the voice menu, the mouse, the Amit Preview, the bridge, the updater). The 72 MB AmitSensorReader.exe (Computer Health's hardware sensors) is NOT part
+# *** of it: it was split out on 2026-11-05 and is added on request from the Hardware tab; never rebuild or push that for a Helper change. The whole release
+# *** order is in AmitHelper/HELPER_RELEASE_RULES.md; run AmitHelper/verify_helper_release.ps1 before pushing. Run THIS script in the background.
 #
 # ALWAYS run this after changing any watcher/bridge/tracker script instead of
 # hand-copying files into this folder - it always pulls fresh from Watchers/

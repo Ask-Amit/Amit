@@ -2,9 +2,9 @@
 # Written 2026-11-07 for Ryan, who should never have to explain a Helper release again. The rules are in HELPER_RELEASE_RULES.md (same folder).
 # Every line must PASS. Run:  powershell -NoProfile -ExecutionPolicy Bypass -File verify_helper_release.ps1 [-Live] [-AllowInstaller]
 #   -Live            also compare the published manifest on the Amit site with this release
-#   -AllowInstaller  an installer program staged for the commit is allowed (otherwise it is a FAIL: see the rules, two packages)
+#   (it also checks that the installer, install-Amit.exe, was built from the current files and sits identical in its four places)
 # Plain ASCII on purpose (PowerShell 5.1). Changes nothing. Exit code 1 when anything FAILs.
-param([switch]$Live, [switch]$AllowInstaller)
+param([switch]$Live)
 $ErrorActionPreference = 'Continue'
 $amit = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $watch = Join-Path $amit 'ComputerHealth\Watchers'
@@ -87,16 +87,36 @@ $iv = Join-Path $inst 'installed_version.txt'
 $ivt = ''; if (Test-Path $iv) { $ivt = ([System.IO.File]::ReadAllText($iv)).Trim() }
 if ($ivt) { Pass "installed_version.txt records installer version $ivt on this computer" } else { Fail "installed_version.txt is empty or missing: an installer run here would treat the install as old and replace the Helper files (write the version in)" }
 
-# 8. an installer staged for the commit
-if (Test-Path $git) {
-  Push-Location $repo
-  $staged = @(& $git diff --cached --name-only 2>$null)
-  Pop-Location
-  $ins = @($staged | Where-Object { $_ -match 'install-Amit\.exe' })
-  if ($ins.Count -gt 0 -and -not $AllowInstaller) { Fail ("an installer program is staged for this commit: " + ($ins -join ', ') + " (two packages: never push an installer for a Helper change; see the rules)") }
-  elseif ($ins.Count -gt 0) { Warn ("an installer is staged and allowed: " + ($ins -join ', ')) }
-  else { Pass "no installer program is staged for the commit" }
-} else { Warn "git was not found, so the staged files were not checked" }
+# 8. the installer (install-Amit.exe, the Helper's own package) must carry THIS release, in all four places, with one version number
+$bmf = Join-Path $watch 'AmitInstaller\BUILD_MANIFEST.json'
+if (Test-Path $bmf) {
+  try {
+    $bm = [System.IO.File]::ReadAllText($bmf) | ConvertFrom-Json
+    $stale = @()
+    foreach ($pr in $bm.files.PSObject.Properties) {
+      $srcf = Join-Path $watch $pr.Name
+      if (-not (Test-Path $srcf)) { continue }
+      $md5 = [System.Security.Cryptography.MD5]::Create()
+      try { $h5 = ([BitConverter]::ToString($md5.ComputeHash([System.IO.File]::ReadAllBytes($srcf)))).Replace('-', '').ToLower() } finally { $md5.Dispose() }
+      if ($h5 -ne [string]$pr.Value) { $stale += $pr.Name }
+    }
+    if ($stale.Count -eq 0) { Pass "the installer was built from the current files (every embedded file matches the source)" } else { Fail ("the installer is OLD: these files changed after it was built: " + ($stale -join ', ') + " (rebuild it: rule 5)") }
+  } catch { Fail ("the installer's BUILD_MANIFEST.json could not be read: " + $_.Exception.Message) }
+} else { Fail "no BUILD_MANIFEST.json in Watchers\AmitInstaller: the installer has not been built (rule 5)" }
+$exes = @((Join-Path $watch 'AmitInstaller\install-Amit.exe'), (Join-Path $watch 'install-Amit.exe'), (Join-Path $repoCH 'install-Amit.exe'), (Join-Path $repoCH 'Watchers\install-Amit.exe'))
+$exeMissing = @(); $exeHashes = @()
+foreach ($x in $exes) { if (Test-Path $x) { $exeHashes += (Get-FileHash $x -Algorithm SHA256).Hash } else { $exeMissing += $x } }
+if ($exeMissing.Count -gt 0) { Fail ("an install-Amit.exe copy is missing: " + ($exeMissing -join ', ')) }
+elseif (@($exeHashes | Select-Object -Unique).Count -eq 1) { Pass "the four install-Amit.exe copies are identical" }
+else { Fail "the four install-Amit.exe copies differ (copy the new build to all four places: rule 5)" }
+$icsF = Join-Path $watch 'AmitInstaller\AmitInstaller.cs'; $iaiF = Join-Path $watch 'AmitInstaller\AssemblyInfo.cs'
+$vCs = ''; $vAi = ''
+if (Test-Path $icsF) { $m1 = [regex]::Match([System.IO.File]::ReadAllText($icsF), 'CURRENT_VERSION\s*=\s*"([0-9.]+)"'); if ($m1.Success) { $vCs = $m1.Groups[1].Value } }
+if (Test-Path $iaiF) { $m2 = [regex]::Match([System.IO.File]::ReadAllText($iaiF), 'AssemblyVersion\("([0-9]+\.[0-9]+)'); if ($m2.Success) { $vAi = $m2.Groups[1].Value } }
+if ($vCs -and $vCs -eq $vAi) { Pass "the installer has one version number ($vCs) in AmitInstaller.cs and AssemblyInfo.cs" } else { Fail "the installer version differs: AmitInstaller.cs says '$vCs', AssemblyInfo.cs says '$vAi' (bump both together)" }
+$rIns = Join-Path $repoCH 'Watchers\AmitInstaller'
+$srcOk = $true; foreach ($n in 'AmitInstaller.cs', 'AssemblyInfo.cs') { if (-not (Test-Path (Join-Path $rIns $n)) -or (NormHash (Join-Path $watch "AmitInstaller\$n")) -ne (NormHash (Join-Path $rIns $n))) { $srcOk = $false } }
+if ($srcOk) { Pass "the installer's own source files in the repo match the source" } else { Fail "the installer's source files (AmitInstaller.cs, AssemblyInfo.cs) in the repo differ from the source" }
 
 # 9. the published manifest (optional)
 if ($Live -and $man) {
