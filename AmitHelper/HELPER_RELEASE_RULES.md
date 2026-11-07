@@ -33,6 +33,14 @@ Every computer, wherever it is, updates ITSELF: nobody runs an update. And nothi
 10. Test live: Helper version (`/api/whisper/status`), the routes, the bar button.
 11. Write the notes (see "What this covers").
 
+## Adding a NEW kind of button step (learned 2026-11-07: it has to be added in ALL of these, or the Hub and the Helper drop it)
+A button's steps travel: Hub editor -> database (`hel_buttons.steps`) -> Hub builds the bar file -> `/api/bar/sync` -> `amit_bar.json` -> the bar (`AmitBar.exe`). The Hub OVERWRITES `amit_bar.json` from the database on every sync, so editing the file by hand does not stick.
+1. DATABASE: only these step types are allowed (`hel_steps_ok`): open_app, open_url, open_program, play_music, speak, ask_amit, wait. A new kind is stored as `open_program` with a coded value (`print:menu`, `audio:{...}`, `settings:id`, `file:token|name`, `preview:open`, `preview:rules`). No database change is needed.
+2. HUB (`Hub\amit-hub.html`, bump its version, back it up first): `HL_STEPS`, `hlDec` and `hlEnc` (the only two that know the coded values), `hlStepToBar`, the value box in `hlRenderSteps`, `hlSetType`, the save list in `hlSaveButton`, `hlTestOne`, the label function, and the "use ONLY these step types" exclusion for Amit's prompt.
+3. HELPER bridge: `$safe` in `Write-AmitBarConfig` (anything not in it makes the WHOLE sync fail). A step's text is cut to 300 characters there, so never keep long text in a button: keep it in the page and have the step fetch it (as `preview_rules` does).
+4. BAR (`AmitBar.cs` RunButton): an unknown step type is silently ignored, so add the new kind only if the bar itself must do something.
+5. Test it: round-trip through hlEnc, hlDec and hlStepToBar (node), then a real sync and `/api/bar/press`.
+
 ## The installer trap (fixed 2026-11-07)
 `Install_AmitTracker.ps1` replaced EVERY program file with its own embedded copies whenever the recorded installer version (`installed_version.txt`) was older or missing, with no never-go-backwards rule, so running an old installer put an old Helper back. It now keeps a newer installed Helper. The fix reaches computers through installers built after that date, so ALWAYS rebuild the installer (step 5). `installed_version.txt` must not be empty (the verify script checks it).
 

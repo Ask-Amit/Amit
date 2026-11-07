@@ -17,6 +17,11 @@ Fast, current-state record. Read this first when opening a session in this folde
 
 ## Log
 
+### 2026-11-07 (later still) - Helper 1.70, installer 4.87, Hub v8.69: the Hub button editor knows the Amit Preview steps
+- **Found (Ryan's screenshot of the Hub editor):** it showed my two steps (`preview`, `note`) as blank "Open an Amit app" rows. The editor did not know them, the Helper's bar sync REFUSES any step type outside its `$safe` list (the whole sync fails) and cuts a step's text to 300 characters, and the Hub overwrites `amit_bar.json` from the database on every sync, so my hand edit of the file could never stick. The long `note` text could not have survived a save at all.
+- **Fixed:** two step kinds that carry no text. `preview` ("Open the Amit Preview", stored as `open_program` `preview:open`) and `preview_rules` ("Hand out the previewer rules", stored as `preview:rules`). The rules themselves are read from the first block of `AmitPreview.html` by `/api/bar/press` (one source). Hub editor: `HL_STEPS`, `hlDec`/`hlEnc`, `hlStepToBar`, the value box, `hlSetType`, the save list, the test, the label and the AI-prompt exclusion (page v8.69; backup `Hub\amit-hub-pre-v8.68-previewstep.html`). Bridge: `$safe` gained both kinds; `/api/bar/press` handles `preview_rules`. Round-trip tested in node (all PASS). The older `note` kind still works in the press route but is not in the Hub.
+- **How to set the button (Ryan, in the Hub editor):** step 1 "Open the Amit Preview", step 2 "Hand out the previewer rules", Save. The full checklist for adding any new step kind is in `HELPER_RELEASE_RULES.md`.
+
 ### 2026-11-07 (later) - The Helper release is now a written rule, a hook and a check (Ryan: "I have explained this about 50 times")
 - **Written:** `AmitHelper\HELPER_RELEASE_RULES.md` (the ordered steps for update / install / push / reload, the two installer traps, never go backwards, the Helper is not Computer Health).
 - **Checked:** `AmitHelper\verify_helper_release.ps1` (PASS/FAIL: one Helper version everywhere, the manifest fingerprints, source = repo = installed for every delivered file, the updater allows every file the manifest names, page and bar masters, `installed_version.txt`, no installer staged for a Helper commit, and with `-Live` the published manifest).

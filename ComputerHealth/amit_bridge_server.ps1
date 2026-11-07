@@ -200,7 +200,7 @@ $handlerScript = {
     # file the bar reads (amit_bar.json). The bar reloads by itself when the file changes. Every call replaces the whole file, so nothing old survives a delete.
     # Parsed with .NET's JavaScriptSerializer and written by hand: ConvertTo-Json/ConvertFrom-Json can hang on a cold runspace (see ConvertTo-JsonString below).
     function Write-AmitBarConfig([string]$Body, [string]$Path) {
-        $safe = @('open_app','open_url','open_program','play_music','speak','ask_amit','wait','open_file','audio','print')
+        $safe = @('open_app','open_url','open_program','play_music','speak','ask_amit','wait','open_file','audio','print','preview','preview_rules')   # preview and preview_rules: the Amit Preview button (2026-11-07)
         $kinds = @('app','web','music','program','multi','ask')
         $fnFail = { param($m) return @{ ok = $false; error = $m } }
         $fnGet = { param($d, $k) if ($d -is [System.Collections.IDictionary] -and $d.ContainsKey($k)) { return $d[$k] } else { return $null } }
@@ -1426,6 +1426,14 @@ try {
                             $bpK = [string]$bpSt['t']
                             if ($bpK -eq 'preview') { [void][AmitWhisper]::OpenPreviewWindow(); [void]$bpDid.Add('preview') }
                             elseif ($bpK -eq 'note') { [void]$bpNotes.Add([string]$bpSt['text']) }
+                            elseif ($bpK -eq 'preview_rules') {
+                                # the rules for sending a preview live in ONE place, the first block of the Amit Preview page itself; this step hands them out (the sync keeps a step's text to 300 characters, so they are never stored in the button)
+                                $bpPg = Join-Path $watcherDir 'AmitPreview.html'
+                                if (Test-Path $bpPg) {
+                                    $bpRm = [regex]::Match([System.IO.File]::ReadAllText($bpPg, [System.Text.Encoding]::UTF8), '<script type="text/plain" id="pvRules">\s*(.*?)\s*</script>', 'Singleline')
+                                    if ($bpRm.Success) { [void]$bpNotes.Add($bpRm.Groups[1].Value.Trim()); [void]$bpDid.Add('preview_rules') }
+                                }
+                            }
                             elseif ($bpK -ne 'wait') { [void]$bpSkip.Add($bpK) }
                         }
                         $bpOut = New-Object 'System.Collections.Generic.Dictionary[string,object]'
