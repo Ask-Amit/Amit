@@ -1,0 +1,880 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Amit Mouse</title>
+<style>
+:root{
+  --bg:#0b0e14; --glass:rgba(24,29,40,.92); --glass2:rgba(34,41,56,.9); --line:rgba(255,255,255,.10);
+  --text:#e8ecf4; --mute:#97a1b5; --gold:#e6b84a; --blue:#4a9be6; --purple:#a07be0; --teal:#2fc4b2; --coral:#f08a6b; --green:#5fcf80; --gray:#7b8499; --red:#e66a6a;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:transparent;color:var(--text);font:14px/1.45 "Segoe UI",system-ui,sans-serif;padding:0;height:100vh}
+h1{font-size:14px;margin:0 0 2px;font-weight:600}
+.note{color:var(--mute);font-size:12px;margin:0 0 8px}
+/* the drawn screen */
+.screen{position:relative;border:2px solid #2a3142;border-radius:8px;background:linear-gradient(135deg,#1b2540,#10192e 60%,#1a1530);height:max(640px,calc(100vh - 100px));overflow:hidden}
+.taskbar{position:absolute;left:0;right:0;bottom:0;height:26px;background:rgba(10,12,18,.9);border-top:1px solid var(--line);font-size:11px;color:var(--mute);padding:5px 10px}
+/* the bar rail on the right edge */
+.rail{position:absolute;right:0;top:0;bottom:26px;width:46px;background:var(--glass);border-left:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:7px;padding:8px 0}
+.rail .t{width:34px;height:34px;border-radius:9px;background:var(--glass2);border:1px solid var(--line);display:grid;place-items:center;font-size:16px;position:relative;cursor:default}
+.rail .t.gold{border-color:var(--gold)} .rail .t.teal{border-color:var(--teal)} .rail .t.green{border-color:var(--green)} .rail .t.blue{border-color:var(--blue)}
+.rail .t.gray{border-color:var(--gray);margin-top:auto;cursor:pointer}
+.rail .t.gray:hover,.rail .t.on{background:#2c3550;box-shadow:0 0 0 2px var(--gold) inset}
+.rail .t:hover::after{content:attr(data-d);position:absolute;right:42px;top:50%;transform:translateY(-50%);white-space:nowrap;background:#10141d;border:1px solid var(--line);border-radius:6px;padding:3px 8px;font-size:11px;z-index:30}
+.menu{position:absolute;right:52px;bottom:40px;width:190px;background:var(--glass);border:1px solid var(--line);border-radius:9px;padding:5px;z-index:20}
+.menu div{padding:6px 9px;border-radius:6px;cursor:pointer;font-size:12px}
+.menu div:hover{background:#2c3550}
+.menu div.dim{color:var(--mute);cursor:default}.menu div.dim:hover{background:none}
+/* the Mouse sets window */
+.win{position:absolute;left:0;top:0;right:0;bottom:0;background:var(--glass);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.5);overflow:hidden}
+.win header{display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.03)}
+.win header b{font-size:13px}
+.sw{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px}
+.tog{width:34px;height:18px;border-radius:9px;background:var(--gray);position:relative;cursor:pointer;flex:none}
+.tog::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:.15s}
+.tog.on{background:var(--green)}.tog.on::after{left:18px}
+.x{width:22px;height:22px;display:grid;place-items:center;border-radius:5px;cursor:pointer;color:var(--mute)}.x:hover{background:var(--red);color:#fff}
+.body{flex:1;display:grid;grid-template-columns:196px 1fr;min-height:0}
+.side{border-right:1px solid var(--line);padding:9px;overflow:auto;display:flex;flex-direction:column;gap:6px}
+.side h2,.main h2{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:2px 0 2px;font-weight:600}
+.set{border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--glass2);cursor:pointer}
+.set.sel{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+.set .n{font-weight:600;display:flex;align-items:center;gap:6px}
+.set .p{color:var(--mute);font-size:11px}
+.badge{font-size:10px;padding:1px 6px;border-radius:9px;background:var(--green);color:#06210f;font-weight:600}
+.btn{background:#2c3550;border:1px solid var(--line);color:var(--text);border-radius:7px;padding:5px 10px;font:inherit;cursor:pointer}
+.btn:hover{background:#38426a}.btn.gold{background:var(--gold);color:#241a02;border-color:var(--gold);font-weight:600}
+.btn.red{background:#5a2323;border-color:var(--red)}
+input,select{background:#10141d;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 7px;font:inherit;max-width:100%}
+.main{padding:9px 12px;overflow:auto;min-width:0}
+.top{display:grid;grid-template-columns:230px 1fr;gap:12px;margin-bottom:9px}
+.mouse{position:relative;background:var(--glass2);border:1px solid var(--line);border-radius:10px;padding:6px;text-align:center}
+.mouse svg{width:100%;height:auto;display:block}
+.mouse .part{fill:#2b3347;stroke:#566082;stroke-width:1.5;transition:.12s}
+.mouse .part.seen{fill:#2d4a45;stroke:var(--teal)}
+.mouse .part.flash{fill:var(--gold);stroke:#fff}
+.mouse .part.unk{opacity:.45;stroke-dasharray:3 3}
+#pick{position:fixed;z-index:60;min-width:230px;background:#10161d;border:1px solid var(--gold);border-radius:12px;padding:9px;box-shadow:0 10px 30px rgba(0,0,0,.55)}
+#pick[hidden]{display:none}
+#pick .ph{font-size:11px;color:var(--mute);margin:0 2px 6px}
+#pick .ph b{color:var(--gold)}
+#pick .pi{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+#pick .pi:hover{background:rgba(255,255,255,.06)}
+#pick .pi.sel{border-color:var(--teal);background:rgba(47,196,178,.14)}
+#pick .pn{font-weight:700;color:var(--gold);width:16px}
+#pick .pt{margin-left:auto;font-size:10px;padding:1px 6px;border-radius:9px;background:var(--gold);color:#111}
+#pick .pf{font-size:10.5px;color:var(--mute);margin:6px 2px 0;line-height:1.4}
+.mouse text{fill:var(--mute);font-size:9px;text-anchor:middle;pointer-events:none}
+.pad{border:2px dashed #566082;border-radius:10px;background:rgba(255,255,255,.025);padding:9px;display:flex;flex-direction:column;gap:4px;min-height:150px;user-select:none;cursor:crosshair}
+.pad.learn{border-color:var(--gold);background:rgba(230,184,74,.07)}
+.pad .h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pad .big{font-size:13px;font-weight:600}
+.log{flex:1;font-size:12px;color:var(--mute);overflow:auto;max-height:92px}
+.log div{padding:1px 0}.log .a{color:var(--text)}
+table{border-collapse:collapse;width:100%}
+th{font-size:11px;text-align:left;color:var(--mute);font-weight:600;padding:3px 6px;border-bottom:1px solid var(--line)}
+td{padding:5px 6px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:middle}
+td.nm{white-space:nowrap}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:var(--gray)}
+.dot.key{background:var(--teal)}.dot.helper{background:var(--gold)}.dot.mouse{background:var(--blue)}.dot.set{background:var(--coral)}.dot.none{background:var(--red)}
+.lock{color:var(--mute);font-size:12px}
+.pill{font-size:10px;padding:1px 7px;border-radius:9px;border:1px solid var(--line);color:var(--mute)}
+.pill.s{border-color:var(--teal);color:var(--teal)}
+.key-in{width:150px;cursor:pointer;text-align:center}.key-in.rec{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.form{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px}
+[hidden]{display:none!important}
+.slot{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:2px 0}
+.slot .lab{width:78px;color:var(--mute);font-size:11px;flex:none}
+.ms{width:68px;text-align:center}
+.n2{color:var(--mute);font-size:11px}
+.lk{color:var(--blue);font-size:11px;cursor:pointer;text-decoration:underline}
+.lk:hover{color:var(--gold)}
+#learnBtn{display:none}
+.tabs{display:flex;gap:4px;padding:6px 12px 0;border-bottom:1px solid var(--line)}
+.tab{padding:6px 14px;border-radius:7px 7px 0 0;cursor:pointer;color:var(--mute);border:1px solid transparent;border-bottom:0}
+.tab.on{background:var(--glass2);color:var(--text);border-color:var(--line)}
+.learn{flex:1;min-height:0;display:grid;grid-template-columns:230px 1fr}
+.lside{border-right:1px solid var(--line);padding:9px;overflow:auto}
+.lside h2,.lmain h2{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:2px 0 4px;font-weight:600}
+.lmain{padding:12px;overflow:auto}
+.wprompt{font-size:18px;font-weight:600;margin-bottom:8px;color:var(--gold)}
+.step{padding:3px 0;font-size:12px;color:var(--mute)}
+.step.now{color:var(--text);font-weight:600}
+.step.done{color:var(--teal)}
+.step.skip{text-decoration:line-through}
+#mousePick{margin-left:4px;max-width:210px}
+tr.newrow td{background:rgba(230,184,74,.18)}
+.tip{background:rgba(47,196,178,.10);border:1px solid var(--teal);border-radius:8px;padding:8px 11px;margin-bottom:10px;line-height:1.5}
+.tip2{color:var(--mute);font-size:12px;margin:0 0 6px}
+.warn{background:rgba(230,106,106,.12);border:1px solid var(--red);border-radius:8px;padding:6px 9px;font-size:12px}
+#addSave:disabled{opacity:.4;cursor:not-allowed}
+.tipbtn{position:relative}.tipbtn:hover::after{content:attr(data-tip);position:absolute;left:0;bottom:calc(100% + 8px);width:250px;background:#10141d;border:1px solid var(--gold);border-radius:8px;padding:6px 9px;font-size:12px;font-weight:400;color:var(--text);z-index:40;white-space:normal;line-height:1.4}
+.notice{background:rgba(230,184,74,.14);border-bottom:1px solid var(--gold);padding:6px 12px;font-size:12px}
+#wDone:disabled{opacity:.45;cursor:not-allowed}
+.syslock{background:rgba(230,184,74,.08);border:1px solid var(--gold);border-radius:8px;padding:6px 9px}
+.syslock.user{border-color:var(--teal);background:rgba(47,196,178,.08)}
+.syslock .n2{margin-top:4px;line-height:1.45}
+.lockb{color:var(--gold);margin-top:2px;white-space:normal;max-width:170px}
+#setNum{width:96px!important;margin-top:0!important}
+tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-left:3px solid var(--gold)}
+.fp{background:var(--glass2);border:1px solid var(--gold);border-radius:8px;padding:8px 10px;margin:6px 0}
+.fh{font-weight:600;font-size:14px;margin-bottom:4px}
+.pad .log{max-height:56px;flex:none}
+.use{margin:2px 0 9px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--glass2)}
+.chk{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:4px;font-size:12px}
+.chk label{cursor:pointer;white-space:nowrap}
+.foot{margin-top:10px;font-size:12px;color:var(--mute);border-top:1px solid var(--line);padding-top:7px}
+.foot b{color:var(--text)}
+.sim{font-size:12px;color:var(--mute);margin-top:2px}
+.sim select{margin-top:3px;width:100%}
+@media(max-width:760px){.top{grid-template-columns:1fr}.body{grid-template-columns:1fr}.side{border-right:0;border-bottom:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<div class="win" id="win">
+    <header>
+      <b>Mouse:</b><select id="mousePick" title="Which mouse"></select>
+      <span class="pill" id="activePill"></span>
+      <span class="n2" style="margin-left:6px">Until this computer is connected: pretend I just picked up</span><select id="pretend" title="This page cannot tell which mouse you touched. Once the local connection is added, this happens by itself."></select>
+      <div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on"></div><span id="masterTxt">on</span></div>
+          </header>
+    <div class="tabs"><div class="tab on" id="tabLearn">1. Learn mouse</div><div class="tab" id="tabSets">2. Mouse sets</div></div>
+    <div class="notice" id="notice" hidden></div>
+    <div class="learn" id="learnView">
+      <div class="lside">
+        <h2>This mouse</h2>
+        <input id="mouseName" style="width:100%" placeholder="Name this mouse">
+        <div class="warn" id="nameMsg" hidden style="margin-top:4px"></div>
+        <div class="sim" id="devTxt"></div>
+        <div class="sim" id="primBox"></div>
+        <button class="btn" id="addBtn" style="margin-top:6px">+ Add another mouse</button>
+        <div class="form" id="addPanel" hidden>
+          <div class="sim"><b>Until the local connection is added:</b> this page cannot tell which mouse you touched (the real program can, by itself). Choose which mouse to pretend you pressed a button on.
+            <select id="devPick" style="width:100%"><option value="sharkoon">The gaming mouse that is already set up</option><option value="logi">A mouse on a wireless receiver</option><option value="other">A brand-new mouse</option></select></div>
+          <div id="addMsg" style="width:100%"></div>
+          <button class="btn gold" id="addSave">Add this mouse</button><button class="btn" id="addCancel">Cancel</button>
+        </div>
+        <h2 style="margin-top:8px" id="stepsH">Buttons, one by one</h2>
+        <div id="steps"></div>
+      </div>
+      <div class="lmain">
+        <div class="tip"><b>Before you start</b><br>Leave every button on your mouse the way it is now. If your mouse came with its own program, don't change its buttons there. Everything is set up right here instead. If something about your mouse changes later, come back to this tab and adjust it.<div class="n2" style="margin-top:4px">Why: your mouse's own program changes a button before Windows, and this program, ever see it. A button it has changed or keeps for itself can't be seen here. Use that program for lighting and speed (DPI), not for the buttons you want to set here.</div></div>
+        <div class="wprompt" id="wPrompt"></div>
+        <div class="pad" id="wpad">
+          <div class="h"><span class="big">Do it on your mouse, in this box</span></div>
+          <div class="log" id="wlog"></div>
+        </div>
+        <div class="form" style="margin-top:8px">
+          <button class="btn" id="wSkip">Skip: my mouse has no such button</button>
+          <button class="btn" id="wRestart">Start over</button>
+          <button class="btn gold tipbtn" id="wDone" data-tip="All buttons have been registered for this mouse. Press this when you have pressed every button it has.">Finished</button>
+        </div>
+      </div>
+    </div>
+    <div class="body" id="setsView" hidden>
+      <div class="side">
+        <h2>Your sets</h2>
+        <div id="setList"></div>
+        <button class="btn" id="newBtn">+ New set</button>
+        <div class="form" id="newForm" hidden>
+          <select id="newNum" style="width:100%"></select>
+          <input id="newName" placeholder="Optional label, e.g. Design" style="width:100%">
+          <button class="btn gold" id="newSave">Create</button><button class="btn" id="newCancel">Cancel</button>
+        </div>
+        <h2 style="margin-top:8px">Switching sets</h2>
+        <div class="sim">Any time, in any program: from a mouse button set to <b>Switch mouse set</b>, from a Helper bar button, or by voice: say "mouse" and the mouse's one-word name (that always means Set 1), or add "set" and a number, for example "mouse gaming set two". Any set can be moved to a free number, so deleting one never leaves a gap you cannot fill.
+          <div class="form"><input id="voiceIn" placeholder='Try: mouse gaming set two' style="width:100%"><button class="btn" id="voiceBtn">Say it</button></div></div>
+      </div>
+
+      <div class="main">
+        <div class="top">
+          <div class="mouse">
+            <svg viewBox="0 0 200 250" id="mouseSvg">
+              <path id="p_left" class="part" d="M30 100 Q30 30 98 30 L98 100 Z"/>
+              <path id="p_right" class="part" d="M102 30 Q170 30 170 100 L102 100 Z"/>
+              <rect id="p_middle" class="part" x="90" y="46" width="20" height="40" rx="9"/>
+              <path class="part" style="fill:#222a3c" d="M30 104 L170 104 L170 160 Q170 235 100 235 Q30 235 30 160 Z"/>
+              <rect id="p_back" class="part unk" x="14" y="118" width="22" height="26" rx="6"/>
+              <rect id="p_forward" class="part unk" x="14" y="88" width="22" height="26" rx="6"/>
+              <path id="p_tiltl" class="part unk" d="M78 62 L88 54 L88 70 Z"/>
+              <path id="p_tiltr" class="part unk" d="M122 62 L112 54 L112 70 Z"/>
+              <path id="p_wheelup" class="part" d="M100 36 L106 44 L94 44 Z"/>
+              <path id="p_wheeldown" class="part" d="M100 92 L106 84 L94 84 Z"/>
+              <text x="100" y="205">Dashed = not seen yet</text>
+              <text x="100" y="218">Press it to teach me</text>
+            </svg>
+          </div>
+          <div class="pad" id="pad">
+            <div class="h"><span class="big" id="padTitle"></span>
+              <button class="btn gold" id="learnBtn">Start learning</button></div>
+            <div id="focus"></div>
+            <div class="log" id="log"></div>
+          </div>
+        </div>
+
+        <div class="tip2">Reminder: keep your mouse's own program set the way it was. Everything is set here, and if something changes, come back to tab 1 and adjust.</div>
+        <h2 id="mapTitle">What each button does</h2>
+        <div id="useBox"></div>
+        <table>
+          <thead><tr><th>Button</th><th>Windows saw it</th><th>In this set it will</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+
+        <div class="foot">
+          <b>What this page cannot do yet.</b> The real program notices by itself which mouse you have just started using (after about a second of use, so an accidental bump does not switch) and switches to that mouse's setup; here you pretend with the box at the top. The real program watches the mouse across the whole computer (a browser only sees this box), hears your voice for "mouse" plus a set's name, and really sends the keys and clicks to the other program. A button that the mouse's own program changes or keeps for itself (a DPI button, say) may never reach Windows, so learning will not see it; that is why the screen asks people to leave the mouse's own program as it is, and a button that stays dashed is one Windows never received. Holding and double-clicking are timed here by your real press and release, so you can feel the delays; a button that has a double-click action must wait a moment before a single click acts, so a double-click action on a left button feels slower. On your primary mouse the left and right buttons never change, so Amit always works; on any other mouse they can be changed. Changing the left button of a second mouse needs the real program to tell the mice apart at the very moment of the click, which has to be tested on your computer before anyone relies on it, and "Mouse sets are off" is also in the tray so a bad setting can never trap you.
+        </div>
+      </div>
+    </div>
+  </div>
+
+<div id="pick" hidden></div>
+<script>
+var BTNS=[
+ {id:'left',name:'Left button',kind:'locked',seen:true},
+ {id:'right',name:'Right button',kind:'reserved',seen:true},
+ {id:'middle',name:'Middle button (wheel press)',seen:true},
+ {id:'wheelup',name:'Wheel up',seen:true},
+ {id:'wheeldown',name:'Wheel down',seen:true},
+ {id:'back',name:'Side button: Back',seen:false},
+ {id:'forward',name:'Side button: Forward',seen:false},
+ {id:'tiltl',name:'Wheel tilt left',seen:false},
+ {id:'tiltr',name:'Wheel tilt right',seen:false}
+];
+var HMENUS=[['AmitCoder',['Ask Amit','Computer Health']],['Books',['Books','Print from the screen']],['Shopping',['Cell Phone']]];
+var HELPER=[]; HMENUS.forEach(function(m){m[1].forEach(function(b){HELPER.push(b)})});
+function hMenuOf(name){for(var i=0;i<HMENUS.length;i++)if(HMENUS[i][1].indexOf(name)>=0)return HMENUS[i][0];return ''}
+var sets=[
+ {id:1,num:1,label:'Everyday',name:'Set 1 \u00B7 Everyday',map:{}},
+ {id:2,num:2,label:'Design mode',name:'Set 2 \u00B7 Design mode',map:{
+   back:{t:'key',v:'Ctrl + Z'},forward:{t:'key',v:'Ctrl + Shift + Z'},
+   middle:{t:'key',v:'Shift'}, tiltl:{t:'helper',v:'Print from the screen'}, tiltr:{t:'key',v:'F'},
+   wheelup:{t:'key',v:'Ctrl + Plus'},wheeldown:{t:'key',v:'Ctrl + Minus'}},
+   gest:{back:{hold:{t:'key',v:'Ctrl + S',ms:600}},middle:{dbl:{t:'helper',v:'Ask Amit'}}}}
+];
+var nextId=3, selId=2, learning=false, master=true, activeId=1, recBtn=null, delArm=null;
+var $=function(i){return document.getElementById(i)};
+var seenState={}; BTNS.forEach(function(b){seenState[b.id]=b.seen});
+var flashT={};
+var STEPS=[['left','Press the LEFT button'],['right','Press the RIGHT button'],['middle','Press the MIDDLE button (push the wheel down)'],['wheelup','Turn the wheel UP (away from you)'],['wheeldown','Turn the wheel DOWN (toward you)'],['tiltl','Tilt the wheel LEFT (skip it if yours does not tilt)'],['tiltr','Tilt the wheel RIGHT'],['back','Press the side button nearer your wrist (BACK)'],['forward','Press the side button nearer your fingers (FORWARD)'],['extra','Now press any OTHER buttons your mouse has, one at a time, then press Finished']];
+var nextMouse=3;
+var mice=[{id:1,primary:true,learned:true,name:'Gaming',nextNum:3,dev:'Windows device 1EA7:0064 (vendor looks like Sharkoon)',seen:seenState,skip:{},wiz:5,sets:sets,selId:selId,activeId:activeId}];
+var curMouse=mice[0];
+
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function activeSet(){
+  for(var j=0;j<sets.length;j++)if(sets[j].id===activeId)return sets[j];
+  return sets[0];
+}
+var WORDS=['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve'];
+function setByNum(n,list){list=list||sets;for(var i=0;i<list.length;i++)if(String(list[i].num)===String(n))return list[i];return null}
+function setName(s){return 'Set '+s.num+(s.label?' \u00B7 '+s.label:'')}
+function numWord(n){return WORDS[n]||String(n)}
+function phrase(s){return 'mouse '+curMouse.name.toLowerCase()+(s.num===1?'':' set '+numWord(s.num))}
+function setById(id){for(var i=0;i<sets.length;i++)if(String(sets[i].id)===String(id))return sets[i];return null}
+function freeNums(s){var used={},mx=0;sets.forEach(function(x){if(x!==s)used[x.num]=1;if(x.num>mx)mx=x.num});var out=[];for(var i=1;i<=mx+1;i++)if(!used[i])out.push(i);return out}
+function numberOptions(s){return freeNums(s).map(function(n){return '<option value="'+n+'"'+(s&&n===s.num?' selected':'')+'>Set '+n+'</option>'}).join('')}
+function nameProblem(n,self){
+  if(/\s/.test(n))return 'Use one word only, so the spoken command is just "mouse" and the name.';
+  if(!/^[A-Za-z0-9]+$/.test(n))return 'Use letters and numbers only.';
+  if(mice.some(function(x){return x!==self&&x.name.toLowerCase()===n.toLowerCase()}))return 'Another mouse already has that name. Each mouse needs its own name so your voice can tell them apart.';
+  return '';
+}
+function nameTaken(n){return mice.some(function(x){return x.name.toLowerCase()===n.toLowerCase()})}
+function selSet(){for(var i=0;i<sets.length;i++)if(sets[i].id===selId)return sets[i];return sets[0]}
+
+function drawSets(){
+  var a=activeSet(), h='';
+  sets.forEach(function(s){
+    h+='<div class="set'+(s.id===selId?' sel':'')+'" data-id="'+s.id+'"><div class="n">'+esc(s.name)+(master&&s.id===a.id?' <span class="badge">in use now</span>':'')+'</div>'+
+       '<div class="p">Say: "'+esc(phrase(s))+'"'+(s.num===1?' (starting set)':'')+'</div></div>';
+  });
+  $('setList').innerHTML=h;
+  [].forEach.call($('setList').children,function(e){e.onclick=function(){selId=+e.getAttribute('data-id');learningOff();drawAll()}});
+  $('activePill').textContent=master?('In use now: '+a.name):'All buttons work normally';
+}
+function drawMouse(){
+  BTNS.forEach(function(b){
+    var e=$('p_'+b.id); if(!e)return;
+    e.setAttribute('class','part'+(seenState[b.id]?' seen':' unk')+(flashT[b.id]?' flash':''));
+  });
+}
+function mapDesc(m){
+  if(!m||m.t==='keep')return 'Keep working as it does now';
+  if(m.t==='key')return 'Send the keys '+m.v;
+  if(m.t==='helper'){var hmn=m.hm||hMenuOf(m.v);return 'Run the Helper button "'+m.v+'"'+(hmn?' (menu '+hmn+')':'')}
+  if(m.t==='mouse')return 'Act as the '+m.v;
+  if(m.t==='set'){var x=setById(m.v);return 'Switch to '+(x?x.name:'a set that no longer exists')}
+  if(m.t==='none')return 'Do nothing';
+  return '';
+}
+function isLocked(b){return b.kind==='locked'&&curMouse.primary}
+function isReserved(b){return b.kind==='reserved'&&curMouse.primary}
+var primArm=false;
+var OPTS=[['keep','Keep as it is'],['key','Send keys'],['helper','Run a Helper button'],['mouse','Act as another mouse button'],['set','Switch mouse set'],['none','Do nothing']];
+var focusId=null;
+function slotObj(s,b,slot){
+  if(slot==='click')return s.map[b];
+  return s.gest&&s.gest[b]?s.gest[b][slot]:null;
+}
+function setSlot(s,b,slot,o){
+  if(slot==='click'){s.map[b]=o;return}
+  s.gest=s.gest||{};var g=s.gest[b]||(s.gest[b]={});if(o)g[slot]=o;else delete g[slot];
+}
+function actCell(b,slot,m){
+  var k=b+'|'+slot, c='<span class="dot '+m.t+'"></span><select data-b="'+b+'" data-slot="'+slot+'" data-k="t">'+
+    OPTS.map(function(o){return '<option value="'+o[0]+'"'+(m.t===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select> ';
+  var A='data-b="'+b+'" data-slot="'+slot+'" ';
+  if(m.t==='key')c+='<input class="key-in'+(recBtn===k?' rec':'')+'" '+A+'data-k="rec" readonly value="'+(recBtn===k?'Press the keys now...':esc(m.v||''))+'" placeholder="Click, then press keys">';
+  if(m.t==='helper'){
+    var hm=m.hm||hMenuOf(m.v), flt=m.menu||'';
+    c+='<select '+A+'data-k="hmenu" title="Which menu">'+'<option value="">All menus</option>'+HMENUS.map(function(x){return '<option value="'+esc(x[0])+'"'+(flt===x[0]?' selected':'')+'>'+esc(x[0])+'</option>'}).join('')+'</select> ';
+    var hopts='';
+    HMENUS.forEach(function(x){if(flt&&flt!==x[0])return;x[1].forEach(function(bn){hopts+='<option value="'+esc(x[0]+'|'+bn)+'"'+(hm===x[0]&&m.v===bn?' selected':'')+'>'+(flt?'':esc(x[0])+' \u203A ')+esc(bn)+'</option>'})});
+    c+='<select '+A+'data-k="hbtn" title="Which button">'+hopts+'</select>';
+  }
+  if(m.t==='mouse')c+='<select '+A+'data-k="v">'+['Left button','Right button','Middle button','Back button','Forward button','Double-click'].map(function(x){return '<option'+(m.v===x?' selected':'')+'>'+x+'</option>'}).join('')+'</select>';
+  if(m.t==='set')c+='<select '+A+'data-k="v">'+sets.map(function(x){return '<option value="'+x.id+'"'+(String(m.v)===String(x.id)?' selected':'')+'>'+esc(x.name)+'</option>'}).join('')+'</select>';
+  return c;
+}
+function lockBadge(b,s){
+  if(isLocked(b)||isReserved(b)||isPickBtn(b.id))return '<div class="n2 lockb">&#128274; Primary button, cannot be changed</div>';
+  if(s.locks&&s.locks[b.id])return '<div class="n2 lockb">&#128274; Locked by you</div>';
+  return '';
+}
+function isPickBtn(id){return id==='middle'&&curMouse.primary}
+function cellHtml(b,s){
+  if(!isPickBtn(b.id))return cellHtml0(b,s);
+  return '<div class="syslock"><b>&#128274; Primary button. It cannot be changed.</b><div class="slot"><span class="lab">Click</span>Starts Voice, always.</div><div class="slot"><span class="lab">Wheel</span>While Voice is listening, turning the wheel opens the voice menu: every command Voice understands, to choose with the mouse.</div><div class="slot"><span class="lab">Hold</span>Not used. Kept free for now.</div><div class="n2"><b>Why it cannot be changed:</b> this one button already does a lot (it starts Voice and opens the voice menu), so it stays exactly as it is and you can always speak to Amit. There is no double-click here: the first click of a double-click would start Voice. To change sets, use a Helper bar button, a voice command, or another mouse button.</div></div>';
+}
+function cellHtml0(b,s){
+  var seen=seenState[b.id], m=s.map[b.id]||{t:'keep'}, cell;
+  var g=(s.gest&&s.gest[b.id])||{}, wheelLike=(b.id.indexOf('wheel')===0||b.id.indexOf('tilt')===0);
+  if(isPickBtn(b.id)){g=Object.assign({},g);delete g.hold}
+  if(isLocked(b))return '<div class="syslock"><b>&#128274; Primary button. It cannot be changed.</b><div class="slot"><span class="lab">What it does</span>The normal left click and double-click, always, in every set.</div><div class="n2"><b>Why it cannot be changed:</b> this is the left button of your primary mouse. If it did anything else you could lose the ability to click, and then you could not click your way back to fix it. It stays as it is so you can always use Amit.</div></div>';
+  if(isReserved(b))return '<div class="syslock"><b>&#128274; Primary button. It cannot be changed.</b><div class="slot"><span class="lab">What it does</span>A single click is the normal right click. Hold it to open the Amit Live ring. Double-click it to open the Helper bar.</div><div class="n2"><b>Why it cannot be changed:</b> Amit Live uses this button to be there whenever you need it. If it did anything else, you could lose Amit and the Helper bar.</div></div>';
+  if(!seen)return '<span class="lock">Not learned yet. Press it on your mouse in the box above.</span>';
+  if(s.locks&&s.locks[b.id]){
+    var lc='<div class="syslock user"><b>&#128274; Locked by you. It will not change.</b>';
+    lc+='<div class="slot"><span class="lab">Click</span>'+esc(mapDesc(m))+'</div>';
+    if(!wheelLike&&g.dbl)lc+='<div class="slot"><span class="lab">Double-click</span>'+esc(mapDesc(g.dbl))+'</div>';
+    if(!wheelLike&&g.hold)lc+='<div class="slot"><span class="lab">Hold</span>for '+(g.hold.ms||500)+' ms: '+esc(mapDesc(g.hold))+'</div>';
+    lc+='<div class="n2"><span class="lk" data-lock="'+b.id+'">Unlock this button</span> if you want to change it.</div></div>';
+    return lc;
+  }
+  cell=((b.kind==='locked'||b.kind==='reserved')?'<div class="n2" style="margin-bottom:2px">This is a secondary mouse, so this button can be changed.</div>':'')+'<div class="slot" style="justify-content:flex-end;padding:0"><span class="lk" data-lock="'+b.id+'">&#128274; Lock this button</span></div><div class="slot"><span class="lab">Click</span>'+actCell(b.id,'click',m)+(g.dbl?' <span class="n2">acts after '+(curMouse.dbl||300)+' ms, to be sure it is not a double-click</span>':'')+'</div>';
+  if(!wheelLike){
+    if(g.dbl)cell+='<div class="slot"><span class="lab">Double-click</span>'+actCell(b.id,'dbl',g.dbl)+' <span class="lk" data-rm="'+b.id+'|dbl">remove</span></div>';
+    if(g.hold)cell+='<div class="slot"><span class="lab">Hold</span>for <input type="number" min="200" max="3000" step="50" value="'+(g.hold.ms||500)+'" data-b="'+b.id+'" data-slot="hold" data-k="ms" class="ms"> ms '+actCell(b.id,'hold',g.hold)+' <span class="lk" data-rm="'+b.id+'|hold">remove</span></div>';
+    var add='';
+    if(!g.dbl)add+='<span class="lk" data-add="'+b.id+'|dbl">+ Double-click action</span> ';
+    if(!g.hold&&!isPickBtn(b.id))add+='<span class="lk" data-add="'+b.id+'|hold">+ Hold action</span>';
+    if(add)cell+='<div class="slot">'+add+'</div>';
+  }
+  return cell;
+}
+function bindCtl(root,s){
+  [].forEach.call(root.querySelectorAll('[data-b]'),function(e){
+    var b=e.getAttribute('data-b'), slot=e.getAttribute('data-slot'), k=e.getAttribute('data-k');
+    if(k==='rec'){e.onclick=function(){recBtn=b+'|'+slot;focusId=b;drawRows();var r=document.querySelector('.key-in.rec');if(r)r.focus()};return}
+    e.onchange=function(){
+      var o=slotObj(s,b,slot)||{t:'keep'};
+      if(k==='t'){var t=e.value;if(t==='helper'){setSlot(s,b,slot,{t:t,v:HELPER[0],hm:hMenuOf(HELPER[0]),menu:'',ms:o.ms})}else setSlot(s,b,slot,{t:t,v:(t==='helper'?HELPER[0]:t==='mouse'?'Left button':t==='set'?String(sets[0].id):''),ms:o.ms})}
+      else if(k==='hmenu'){o.menu=e.value;var hmn2=o.hm||hMenuOf(o.v);if(o.menu&&hmn2!==o.menu){var hf=HMENUS.filter(function(x){return x[0]===o.menu})[0];if(hf){o.hm=hf[0];o.v=hf[1][0]}}setSlot(s,b,slot,o)}
+      else if(k==='hbtn'){var pv=e.value.split('|');o.hm=pv[0];o.v=pv.slice(1).join('|');setSlot(s,b,slot,o)}
+      else if(k==='ms'){var n=Math.max(200,Math.min(3000,+e.value||500));o.ms=n;setSlot(s,b,slot,o)}
+      else{o.v=e.value;setSlot(s,b,slot,o)}
+      focusId=b;drawAll();
+    };
+  });
+  [].forEach.call(root.querySelectorAll('[data-add]'),function(e){e.onclick=function(){
+    var p=e.getAttribute('data-add').split('|');setSlot(s,p[0],p[1],p[1]==='hold'?{t:'key',v:'',ms:500}:{t:'key',v:''});focusId=p[0];drawAll()}});
+  [].forEach.call(root.querySelectorAll('[data-lock]'),function(e){e.onclick=function(){var id=e.getAttribute('data-lock');s.locks=s.locks||{};if(s.locks[id])delete s.locks[id];else s.locks[id]=true;focusId=id;drawAll()}});
+  [].forEach.call(root.querySelectorAll('[data-rm]'),function(e){e.onclick=function(){
+    var p=e.getAttribute('data-rm').split('|');setSlot(s,p[0],p[1],null);focusId=p[0];drawAll()}});
+}
+function drawFocus(){
+  var s=selSet(), b=BTNS.filter(function(x){return x.id===focusId})[0], h;
+  if(!b)h='<div class="fp"><div class="fh">Press any button on your mouse</div><div class="n2">It shows up here, so you can say what it does in "'+esc(s.name)+'". Hold it or double-click it to try those too.</div></div>';
+  else h='<div class="fp"><div class="fh">'+esc(b.name)+' <span class="n2">in "'+esc(s.name)+'"'+((isLocked(b)||isReserved(b)||isPickBtn(b.id)||(s.locks&&s.locks[b.id]))?'':'. What should it do?')+'</span></div>'+lockBadge(b,s)+cellHtml(b,s)+'</div>';
+  $('focus').innerHTML=h;
+  bindCtl($('focus'),s);
+}
+function drawRows(){
+  var s=selSet(), h='';
+  s.gest=s.gest||{};
+  $('mapTitle').textContent='All buttons of this mouse in "'+s.name+'"';
+  drawUse(s);
+  BTNS.forEach(function(b){
+    var seen=seenState[b.id];
+    h+='<tr data-row="'+b.id+'" class="'+(newId===b.id?'newrow ':'')+(focusId===b.id?'selrow':'')+'"><td class="nm">'+esc(b.name)+lockBadge(b,s)+'</td><td>'+(seen?'<span class="pill s">seen</span>':'<span class="pill">not yet</span>')+'</td><td>'+cellHtml(b,s)+'</td></tr>';
+  });
+  if(s.num!==1){
+    h+='<tr><td colspan="3" style="text-align:right;border:0"><button class="btn'+(delArm===s.id?' red':'')+'" id="delBtn">'+(delArm===s.id?'Press again to delete "'+esc(s.name)+'"':'Delete this set')+'</button></td></tr>';
+  }
+  $('rows').innerHTML=h;
+  bindCtl($('rows'),s);
+  drawFocus();
+  var d=$('delBtn'); if(d)d.onclick=function(){
+    if(delArm===s.id){sets=sets.filter(function(x){return x.id!==s.id});if(activeId===s.id)activeId=1;selId=1;delArm=null}else delArm=s.id;
+    drawAll();
+  };
+}
+function drawUse(s){
+  $('useBox').innerHTML='<div class="use"><button class="btn gold" id="useNow">'+(activeId===s.id?'This set is in use':'Use this set now')+'</button> <span class="sim">Number: <select id="setNum"'+(s.num===1?' disabled':'')+'>'+numberOptions(s)+'</select> &nbsp; Label (optional, not spoken): <input id="setLabel" value="'+esc(s.label||'')+'" placeholder="e.g. Design" style="width:120px"> &nbsp; Double-click speed: two presses within <input type="number" id="dblMs" min="150" max="800" step="25" value="'+(curMouse.dbl||300)+'" class="ms"> ms count as a double-click (this mouse). Holding is timed per button, below.</span></div>';
+  $('useNow').onclick=function(){activeId=s.id;drawAll();say('Now using the set "'+s.name+'".',true)};
+  $('setNum').onchange=function(){s.num=+this.value;s.name=setName(s);sets.sort(function(a,b){return a.num-b.num});drawAll()};
+  $('setLabel').onchange=function(){s.label=this.value.replace(/^\s+|\s+$/g,'');s.name=setName(s);drawAll()};
+  $('dblMs').onchange=function(){curMouse.dbl=Math.max(150,Math.min(800,+this.value||300));drawAll()};
+}
+function parseNum(x){
+  var alias={to:2,too:2,won:1,for:4};
+  if(alias[x]!==undefined)return alias[x];
+  var i=WORDS.indexOf(x);if(i>=0)return i;if(/^\d+$/.test(x))return +x;return null;
+}
+function voice(t){
+  var w=String(t).toLowerCase().replace(/[,\.]/g,' ').replace(/\s+/g,' ').replace(/^\s+|\s+$/g,'');
+  var tok=w.split(' ');
+  if(tok[0]!=='mouse'){say('Heard "'+t+'": start with "mouse" and the mouse name. For example "mouse '+curMouse.name.toLowerCase()+'" (Set 1) or "mouse '+curMouse.name.toLowerCase()+' set two".',true);return}
+  var tm=null;
+  if(tok[1]==='set'||!tok[1])tm=curMouse;
+  else{mice.forEach(function(m){if(m.name.toLowerCase()===tok[1])tm=m});if(!tm){say('Heard "'+t+'": no mouse called "'+tok[1]+'". Your mice: '+mice.map(function(m){return m.name}).join(', ')+'.',true);return}}
+  var rest=(tok[1]==='set'||!tok[1])?tok.slice(1):tok.slice(2), n;
+  if(rest.length===0)n=1;
+  else if(rest[0]==='set'&&rest.length===2)n=parseNum(rest[1]);
+  else{say('Heard "'+t+'": after the mouse name say nothing (Set 1) or "set" and a number.',true);return}
+  var list=(tm===curMouse)?sets:tm.sets, s=(n===null)?null:setByNum(n,list);
+  if(!s){say('Heard "'+t+'": "'+tm.name+'" has no set "'+(rest[1]||'')+'". Its sets: '+list.map(function(x){return x.num}).join(', ')+'.',true);return}
+  if(tm===curMouse)activeId=s.id;else tm.activeId=s.id;
+  drawAll();say('Heard "'+t+'": "'+tm.name+'" is now using '+s.name+'.',true);
+}function drawPad(){
+  var p=$('pad'); p.className='pad'+(learning?' learn':'');
+  $('padTitle').textContent=learning?'Learning: press every button, turn the wheel, tilt it':'Press a button on your mouse in this box';
+  $('learnBtn').textContent=learning?'Done learning':'Start learning';
+  $('learnBtn').className='btn'+(learning?' gold':'');
+}
+function drawAll(){drawSets();drawMouse();drawRows();drawPad();drawPicker();drawLearn();save()}
+/* kept in this browser for now (the database and the local connection come next) */
+var KEY='amit_mouse_v1';
+function uid(){try{return crypto.randomUUID()}catch(e){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){var r=Math.random()*16|0;return (c==='x'?r:(r&3|8)).toString(16)})}}
+var ORIG={left:'button 0',middle:'button 1',right:'button 2',back:'button 3',forward:'button 4',wheelup:'wheel up',wheeldown:'wheel down',tiltl:'wheel tilt left',tiltr:'wheel tilt right'};
+function origOf(id){return ORIG[id]||(id.indexOf('btn')===0?'button '+id.slice(3):id)}
+var COMP=null;/* the real computer, from the Amit Helper on this computer (name and a permanent id) */
+function compInfo(){
+  if(COMP)return COMP;
+  var k=null,n=null;
+  try{k=localStorage.getItem('amit_mouse_computer');n=localStorage.getItem('amit_mouse_computer_name')}catch(e){}
+  if(!k){k=uid();try{localStorage.setItem('amit_mouse_computer',k)}catch(e){}}
+  return {id:k,name:n||'This browser (temporary name)',machine_key:'browser-'+k}
+}
+/* the whole setup, in the shape of the Per_ tables: devices, their controls (the original call), their sets and what each control does in a set (the new call) */
+function toRows(){
+  curMouse.selId=selId;curMouse.activeId=activeId;curMouse.sets=sets;curMouse.seen=seenState;
+  var devices=mice.map(function(m){
+    m.uid=m.uid||uid();
+    var setUid={};m.sets.forEach(function(s){s.uid=s.uid||uid();setUid[s.id]=s.uid});
+    var act=m.sets.filter(function(s){return s.id===m.activeId})[0];
+    var controls=BTNS.map(function(b){return {control_id:b.id,label:b.name,original_call:origOf(b.id),seen:!!m.seen[b.id]}});
+    var out={id:m.uid,kind:'mouse',name:m.name||'unnamed',device_key:m.dev||null,is_primary:!!m.primary,learned:!!m.learned,
+      settings:{dbl:m.dbl||300,pickMs:m.pickMs||500,wiz:m.wiz||0,skip:m.skip||{},activeNum:act?act.num:1,nextNum:m.nextNum||2},
+      controls:controls,sets:[]};
+    m.sets.forEach(function(s){
+      var acts=[];
+      function add(cid,slot,o,locked){
+        if(!o&&!locked)return; o=o||{t:'keep'};
+        var v=o.v==null?'':String(o.v);
+        if(o.t==='helper')v=(o.hm||hMenuOf(o.v)||'')+'|'+(o.v||'');
+        if(o.t==='set')v=setUid[o.v]||'';
+        acts.push({control_id:cid,slot:slot,action_type:o.t||'keep',action_value:v.slice(0,200),hold_ms:slot==='hold'?(o.ms||500):null,locked:!!locked});
+      }
+      var ids={};Object.keys(s.map||{}).forEach(function(k){ids[k]=1});Object.keys(s.gest||{}).forEach(function(k){ids[k]=1});Object.keys(s.locks||{}).forEach(function(k){ids[k]=1});
+      Object.keys(ids).forEach(function(cid){
+        var lk=!!(s.locks&&s.locks[cid]);
+        add(cid,'click',s.map[cid],lk);
+        var g=(s.gest&&s.gest[cid])||{};
+        if(g.dbl)add(cid,'dbl',g.dbl,false);
+        if(g.hold)add(cid,'hold',g.hold,false);
+      });
+      out.sets.push({id:s.uid,num:s.num,label:s.label||'',actions:acts});
+    });
+    return out;
+  });
+  return {computer:compInfo(),devices:devices};
+}
+function fromRows(d){
+  if(!d||!d.devices||!d.devices.length)return false;
+  var nm=[];
+  d.devices.forEach(function(dv){
+    (dv.controls||[]).forEach(function(c){if(c.control_id.indexOf('btn')===0&&!BTNS.some(function(x){return x.id===c.control_id}))BTNS.push({id:c.control_id,name:c.label||c.control_id,seen:false})});
+  });
+  d.devices.forEach(function(dv){
+    var st=dv.settings||{}, seen={};BTNS.forEach(function(b){seen[b.id]=false});
+    (dv.controls||[]).forEach(function(c){seen[c.control_id]=!!c.seen});
+    var idOf={};
+    var sl=(dv.sets||[]).slice().sort(function(a,b){return a.num-b.num}).map(function(s){
+      var o={id:nextId++,uid:s.id,num:s.num,label:s.label||'',name:'',map:{},gest:{},locks:{}};
+      o.name=setName(o);idOf[s.id]=o.id;return o;
+    });
+    (dv.sets||[]).forEach(function(s){
+      var o=sl.filter(function(x){return x.uid===s.id})[0];
+      (s.actions||[]).forEach(function(a){
+        var ob={t:a.action_type,v:a.action_value};
+        if(a.action_type==='helper'){var q=String(a.action_value).split('|');ob.hm=q[0];ob.v=q.slice(1).join('|')}
+        if(a.action_type==='set')ob.v=idOf[a.action_value]||'';
+        if(a.slot==='hold')ob.ms=a.hold_ms||500;
+        if(a.slot==='click'){if(a.action_type!=='keep')o.map[a.control_id]=ob;}
+        else{o.gest[a.control_id]=o.gest[a.control_id]||{};o.gest[a.control_id][a.slot]=ob}
+        if(a.locked)o.locks[a.control_id]=true;
+      });
+    });
+    if(!sl.length)sl=[{id:nextId++,uid:uid(),num:1,label:'',name:'Set 1',map:{},gest:{},locks:{}}];
+    var act=sl.filter(function(x){return x.num===st.activeNum})[0]||sl[0];
+    var m={id:nextMouse++,uid:dv.id,primary:!!dv.is_primary,learned:!!dv.learned,name:dv.name,dev:dv.device_key||'',dbl:st.dbl,pickMs:st.pickMs,
+      nextNum:st.nextNum||2,seen:seen,skip:st.skip||{},wiz:st.wiz||0,sets:sl,selId:act.id,activeId:act.id};
+    nm.push(m);
+  });
+  mice=nm;
+  curMouse=mice[0];sets=curMouse.sets;seenState=curMouse.seen;selId=curMouse.selId;activeId=curMouse.activeId;
+  return true;
+}
+function save(){try{
+  var rows=toRows();
+  localStorage.setItem(KEY,JSON.stringify({rows:rows,master:master,at:Date.now()}));
+  if(dbReady){clearTimeout(save.t);save.t=setTimeout(function(){try{parent.postMessage({amitMouse:'put',data:toRows()},location.origin)}catch(e){}},800)}
+}catch(e){}}
+var dbReady=false;
+/* the Hub (the parent page) holds the login and talks to the database for this page */
+window.addEventListener('message',function(ev){
+  if(ev.origin!==location.origin||!ev.data||ev.data.amitMouse!=='data')return;
+  dbReady=!ev.data.error;
+  var d=ev.data.row;
+  if(d&&fromRows(d)){drawAll();say('Your mouse setup was loaded from your login.',true)}
+  else if(dbReady)save();/* nothing stored yet: store what is here */
+  setStatus(ev.data.error?ev.data.error:'Saved to your login'+(COMP?' for the computer '+COMP.name:'')+'.');
+});
+function setStatus(t){var n=document.getElementById('dbState');if(n)n.textContent=t}
+function askHub(){try{if(parent!==window)parent.postMessage({amitMouse:'get',computer:compInfo()},location.origin)}catch(e){}}
+/* ask the Helper which computer this is; if it is not running, fall back to a name for this browser */
+(function(){
+  var done=false;function go(){if(done)return;done=true;askHub()}
+  setTimeout(function(){if(!done){setStatus('The Amit Helper did not answer, so this is kept under this browser.');go()}},3000);
+  try{fetch('http://localhost:8710/api/device',{cache:'no-store'}).then(function(r){return r.json()}).then(function(j){
+    if(j&&j.deviceId){COMP={id:uid(),name:String(j.deviceName||'This computer').slice(0,60),machine_key:String(j.deviceId).slice(0,80)};setStatus('Computer: '+COMP.name)}
+    go();
+  }).catch(function(){go()})}catch(e){go()}
+})();
+function load(){try{
+  var d=JSON.parse(localStorage.getItem(KEY)||'null'); if(!d)return;
+  if(d.rows&&fromRows(d.rows)){master=d.master!==false;$('master').className='tog'+(master?' on':'');$('masterTxt').textContent=master?'on':'off'}
+}catch(e){}}
+$('voiceBtn').onclick=function(){voice($('voiceIn').value)};
+$('voiceIn').onkeydown=function(e){if(e.key==='Enter')voice(this.value)};
+function say(t,a){['log','wlog'].forEach(function(i){var l=$(i);var d=document.createElement('div');if(a)d.className='a';d.textContent=t;l.insertBefore(d,l.firstChild);while(l.children.length>30)l.removeChild(l.lastChild)})}
+
+/* several mice */
+function newMouseObj(name,dev){var sn={};BTNS.forEach(function(b){sn[b.id]=false});return {id:nextMouse++,primary:false,learned:false,name:name,dev:dev,seen:sn,skip:{},wiz:0,nextNum:2,sets:[{id:nextId++,num:1,label:'',name:'Set 1',map:{}}],selId:null,activeId:null}}
+function switchMouse(id){adding=null;
+  curMouse.selId=selId;curMouse.activeId=activeId;curMouse.sets=sets;curMouse.seen=seenState;
+  var m=mice.filter(function(x){return x.id===id})[0]||mice[0];
+  curMouse=m;sets=m.sets;seenState=m.seen;
+  if(m.selId===null){m.selId=m.activeId=sets[0].id}
+  selId=m.selId;activeId=m.activeId;drawAll();if(!m.learned&&!$('setsView').hidden){showTab('learn');notify(LEARNFIRST)}
+}
+var adding=null;
+function drawPicker(){
+  var h='';mice.forEach(function(m){h+='<option value="'+m.id+'"'+(!adding&&m===curMouse?' selected':'')+'>'+esc(m.name||'(new mouse - needs a name)')+(m.primary?' (primary)':'')+'</option>'});
+  h+='<option value="add"'+(adding?' selected':'')+'>+ Add a mouse...</option>';
+  $('mousePick').innerHTML=h;
+  var ph='<option value="">choose...</option>';mice.forEach(function(m){ph+='<option value="'+m.id+'">'+esc(m.name||'new mouse')+'</option>'});ph+='<option value="new">A mouse I have not added</option>';
+  $('pretend').innerHTML=ph;
+  $('pretend').onchange=function(){var v=this.value;this.value='';if(v)autoUse(v)};
+  $('tabSets').textContent=curMouse.learned?'2. Mouse sets':'2. Mouse sets (learn first)';
+  $('tabSets').style.opacity=curMouse.learned?'1':'.55';
+  $('mousePick').onchange=function(){
+    if(this.value==='add'){adding={dev:null,dup:null,name:''};showTab('learn');return}
+    adding=null;switchMouse(+this.value);
+  };
+}
+function drawLearn(){
+  var m=curMouse;
+  $('addBtn').hidden=!!adding; $('addPanel').hidden=!adding; $('stepsH').hidden=!!adding; $('wRestart').hidden=!!adding; $('wDone').hidden=!!adding;
+  if(adding){
+    $('mouseName').value=adding.name||''; $('mouseName').placeholder='One word, e.g. Gaming'; $('primBox').innerHTML='';
+    var msg='';
+    if(adding.dup)msg='<div class="warn"><b>This mouse is already set up.</b> Its name is "'+esc(adding.dup.name)+'". A mouse can only be added once. <span class="lk" id="goDup">Go to it</span></div>';
+    else if(adding.dev)msg='<div class="sim">Recognized. A click from this mouse will now be kept apart from a click from your other mice, even though both are a left click. Give it a name and press <b>Add this mouse</b>.</div>';
+    else msg='<div class="sim">Press any button on the NEW mouse, in the box on the right. Windows will tell me which device it is.</div>';
+    if(adding.nameMsg)msg+='<div class="warn" style="margin-top:4px">'+esc(adding.nameMsg)+'</div>';
+    $('addMsg').innerHTML=msg;
+    $('devTxt').textContent='Connected through: '+(adding.dev?friendly(adding.dev):'(press a button on it first)');
+    $('addSave').disabled=!(adding.dev&&!adding.dup&&String(adding.name||'').replace(/\s/g,'')&&!adding.nameMsg);
+    var g=$('goDup'); if(g)g.onclick=function(){switchMouse(adding.dup.id)};
+    $('steps').innerHTML='';
+    $('wPrompt').textContent='Adding a new mouse. Press any button on the NEW mouse so I can recognize it.';
+    $('wSkip').hidden=true;
+    return;
+  }
+  $('mouseName').placeholder='One word, e.g. Gaming';
+  if(m.primary){$('primBox').innerHTML='<span class="badge">Primary mouse</span> Its left click, double-click, right click and right hold always keep their normal jobs, so you can always use Amit.'}
+  else{
+    $('primBox').innerHTML='Secondary mouse: every button on it can be changed, even left and right. <button class="btn" id="mkPrim" style="margin-top:4px">'+(primArm?'Press again to confirm':'Make this my primary mouse')+'</button>'+(primArm?'<div class="warn" style="margin-top:4px">The primary mouse moves to this one. Any changes to left and right on this mouse are removed, and the old primary mouse becomes a secondary mouse.</div>':'');
+    $('mkPrim').onclick=function(){
+      if(!primArm){primArm=true;drawLearn();return}
+      primArm=false;mice.forEach(function(x){x.primary=(x===curMouse)});
+      sets.forEach(function(s){delete s.map.left;delete s.map.right;if(s.gest){delete s.gest.left;delete s.gest.right}if(s.locks){delete s.locks.left;delete s.locks.right}});
+      say('\"'+curMouse.name+'\" is now the primary mouse.',true);drawAll();
+    };
+  }
+  $('mouseName').value=m.name; $('devTxt').textContent='Connected through: '+friendly(m.dev);
+  var nm=m.name||'', np0=nm?nameProblem(nm,m):'';
+  $('mouseName').style.borderColor=nm?'':'var(--gold)';
+  $('nameMsg').hidden=true;
+  $('wDone').disabled=!nm||!!np0;
+  $('wDone').setAttribute('data-tip',(!nm||np0)?'Give this mouse a one-word name first. Then you can press Finished.':'All buttons have been registered for this mouse. Press this when you have pressed every button it has.');
+  var felt=BTNS.filter(function(b){return seenState[b.id]}), notfelt=BTNS.filter(function(b){return !seenState[b.id]});
+  var h='<div class="step done"><b>Felt so far: '+felt.length+'</b></div>';
+  felt.forEach(function(b){h+='<div class="step done">&#10003; '+esc(b.name)+'</div>'});
+  if(!felt.length)h+='<div class="step">Nothing yet. Press a button.</div>';
+  h+='<h2 style="margin-top:8px">Not felt yet</h2><div class="step">Fine if your mouse does not have them.</div>';
+  notfelt.forEach(function(b){h+='<div class="step">&#9675; '+esc(b.name)+'</div>'});
+  $('steps').innerHTML=h;
+  $('wPrompt').textContent=m.learned?'Press every button on your mouse. Turn the wheel, tilt it, press the side buttons.':LEARNFIRST;
+  $('wSkip').hidden=true;
+}
+function wiz(id,e){
+  var wasNew=!seenState[id]; seenState[id]=true;
+  flashT[id]=1;setTimeout(function(){flashT[id]=0;drawMouse()},350);
+  say('I felt: '+nameOf(id)+(wasNew?'  - NEW, added to this mouse':'  - already known'),true);
+  drawAll();
+}
+function notify(t){var n=$('notice');n.textContent=t;n.hidden=false;clearTimeout(notify.t);notify.t=setTimeout(function(){n.hidden=true},9000)}
+var LEARNFIRST='Learn this mouse first. Press every button it has, then press Finished. After that you can make sets.';
+function autoUse(v){
+  if(v==='new'){
+    var nm2=newMouseObj('','Windows device 258A:00'+(10+mice.length)+' (another mouse)');
+    mice.push(nm2);switchMouse(nm2.id);showTab('learn');
+    notify('A new mouse was picked up and recognized. Give it a one-word name first, then press every button it has, then press Finished.');
+    $('mouseName').focus();
+    return;
+  }
+  var m=mice.filter(function(x){return String(x.id)===v})[0]; if(!m)return;
+  if(m===curMouse&&!adding){notify('You are already using "'+m.name+'".');return}
+  switchMouse(m.id);
+  if(!m.learned){showTab('learn');notify('"'+m.name+'" was picked up, but its buttons have not all been learned yet. '+LEARNFIRST)}
+  else notify('Now using "'+m.name+'". Its '+activeSet().name+' is active.');
+}
+function showTab(w){
+  $('learnView').hidden=(w!=='learn');$('setsView').hidden=(w!=='sets');
+  $('tabLearn').className='tab'+(w==='learn'?' on':'');$('tabSets').className='tab'+(w==='sets'?' on':'');
+  drawAll();
+}
+$('tabLearn').onclick=function(){showTab('learn')};
+$('tabSets').onclick=function(){if(!curMouse.learned||adding){showTab('learn');notify(LEARNFIRST);return}showTab('sets')};
+$('mouseName').onchange=function(){
+  var n=this.value.replace(/^\s+|\s+$/g,'');
+  if(adding){adding.name=n;drawAll();return}
+  if(n){var np=nameProblem(n,curMouse);if(np){say(np,true);this.value=curMouse.name;return}if(curMouse.name!==n){curMouse.name=n;drawAll()}}
+};
+$('mouseName').oninput=function(){
+  if(!adding){
+    var tv0=this.value.replace(/^\s+|\s+$/g,''), np1=tv0?nameProblem(tv0,curMouse):'';
+    var nmx=$('nameMsg'); nmx.textContent=np1; nmx.hidden=!np1;
+    $('wDone').disabled=!tv0||!!np1;
+    $('wDone').setAttribute('data-tip',(!tv0||np1)?'Give this mouse a one-word name first. Then you can press Finished.':'All buttons have been registered for this mouse. Press this when you have pressed every button it has.');
+    this.style.borderColor=tv0?'':'var(--gold)';
+    if(tv0&&!np1){curMouse.name=tv0;drawPicker()}
+    return;
+  }
+  if(adding){adding.name=this.value;var tv=this.value.replace(/^\s+|\s+$/g,''),np=tv?nameProblem(tv,null):'';if(np!==(adding.nameMsg||'')){adding.nameMsg=np;drawLearn();$('mouseName').focus()}$('addSave').disabled=!(adding.dev&&!adding.dup&&tv&&!np)}
+};
+$('addBtn').onclick=function(){adding={dev:null,dup:null,name:''};drawAll();$('mouseName').focus()};
+$('addCancel').onclick=function(){adding=null;drawAll()};
+$('addSave').onclick=function(){
+  if(!adding||!adding.dev||adding.dup)return;
+  var n=String(adding.name||'').replace(/^\s+|\s+$/g,'');
+  var np=nameProblem(n,null);if(np){adding.nameMsg=np;drawAll();return}
+  if(!n){$('mouseName').style.borderColor='var(--red)';return}
+  var m=newMouseObj(n,adding.dev);mice.push(m);switchMouse(m.id);say('Added the mouse "'+n+'". Press its buttons now.',true);
+};
+function friendly(d){
+  if(d.indexOf('1EA7:0064')>=0)return 'USB (cable or receiver)';
+  if(d.indexOf('046D:C52F')>=0)return 'a wireless receiver (dongle)';
+  return 'another USB connection';
+}
+function simDevice(){
+  var v=$('devPick').value;
+  if(v==='sharkoon')return 'Windows device 1EA7:0064 (vendor looks like Sharkoon)';
+  if(v==='logi')return 'Windows device 046D:C52F (Logitech receiver)';
+  return 'Windows device 258A:00'+(10+mice.length)+' (another mouse)';
+}
+function detect(){
+  var d=simDevice(), dup=mice.filter(function(x){return x.dev===d})[0]||null;
+  adding.dup=dup; adding.dev=dup?null:d; drawAll();
+}
+$('wSkip').onclick=function(){var i=curMouse.wiz||0,st=STEPS[i];if(!st||st[0]==='extra')return;curMouse.skip[st[0]]=true;curMouse.wiz=i+1;say('Skipped: '+nameOf(st[0]),true);drawAll()};
+$('wRestart').onclick=function(){BTNS.forEach(function(b){seenState[b.id]=false});curMouse.skip={};curMouse.wiz=0;say('Starting over for "'+curMouse.name+'".',true);drawAll()};
+$('wDone').onclick=function(){if(this.disabled)return;curMouse.wiz=STEPS.length;curMouse.learned=true;say('Finished. '+BTNS.filter(function(b){return seenState[b.id]}).length+' buttons registered for "'+curMouse.name+'".',true);showTab('sets')};
+function wizEvent(e){var id=norm(e);if(!id)return;if(adding){detect();return}wiz(id,e)}
+function learningOff(){learning=false;recBtn=null}
+
+$('master').onclick=function(){master=!master;this.className='tog'+(master?' on':'');$('masterTxt').textContent=master?'on':'off';drawAll();say(master?'Mouse sets are on.':'Mouse sets are OFF. Every button works as Windows normally does.',true)};
+$('learnBtn').onclick=function(){learning=!learning;recBtn=null;drawAll();say(learning?'Learning started.':'Learning finished.',true)};
+
+/* new set */
+$('newBtn').onclick=function(){
+  $('newNum').innerHTML=numberOptions(null);$('newForm').hidden=false;$('newName').value='';$('newName').focus();
+};
+$('newCancel').onclick=function(){$('newForm').hidden=true};
+$('newSave').onclick=function(){
+  var n=$('newName').value.replace(/^\s+|\s+$/g,'');
+  
+  var num=+$('newNum').value||freeNums(null)[0];var ns={id:nextId,num:num,label:n,name:'',map:{}};ns.name=setName(ns);sets.push(ns);sets.sort(function(a,b){return a.num-b.num});selId=nextId++;$('newForm').hidden=true;drawAll();
+};
+
+/* the real mouse, in the pad */
+function idFromEvent(e){
+  if(e.type==='mousedown'||e.type==='pointerdown'||e.type==='auxclick'){
+    if(e.button>4){
+      var xid='btn'+e.button;
+      if(!BTNS.some(function(b){return b.id===xid}))BTNS.push({id:xid,name:'Extra button (number '+e.button+')',seen:false});
+      return xid;
+    }
+    return ['left','middle','right','back','forward'][e.button]||null;
+  }
+  if(e.type==='wheel'){
+    if(Math.abs(e.deltaX)>Math.abs(e.deltaY))return e.deltaX<0?'tiltl':'tiltr';
+    return e.deltaY<0?'wheelup':'wheeldown';
+  }
+  return null;
+}
+function nameOf(id){for(var i=0;i<BTNS.length;i++)if(BTNS[i].id===id)return BTNS[i].name;return id}
+var lastWheel=0, lastEv={}, newId=null;
+function norm(e){
+  var id=idFromEvent(e); if(!id)return null;
+  if(e.type==='wheel'){var n=Date.now();if(n-lastWheel<120)return;lastWheel=n}
+  else{
+    /* the same press can arrive as pointerdown, mousedown and auxclick: count it once */
+    var now=Date.now(), L=lastEv[id];
+    if(L&&L.type!==e.type&&now-L.at<60){lastEv[id]={type:e.type,at:now};return}
+    lastEv[id]={type:e.type,at:now};
+  }
+  return id;
+}
+function idFromButton(n){
+  if(n>4)return 'btn'+n;
+  return ['left','middle','right','back','forward'][n]||null;
+}
+function fire(id,slot,delayed){
+  var s=activeSet(), b=BTNS.filter(function(x){return x.id===id})[0], r;
+  var lab={click:'',dbl:' (double-click)',hold:' (hold)'}[slot];
+  if(!master)r='Mouse sets are off: works as Windows normally does.';
+  else if(isLocked(b))r='Left button on the primary mouse: always works normally.';
+  else if(isPickBtn(id))r='Middle button on the primary mouse: a click always starts Voice.';
+  else if(isReserved(b))r='Right button on the primary mouse: Amit Live keeps it (hold = ring, double-click = bar).';
+  else{
+    var m=slotObj(s,id,slot);
+    r='"'+s.name+'": '+nameOf(id)+lab+' would '+mapDesc(m).replace(/^./,function(c){return c.toLowerCase()})+'.'+(delayed?' (It waited '+(curMouse.dbl||300)+' ms to be sure it was not a double-click.)':'');
+    if(m&&m.t==='set'){var ns=setById(m.v);if(ns){activeId=ns.id;drawAll();r+=' Switched: now using "'+ns.name+'".'}}
+  }
+  say(r,true);
+}
+/* the set picker: hold the middle button on the primary mouse */
+var pick={open:false,idx:0,moved:false}, lastXY={x:260,y:260};
+function pickList(){return sets.slice().sort(function(a,b){return a.num-b.num})}
+function pickOpen(){
+  var l=pickList(); pick.open=true;pick.moved=false;
+  pick.idx=Math.max(0,l.map(function(x){return x.id}).indexOf(activeId));
+  pickDraw();
+  var p=$('pick'); p.hidden=false;
+  p.style.left=Math.max(6,Math.min(lastXY.x+14,window.innerWidth-250))+'px';
+  p.style.top=Math.max(6,Math.min(lastXY.y+14,window.innerHeight-p.offsetHeight-8))+'px';
+  say('Set picker opened (middle button held '+(curMouse.pickMs||500)+' ms). Scroll the wheel and let go, or click a set.',true);
+}
+function pickDraw(){
+  var l=pickList(), h='<div class="ph">Mouse: <b>'+esc(curMouse.name||'')+'</b> &middot; choose a set</div>';
+  l.forEach(function(x,i){h+='<div class="pi'+(i===pick.idx?' sel':'')+'" data-pid="'+x.id+'"><span class="pn">'+x.num+'</span><span>'+esc(x.label||'')+'</span>'+(x.id===activeId?'<span class="pt">in use</span>':'')+'</div>'});
+  h+='<div class="pf">Scroll the wheel and let go to choose. Or let go and click a set. Esc closes.</div>';
+  var p=$('pick'); p.innerHTML=h;
+  [].forEach.call(p.querySelectorAll('[data-pid]'),function(e){e.onmousedown=function(ev){ev.stopPropagation()};e.onclick=function(){pickChoose(+e.getAttribute('data-pid'))}});
+}
+function pickMove(d){var n=pickList().length;pick.idx=(pick.idx+d+n)%n;pick.moved=true;pickDraw()}
+function pickRelease(){if(pick.open&&pick.moved)pickChoose(pickList()[pick.idx].id)}
+function pickChoose(id){
+  var s=setById(id); pickClose();
+  if(s){activeId=s.id;drawAll();say('Switched: now using "'+s.name+'".',true)}
+}
+function pickClose(){pick.open=false;$('pick').hidden=true}
+document.addEventListener('keydown',function(e){if(pick.open&&e.key==='Escape')pickClose()});
+document.addEventListener('mousedown',function(e){if(pick.open&&!e.target.closest('#pick')&&!(G.middle&&G.middle.down))pickClose()});
+document.addEventListener('mousemove',function(e){lastXY={x:e.clientX,y:e.clientY}});
+document.addEventListener('change',function(e){
+  if(e.target.classList&&e.target.classList.contains('pickms')){curMouse.pickMs=Math.max(200,Math.min(3000,+e.target.value||500));e.target.value=curMouse.pickMs;say('Set picker hold time: '+curMouse.pickMs+' ms.',true)}
+});
+var G={};
+function gestOf(id){var s=activeSet();return (s.gest&&s.gest[id])||{}}
+function gDown(id){
+  var g=G[id]||(G[id]={});
+  if(g.down)return;
+  g.down=true;g.held=false;
+  var h=gestOf(id).hold;
+  if(isPickBtn(id)){/* middle button of the primary mouse: a hold is not used */}
+  else if(h&&master)g.ht=setTimeout(function(){g.held=true;fire(id,'hold')},h.ms||500);
+}
+function gUp(id){
+  var g=G[id]; if(!g||!g.down)return;
+  g.down=false;clearTimeout(g.ht);
+  if(g.held&&isPickBtn(id)){pickRelease();return}
+  if(g.held)return;
+  var d=isPickBtn(id)?null:gestOf(id).dbl, win=curMouse.dbl||300;
+  if(d&&master){
+    if(g.pend){clearTimeout(g.pend);g.pend=null;fire(id,'dbl')}
+    else g.pend=setTimeout(function(){g.pend=null;fire(id,'click',true)},win);
+  }else fire(id,'click');
+}
+function handle(e){
+  var id=norm(e); if(!id)return;
+  if(pick.open&&e.type==='wheel'){pickMove(id==='wheeldown'?1:-1);return}
+  var wasNew=!seenState[id];
+  flashT[id]=1; setTimeout(function(){flashT[id]=0;drawMouse()},250);
+  focusId=id;
+  if(wasNew){
+    seenState[id]=true;newId=id;setTimeout(function(){newId=null;drawRows()},2500);
+    say('Windows received: '+nameOf(id)+'  - NEW. Added to the table below, choose what it does.',true);
+    drawAll();
+    var rw=document.querySelector('tr[data-row="'+id+'"]'); if(rw)rw.scrollIntoView({block:'nearest'});
+    return;
+  }
+  drawMouse();drawRows();
+  if(e.type==='wheel')fire(id,'click');else gDown(id);
+}
+window.addEventListener('mouseup',function(e){var id=idFromButton(e.button);if(id&&G[id]&&G[id].down)gUp(id)});
+function bindPad(pad,fn){
+  pad.addEventListener('mousedown',function(e){if(e.target.closest('button,select,input,option,.lk'))return;e.preventDefault();fn(e)});
+  pad.addEventListener('mouseup',function(e){if(e.button>2)e.preventDefault()});
+  pad.addEventListener('auxclick',function(e){e.preventDefault();if(e.target.closest('button,select,input,option,.lk'))return;fn(e)});
+  pad.addEventListener('pointerdown',function(e){if(e.target.closest('button,select,input,option,.lk'))return;fn(e)});
+  pad.addEventListener('contextmenu',function(e){e.preventDefault()});
+  pad.addEventListener('wheel',function(e){e.preventDefault();fn(e)},{passive:false});
+}
+bindPad($('pad'),handle);
+bindPad($('wpad'),wizEvent);
+
+/* recording a key combination */
+document.addEventListener('keydown',function(e){
+  if(!recBtn)return;
+  e.preventDefault();
+  var k=e.key; if(k==='Escape'){recBtn=null;drawRows();return}
+  var parts=[]; if(e.ctrlKey)parts.push('Ctrl'); if(e.altKey)parts.push('Alt'); if(e.shiftKey)parts.push('Shift'); if(e.metaKey)parts.push('Win');
+  if(['Control','Alt','Shift','Meta'].indexOf(k)<0){parts.push(k.length===1?k.toUpperCase():k)}
+  else if(parts.length===1){return}
+  var p=recBtn.split('|'), s=selSet(), o=slotObj(s,p[0],p[1])||{};
+  setSlot(s,p[0],p[1],{t:'key',v:parts.join(' + '),ms:o.ms});
+  recBtn=null; drawRows(); say('Saved keys: '+parts.join(' + '),true);
+});
+window.addEventListener('mouseup',function(e){if(e.button>2)e.preventDefault()});
+load();showTab('learn');
+</script>
+</body>
+</html>

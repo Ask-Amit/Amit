@@ -1391,7 +1391,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.69</div>
+      <div class="page-version" id="hubVersionBadge">v8.70</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2512,6 +2512,7 @@ header{
           <button class="ch-tab-btn" id="ch-tab-btn-comm-morning" onclick="showChTab('comm',4);mmLoad()">My Morning</button>
           <button class="ch-tab-btn" id="ch-tab-btn-comm-live" onclick="showChTab('comm',5)">Amit Live</button>
           <button class="ch-tab-btn" id="ch-tab-btn-comm-helper" onclick="showChTab('comm',6);hlLoad()">Amit Helper</button>
+          <button class="ch-tab-btn" id="ch-tab-btn-comm-mouse" onclick="showChTab('comm',7);amLoadMouse()">Amit Mouse</button>
         </div>
         <div class="ch-tab-main">
 
@@ -2734,6 +2735,11 @@ header{
             </div>
             <div id="hlNote" class="amw-small" style="margin-top:8px"></div>
           </div>
+        </div>
+
+        <!-- TAB 7: AMIT MOUSE (Ryan, 2026-11-07; Hub v8.70): learn each mouse, then make sets of what its buttons do. Its own page (AmitMouse.html) shown here; kept in this browser for now, database and the connection to this computer come next. -->
+        <div class="ch-tab-content" id="ch-tab-comm-7">
+          <iframe id="amMouseFrame" title="Amit Mouse" style="width:100%;height:calc(100vh - 190px);min-height:560px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:12px;background:rgba(0,0,0,.22)"></iframe>
         </div>
 
         </div><!-- /ch-tab-main -->
@@ -5859,6 +5865,69 @@ async function amvInitAboutMePanel(){
 // number elsewhere in the system or a name like 'aboutme' here — it's
 // just concatenated into the element IDs (detail-aboutme, ch-tab-nav-
 // aboutme, ch-tab-aboutme-N), so either works identically.
+// Amit Mouse page <-> database (Per_ tables: computers, devices, controls, sets, actions). The page asks; the Hub holds the login.
+async function amMouseGet(comp){
+  var q=await db.from('per_computers').select('id').eq('user_id',currentUser.id).eq('machine_key',comp.machine_key).maybeSingle();
+  if(q.error) throw q.error;
+  if(!q.data) return null;
+  var cid=q.data.id;
+  var dv=await db.from('per_devices').select('*').eq('computer_id',cid).eq('kind','mouse'); if(dv.error) throw dv.error;
+  var devs=dv.data||[]; if(!devs.length) return null;
+  var ids=devs.map(function(x){return x.id;});
+  var cs=await db.from('per_controls').select('*').in('device_id',ids); if(cs.error) throw cs.error;
+  var ss=await db.from('per_sets').select('*').in('device_id',ids); if(ss.error) throw ss.error;
+  var sids=(ss.data||[]).map(function(x){return x.id;});
+  var ac={data:[]}; if(sids.length){ ac=await db.from('per_actions').select('*').in('set_id',sids); if(ac.error) throw ac.error; }
+  return {devices:devs.map(function(x){
+    return {id:x.id,name:x.name,device_key:x.device_key,is_primary:x.is_primary,learned:x.learned,settings:x.settings||{},
+      controls:(cs.data||[]).filter(function(c){return c.device_id===x.id;}),
+      sets:(ss.data||[]).filter(function(s){return s.device_id===x.id;}).map(function(s){
+        return {id:s.id,num:s.num,label:s.label,actions:(ac.data||[]).filter(function(a){return a.set_id===s.id;})};})};
+  })};
+}
+async function amMousePut(d){
+  var uidv=currentUser.id, c=d.computer, now=new Date().toISOString();
+  var ex=await db.from('per_computers').select('id').eq('user_id',uidv).eq('machine_key',c.machine_key).maybeSingle(); if(ex.error) throw ex.error;
+  if(ex.data) c.id=ex.data.id;
+  var r=await db.from('per_computers').upsert({id:c.id,user_id:uidv,name:c.name,machine_key:c.machine_key,updated_at:now},{onConflict:'id'}); if(r.error) throw r.error;
+  var devRows=[],ctlRows=[],setRows=[],actRows=[];
+  d.devices.forEach(function(x){
+    devRows.push({id:x.id,user_id:uidv,computer_id:c.id,kind:'mouse',name:String(x.name).slice(0,40),device_key:x.device_key,is_primary:false,learned:!!x.learned,settings:x.settings||{},updated_at:now,_primary:!!x.is_primary});
+    x.controls.forEach(function(k){ctlRows.push({user_id:uidv,device_id:x.id,control_id:k.control_id,label:String(k.label||'').slice(0,80),original_call:k.original_call||'',seen:!!k.seen});});
+    x.sets.forEach(function(s){
+      setRows.push({id:s.id,user_id:uidv,device_id:x.id,num:s.num,label:String(s.label||'').slice(0,40)});
+      s.actions.forEach(function(a){actRows.push({user_id:uidv,set_id:s.id,control_id:a.control_id,slot:a.slot,action_type:a.action_type,action_value:a.action_value||'',hold_ms:a.hold_ms,locked:!!a.locked});});
+    });
+  });
+  // remove what the person deleted (a device's controls and sets go with it)
+  var have=await db.from('per_devices').select('id').eq('computer_id',c.id); if(have.error) throw have.error;
+  var keepD={}; devRows.forEach(function(x){keepD[x.id]=1;});
+  var gone=(have.data||[]).filter(function(x){return !keepD[x.id];}).map(function(x){return x.id;});
+  if(gone.length){ r=await db.from('per_devices').delete().in('id',gone); if(r.error) throw r.error; }
+  // only one primary per computer: clear the flag first, write devices, then set the primary
+  r=await db.from('per_devices').update({is_primary:false}).eq('computer_id',c.id); if(r.error) throw r.error;
+  var plain=devRows.map(function(x){var y=Object.assign({},x);delete y._primary;return y;});
+  if(plain.length){ r=await db.from('per_devices').upsert(plain,{onConflict:'id'}); if(r.error) throw r.error; }
+  for(var i=0;i<devRows.length;i++){ if(devRows[i]._primary){ r=await db.from('per_devices').update({is_primary:true}).eq('id',devRows[i].id); if(r.error) throw r.error; } }
+  if(ctlRows.length){ r=await db.from('per_controls').upsert(ctlRows,{onConflict:'device_id,control_id'}); if(r.error) throw r.error; }
+  var allDev=devRows.map(function(x){return x.id;});
+  // sets: a number can move or swap between sets (numbers are unique per device), so clear this device's sets and write them fresh in one go.
+  // Their actions go with them (they are rewritten right after), so nothing is lost.
+  if(allDev.length){ r=await db.from('per_sets').delete().in('device_id',allDev); if(r.error) throw r.error; }
+  if(setRows.length){ r=await db.from('per_sets').insert(setRows); if(r.error) throw r.error; }
+  if(actRows.length){ r=await db.from('per_actions').insert(actRows); if(r.error) throw r.error; }
+}
+window.addEventListener('message',async function(ev){
+  if(ev.origin!==location.origin||!ev.data||!ev.data.amitMouse) return;
+  var f=document.getElementById('amMouseFrame'); if(!f||ev.source!==f.contentWindow) return;
+  function reply(row,err){ try{ f.contentWindow.postMessage({amitMouse:'data',row:row,error:err||''},location.origin); }catch(_){} }
+  if(typeof currentUser==='undefined'||!currentUser||!currentUser.id){ if(ev.data.amitMouse==='get') reply(null,'Sign in to the Hub to keep this with your login.'); return; }
+  try{
+    if(ev.data.amitMouse==='get') reply(await amMouseGet(ev.data.computer));
+    else if(ev.data.amitMouse==='put') await amMousePut(ev.data.data);
+  }catch(e){ if(ev.data.amitMouse==='get') reply(null,'Could not reach your login storage: '+(e&&e.message||e)); else { try{ f.contentWindow.postMessage({amitMouse:'data',row:null,error:'Could not save: '+(e&&e.message||e)},location.origin);}catch(_){} } }
+});
+function amLoadMouse(){var f=document.getElementById('amMouseFrame');if(f&&!f.getAttribute('src'))f.setAttribute('src','AmitMouse.html')}
 function showChTab(detailNum,n){
   const detail=document.getElementById('detail-'+detailNum);
   const clickedBtn=event.target;
