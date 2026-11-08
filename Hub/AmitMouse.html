@@ -139,7 +139,7 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
       <b>Mouse:</b><select id="mousePick" title="Which mouse"></select>
       <span class="pill" id="activePill"></span>
       <span class="n2" id="pretendTxt" style="margin-left:6px">Which mouse I just used is not reported by the Helper yet, so choose it here:</span><select id="pretend" title="The Helper does not yet tell this page which mouse you touched. Once it does, this happens by itself."></select>
-      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.17</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
+      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.18</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
           </header>
     <div class="tabs"><div class="tab on" id="tabLearn">1. Learn mouse</div><div class="tab" id="tabSets">2. Mouse sets</div></div>
     <div class="tip2" id="safetyBar" style="margin:0;padding:6px 12px;border-bottom:1px solid var(--line);background:rgba(47,196,178,.08)"><b>Stuck, or a mouse acts strangely?</b> On the keyboard press <b>Ctrl + Alt + Shift + M</b>: every mouse set is switched off at once and all your buttons work as normal (press it again to switch them back on). To fix one button, use <b>Reset a button...</b> on the Mouse sets tab, with your main mouse if you have to.</div>
@@ -342,7 +342,7 @@ function setSlot(s,b,slot,o){
 }
 function actCell(b,slot,m){
   var k=b+'|'+slot, c='<span class="dot '+m.t+'"></span><select data-b="'+b+'" data-slot="'+slot+'" data-k="t">'+
-    OPTS.map(function(o){return '<option value="'+o[0]+'"'+(m.t===o[0]?' selected':'')+'>'+((o[0]==='keep'&&b==='middle'&&slot==='click')?'Default: open the Amit menu':o[1])+'</option>'}).join('')+'</select> ';
+    OPTS.filter(function(o){return !(o[0]==='keep'&&b==='middle'&&slot==='click'&&BUILTIN.length)}).map(function(o){return '<option value="'+o[0]+'"'+(m.t===o[0]?' selected':'')+'>'+((o[0]==='keep'&&b==='middle'&&slot==='click')?'Default: open the Amit menu':o[1])+'</option>'}).join('')+'</select> ';
   var A='data-b="'+b+'" data-slot="'+slot+'" ';
   if(m.t==='key')c+='<input class="key-in'+(recBtn===k?' rec':'')+'" '+A+'data-k="rec" readonly value="'+(recBtn===k?'Press the keys now...':esc(m.v||''))+'" placeholder="Click, then press keys">';
   if(m.t==='helper'){
@@ -351,6 +351,7 @@ function actCell(b,slot,m){
     var hopts='';
     HMENUS.forEach(function(x){if(flt&&flt!==x[0])return;x[1].forEach(function(bn){hopts+='<option value="'+esc(x[0]+'|'+bn)+'"'+(hm===x[0]&&m.v===bn?' selected':'')+'>'+(flt?'':esc(x[0])+' \u203A ')+esc(bn)+'</option>'})});
     c+='<select '+A+'data-k="hbtn" title="Which button">'+hopts+'</select>';
+    if(m.isDefault)c+=' <span class="n2">(this is the default for the middle button; choose something else to change it)</span>';
     if(!HMENUS.length)c+=' <span class="n2">You have no Helper bar buttons yet. Make one in Communications &gt; Amit Helper, then come back.</span>';
   }
   if(m.t==='mouse')c+='<select '+A+'data-k="v">'+['Left button','Right button','Middle button','Back button','Forward button','Double-click'].map(function(x){return '<option'+(m.v===x?' selected':'')+'>'+x+'</option>'}).join('')+'</select>';
@@ -369,6 +370,8 @@ function cellHtml(b,s){
 }
 function cellHtml0(b,s){
   var seen=seenState[b.id], m=s.map[b.id]||{t:'keep'}, cell;
+  /* the middle button of every mouse is set to the button Menus > Amit menu by default: shown as exactly that (not stored until the person changes it), so there is one way to see it, not several */
+  if(b.id==='middle'&&BUILTIN.length&&(!s.map.middle||s.map.middle.t==='keep'))m={t:'helper',v:BUILTIN.indexOf('Amit menu')>=0?'Amit menu':BUILTIN[0],hm:'Menus',menu:'',isDefault:true};
   var g=(s.gest&&s.gest[b.id])||{}, wheelLike=(b.id.indexOf('wheel')===0||b.id.indexOf('tilt')===0);
   if(isPickBtn(b.id)){g=Object.assign({},g);delete g.hold}
   if(isLocked(b))return '<div class="syslock"><b>&#128274; Primary button. It cannot be changed.</b><div class="slot"><span class="lab">What it does</span>The normal left click and double-click, always, in every set.</div><div class="n2"><b>Why it cannot be changed:</b> this is the left button of your primary mouse. If it did anything else you could lose the ability to click, and then you could not click your way back to fix it. It stays as it is so you can always use Amit.</div></div>';
