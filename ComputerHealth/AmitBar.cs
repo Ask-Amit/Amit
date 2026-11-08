@@ -187,6 +187,18 @@ public class BarForm : Form
         c.profiles.Add(p1); c.profiles.Add(p2); c.profiles.Add(p3);
         return c;
     }
+    // THE STANDARD BUTTON (Ryan, 2026-11-08): every computer has one standard, locked button, "Amit menu", in the Settings group. It opens the Amit menu and it is what the middle
+    // mouse button runs. It is added here, in memory, every time the bar takes in its settings, so it is always there (the Hub's bar file never carries it) and cannot be changed or deleted.
+    static List<Step> StdSteps() { List<Step> l = new List<Step>(); Step st = new Step(); st.t = "menu"; st.text = "amit-menu"; l.Add(st); return l; }
+    static void EnsureStandard(Cfg c)
+    {
+        if (c == null || c.profiles == null) return;
+        Prof s = null; foreach (Prof p in c.profiles) if (OneLine(p.name) == "Settings") { s = p; break; }
+        if (s == null) { s = new Prof(); s.name = "Settings"; s.say = "profile settings"; c.profiles.Add(s); }
+        foreach (Btn b in s.buttons) if (OneLine(b.name) == "Amit menu") { b.steps = StdSteps(); return; }   // a button someone made with this name becomes the standard one
+        Btn n = new Btn(); n.name = "Amit menu"; n.kind = "program"; n.desc = "Opens the Amit menu: Voice, Mouse, Keyboard and more. The middle mouse button runs this button."; n.icon = "\uD83D\uDCCB"; n.steps = StdSteps();
+        s.buttons.Insert(0, n);
+    }
     DateTime cfgStamp = DateTime.MinValue;
     void LoadCfg()
     {
@@ -194,6 +206,7 @@ public class BarForm : Form
         try { if (File.Exists(cfgPath)) cfg = js.Deserialize<Cfg>(File.ReadAllText(cfgPath)); } catch { cfg = null; }
         if (cfg == null || cfg.profiles == null || cfg.profiles.Count == 0) { cfg = Default(); SaveCfg(); }
         if (cfg.idleMinutes < 1) cfg.idleMinutes = 2;
+        EnsureStandard(cfg);
         try { cfgStamp = File.GetLastWriteTimeUtc(cfgPath); } catch { }
         WriteVoiceList();
     }
@@ -238,6 +251,7 @@ public class BarForm : Form
             cfgStamp = t;
             if (c == null || c.profiles == null || c.profiles.Count == 0) return;
             if (c.idleMinutes < 1) c.idleMinutes = 2;
+            EnsureStandard(c);
             cfg = c; WriteVoiceList(); hover = -1; tip.Hide(this); Current();
             if (Visible) Invalidate(); else if (cfg.alwaysOn) ShowBar();
         }
