@@ -6,6 +6,13 @@ Fast, no-bloat running record of current state. Full behavioral/identity rules c
 
 ---
 
+## 2026-11-08 - Hub v8.70 to v8.76: Amit Mouse tab and the Helper's button step "Open a menu" (all pushed and live)
+- **v8.70:** new tab **Amit Mouse** in Communications (next to Amit Helper): `Hub\AmitMouse.html` loaded in a frame; it learns each mouse, makes numbered sets and saves per login and per computer through the Hub (the page asks, the Hub holds the login) into the `Per_` tables (`per_computers`, `per_devices`, `per_controls`, `per_sets`, `per_actions`). **v8.71:** the mouse page's "Run a Helper button" list is the person's real bar profiles and buttons (a Hub message `bar`). **v8.72:** saves run ONE AT A TIME (overlapping saves wiped the primary mouse flag) and flags are written in one pass; devices are read oldest first. **v8.73:** the button editor has a new step **Open a menu** (stored as `open_program` with `menu:<id>`, no database change; its dropdown is the Helper's own list of menus at `/api/menus`; Test opens it). **v8.74:** the dropdown says what each menu is. **v8.75:** the Hub tells the mouse page whether its tab is on screen (one cheap check a second) so the page can pause the person's mouse sets while they edit. **v8.76:** the Settings group shows the standard locked button **Amit menu** (the bar program adds it on every computer; it is not a database row) with a Test button, and the list the mouse page gets includes it.
+- **Backups (before each change):** `amit-hub-pre-v8.70` to `amit-hub-pre-v8.76` in this folder.
+- **Details and decisions:** `AmitHelper\Sessions.md` (Current State and the 2026-11-07 and 2026-11-08 entries). Living Testimony v1.46 describes Amit Mouse and the Amit Helper.
+
+---
+
 ## 2026-11-02 - Hub v8.68: Yamaha tile (local only, NOT pushed)
 Sidebar tile "Yamaha" added directly under AmitCapacity (Ryan's instruction). Opens `ShoshoneHondaYamaha/capture.html` (his client's monthly books capture, same Supabase table `shy_recon_captures` on phone and computer). Hidden by default and switched on in the `onAuthStateChange` callback only when the signed-in user is Ryan (`AMIT_DEMO_UID`), so nobody else sees it; this hides the tile only, the page and its data stay as open as before (Ryan's choice). Backup: `amit-hub-pre-v8.68-yamaha.html`. Waits for "push".
 
