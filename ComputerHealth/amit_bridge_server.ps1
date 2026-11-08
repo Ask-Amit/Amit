@@ -1478,6 +1478,25 @@ try {
                     Send-JsonRaw $response ([AmitWhisper]::DictateWait($dwSince, 20000))
                 }
             }
+            "/api/dictate/handoff" {
+                # v1.76: words that had nowhere to go (no text box had the focus while the person kept speaking) are handed to the Dictate window, once.
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::DictateTakeHandoff()) }
+            }
+            "/api/dictate/autoplace" {
+                # v1.77: a Dictate window that opened by itself sends its message here when the person has clicked into a text box; it is typed there.
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $apReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $apBody = $apReader.ReadToEnd(); $apReader.Dispose()
+                    Send-JsonRaw $response ([AmitWhisper]::DictateAutoPlace($apBody))
+                }
+            }
+            "/api/dictate/test-handoff" {
+                # tests only: opens the Dictate window as if the person had left a text box (words in ?words=); nodict=1 = do not start typing dictation afterwards
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::DictateTestHandoff([string]$request.QueryString["words"], ($request.QueryString["nodict"] -eq '1'))) }
+            }
             "/api/dictate/cancel" {
                 if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else { Send-JsonRaw $response ([AmitWhisper]::DictateCancel()) }

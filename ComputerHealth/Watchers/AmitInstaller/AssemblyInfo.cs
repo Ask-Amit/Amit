@@ -5,5 +5,5 @@
 [assembly: AssemblyProduct("Amit Installer")]
 [assembly: AssemblyCompany("Amit")]
 [assembly: AssemblyCopyright("Amit")]
-[assembly: AssemblyVersion("4.91.0.0")]
-[assembly: AssemblyFileVersion("4.91.0.0")]
+[assembly: AssemblyVersion("4.92.0.0")]
+[assembly: AssemblyFileVersion("4.92.0.0")]

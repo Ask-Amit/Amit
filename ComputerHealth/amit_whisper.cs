@@ -29,7 +29,7 @@ using System.Windows.Automation.Text;
 
 public static class AmitWhisper
 {
-    public const string Version = "1.75";   // 1.75: BAR ICONS ARE CENTERED - the icon in each bar button is drawn once to a scratch picture, where the visible pixels really are is measured, and THAT is centered (before, the glyph box was centered and the font padding pushed icons off-center). 1.74: MIDDLE CLICK OPENS THE MENU, VOICE STAYS OFF - a single middle click opens the Amit menu at the pointer and nothing listens; the Voice tab lists Voice first (choosing it turns listening on), Dictate second, then everything else; Esc or a click away closes it; the wheel only moves inside an open menu and no longer opens it. 1.73: SHOW AMIT SAVES EVERY CAPTURE AT ONCE - a fresh capture is saved to Pictures\Show Amit the moment it is taken (as well as going on the clipboard), so "look" always finds it without pressing Save. 1.68: VOICE LIVES INSIDE THE MENU - once the wheel has opened the menu, closing the menu in any way (a click away, Esc, choosing something) turns Voice off too; nothing runs and no box shows. A single click with no wheel works as before. 1.67: LEFT BUTTON CAN NEVER BE LOCKED BY THE MENU - a left click is only taken when the pointer is really over the menu's own window; anywhere else the menu closes and the click goes through, whatever state the Helper is in. 1.66: THE MENU HAS THREE TABS - Voice (everything Voice understands, as before), Mouse and Keyboard. The mouse picks the tab by a click; the wheel scrolls inside the tab; speaking still works on every tab. Mouse shows a note until the Mouse screen creates sets; Keyboard is greyed until the keyboard app. 1.65: PREVIEWS CAN BE TRIED WITH THE REAL MOUSE - over an Amit preview window (title starts "Amit " and ends " Preview") the Voice button is left alone, so the middle button reaches the preview page instead of starting Voice. 1.64: VOICE MENU SAFETY - Esc closes the Voice menu (Voice keeps listening); the menu can never keep eating clicks after Voice has ended (it is cleared on the next click, and never appears if Voice ended while it was being built); the release of a click the menu took is only swallowed if it comes straight after (1.5 s), never left waiting. Fixes the left mouse button going dead after using the menu. 1.63: THE VOICE MENU - while Voice is listening (started by the middle click, Aurora, a key or by saying it), turning the wheel opens a menu of everything Voice understands: the built-in commands, your Helper bar buttons and your own commands. The wheel moves, a middle click or a left click chooses, a click elsewhere closes it, and speaking still works at the same time. If the wheel is never turned, Voice works as before. 1.62: VOICE ON RELEASE - the Voice button (middle by default) now acts when it is let go, and only if it was a click (shorter than 500 ms); a longer hold does nothing yet and is reserved for the mouse set picker. Before, Voice started the instant the button went down, so a hold could not be told from a click. 1.61: THE PHONE CAPTION COMES ALONG - a note typed on the phone with the photo is put in the note box when the photo opens (new "note" in the /api/mobile/pull answer). 1.60: PHONE NOTE NOT LOST - Ask Amit on a phone photo first lets the last dictated words in, then sends the note; Amit answers a question note right away. 1.59: HARDWARE SENSORS ON REQUEST - the 72 MB sensor reader is no longer in the installer; the Hardware tab adds it (/api/sensors/install, size and SHA-256 checked); dashboard 5.11. 1.58: ASK AMIT ABOUT A PHONE PHOTO - the editor button starts a new numbered Mobile chat in the Amit Live window with the photo and the note, and Amit greets out loud. 1.57: MOBILE RING SLICE - a phone photo (Amit Mobile > Send to computer) is fetched by the helper, saved in PicturesShow Amit, opened in the Show Amit editor on the clipboard with a note box and dictation on; the note goes back to the photo row. 1.56: DICTATE WINDOW (page amit_dictate.html, served at /dictate): choosing Dictate on the ring (or saying it, or a bar button) while NOT in a text box opens one window in the top right of the screen (in a text box it still types there as before, one plain press of the trigger button stops it), always in front, that hears the person (its own speech recognition, in its own Edge profile dictate_profile), shows the words in a Subject and a Message that can be split into numbered sections, remembers each dictation on this computer (Recent, Settings, Help), and nothing is typed anywhere until the person presses Place and left-clicks a text box (new routes /api/dictate/place and /api/dictate/cancel; the click is checked with the same text-box test as before and the message is typed there, a new line being Shift+Enter so a chat box does not send). The window hears through the original listening page (its words are handed to the window instead of typed); hold-to-talk is unchanged. 1.55: VOICE RUNS ANY BAR BUTTON BY ITS TITLE: no shortcut per button; the title list comes from the bar (bar_buttons.txt) when someone speaks. 1.54: SHOW AMIT QUICK SNAP: a fresh capture from the ring goes straight onto the clipboard and the editor waits minimized in the taskbar without taking focus; opened from the taskbar it is the normal editor; left alone for 60 seconds it closes itself (nothing saved, clipboard untouched). 1.53: DOUBLE-RIGHT-CLICK brings up the Amit Helper bar: two short right taps close together at the same spot (while nothing else is going on with the button) show the bar (an event it listens on) or start AmitBar.exe from this folder; the first tap is replayed as a normal click as always, a menu it opened is closed with Esc, and the second press and its release are swallowed. The ring (hold) and dictation are untouched. 1.52: a preview opened as a plain browser TAB (file double-clicked, a link) also splits the screen: the whole browser window goes on the right, the window the person was in on the left, both put back when they leave that tab; only a tab titled "Amit ... Preview" counts. 1.51: the window that goes on the LEFT of a preview is the WINDOW THE PERSON WAS IN (the Hub in a browser, VS Code, anything), taken from a short history of the windows they used; VS Code is only the fallback; the same window is put back when the preview closes. 1.50: PREVIEW SPLIT: whenever a window whose title ends with " Preview" appears (however it was opened: the opener script, the "preview" voice command, a button in a page), the person's VS Code goes on the LEFT half of its screen and the preview on the RIGHT half, and the focus goes back to VS Code; when the last preview has been closed for 4 seconds VS Code is put back the way it was (unless the person moved it). 1.49: the voice command "preview" opens the Amit Preview window. 1.48: an image layer is a WINDOW onto its image: the corner handles change the window to any shape (the image inside keeps its size and place, only what shows changes); the wheel over the window zooms the image inside, like the main picture (the size % box does the same); Ctrl + drag moves the image inside the window; dragging the body moves the window. Saved in the same .amitshot format. 1.47: a placed image layer has four corner handles (drag one to make it larger or smaller, the opposite corner stays), shows move/resize cursors, drags to move, and the mouse wheel over it resizes it (the wheel anywhere else zooms the whole picture). 1.46: Capture now places the new image layer at once (no click needed) and logs the placing. 1.45: a Capture button (camera) in the Show Amit editor: the editor steps aside, a bar waits while the person shows the screen they want ("Capture now"), they drag an area, click where it goes, and it becomes a new image layer (Capture 1, 2...) that can be switched on/off, resized with the size % box and dragged to move. 1.44: the Show Amit editor has a Clear & Recapture button: it drops the picture (asking first if there are unsaved changes) and lets the person choose a new area of the screen. 1.43: each part of Amit has its own icon: the same dark circle and gold ring, only the gold symbol changes (Whisper = microphone, Read = speaker, Show Amit = camera; Ask Amit keeps the aleph). The dictation "Amit is listening" box, the Whisper window, the Read window and the Show Amit editor each show their own, in the taskbar and the title bar. The Read windows are now named "Amit Read". The dictation box says "Amit is listening" until words come through, then "Amit is dictating", and the words always show beside the icon. The icons are bigger and bolder, with real 48/32/24/16 px images (256 first) so the taskbar is not blurry. Icons live in Templates; a missing icon falls back to the Amit one. 1.42: while Read is paused for dictation, the gold highlight over the screen is hidden (it cluttered the screen the person is dictating into) and comes back, in the same place, when the reading resumes. 1.41: FIX (dictation after Read paused it): (1) the speaking/voice windows of Read are now recognised as the helper's own windows, so dictation never "types" into the hidden Edge page and gives the focus back to the window the person was using (first failure: words heard, typed nowhere); (2) the "Read is speaking" mute can no longer be left on by a late message: it is set only when Read STARTS speaking while dictation is already listening, and cleared when Read pauses, ends or stops or the listening ends (second failure: a late heartbeat after "paused" made dictation throw the words away). 1.40: (1) a live voice change carries on from the word being spoken instead of starting the sentence over (amit_talk.html v1.04); (2) when dictation or Voice starts while Read is speaking, Read pauses by itself (the speaker shows the pause bars) and carries on where it was when the listening ends; a press of the speaker by the person cancels the automatic resume. 1.39: FIX: dictation could stay blocked after Read (the "Read is speaking" signal depended on a "finished" message that can get lost after live voice changes). Now the speaking page sends a heartbeat every 1.5 s while sound really plays, dictation is only quieted for 4 seconds after the last one, and a watchdog returns the speaker to waiting if the sound stops without a "finished"; the page also waits a moment between cancelling a sentence and saying it again with new settings (Edge sometimes dropped it). 1.38: while Read is speaking, dictation and Voice ignore what the microphone hears (it is Amit's own voice, which used to be typed into the person's text box) and dictation's "Amit is listening" box is taken off the screen; they work normally again when Read is not speaking, including while it is paused. 1.37: the voice window is INTERACTIVE (moving a slider or choosing another voice while Amit is reading changes the sound within about a third of a second; the current sentence is said again with the new settings; amit_talk.html v1.02); the hidden Edge speaking window is slimmed (extra switches) and now closes 30 seconds after the last reading instead of 3 minutes, never while the voice window is open. 1.36: a DOUBLE CLICK on the reading speaker opens a small voice window beside it (voice, speed, pause between sentences, pitch, volume, Test, Save); Save keeps the new voice on this computer at once and hands it to the person's login (their saved voice, their default) the next time an Amit page loads, without the old copy from the database overwriting it (new bridge routes /api/talk/voice-save and /api/talk/voice-ack). A single click is acted on after a very short wait (the double-click time, at most 400 ms) so a double click is no longer two presses. The note "Your saved voice is not on this computer" no longer pops up on the screen (it is only logged). 1.35: the ring choice is now called READ (it reads aloud what the person points at) and works ONE SHOT: press the speaker, and the very next click or selection is what is read, then it goes back to waiting so the person can use the computer freely; to read somewhere else, press it again. A click reads from the clicked word to the end of its paragraph; a highlight reads exactly the highlight (one word if one word, the whole page after Select All). Pressing while reading pauses it and the next click or selection is read instead (pressing again with none resumes). A soft gold highlight shows the words being read (where Windows accessibility gives their place). When the words cannot be read, Amit says so out loud in the person's voice ("Sorry, I'm not able to read this") and on screen, never silently; a plain click on a button or menu only shows a note. 1.33: TALK, a fourth choice in the Amit Live ring: a small see-through speaker stays on top of everything; the person selects words (or clicks where to start) in any program and presses it, and Amit reads aloud from there in the person's own saved Amit voice (copied here from their login; with none, Talk asks them to open Amit and sign in). Press again to pause or resume; Esc or a right click on the speaker removes it. The speaking is done by a hidden Edge window (page /talk, new bridge routes /api/talk/*) because the natural voices exist only in Edge. 1.32: a SHOW AMIT button in the Show Amit editor: saves the shot, hands it to the Amit Live window, which posts it into the person's own Ask Amit chat for today (under their own sign-in; the helper holds no login) and asks Amit to look at it (new bridge routes /api/showamit/pending and /api/showamit/pending.png, offered for 5 minutes, only to the Amit site). 1.31: the Amit Live window closes itself after 60 seconds without the focus (never while music plays; the no-internet page too). ONE Amit Live window only: choosing Ask Amit when its window is already open brings that window to the front instead of opening another (and a second press while the first is still opening starts nothing). 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
+    public const string Version = "1.77";   // 1.77: AN OPEN DICTATE WINDOW MOVES ITS WORDS INTO THE NEXT TEXT BOX (opened by itself because the person left the text box while speaking, or opened from the ring): when the focus has been in a text box of another program for about a second, the window stops listening, everything in its message is typed into that box, the window closes and typing dictation starts there; Place (pick the exact spot) still works and switches the automatic move off for that window. 1.76: DICTATION FOLLOWS THE FOCUS (Ryan 2026-11-08): while words are typed into a text box the helper watches where the keyboard focus is; focus moves to another text box (any program) = typing carries on there; focus clearly NOT in a text box = the words are held, and if they keep coming for a second the typing dictation ends and the Dictate window opens with those words already in it; "cannot tell" never counts as no text box. FIX: after Enter or a change of box the phrase typed so far is never rewritten (the self-correcting typing used to retype half of an earlier phrase into the emptied box). 1.75: BAR ICONS ARE CENTERED - the icon in each bar button is drawn once to a scratch picture, where the visible pixels really are is measured, and THAT is centered (before, the glyph box was centered and the font padding pushed icons off-center). 1.74: MIDDLE CLICK OPENS THE MENU, VOICE STAYS OFF - a single middle click opens the Amit menu at the pointer and nothing listens; the Voice tab lists Voice first (choosing it turns listening on), Dictate second, then everything else; Esc or a click away closes it; the wheel only moves inside an open menu and no longer opens it. 1.73: SHOW AMIT SAVES EVERY CAPTURE AT ONCE - a fresh capture is saved to Pictures\Show Amit the moment it is taken (as well as going on the clipboard), so "look" always finds it without pressing Save. 1.68: VOICE LIVES INSIDE THE MENU - once the wheel has opened the menu, closing the menu in any way (a click away, Esc, choosing something) turns Voice off too; nothing runs and no box shows. A single click with no wheel works as before. 1.67: LEFT BUTTON CAN NEVER BE LOCKED BY THE MENU - a left click is only taken when the pointer is really over the menu's own window; anywhere else the menu closes and the click goes through, whatever state the Helper is in. 1.66: THE MENU HAS THREE TABS - Voice (everything Voice understands, as before), Mouse and Keyboard. The mouse picks the tab by a click; the wheel scrolls inside the tab; speaking still works on every tab. Mouse shows a note until the Mouse screen creates sets; Keyboard is greyed until the keyboard app. 1.65: PREVIEWS CAN BE TRIED WITH THE REAL MOUSE - over an Amit preview window (title starts "Amit " and ends " Preview") the Voice button is left alone, so the middle button reaches the preview page instead of starting Voice. 1.64: VOICE MENU SAFETY - Esc closes the Voice menu (Voice keeps listening); the menu can never keep eating clicks after Voice has ended (it is cleared on the next click, and never appears if Voice ended while it was being built); the release of a click the menu took is only swallowed if it comes straight after (1.5 s), never left waiting. Fixes the left mouse button going dead after using the menu. 1.63: THE VOICE MENU - while Voice is listening (started by the middle click, Aurora, a key or by saying it), turning the wheel opens a menu of everything Voice understands: the built-in commands, your Helper bar buttons and your own commands. The wheel moves, a middle click or a left click chooses, a click elsewhere closes it, and speaking still works at the same time. If the wheel is never turned, Voice works as before. 1.62: VOICE ON RELEASE - the Voice button (middle by default) now acts when it is let go, and only if it was a click (shorter than 500 ms); a longer hold does nothing yet and is reserved for the mouse set picker. Before, Voice started the instant the button went down, so a hold could not be told from a click. 1.61: THE PHONE CAPTION COMES ALONG - a note typed on the phone with the photo is put in the note box when the photo opens (new "note" in the /api/mobile/pull answer). 1.60: PHONE NOTE NOT LOST - Ask Amit on a phone photo first lets the last dictated words in, then sends the note; Amit answers a question note right away. 1.59: HARDWARE SENSORS ON REQUEST - the 72 MB sensor reader is no longer in the installer; the Hardware tab adds it (/api/sensors/install, size and SHA-256 checked); dashboard 5.11. 1.58: ASK AMIT ABOUT A PHONE PHOTO - the editor button starts a new numbered Mobile chat in the Amit Live window with the photo and the note, and Amit greets out loud. 1.57: MOBILE RING SLICE - a phone photo (Amit Mobile > Send to computer) is fetched by the helper, saved in PicturesShow Amit, opened in the Show Amit editor on the clipboard with a note box and dictation on; the note goes back to the photo row. 1.56: DICTATE WINDOW (page amit_dictate.html, served at /dictate): choosing Dictate on the ring (or saying it, or a bar button) while NOT in a text box opens one window in the top right of the screen (in a text box it still types there as before, one plain press of the trigger button stops it), always in front, that hears the person (its own speech recognition, in its own Edge profile dictate_profile), shows the words in a Subject and a Message that can be split into numbered sections, remembers each dictation on this computer (Recent, Settings, Help), and nothing is typed anywhere until the person presses Place and left-clicks a text box (new routes /api/dictate/place and /api/dictate/cancel; the click is checked with the same text-box test as before and the message is typed there, a new line being Shift+Enter so a chat box does not send). The window hears through the original listening page (its words are handed to the window instead of typed); hold-to-talk is unchanged. 1.55: VOICE RUNS ANY BAR BUTTON BY ITS TITLE: no shortcut per button; the title list comes from the bar (bar_buttons.txt) when someone speaks. 1.54: SHOW AMIT QUICK SNAP: a fresh capture from the ring goes straight onto the clipboard and the editor waits minimized in the taskbar without taking focus; opened from the taskbar it is the normal editor; left alone for 60 seconds it closes itself (nothing saved, clipboard untouched). 1.53: DOUBLE-RIGHT-CLICK brings up the Amit Helper bar: two short right taps close together at the same spot (while nothing else is going on with the button) show the bar (an event it listens on) or start AmitBar.exe from this folder; the first tap is replayed as a normal click as always, a menu it opened is closed with Esc, and the second press and its release are swallowed. The ring (hold) and dictation are untouched. 1.52: a preview opened as a plain browser TAB (file double-clicked, a link) also splits the screen: the whole browser window goes on the right, the window the person was in on the left, both put back when they leave that tab; only a tab titled "Amit ... Preview" counts. 1.51: the window that goes on the LEFT of a preview is the WINDOW THE PERSON WAS IN (the Hub in a browser, VS Code, anything), taken from a short history of the windows they used; VS Code is only the fallback; the same window is put back when the preview closes. 1.50: PREVIEW SPLIT: whenever a window whose title ends with " Preview" appears (however it was opened: the opener script, the "preview" voice command, a button in a page), the person's VS Code goes on the LEFT half of its screen and the preview on the RIGHT half, and the focus goes back to VS Code; when the last preview has been closed for 4 seconds VS Code is put back the way it was (unless the person moved it). 1.49: the voice command "preview" opens the Amit Preview window. 1.48: an image layer is a WINDOW onto its image: the corner handles change the window to any shape (the image inside keeps its size and place, only what shows changes); the wheel over the window zooms the image inside, like the main picture (the size % box does the same); Ctrl + drag moves the image inside the window; dragging the body moves the window. Saved in the same .amitshot format. 1.47: a placed image layer has four corner handles (drag one to make it larger or smaller, the opposite corner stays), shows move/resize cursors, drags to move, and the mouse wheel over it resizes it (the wheel anywhere else zooms the whole picture). 1.46: Capture now places the new image layer at once (no click needed) and logs the placing. 1.45: a Capture button (camera) in the Show Amit editor: the editor steps aside, a bar waits while the person shows the screen they want ("Capture now"), they drag an area, click where it goes, and it becomes a new image layer (Capture 1, 2...) that can be switched on/off, resized with the size % box and dragged to move. 1.44: the Show Amit editor has a Clear & Recapture button: it drops the picture (asking first if there are unsaved changes) and lets the person choose a new area of the screen. 1.43: each part of Amit has its own icon: the same dark circle and gold ring, only the gold symbol changes (Whisper = microphone, Read = speaker, Show Amit = camera; Ask Amit keeps the aleph). The dictation "Amit is listening" box, the Whisper window, the Read window and the Show Amit editor each show their own, in the taskbar and the title bar. The Read windows are now named "Amit Read". The dictation box says "Amit is listening" until words come through, then "Amit is dictating", and the words always show beside the icon. The icons are bigger and bolder, with real 48/32/24/16 px images (256 first) so the taskbar is not blurry. Icons live in Templates; a missing icon falls back to the Amit one. 1.42: while Read is paused for dictation, the gold highlight over the screen is hidden (it cluttered the screen the person is dictating into) and comes back, in the same place, when the reading resumes. 1.41: FIX (dictation after Read paused it): (1) the speaking/voice windows of Read are now recognised as the helper's own windows, so dictation never "types" into the hidden Edge page and gives the focus back to the window the person was using (first failure: words heard, typed nowhere); (2) the "Read is speaking" mute can no longer be left on by a late message: it is set only when Read STARTS speaking while dictation is already listening, and cleared when Read pauses, ends or stops or the listening ends (second failure: a late heartbeat after "paused" made dictation throw the words away). 1.40: (1) a live voice change carries on from the word being spoken instead of starting the sentence over (amit_talk.html v1.04); (2) when dictation or Voice starts while Read is speaking, Read pauses by itself (the speaker shows the pause bars) and carries on where it was when the listening ends; a press of the speaker by the person cancels the automatic resume. 1.39: FIX: dictation could stay blocked after Read (the "Read is speaking" signal depended on a "finished" message that can get lost after live voice changes). Now the speaking page sends a heartbeat every 1.5 s while sound really plays, dictation is only quieted for 4 seconds after the last one, and a watchdog returns the speaker to waiting if the sound stops without a "finished"; the page also waits a moment between cancelling a sentence and saying it again with new settings (Edge sometimes dropped it). 1.38: while Read is speaking, dictation and Voice ignore what the microphone hears (it is Amit's own voice, which used to be typed into the person's text box) and dictation's "Amit is listening" box is taken off the screen; they work normally again when Read is not speaking, including while it is paused. 1.37: the voice window is INTERACTIVE (moving a slider or choosing another voice while Amit is reading changes the sound within about a third of a second; the current sentence is said again with the new settings; amit_talk.html v1.02); the hidden Edge speaking window is slimmed (extra switches) and now closes 30 seconds after the last reading instead of 3 minutes, never while the voice window is open. 1.36: a DOUBLE CLICK on the reading speaker opens a small voice window beside it (voice, speed, pause between sentences, pitch, volume, Test, Save); Save keeps the new voice on this computer at once and hands it to the person's login (their saved voice, their default) the next time an Amit page loads, without the old copy from the database overwriting it (new bridge routes /api/talk/voice-save and /api/talk/voice-ack). A single click is acted on after a very short wait (the double-click time, at most 400 ms) so a double click is no longer two presses. The note "Your saved voice is not on this computer" no longer pops up on the screen (it is only logged). 1.35: the ring choice is now called READ (it reads aloud what the person points at) and works ONE SHOT: press the speaker, and the very next click or selection is what is read, then it goes back to waiting so the person can use the computer freely; to read somewhere else, press it again. A click reads from the clicked word to the end of its paragraph; a highlight reads exactly the highlight (one word if one word, the whole page after Select All). Pressing while reading pauses it and the next click or selection is read instead (pressing again with none resumes). A soft gold highlight shows the words being read (where Windows accessibility gives their place). When the words cannot be read, Amit says so out loud in the person's voice ("Sorry, I'm not able to read this") and on screen, never silently; a plain click on a button or menu only shows a note. 1.33: TALK, a fourth choice in the Amit Live ring: a small see-through speaker stays on top of everything; the person selects words (or clicks where to start) in any program and presses it, and Amit reads aloud from there in the person's own saved Amit voice (copied here from their login; with none, Talk asks them to open Amit and sign in). Press again to pause or resume; Esc or a right click on the speaker removes it. The speaking is done by a hidden Edge window (page /talk, new bridge routes /api/talk/*) because the natural voices exist only in Edge. 1.32: a SHOW AMIT button in the Show Amit editor: saves the shot, hands it to the Amit Live window, which posts it into the person's own Ask Amit chat for today (under their own sign-in; the helper holds no login) and asks Amit to look at it (new bridge routes /api/showamit/pending and /api/showamit/pending.png, offered for 5 minutes, only to the Amit site). 1.31: the Amit Live window closes itself after 60 seconds without the focus (never while music plays; the no-internet page too). ONE Amit Live window only: choosing Ask Amit when its window is already open brings that window to the front instead of opening another (and a second press while the first is still opening starts nothing). 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
 
     // v1.03 (2026-10-29, Ryan): LATCH MODE. Hold the button to start; let go and dictation keeps going, so long dictations do not need the
     // button held. Hold the button again (same hold time) to stop; a quick tap during dictation is still a normal click. Dictation also
@@ -532,7 +532,7 @@ public static class AmitWhisper
             {
                 // thread messages from the rest of the helper: the Esc-key hook is only in place while Amit Live is open
                 if (m.message == 0x8001) { InstallKbd(); continue; }
-                if (m.message == 0x8002) { if (state != ST_MENU && !vmOpen) RemoveKbd(); continue; }
+                if (m.message == 0x8002) { if (state != ST_MENU && !vmOpen && !dictKbd) RemoveKbd(); continue; }
                 TranslateMessage(ref m); DispatchMessage(ref m);
             }
         }
@@ -1213,17 +1213,7 @@ public static class AmitWhisper
             {
                 AutomationElement el = AutomationElement.FocusedElement;
                 if (el == null) return;
-                ControlType ct = el.Current.ControlType;
-                string cls = el.Current.ClassName ?? "";
-                desc = ct.ProgrammaticName.Replace("ControlType.", "") + " \"" + (el.Current.Name ?? "") + "\"";
-                if (ct == ControlType.Edit) { state = 1; return; }
-                object vp;
-                if (el.TryGetCurrentPattern(ValuePattern.Pattern, out vp) && !((ValuePattern)vp).Current.IsReadOnly) { state = 1; return; }
-                if (ct == ControlType.Document && cls.IndexOf("edit", StringComparison.OrdinalIgnoreCase) >= 0) { state = 1; return; }
-                if (ct == ControlType.Document || ct == ControlType.Group || ct == ControlType.Pane || ct == ControlType.Menu || ct == ControlType.MenuItem || ct == ControlType.MenuBar
-                    || ct == ControlType.Button || ct == ControlType.Hyperlink || ct == ControlType.List || ct == ControlType.ListItem || ct == ControlType.Tab || ct == ControlType.TabItem
-                    || ct == ControlType.Text || ct == ControlType.Image || ct == ControlType.ToolBar || ct == ControlType.TitleBar || ct == ControlType.Window || ct == ControlType.Tree
-                    || ct == ControlType.TreeItem || ct == ControlType.DataItem || ct == ControlType.Table || ct == ControlType.CheckBox || ct == ControlType.RadioButton) state = 0;
+                state = ClassifyFocus(el, out desc);
             }
             catch { }
         });
@@ -1232,6 +1222,358 @@ public static class AmitWhisper
         if (!th.Join(600)) { what = "(timed out)"; return -1; }
         what = desc;
         return state;
+    }
+
+    // The same judgement for one element: 1 = a text box, 0 = clearly not, -1 = cannot tell (v1.76: shared by the one-off check above and the focus watcher below)
+    static int ClassifyFocus(AutomationElement el, out string desc)
+    {
+        desc = "";
+        ControlType ct = el.Current.ControlType;
+        string cls = el.Current.ClassName ?? "";
+        desc = ct.ProgrammaticName.Replace("ControlType.", "") + " \"" + (el.Current.Name ?? "") + "\"";
+        if (ct == ControlType.Edit) return 1;
+        object vp;
+        if (el.TryGetCurrentPattern(ValuePattern.Pattern, out vp) && !((ValuePattern)vp).Current.IsReadOnly) return 1;
+        if (ct == ControlType.Document && cls.IndexOf("edit", StringComparison.OrdinalIgnoreCase) >= 0) return 1;
+        if (ct == ControlType.Document || ct == ControlType.Group || ct == ControlType.Pane || ct == ControlType.Menu || ct == ControlType.MenuItem || ct == ControlType.MenuBar
+            || ct == ControlType.Button || ct == ControlType.Hyperlink || ct == ControlType.List || ct == ControlType.ListItem || ct == ControlType.Tab || ct == ControlType.TabItem
+            || ct == ControlType.Text || ct == ControlType.Image || ct == ControlType.ToolBar || ct == ControlType.TitleBar || ct == ControlType.Window || ct == ControlType.Tree
+            || ct == ControlType.TreeItem || ct == ControlType.DataItem || ct == ControlType.Table || ct == ControlType.CheckBox || ct == ControlType.RadioButton) return 0;
+        return -1;
+    }
+
+    // =====================================================================================================
+    //  v1.76: DICTATION FOLLOWS THE FOCUS (Ryan, 2026-11-08)
+    //  While words are being typed into a text box, a small watcher looks at where the keyboard focus is about three times a second.
+    //    - Focus moves to another text box (even in another program): typing simply carries on there.
+    //    - Focus is clearly NOT in a text box: the words are held, not lost. If words keep coming for about a second with nowhere to type
+    //      them, the typing dictation ends and the Dictate window opens with those words already in it.
+    //    - Cannot tell (some programs do not describe their input): never counts as "no text box".
+    //    - When the box changes, or Enter is pressed, the phrase typed so far stays where it is: the self-correcting typing never goes back
+    //      to rewrite it (that rewrite is what reposted half of an earlier phrase into an emptied box).
+    // =====================================================================================================
+    static volatile int focusState = -1;
+    static string focusKey = "";
+    static int focusStamp = 0;
+    static volatile bool focusWatch = false;
+    static Thread focusThread;
+    const int NoBoxHandoffMs = 1000;
+    static bool blocked = false;
+    static int blockedTick = 0;
+    static readonly StringBuilder blockedText = new StringBuilder();
+    static string blockedTail = "";
+    static volatile bool handoffPending = false;
+    static IntPtr lastTypedWnd = IntPtr.Zero;
+    static volatile bool dictKbd = false, dictTouched = false;
+    static int phraseBaseWords = 0;
+    static bool noLeadingSpace = false;
+    static string pendingHandoff = "";
+
+    static void SetDictKbd(bool on) { dictKbd = on; dictTouched = false; PostKbd(on); }
+
+    static void StartFocusWatch()
+    {
+        lock (typeLock)
+        {
+            blocked = false; blockedText.Length = 0; blockedTail = ""; phraseBaseWords = 0; noLeadingSpace = false; lastTypedWnd = IntPtr.Zero;
+        }
+        handoffPending = false; focusState = -1; focusKey = ""; focusStamp = 0;
+        int gen = ++focusGen;   // a watcher left over from the dictation before sees a new number and ends itself
+        focusWatch = true;
+        SetDictKbd(true);
+        focusThread = new Thread(delegate () { FocusLoop(gen); });
+        focusThread.IsBackground = true;
+        focusThread.Start();
+    }
+
+    static void StopFocusWatch()
+    {
+        focusWatch = false;
+        SetDictKbd(false);
+    }
+
+    static int focusGen = 0;
+    static void FocusLoop(int gen)
+    {
+        try
+        {
+            while (focusWatch && gen == focusGen)
+            {
+                if (state == ST_IDLE) break;
+                EvalFocus();
+                WatchTick();
+                Thread.Sleep(350);
+            }
+        }
+        catch (Exception ex) { Log("Focus watcher: " + ex.Message); }
+        if (gen == focusGen) focusWatch = false;
+    }
+
+    // One look at the keyboard focus: st = 1 a text box, 0 clearly not (an Amit window counts as not), -1 cannot tell; key says which control it is
+    static void LookAtFocus(out int st, out string key)
+    {
+        st = -1; key = "";
+        try
+        {
+            IntPtr fg = GetForegroundWindow();
+            if (fg == IntPtr.Zero || IsAmitHelperWindow(WindowTitle(fg))) { st = 0; key = "amit"; }
+            else if (TerminalLike(ProcessNameOf(fg))) { st = -1; key = "term:" + fg.ToInt64(); }
+            else
+            {
+                AutomationElement el = AutomationElement.FocusedElement;
+                if (el != null)
+                {
+                    string d;
+                    st = ClassifyFocus(el, out d);
+                    StringBuilder kb = new StringBuilder(fg.ToInt64().ToString());
+                    try { int[] rid = el.GetRuntimeId(); if (rid != null) foreach (int r in rid) { kb.Append('.'); kb.Append(r); } } catch { }
+                    key = kb.ToString();
+                }
+                else key = "none:" + fg.ToInt64();
+            }
+        }
+        catch { st = -1; }
+    }
+
+    static void EvalFocus()
+    {
+        int st; string key;
+        LookAtFocus(out st, out key);
+        string old = focusKey;
+        focusState = st; focusStamp = Environment.TickCount;
+        if (key != old)
+        {
+            focusKey = key;
+            if (old.Length > 0) FreezePhrase();   // another box (or another window): what was typed for this phrase stays where it is
+        }
+    }
+
+    // Is typing allowed right now?
+    static bool GateOpen()
+    {
+        if (TestSink != null) return true;
+        if (typingAborted) return false;
+        if (!focusWatch) return ForegroundOk();                  // the watcher is not running (not a typing dictation): the older rule
+        if (!textOnly) return true;
+        if (Environment.TickCount - focusStamp > 3000) return true;   // no recent look: never block on old news
+        return focusState != 0;
+    }
+
+    // noSpace: after Enter the box is usually empty (no space in front of the next words); after a change of focus a space is kept (it may be the same box redrawn)
+    static void FreezePhrase() { lock (typeLock) { FreezePhraseLocked(false); } }
+    static void FreezePhraseLocked(bool noSpace)
+    {
+        if (curTyped.Length > 0) { phraseBaseWords += Words(curTyped).Length; curTyped = ""; }
+        phraseStarted = false;
+        if (noSpace) noLeadingSpace = true;
+    }
+
+    // the words of the phrase after the part already typed somewhere else
+    static string SkipBase(string desired)
+    {
+        if (phraseBaseWords <= 0) return desired;
+        string[] w = Words(desired);
+        if (w.Length <= phraseBaseWords) return "";
+        return String.Join(" ", w, phraseBaseWords, w.Length - phraseBaseWords);
+    }
+
+    static void MarkBlocked() { if (!blocked) { blocked = true; blockedTick = Environment.TickCount; } }
+
+    // words that could not be typed because no text box has the focus (called with typeLock held)
+    static void NoteBlockedWords(string[] w, int from, int to, bool isFinal)
+    {
+        MarkBlocked();
+        if (isFinal) { if (blockedText.Length > 0) blockedText.Append(' '); blockedText.Append(String.Join(" ", w, from, to - from)); blockedTail = ""; }
+        else blockedTail = String.Join(" ", w, from, w.Length - from);
+    }
+    static void NoteBlockedPhrase(string desired, bool isFinal)
+    {
+        string rest = SkipBase(desired);
+        if (curTyped.Length > 0 && rest.StartsWith(curTyped, StringComparison.OrdinalIgnoreCase)) rest = rest.Substring(curTyped.Length);
+        rest = rest.Trim();
+        if (rest.Length == 0) return;
+        MarkBlocked();
+        if (isFinal) { if (blockedText.Length > 0) blockedText.Append(' '); blockedText.Append(rest); blockedTail = ""; }
+        else blockedTail = rest;
+    }
+
+    // back in a text box: type what was held meanwhile, before anything newer (called with typeLock held and the gate open)
+    static void FlushBlockedLocked()
+    {
+        blocked = false; blockedTail = "";
+        if (blockedText.Length == 0) return;
+        string t = blockedText.ToString().Trim();
+        blockedText.Length = 0;
+        if (t.Length == 0) return;
+        string piece = ((typedAny && !noLeadingSpace) ? " " : "") + t;
+        noLeadingSpace = false;
+        TypeText(piece);
+        typedAny = true; lastTypedWnd = GetForegroundWindow();
+        if (TestSink == null) Log("Typed (held while no text box had the focus): [" + piece + "]");
+    }
+
+    // runs every look of the watcher
+    static void WatchTick()
+    {
+        bool open = GateOpen();
+        if (open)
+        {
+            lock (typeLock) { if (blockedText.Length > 0) FlushBlockedLocked(); }
+            return;
+        }
+        bool handoff = false;
+        lock (typeLock) { handoff = blocked && (blockedText.Length > 0 || blockedTail.Length > 0) && Environment.TickCount - blockedTick >= NoBoxHandoffMs; }
+        if (!handoff) return;
+        long t;
+        lock (sync) { if (state != ST_LISTEN || !latched) return; state = ST_FINISH; t = token; }
+        handoffPending = true;
+        Log("Dictation: no text box for a second while speaking, moving to the Dictate window");
+        ThreadPool.QueueUserWorkItem(delegate { EndDictation(t); });
+    }
+
+    // the Dictate window opens (or is brought forward) with the words that had nowhere to go
+    static void OpenDictateWithWords(string words, bool test = false)
+    {
+        autoTestNoDictation = test;   // the "do not start dictating afterwards" switch belongs to a test only; every real hand-over turns it off
+        try
+        {
+            lock (dwLock) { pendingHandoff = words ?? ""; }
+            IntPtr already = FindDictateWindowNow();
+            if (already != IntPtr.Zero)
+            {
+                dictateWnd = already;
+                if (IsIconic(already)) ShowWindow(already, 9);
+                SetWindowPos(already, (IntPtr)(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0040);
+                DictateEnqueue("handoff", "");
+            }
+            else { Point p = Cursor.Position; OpenDictateWindow(p.X, p.Y); }
+            StartAutoPlaceWatch();   // v1.77: this window opened by itself, so it moves its words into the next text box
+        }
+        catch (Exception ex) { Log("OpenDictateWithWords: " + ex.Message); }
+    }
+
+    // the Dictate window asks for the words handed over to it (once)
+    public static string DictateTakeHandoff()
+    {
+        string t;
+        lock (dwLock) { t = pendingHandoff; pendingHandoff = ""; }
+        return "{\"text\":\"" + JsonEsc(t) + "\"}";
+    }
+
+    // Enter at the end of a dictation (the "send when I let go" choice): only into the box the words were last typed into
+    static bool EnterTargetOk()
+    {
+        if (TestSink != null) return true;
+        if (typingAborted || lastTypedWnd == IntPtr.Zero) return false;
+        return GetForegroundWindow() == lastTypedWnd && GateOpen();
+    }
+
+    // =====================================================================================================
+    //  v1.77: A DICTATE WINDOW THAT OPENED BY ITSELF MOVES ITS WORDS INTO THE NEXT TEXT BOX (Ryan, 2026-11-08)
+    //  When the Dictate window opened because the person left the text box while speaking (see WatchTick), a watcher looks at where the
+    //  focus is. When it has been in a text box of another program for about a second, the window stops listening, hands over everything
+    //  in its message, which is typed into that box (new lines as Shift+Enter, numbered sections as in Place), the window closes, and
+    //  typing dictation starts in that box so the person just carries on. A window the person opened on purpose is left alone (Place).
+    // =====================================================================================================
+    static volatile bool dictateAuto = false;
+    static int autoGen = 0;
+    static volatile bool autoBusy = false, autoWaiting = false, autoPlacedOk = false;
+    static volatile bool autoTestNoDictation = false;   // tests only: do not start typing dictation afterwards
+    const int AutoSettleMs = 1000;
+
+    static void StartAutoPlaceWatch()
+    {
+        int gen = ++autoGen;
+        dictateAuto = true;
+        Thread th = new Thread(delegate () { AutoPlaceLoop(gen); });
+        th.IsBackground = true;
+        th.Start();
+    }
+
+    static void AutoPlaceLoop(int gen)
+    {
+        try
+        {
+            string steadyKey = ""; int steadyTick = 0, begin = Environment.TickCount; bool seen = false;
+            while (dictateAuto && gen == autoGen)
+            {
+                IntPtr w = FindDictateWindowNow();
+                if (w == IntPtr.Zero)
+                {
+                    if (seen || Environment.TickCount - begin > 15000) break;   // closed by the person, or it never opened
+                    Thread.Sleep(350); continue;
+                }
+                seen = true; dictateWnd = w;
+                if (dPlacing) { steadyKey = ""; Thread.Sleep(350); continue; }   // the person pressed Place and is choosing the exact spot: that click is theirs
+                int st; string key;
+                LookAtFocus(out st, out key);
+                IntPtr fg = GetForegroundWindow();
+                if (st == 1 && fg != w && !autoBusy)
+                {
+                    if (key != steadyKey) { steadyKey = key; steadyTick = Environment.TickCount; }
+                    else if (Environment.TickCount - steadyTick >= AutoSettleMs) { RequestAutoPlace(); break; }
+                }
+                else steadyKey = "";
+                Thread.Sleep(350);
+            }
+        }
+        catch (Exception ex) { Log("Auto place watcher: " + ex.Message); }
+        if (gen == autoGen) dictateAuto = false;
+    }
+
+    // helper -> window: stop listening and send me what is in your message
+    static void RequestAutoPlace()
+    {
+        if (autoBusy) return;
+        autoBusy = true; autoPlacedOk = false;
+        try
+        {
+            if (dListen) DictatePause();     // the window stops listening; its last words still reach it
+            autoWaiting = true;
+            DictateEnqueue("autoplace", "");
+            int i = 0;
+            while (autoWaiting && i < 60) { Thread.Sleep(100); i++; }
+            if (autoWaiting) { autoWaiting = false; dictateAuto = false; Log("Dictate window: it did not answer the request to move its words; it stays as it is"); }
+        }
+        catch (Exception ex) { Log("RequestAutoPlace: " + ex.Message); autoWaiting = false; }
+        finally { autoBusy = false; }
+    }
+
+    // window -> helper: here is the message; type it into the text box that has the focus, close the window, carry on dictating there
+    public static string DictateAutoPlace(string text)
+    {
+        try
+        {
+            if (!autoWaiting) return "{\"ok\":false,\"reason\":\"notasked\"}";
+            IntPtr fg = GetForegroundWindow();
+            string what;
+            int st = FocusedTextState(out what);
+            if (st != 1 || fg == IntPtr.Zero || fg == dictateWnd || IsDictateTitle(WindowTitle(fg)))
+            {
+                autoWaiting = false; dictateAuto = false;
+                Log("Dictate window: the text box was gone when it was time to move the words (" + what + ")");
+                return "{\"ok\":false,\"reason\":\"nottext\"}";
+            }
+            string t = (text ?? "").TrimEnd();
+            fgAtStart = IntPtr.Zero; typingAborted = false; typeModeDecided = false; typeMode = 0;
+            if (t.Length > 0) { TypeBlock(t + " "); lastTypedWnd = fg; }
+            Log("Dictate window: moved " + t.Length + " characters into " + FriendlyProgram(ProcessNameOf(fg)) + ": " + what);
+            autoPlacedOk = true; autoWaiting = false; dictateAuto = false; autoGen++;
+            IntPtr w = dictateWnd; dictateWnd = IntPtr.Zero;
+            if (w != IntPtr.Zero) PostMessage(w, 0x0010, IntPtr.Zero, IntPtr.Zero);   // WM_CLOSE
+            Point p = Cursor.Position;
+            bool noDict = autoTestNoDictation; autoTestNoDictation = false;
+            if (!noDict) ThreadPool.QueueUserWorkItem(delegate { Thread.Sleep(500); StartDictationInBox(p.X, p.Y); Log("Dictate window: typing dictation started in the box the words were moved to"); });
+            return "{\"ok\":true}";
+        }
+        catch (Exception ex) { autoWaiting = false; Log("DictateAutoPlace: " + ex.Message); return "{\"ok\":false,\"reason\":\"error\"}"; }
+    }
+
+    // tests only (token-protected route): opens the Dictate window as if the person had left a text box, with these words in it
+    public static string DictateTestHandoff(string words, bool noDictation)
+    {
+        OpenDictateWithWords(words, noDictation);
+        return "{\"ok\":true}";
     }
 
     static bool TerminalLike(string p)
@@ -1266,13 +1608,8 @@ public static class AmitWhisper
             string what;
             int st = FocusedTextState(out what);
             Log("Focus check in " + (pn.Length > 0 ? pn : "?") + ": " + (st == 1 ? "a text box" : st == 0 ? "NOT a text box" : "could not tell") + " (" + what + ")");
-            if (st == 0)
-            {
-                typingAborted = true;
-                abortMsg = "Amit can only type into a text box\nThe text box must have focus: click inside a text box, or any field that accepts text, then hold the button again.";
-                ShowOverlay(abortMsg);
-                HideOverlayLater(5000);
-            }
+            // v1.76: no longer a permanent stop: words are held, and if they keep coming with no text box in focus the Dictate window opens (see WatchTick)
+            if (st == 0) Log("Dictation: focus is not a text box yet; words are held");
         }
         catch { }
     }
@@ -1618,6 +1955,7 @@ public static class AmitWhisper
     {
         try
         {
+            StartFocusWatch();   // v1.76: follow the keyboard focus while words are typed
             ShowOverlay("Amit is getting ready...");
             if (!PageAlive())
             {
@@ -1671,8 +2009,12 @@ public static class AmitWhisper
             string left; int leftFrom;
             lock (sync) { left = lastInterim; lastInterim = ""; leftFrom = segTyped; segTyped = 0; }
             // (self-correcting mode has already typed every word of the unfinished phrase)
-            if (!correctionOk && left != null && left.Trim().Length > 0) { string[] lw = Words(left); TypeWords(lw, Math.Min(leftFrom, lw.Length), lw.Length); }
-            curTyped = ""; phraseStarted = false;
+            if (!correctionOk && left != null && left.Trim().Length > 0) { string[] lw = Words(left); TypeWords(lw, Math.Min(leftFrom, lw.Length), lw.Length, true); }
+            curTyped = ""; phraseStarted = false; phraseBaseWords = 0;
+            // v1.76: words that had nowhere to go because no text box had the focus move to the Dictate window (see WatchTick)
+            bool handoff = handoffPending; handoffPending = false;
+            string moved = "";
+            if (handoff) { lock (typeLock) { moved = (blockedText.ToString() + " " + blockedTail).Trim(); blockedText.Length = 0; blockedTail = ""; blocked = false; } }
             // Keep everything that was said (holding area + file). If nothing could be typed because there was no text box, offer to place it.
             string heldAll;
             lock (holdLock)
@@ -1682,7 +2024,7 @@ public static class AmitWhisper
                 heldAll = holdBuf.ToString();
             }
             if (heldAll.Trim().Length > 0) { try { File.WriteAllText(HoldFilePath(), heldAll, Encoding.UTF8); } catch { } }
-            bool needPlace = typingAborted && !typedAny && heldAll.Trim().Length > 0 && !tooQuick;
+            bool needPlace = !handoff && typingAborted && !typedAny && heldAll.Trim().Length > 0 && !tooQuick;
             if (needPlace)
             {
                 placeText = heldAll; placeStart = DateTime.UtcNow; placing = true;
@@ -1693,14 +2035,15 @@ public static class AmitWhisper
             }
             // Optional: letting go also means "send". Only if words were really typed, and only if the window you were typing in
             // still has focus (never press Enter somewhere else).
-            if (sendEnter && typedAny && !tooQuick && ForegroundOk())
+            if (!handoff && sendEnter && typedAny && !tooQuick && EnterTargetOk())
             {
                 Thread.Sleep(120);   // let the last typed characters land first
                 PressEnter();
                 Log("Pressed Enter (send on release)");
             }
             startSent = false;
-            if (needPlace) { }
+            if (handoff) { HideOverlay(); OpenDictateWithWords(moved); }
+            else if (needPlace) { }
             else if (typingAborted && abortMsg.Length > 0 && !typedAny) { ShowOverlay(abortMsg); HideOverlayLater(4500); }
             else if (!tooQuick) { ShowOverlay(typedAny ? (sendEnter ? "Amit heard you\nSending..." : "Amit heard you") : "Amit did not hear anything\nTry again, a little closer to the microphone."); HideOverlayLater(typedAny ? 800 : 1800); }
         }
@@ -1708,6 +2051,7 @@ public static class AmitWhisper
         finally
         {
             latched = false; micOnlyMode = false;
+            StopFocusWatch();
             if (silenceTimer != null) { silenceTimer.Dispose(); silenceTimer = null; }
             lock (sync) { if (token == t && state == ST_FINISH) state = ST_IDLE; }
         }
@@ -1784,7 +2128,7 @@ public static class AmitWhisper
                             string[] w = Words(text);
                             int from, upto;
                             lock (sync) { from = segTyped; upto = Math.Max(segTyped, w.Length - HoldBackWords); segTyped = upto; }
-                            TypeWords(w, from, upto);
+                            if (!TypeWords(w, from, upto, false)) { lock (sync) { segTyped = from; } }   // nowhere to type: keep these words for later
                         }
                         if (text.Length > 0) ShowOverlay(ListenHead() + "\n" + Tail(text));
                     }
@@ -1802,7 +2146,7 @@ public static class AmitWhisper
                             // the phrase is finished: replace what was typed with the engine's finished version (capitals, punctuation)
                             ApplyPhrase(text, true);
                             lock (sync) { lastInterim = ""; segTyped = 0; }
-                            curTyped = ""; phraseStarted = false;
+                            curTyped = ""; phraseStarted = false; phraseBaseWords = 0;
                         }
                         else
                         {
@@ -1810,7 +2154,7 @@ public static class AmitWhisper
                             string[] w = Words(text);
                             int from;
                             lock (sync) { from = Math.Min(segTyped, w.Length); segTyped = 0; lastInterim = ""; }
-                            TypeWords(w, from, w.Length);
+                            TypeWords(w, from, w.Length, true);
                         }
                         ShowOverlay(ListenHead() + "\n" + Tail(text));
                     }
@@ -1985,32 +2329,41 @@ public static class AmitWhisper
     {
         lock (typeLock)
         {
-            if (!ForegroundOk()) return;
+            if (dictTouched) { dictTouched = false; FreezePhraseLocked(true); }   // Enter was pressed since the last words: what is typed so far stays where it is
+            if (!GateOpen()) { NoteBlockedPhrase(desired, isFinal); return; }
+            if (blockedText.Length > 0) FlushBlockedLocked(); else { blocked = false; blockedTail = ""; }
+            desired = SkipBase(desired);   // the part of this phrase typed before a change of box, or before Enter, is never typed again
             string old = curTyped;
             int p = CommonPrefixLength(old, desired);
             int back = old.Length - p;
             string add = desired.Substring(p);
             if (back == 0 && add.Length == 0) return;
             if (back > (isFinal ? MaxFinalRewrite : MaxLiveBackspace)) return;   // too big a change: wait for a later update
-            string sep = (!phraseStarted && typedAny) ? " " : "";
+            string sep = (!phraseStarted && typedAny && !noLeadingSpace) ? " " : "";
+            noLeadingSpace = false;
             SendBackspaces(back);
             TypeText(sep + add);
-            curTyped = desired; phraseStarted = true; typedAny = true;
+            curTyped = desired; phraseStarted = true; typedAny = true; lastTypedWnd = GetForegroundWindow();
             if (TestSink == null) Log("Typed: [" + (back > 0 ? "<-" + back + ">" : "") + sep + add + "]");
         }
     }
 
-    // types words[from..to) as one piece of text, with a space in front of it if something was already typed this time
-    static void TypeWords(string[] w, int from, int to)
+    // types words[from..to) as one piece of text, with a space in front of it if something was already typed this time.
+    // Returns false when it could not (no text box has the focus): the words are held, see NoteBlockedWords.
+    static bool TypeWords(string[] w, int from, int to, bool isFinal = false)
     {
-        if (w == null || to <= from) return;
+        if (w == null || to <= from) return true;
         lock (typeLock)
         {
-            if (!ForegroundOk()) return;
-            string piece = (typedAny ? " " : "") + String.Join(" ", w, from, to - from);
+            if (dictTouched) { dictTouched = false; FreezePhraseLocked(true); }
+            if (!GateOpen()) { NoteBlockedWords(w, from, to, isFinal); return false; }
+            if (blockedText.Length > 0) FlushBlockedLocked(); else { blocked = false; blockedTail = ""; }
+            string piece = ((typedAny && !noLeadingSpace) ? " " : "") + String.Join(" ", w, from, to - from);
+            noLeadingSpace = false;
             TypeText(piece);
-            typedAny = true;
+            typedAny = true; lastTypedWnd = GetForegroundWindow();
             if (TestSink == null) Log("Typed: [" + piece + "]");
+            return true;
         }
     }
 
@@ -3056,10 +3409,17 @@ public static class AmitWhisper
 
     // Watches ONLY for the Esc key, and ONLY while Amit Live is open: it closes the ring and keeps that Esc from the program underneath
     // (so closing the ring never cancels whatever you were doing in it). Nothing else typed is looked at, kept or sent anywhere.
+    // v1.76: while words are being typed into a text box it also notes THAT the Enter key was pressed by the person (a yes/no, nothing is recorded):
+    // the phrase typed so far is then left alone, so it is never rewritten into the emptied box.
     static IntPtr KbdCb(int nCode, IntPtr wParam, IntPtr lParam)
     {
         try
         {
+            if (nCode >= 0 && dictKbd && Marshal.ReadInt32(lParam, 0) == 0x0D && (Marshal.ReadInt32(lParam, 8) & 0x10) == 0)   // Enter, not sent by a program
+            {
+                int m0 = wParam.ToInt32();
+                if (m0 == 0x100 || m0 == 0x104) dictTouched = true;
+            }
             if (nCode >= 0 && Marshal.ReadInt32(lParam, 0) == 0x1B)
             {
                 int msg = wParam.ToInt32();
@@ -4368,6 +4728,7 @@ public static class AmitWhisper
                 if (IsIconic(already)) ShowWindow(already, 9);
                 SetWindowPos(already, (IntPtr)(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0040);   // topmost, no move, no resize, show
                 FocusWindow(already);
+                if (!dictateAuto) StartAutoPlaceWatch();   // v1.77: any open Dictate window moves its words into the next text box
                 Log("Dictate window was already open: brought to the front");
                 return "{\"ok\":true,\"already\":true}";
             }
@@ -4401,6 +4762,7 @@ public static class AmitWhisper
             Process.Start(psi);
             Log("Opened the Dictate window");
             ThreadPool.QueueUserWorkItem(delegate { PlaceDictateWindow(x, y, w, ht); });
+            StartAutoPlaceWatch();   // v1.77: any open Dictate window moves its words into the next text box
             return "{\"ok\":true}";
         }
         catch (Exception ex) { Log("OpenDictateWindow: " + ex.Message); return "{\"ok\":false}"; }
@@ -4442,6 +4804,13 @@ public static class AmitWhisper
             }
             catch { }
             Log("Dictate: " + (inBox ? "in a text box, typing there" : "not in a text box, opening the Dictate window"));
+            if (inBox && dictateAuto && FindDictateWindowNow() != IntPtr.Zero)
+            {
+                // v1.77: a Dictate window that opened by itself is still open: its words go into this box first
+                RequestAutoPlace();
+                if (!autoPlacedOk) StartDictationInBox(x, y);
+                return;
+            }
             if (inBox) StartDictationInBox(x, y); else OpenDictateWindow(x, y);
         });
     }
@@ -4520,6 +4889,7 @@ public static class AmitWhisper
             TypeBlock(text);
             string prog = FriendlyProgram(ProcessNameOf(fg));
             Log("Dictate place: " + text.Length + " characters typed into " + prog + ": " + what);
+            dictateAuto = false; autoGen++;   // they placed it by hand: the window must not move the same words a second time into this box
             dResult = "{\"ok\":true,\"into\":\"" + JsonEsc(prog) + "\"}"; dEvt.Set();
         }
         catch (Exception ex) { Log("DictateAfterClick: " + ex.Message); dResult = "{\"ok\":false,\"reason\":\"error\"}"; dEvt.Set(); }

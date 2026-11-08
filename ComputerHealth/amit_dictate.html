@@ -167,7 +167,7 @@
 
         <div class="hp" id="hp">
           <h3>How Dictate works</h3>
-          <div class="step"><b class="h">1. Start</b>Choose Dictate on the Amit ring. If you are in a text box, Amit types your words straight into it, and one right-click stops it. If you are not in a text box, this window opens in the top right of your screen. The microphone blinks green while Amit is listening. Click the microphone to pause, and again to listen.</div>
+          <div class="step"><b class="h">1. Start</b>Choose Dictate on the Amit ring. If you are in a text box, Amit types your words straight into it, and one right-click stops it. If you are not in a text box, this window opens in the top right of your screen. While this window is open, click into a text box and wait a second: everything here is typed there, this window closes, and your dictation carries on in that box. Place does the same when you want to choose the exact spot yourself. The microphone blinks green while Amit is listening. Click the microphone to pause, and again to listen.</div>
           <div class="step"><b class="h">2. Talk</b>Your words appear in the Message. Everything is kept on this computer as you go, so nothing is lost.</div>
           <div class="step"><b class="h">3. Split into parts</b>Press <b>+</b> to start a numbered section (#1, then #2, and so on). Your next words go in that section. Press <b>&minus;</b> to remove only the section you are in. You can bring it back with Undo. You can also say &ldquo;next item&rdquo;.</div>
           <div class="step"><b class="h">4. Place</b>Press <b>Place</b>, then <b>left-click</b> where the message should go: a program, a website, Ask Amit, anywhere with a text box. Only the Message is sent, not the Subject. Press <kbd>Esc</kbd> to cancel. If you click something that is not a text box, Amit tells you and waits for another click.</div>
@@ -286,7 +286,25 @@
       wseq=j.seq; (j.events||[]).forEach(onEvent); wordsLoop();
     }).catch(function(){ setTimeout(wordsLoop,1500); wseq=-1; });
   }
+  // words that had nowhere to go (the person left the text box while talking) are handed here by the helper
+  function takeHandoff(){
+    fetch("/api/dictate/handoff?k="+encodeURIComponent(K),{method:"POST",cache:"no-store"}).then(function(r){return r.json()}).then(function(j){
+      if(j&&j.text){ addWord(j.text); say("You left the text box, so Amit moved your dictation here. Your words are in the message."); }
+    }).catch(function(){});
+  }
+  // this window opened by itself and the person has now clicked into a text box: stop listening, send everything here to the helper, which types it there and closes this window
+  function autoPlace(){
+    want=false; live(false);
+    setTimeout(function(){   // a moment for the last words to arrive
+      var fail=function(){ say("Amit could not move it there. Your words are still here. Use Place.",true); };
+      fetch("/api/dictate/autoplace?k="+encodeURIComponent(K),{method:"POST",body:text(),cache:"no-store"}).then(function(r){return r.json()}).then(function(j){
+        if(j&&j.ok) say("Moved to the text box."); else fail();
+      }).catch(fail);
+    },700);
+  }
   function onEvent(ev){
+    if(ev.k==="handoff"){ takeHandoff(); if(!want) listen(); return; }
+    if(ev.k==="autoplace"){ autoPlace(); return; }
     if(!accept) return;
     if(ev.k==="audiostart") live(true);
     else if(ev.k==="interim"){ if(ev.t) say("Hearing: "+ev.t); else if($("msg").textContent.indexOf("Hearing:")===0) say(""); }
@@ -296,10 +314,14 @@
       say(ev.t==="not-allowed"?"The microphone is not allowed. Allow it in the Amit Whisper window, then click the microphone.":ev.t==="no-mic"?"No microphone was found.":ev.t==="network"?"The speech service could not be reached.":"Amit cannot listen: "+ev.t,true);
     }
   }
-  function listen(){
+  function listen(n){
+    n=n||0;
     want=true; accept=true; live(true);
     post("listen").then(function(j){
-      if(!j.ok){ want=false; live(false); say(j.reason==="busy"?"Amit is busy with another dictation. Try again in a moment.":"Amit could not start listening ("+j.reason+").",true); }
+      if(!j.ok){
+        if(j.reason==="busy"&&n<8){ setTimeout(function(){ if(want) listen(n+1); },700); return; }   // the typing dictation is still finishing
+        want=false; live(false); say(j.reason==="busy"?"Amit is busy with another dictation. Try again in a moment.":"Amit could not start listening ("+j.reason+").",true);
+      }
     }).catch(function(){ want=false; live(false); say("Amit could not start listening. Is the helper running?",true); });
   }
   function pause(){
@@ -390,6 +412,7 @@
   load(); expire(); saveStore();
   cur=newEntry(); showCurrent();
   if(store.items.length) say("You have "+store.items.length+" earlier dictation"+(store.items.length>1?"s":"")+" on this computer. Open Recent to go back to one.");
+  takeHandoff();
   wordsLoop();
   setTimeout(listen,600);
 })();
