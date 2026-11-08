@@ -139,7 +139,7 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
       <b>Mouse:</b><select id="mousePick" title="Which mouse"></select>
       <span class="pill" id="activePill"></span>
       <span class="n2" id="pretendTxt" style="margin-left:6px">Which mouse I just used is not reported by the Helper yet, so choose it here:</span><select id="pretend" title="The Helper does not yet tell this page which mouse you touched. Once it does, this happens by itself."></select>
-      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.06</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
+      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.07</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
           </header>
     <div class="tabs"><div class="tab on" id="tabLearn">1. Learn mouse</div><div class="tab" id="tabSets">2. Mouse sets</div></div>
     <div class="notice" id="notice" hidden></div>
@@ -625,7 +625,7 @@ function handleRaw(ev){
   if(busySelect()){drawMouse();pendingDraw=true;return}
   drawMouse();drawRows();
 }
-function pollHelper(){
+function pollHelper(trigger){
   if(pendingDraw&&!busySelect()){pendingDraw=false;drawAll()}
   if(pollBusy)return;pollBusy=true;
   var ctl=new AbortController();setTimeout(function(){ctl.abort()},1500);
@@ -633,6 +633,7 @@ function pollHelper(){
     pollBusy=false;
     if(!j||!j.ok||j.raw===false){setLive(false);return}
     setLive(true);
+    if(trigger===true)followMouse(j);
     if(typeof j.master==='boolean'&&j.master!==master&&Date.now()-lastLocal>2500){master=j.master;$('master').className='tog'+(master?' on':'');$('masterTxt').textContent=master?'on':'off';if(busySelect())pendingDraw=true;else drawAll()}
     if(!polledOnce){polledOnce=true;evSince=j.seq}/* skip what happened before this page opened */
     else{(j.events||[]).forEach(function(e){handleRaw(e);if(e.seq>evSince)evSince=e.seq})}
@@ -642,8 +643,20 @@ function pollHelper(){
     }
   }).catch(function(){pollBusy=false;setLive(false)});
 }
-setInterval(pollHelper,700);pollHelper();
-
+/* a slow background check (button learning, a set switched by a button, the keyboard switch); WHICH mouse is in use is only looked at when something new happens: the page gets the focus or is shown, or the person clicks on it, and then once more a moment later to verify */
+setInterval(function(){pollHelper(false)},2000);pollHelper(false);
+function newFocus(){pollHelper(true);setTimeout(function(){pollHelper(true)},300)}
+window.addEventListener('focus',newFocus);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)newFocus()});
+var lastClickAsk=0;
+document.addEventListener('mousedown',function(){var n=Date.now();if(n-lastClickAsk>400){lastClickAsk=n;newFocus()}},true);
+function followMouse(j){
+  /* the page shows the mouse that is in use (never while a drop-down is open, a mouse is being named or added) */
+  if(!j.lastDev||j.lastAgeMs>2000||adding||!curMouse.name||busySelect())return;
+  var lm=mouseByDev(String(j.lastDev).slice(0,200));
+  if(!lm||lm===curMouse)return;
+  switchMouse(lm.id);notify('Now showing "'+lm.name+'", the mouse you are using.');
+}
 function askBar(){try{if(parent!==window)parent.postMessage({amitMouse:'bar'},location.origin)}catch(e){}}
 window.addEventListener('focus',askBar);
 function askHub(){askBar();try{if(parent!==window)parent.postMessage({amitMouse:'get',computer:compInfo()},location.origin)}catch(e){}}
