@@ -118,6 +118,21 @@ $rIns = Join-Path $repoCH 'Watchers\AmitInstaller'
 $srcOk = $true; foreach ($n in 'AmitInstaller.cs', 'AssemblyInfo.cs') { if (-not (Test-Path (Join-Path $rIns $n)) -or (NormHash (Join-Path $watch "AmitInstaller\$n")) -ne (NormHash (Join-Path $rIns $n))) { $srcOk = $false } }
 if ($srcOk) { Pass "the installer's own source files in the repo match the source" } else { Fail "the installer's source files (AmitInstaller.cs, AssemblyInfo.cs) in the repo differ from the source" }
 
+# 8b. every menu and pop-up the Helper can open is in the list, and the list holds nothing the code does not have (Ryan, 2026-11-08)
+$csT = [System.IO.File]::ReadAllText((Join-Path $watch 'amit_whisper.cs'))
+$mkIds = @([regex]::Matches($csT, '//\s*AMIT-MENU(?:-EXTERNAL)?:\s*([a-z0-9-]+)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+$liIds = @([regex]::Matches($csT, 'MenuItemDef\("([a-z0-9-]+)"') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+$inCodeOnly = @($mkIds | Where-Object { $liIds -notcontains $_ }); $inListOnly = @($liIds | Where-Object { $mkIds -notcontains $_ })
+if ($mkIds.Count -gt 0 -and $inCodeOnly.Count -eq 0 -and $inListOnly.Count -eq 0) { Pass ("the list of menus matches the code (" + $liIds.Count + " menus: " + ($liIds -join ', ') + ")") }
+else { Fail ("the list of menus and the // AMIT-MENU markers in the code differ. In the code but not in the list: [" + ($inCodeOnly -join ', ') + "]. In the list but not in the code: [" + ($inListOnly -join ', ') + "]. Every new menu or pop-up needs a MenuItemDef entry AND a marker (HELPER_RELEASE_RULES.md)") }
+
+# 8c. every default trigger the code uses (OpenDefaultMenu("...")) names a menu that is in the list (so a computer can never ship with nothing behind the middle button)
+$dfCalls = @([regex]::Matches($csT, 'OpenDefaultMenu\("([^"]+)"\)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+$dfDecl = @{}; foreach ($mm in [regex]::Matches($csT, '//\s*AMIT-DEFAULT:\s*([a-z ]+?)\s*=\s*([a-z0-9-]+)')) { $dfDecl[$mm.Groups[1].Value] = $mm.Groups[2].Value }
+$dfBad = @($dfCalls | Where-Object { -not $dfDecl.ContainsKey($_) -or ($liIds -notcontains $dfDecl[$_]) })
+if ($dfCalls.Count -gt 0 -and $dfBad.Count -eq 0) { Pass ("every default trigger has its menu in the list (" + (($dfCalls | ForEach-Object { $_ + ' = ' + $dfDecl[$_] }) -join '; ') + ")") }
+else { Fail ("a default trigger has no menu in the list: [" + ($dfBad -join ', ') + "] (the code calls OpenDefaultMenu; the list must say which menu with // AMIT-DEFAULT: <trigger> = <id>)") }
+
 # 9. the published manifest (optional)
 if ($Live -and $man) {
   try {

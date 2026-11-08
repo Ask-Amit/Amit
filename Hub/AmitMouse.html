@@ -139,7 +139,7 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
       <b>Mouse:</b><select id="mousePick" title="Which mouse"></select>
       <span class="pill" id="activePill"></span>
       <span class="n2" id="pretendTxt" style="margin-left:6px">Which mouse I just used is not reported by the Helper yet, so choose it here:</span><select id="pretend" title="The Helper does not yet tell this page which mouse you touched. Once it does, this happens by itself."></select>
-      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.12</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
+      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.13</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
           </header>
     <div class="tabs"><div class="tab on" id="tabLearn">1. Learn mouse</div><div class="tab" id="tabSets">2. Mouse sets</div></div>
     <div class="tip2" id="safetyBar" style="margin:0;padding:6px 12px;border-bottom:1px solid var(--line);background:rgba(47,196,178,.08)"><b>Stuck, or a mouse acts strangely?</b> On the keyboard press <b>Ctrl + Alt + Shift + M</b>: every mouse set is switched off at once and all your buttons work as normal (press it again to switch them back on). To fix one button, use <b>Reset a button...</b> on the Mouse sets tab, with your main mouse if you have to.</div>
@@ -254,9 +254,17 @@ var BTNS=[
 ];
 var HMENUS=[];/* the person's real bar buttons (profile, buttons), sent by the Hub */
 var HELPER=[]; HMENUS.forEach(function(m){m[1].forEach(function(b){HELPER.push(b)})});
-function setBarMenus(menus){
-  HMENUS=(menus||[]).filter(function(m){return m&&m[1]&&m[1].length});HELPER=[];HMENUS.forEach(function(m){m[1].forEach(function(b){HELPER.push(b)})});
+var USERMENUS=[], BUILTIN=[];/* USERMENUS: the person's own bar buttons (from the Hub); BUILTIN: the Helper's own menus (from the Helper's list), shown as the group "Menus" */
+function rebuildMenus(){
+  HMENUS=(BUILTIN.length?[['Menus',BUILTIN]]:[]).concat(USERMENUS);HELPER=[];HMENUS.forEach(function(m){m[1].forEach(function(b){HELPER.push(b)})});
   if(busySelect())pendingDraw=true;else drawAll();
+}
+function setBarMenus(menus){USERMENUS=(menus||[]).filter(function(m){return m&&m[1]&&m[1].length});rebuildMenus()}
+function loadBuiltinMenus(){
+  try{fetch(HELPER_URL+'/api/menus',{cache:'no-store'}).then(function(r){return r.json()}).then(function(j){
+    var names=((j&&j.menus)||[]).filter(function(m){return m.buttonOk}).map(function(m){return m.name});
+    if(names.join('|')!==BUILTIN.join('|')){BUILTIN=names;rebuildMenus()}
+  }).catch(function(){})}catch(e){}
 }
 function hMenuOf(name){for(var i=0;i<HMENUS.length;i++)if(HMENUS[i][1].indexOf(name)>=0)return HMENUS[i][0];return ''}
 var sets=[
@@ -333,7 +341,7 @@ function setSlot(s,b,slot,o){
 }
 function actCell(b,slot,m){
   var k=b+'|'+slot, c='<span class="dot '+m.t+'"></span><select data-b="'+b+'" data-slot="'+slot+'" data-k="t">'+
-    OPTS.map(function(o){return '<option value="'+o[0]+'"'+(m.t===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select> ';
+    OPTS.map(function(o){return '<option value="'+o[0]+'"'+(m.t===o[0]?' selected':'')+'>'+((o[0]==='keep'&&b==='middle'&&slot==='click')?'Default: open the Amit menu':o[1])+'</option>'}).join('')+'</select> ';
   var A='data-b="'+b+'" data-slot="'+slot+'" ';
   if(m.t==='key')c+='<input class="key-in'+(recBtn===k?' rec':'')+'" '+A+'data-k="rec" readonly value="'+(recBtn===k?'Press the keys now...':esc(m.v||''))+'" placeholder="Click, then press keys">';
   if(m.t==='helper'){
@@ -356,7 +364,7 @@ function lockBadge(b,s){
 function isPickBtn(id){return id==='middle'&&curMouse.primary}
 function cellHtml(b,s){
   if(!isPickBtn(b.id))return cellHtml0(b,s);
-  return '<div class="syslock"><b>&#128274; Primary button. It cannot be changed.</b><div class="slot"><span class="lab">Click</span>Starts Voice, always.</div><div class="slot"><span class="lab">Wheel</span>While Voice is listening, turning the wheel opens the voice menu: every command Voice understands, to choose with the mouse.</div><div class="slot"><span class="lab">Hold</span>Not used. Kept free for now.</div><div class="n2"><b>Why it cannot be changed:</b> this one button already does a lot (it starts Voice and opens the voice menu), so it stays exactly as it is and you can always speak to Amit. There is no double-click here: the first click of a double-click would start Voice. To change sets, use a Helper bar button, a voice command, or another mouse button.</div></div>';
+  return '<div class="syslock"><b>&#128274; Primary button. It cannot be changed.</b><div class="slot"><span class="lab">Click</span>Opens the Amit menu (Voice, Mouse, Keyboard and more), always.</div><div class="slot"><span class="lab">Wheel</span>While Voice is listening, turning the wheel opens the same menu.</div><div class="slot"><span class="lab">Hold</span>Not used. Kept free for now.</div><div class="n2"><b>Why it cannot be changed:</b> this one button already does a lot (it opens the Amit menu), so it stays exactly as it is and you can always speak to Amit. There is no double-click here: the first click of a double-click would start Voice. To change sets, use a Helper bar button, a voice command, or another mouse button.</div></div>';
 }
 function cellHtml0(b,s){
   var seen=seenState[b.id], m=s.map[b.id]||{t:'keep'}, cell;
@@ -668,7 +676,7 @@ function setLive(on){
   if(on===helperLive)return;
   helperLive=on;
   $('pretend').hidden=on;$('pretendTxt').textContent=on?'Windows tells me which mouse you touch, because the Amit Helper is connected.':'Which mouse I just used is not reported by the Helper yet, so choose it here:';
-  if(on){cleanPretend();syncHelper()}
+  if(on){cleanPretend();syncHelper();loadBuiltinMenus()}
 }
 function isReal(k){return typeof k==='string'&&k.indexOf('\\\\?\\')===0}
 function cleanPretend(){

@@ -44,6 +44,13 @@ A button's steps travel: Hub editor -> database (`hel_buttons.steps`) -> Hub bui
 ## The installer trap (fixed 2026-11-07)
 `Install_AmitTracker.ps1` replaced EVERY program file with its own embedded copies whenever the recorded installer version (`installed_version.txt`) was older or missing, with no never-go-backwards rule, so running an old installer put an old Helper back. It now keeps a newer installed Helper. The fix reaches computers through installers built after that date, so ALWAYS rebuild the installer (step 5). `installed_version.txt` must not be empty (the verify script checks it).
 
+## A NEW MENU, POP-UP OR WINDOW (Ryan, 2026-11-08: "anytime a new pop-up is generated, or a new menu is created, it gets added to that list")
+The Helper keeps ONE list of everything it can open (`MenuList()` in `amit_whisper.cs`; served at `/api/menus`). Each entry says what it does, where it appears, and the MECHANISM that opens it, so a button only says "open menu <id>" and the Helper calls it alive (`OpenListedMenu`, `/api/menu/open?id=`, or a mouse set's "Run a Helper button" on the built-in group "Menus").
+1. Add a `MenuItemDef("<id>", name, what, where, mechanism, defaultFor, addedIn, buttonOk, open)` entry to `MenuList()`. `open` is the code that opens it (null and buttonOk false if it cannot be opened by a button yet; say why in the mechanism).
+2. Put `// AMIT-MENU: <id>` on the line above the function that opens it (or `// AMIT-MENU-EXTERNAL: <id>` next to its entry if it lives in another program, such as the bar).
+3. `verify_helper_release.ps1` compares the markers with the list and FAILS the release if they differ. Never push on that FAIL.
+A menu that is the DEFAULT of a button (the Amit menu for the middle button) is opened with `OpenDefaultMenu("<trigger>")`, never by naming the menu in the code; declare it with `// AMIT-DEFAULT: <trigger> = <id>` (the release check verifies it).
+Not built yet: a button STEP "Open a menu" in the Hub editor and the bar (it needs the step to be added in every place listed under "Adding a NEW kind of button step").
 ## Never
 - Never push without Ryan saying so. Never push several times in a row. Never leave a copy out of step.
 - Never say "installed" or "updated" without having run the verify script and the live tests.

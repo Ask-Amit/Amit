@@ -1746,6 +1746,16 @@ try {
                     } catch { Send-JsonRaw $response '{"ok":false,"error":"could not write the bar"}' }
                 }
             }
+            "/api/menus" {
+                # the list of every menu and pop-up the Helper can open, and how (Helper 1.80). Only the Amit site or a local program may ask.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::MenusJson()) }
+            }
+            "/api/menu/open" {
+                # a button asks the Helper to open a menu by id or name: ?id=amit-menu. The Helper calls it alive with the mechanism in its list.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::OpenListedMenu([string]$request.QueryString["id"])) }
+            }
             "/api/mouse/sync" {
                 # Amit Mouse (Helper 1.71): the page sends the person's mice and sets; the Helper keeps them (mouse_config.json) and runs them. Only the Amit site or a local program may send.
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
