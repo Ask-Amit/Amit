@@ -139,7 +139,7 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
       <b>Mouse:</b><select id="mousePick" title="Which mouse"></select>
       <span class="pill" id="activePill"></span>
       <span class="n2" id="pretendTxt" style="margin-left:6px">Which mouse I just used is not reported by the Helper yet, so choose it here:</span><select id="pretend" title="The Helper does not yet tell this page which mouse you touched. Once it does, this happens by itself."></select>
-      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.03</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on"></div><span id="masterTxt">on</span></div>
+      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.04</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on"></div><span id="masterTxt">on</span></div>
           </header>
     <div class="tabs"><div class="tab on" id="tabLearn">1. Learn mouse</div><div class="tab" id="tabSets">2. Mouse sets</div></div>
     <div class="notice" id="notice" hidden></div>
@@ -589,6 +589,8 @@ function cleanPretend(){
   selId=curMouse.selId;activeId=curMouse.activeId;adding=null;drawAll();
 }
 function mouseByDev(k){for(var i=0;i<mice.length;i++)if(mice[i].dev===k)return mice[i];return null}
+var pendingDraw=false;
+function busySelect(){var a=document.activeElement;return !!a&&a.tagName==='SELECT'}
 function handleRaw(ev){
   if(!ev.down)return;
   var dev=String(ev.dev||'').slice(0,200), id=ev.ctl;
@@ -606,14 +608,19 @@ function handleRaw(ev){
     return;
   }
   if(m!==curMouse){if(!curMouse.name&&$('setsView').hidden){notify('Give this mouse a one-word name first (step 1), then touch the other mouse.');return}switchMouse(m.id);notify('Now using "'+m.name+'". Its '+activeSet().name+' is active.')}
-  if(!$('learnView').hidden){wiz(id);return}
+  if(!$('learnView').hidden){
+    if(busySelect()){var wn=!seenState[id];seenState[id]=true;flashT[id]=1;setTimeout(function(){flashT[id]=0;drawMouse()},350);say('I felt: '+nameOf(id)+(wn?'  - NEW, added to this mouse':'  - already known'),true);drawMouse();pendingDraw=true;return}
+    wiz(id);return}
+  if(seenState[id]&&['left','right','middle','wheelup','wheeldown'].indexOf(id)>=0)return;
   var wasNew=!seenState[id];
   flashT[id]=1;setTimeout(function(){flashT[id]=0;drawMouse()},250);
   focusId=id;
-  if(wasNew){seenState[id]=true;newId=id;setTimeout(function(){newId=null;drawRows()},2500);say('Windows received: '+nameOf(id)+'  - NEW. Added to the table below, choose what it does.',true);drawAll();var rw=document.querySelector('tr[data-row="'+id+'"]');if(rw)rw.scrollIntoView({block:'nearest'});return}
+  if(wasNew){seenState[id]=true;newId=id;setTimeout(function(){newId=null;drawRows()},2500);say('Windows received: '+nameOf(id)+'  - NEW. Added to the table below, choose what it does.',true);if(busySelect()){drawMouse();pendingDraw=true;return}drawAll();var rw=document.querySelector('tr[data-row="'+id+'"]');if(rw)rw.scrollIntoView({block:'nearest'});return}
+  if(busySelect()){drawMouse();pendingDraw=true;return}
   drawMouse();drawRows();
 }
 function pollHelper(){
+  if(pendingDraw&&!busySelect()){pendingDraw=false;drawAll()}
   if(pollBusy)return;pollBusy=true;
   var ctl=new AbortController();setTimeout(function(){ctl.abort()},1500);
   fetch(HELPER+'/api/mouse/status?since='+evSince,{cache:'no-store',signal:ctl.signal}).then(function(r){return r.json()}).then(function(j){
@@ -624,7 +631,7 @@ function pollHelper(){
     else{(j.events||[]).forEach(function(e){handleRaw(e);if(e.seq>evSince)evSince=e.seq})}
     /* a set switched by a button or a voice command on this computer */
     if(j.active&&Date.now()-lastLocal>2500){
-      mice.forEach(function(m){var sid=j.active[m.dev];if(!sid)return;var s=m.sets.filter(function(x){return x.uid===sid})[0];if(s&&s.id!==m.activeId){m.activeId=s.id;if(m===curMouse)activeId=s.id;drawAll()}});
+      mice.forEach(function(m){var sid=j.active[m.dev];if(!sid)return;var s=m.sets.filter(function(x){return x.uid===sid})[0];if(s&&s.id!==m.activeId){m.activeId=s.id;if(m===curMouse)activeId=s.id;if(busySelect())pendingDraw=true;else drawAll()}});
     }
   }).catch(function(){pollBusy=false;setLive(false)});
 }
