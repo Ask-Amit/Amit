@@ -139,7 +139,7 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
       <b>Mouse:</b><select id="mousePick" title="Which mouse"></select>
       <span class="pill" id="activePill"></span>
       <span class="n2" id="pretendTxt" style="margin-left:6px">Which mouse I just used is not reported by the Helper yet, so choose it here:</span><select id="pretend" title="The Helper does not yet tell this page which mouse you touched. Once it does, this happens by itself."></select>
-      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.04</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on"></div><span id="masterTxt">on</span></div>
+      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.05</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on"></div><span id="masterTxt">on</span></div>
           </header>
     <div class="tabs"><div class="tab on" id="tabLearn">1. Learn mouse</div><div class="tab" id="tabSets">2. Mouse sets</div></div>
     <div class="notice" id="notice" hidden></div>
@@ -249,8 +249,12 @@ var BTNS=[
  {id:'tiltl',name:'Wheel tilt left',seen:false},
  {id:'tiltr',name:'Wheel tilt right',seen:false}
 ];
-var HMENUS=[['AmitCoder',['Ask Amit','Computer Health']],['Books',['Books','Print from the screen']],['Shopping',['Cell Phone']]];
+var HMENUS=[];/* the person's real bar buttons (profile, buttons), sent by the Hub */
 var HELPER=[]; HMENUS.forEach(function(m){m[1].forEach(function(b){HELPER.push(b)})});
+function setBarMenus(menus){
+  HMENUS=(menus||[]).filter(function(m){return m&&m[1]&&m[1].length});HELPER=[];HMENUS.forEach(function(m){m[1].forEach(function(b){HELPER.push(b)})});
+  if(busySelect())pendingDraw=true;else drawAll();
+}
 function hMenuOf(name){for(var i=0;i<HMENUS.length;i++)if(HMENUS[i][1].indexOf(name)>=0)return HMENUS[i][0];return ''}
 var sets=[
  {id:1,num:1,label:'Everyday',name:'Set 1 \u00B7 Everyday',map:{}},
@@ -340,6 +344,7 @@ function actCell(b,slot,m){
     var hopts='';
     HMENUS.forEach(function(x){if(flt&&flt!==x[0])return;x[1].forEach(function(bn){hopts+='<option value="'+esc(x[0]+'|'+bn)+'"'+(hm===x[0]&&m.v===bn?' selected':'')+'>'+(flt?'':esc(x[0])+' \u203A ')+esc(bn)+'</option>'})});
     c+='<select '+A+'data-k="hbtn" title="Which button">'+hopts+'</select>';
+    if(!HMENUS.length)c+=' <span class="n2">You have no Helper bar buttons yet. Make one in Communications &gt; Amit Helper, then come back.</span>';
   }
   if(m.t==='mouse')c+='<select '+A+'data-k="v">'+['Left button','Right button','Middle button','Back button','Forward button','Double-click'].map(function(x){return '<option'+(m.v===x?' selected':'')+'>'+x+'</option>'}).join('')+'</select>';
   if(m.t==='set')c+='<select '+A+'data-k="v">'+sets.map(function(x){return '<option value="'+x.id+'"'+(String(m.v)===String(x.id)?' selected':'')+'>'+esc(x.name)+'</option>'}).join('')+'</select>';
@@ -387,7 +392,7 @@ function bindCtl(root,s){
     if(k==='rec'){e.onclick=function(){recBtn=b+'|'+slot;focusId=b;drawRows();var r=document.querySelector('.key-in.rec');if(r)r.focus()};return}
     e.onchange=function(){
       var o=slotObj(s,b,slot)||{t:'keep'};
-      if(k==='t'){var t=e.value;if(t==='helper'){setSlot(s,b,slot,{t:t,v:HELPER[0],hm:hMenuOf(HELPER[0]),menu:'',ms:o.ms})}else setSlot(s,b,slot,{t:t,v:(t==='helper'?HELPER[0]:t==='mouse'?'Left button':t==='set'?String(sets[0].id):''),ms:o.ms})}
+      if(k==='t'){var t=e.value;if(t==='helper'){setSlot(s,b,slot,{t:t,v:HELPER[0]||'',hm:hMenuOf(HELPER[0]||''),menu:'',ms:o.ms})}else setSlot(s,b,slot,{t:t,v:(t==='helper'?HELPER[0]:t==='mouse'?'Left button':t==='set'?String(sets[0].id):''),ms:o.ms})}
       else if(k==='hmenu'){o.menu=e.value;var hmn2=o.hm||hMenuOf(o.v);if(o.menu&&hmn2!==o.menu){var hf=HMENUS.filter(function(x){return x[0]===o.menu})[0];if(hf){o.hm=hf[0];o.v=hf[1][0]}}setSlot(s,b,slot,o)}
       else if(k==='hbtn'){var pv=e.value.split('|');o.hm=pv[0];o.v=pv.slice(1).join('|');setSlot(s,b,slot,o)}
       else if(k==='ms'){var n=Math.max(200,Math.min(3000,+e.value||500));o.ms=n;setSlot(s,b,slot,o)}
@@ -553,6 +558,7 @@ function save(){try{
 var dbReady=false;
 /* the Hub (the parent page) holds the login and talks to the database for this page */
 window.addEventListener('message',function(ev){
+  if(ev.origin===location.origin&&ev.data&&ev.data.amitMouse==='bar'){setBarMenus(ev.data.menus);return}
   if(ev.origin!==location.origin||!ev.data||ev.data.amitMouse!=='data')return;
   dbReady=!ev.data.error;
   var d=ev.data.row;
@@ -562,12 +568,12 @@ window.addEventListener('message',function(ev){
 });
 function setStatus(t){var n=document.getElementById('dbState');if(n)n.textContent=t}
 /* THE HELPER ON THIS COMPUTER: the setup goes to it (it runs the sets), and it says which mouse and which button you just used */
-var HELPER='http://localhost:8710', helperLive=false, evSince=0, lastLocal=0, syncT=null, pollBusy=false, polledOnce=false;
+var HELPER_URL='http://localhost:8710', helperLive=false, evSince=0, lastLocal=0, syncT=null, pollBusy=false, polledOnce=false;
 function syncHelper(){
   if(!helperLive)return;
   clearTimeout(syncT);
   syncT=setTimeout(function(){
-    try{var r=toRows();r.master=master;fetch(HELPER+'/api/mouse/sync',{method:'POST',body:JSON.stringify(r)}).catch(function(){})}catch(e){}
+    try{var r=toRows();r.master=master;fetch(HELPER_URL+'/api/mouse/sync',{method:'POST',body:JSON.stringify(r)}).catch(function(){})}catch(e){}
   },400);
 }
 function setLive(on){
@@ -623,7 +629,7 @@ function pollHelper(){
   if(pendingDraw&&!busySelect()){pendingDraw=false;drawAll()}
   if(pollBusy)return;pollBusy=true;
   var ctl=new AbortController();setTimeout(function(){ctl.abort()},1500);
-  fetch(HELPER+'/api/mouse/status?since='+evSince,{cache:'no-store',signal:ctl.signal}).then(function(r){return r.json()}).then(function(j){
+  fetch(HELPER_URL+'/api/mouse/status?since='+evSince,{cache:'no-store',signal:ctl.signal}).then(function(r){return r.json()}).then(function(j){
     pollBusy=false;
     if(!j||!j.ok||j.raw===false){setLive(false);return}
     setLive(true);
@@ -637,12 +643,14 @@ function pollHelper(){
 }
 setInterval(pollHelper,700);pollHelper();
 
-function askHub(){try{if(parent!==window)parent.postMessage({amitMouse:'get',computer:compInfo()},location.origin)}catch(e){}}
+function askBar(){try{if(parent!==window)parent.postMessage({amitMouse:'bar'},location.origin)}catch(e){}}
+window.addEventListener('focus',askBar);
+function askHub(){askBar();try{if(parent!==window)parent.postMessage({amitMouse:'get',computer:compInfo()},location.origin)}catch(e){}}
 /* ask the Helper which computer this is; if it is not running, fall back to a name for this browser */
 (function(){
   var done=false;function go(){if(done)return;done=true;askHub()}
   setTimeout(function(){if(!done){setStatus('The Amit Helper did not answer, so this is kept under this browser.');go()}},3000);
-  try{fetch('http://localhost:8710/api/device',{cache:'no-store'}).then(function(r){return r.json()}).then(function(j){
+  try{fetch(HELPER_URL+'/api/device',{cache:'no-store'}).then(function(r){return r.json()}).then(function(j){
     if(j&&j.deviceId){COMP={id:uid(),name:String(j.deviceName||'This computer').slice(0,60),machine_key:String(j.deviceId).slice(0,80)};setStatus('Computer: '+COMP.name)}
     go();
   }).catch(function(){go()})}catch(e){go()}

@@ -1391,7 +1391,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.70</div>
+      <div class="page-version" id="hubVersionBadge">v8.71</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -5925,6 +5925,12 @@ window.addEventListener('message',async function(ev){
   try{
     if(ev.data.amitMouse==='get') reply(await amMouseGet(ev.data.computer));
     else if(ev.data.amitMouse==='put') await amMousePut(ev.data.data);
+    else if(ev.data.amitMouse==='bar'){
+      var bp=await db.from('hel_profiles').select('id,name,sort_order').eq('user_id',currentUser.id).order('sort_order');
+      var bb=await db.from('hel_buttons').select('profile_id,name,sort_order').eq('user_id',currentUser.id).order('sort_order');
+      var menus=((bp.data)||[]).map(function(pr){return [String(pr.name||'').replace(/\s+/g,' ').trim(),((bb.data)||[]).filter(function(b){return b.profile_id===pr.id;}).map(function(b){return String(b.name||'').replace(/\s+/g,' ').trim();})];});
+      try{ f.contentWindow.postMessage({amitMouse:'bar',menus:menus},location.origin); }catch(_){}
+    }
   }catch(e){ if(ev.data.amitMouse==='get') reply(null,'Could not reach your login storage: '+(e&&e.message||e)); else { try{ f.contentWindow.postMessage({amitMouse:'data',row:null,error:'Could not save: '+(e&&e.message||e)},location.origin);}catch(_){} } }
 });
 function amLoadMouse(){var f=document.getElementById('amMouseFrame');if(f&&!f.getAttribute('src'))f.setAttribute('src','AmitMouse.html')}
