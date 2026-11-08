@@ -1391,7 +1391,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.71</div>
+      <div class="page-version" id="hubVersionBadge">v8.72</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -5871,7 +5871,7 @@ async function amMouseGet(comp){
   if(q.error) throw q.error;
   if(!q.data) return null;
   var cid=q.data.id;
-  var dv=await db.from('per_devices').select('*').eq('computer_id',cid).eq('kind','mouse'); if(dv.error) throw dv.error;
+  var dv=await db.from('per_devices').select('*').eq('computer_id',cid).eq('kind','mouse').order('created_at',{ascending:true}); if(dv.error) throw dv.error;   /* oldest first: if no mouse is marked main, the first one added becomes it */
   var devs=dv.data||[]; if(!devs.length) return null;
   var ids=devs.map(function(x){return x.id;});
   var cs=await db.from('per_controls').select('*').in('device_id',ids); if(cs.error) throw cs.error;
@@ -5884,6 +5884,14 @@ async function amMouseGet(comp){
       sets:(ss.data||[]).filter(function(s){return s.device_id===x.id;}).map(function(s){
         return {id:s.id,num:s.num,label:s.label,actions:(ac.data||[]).filter(function(a){return a.set_id===s.id;})};})};
   })};
+}
+// saves run ONE AT A TIME (several quick edits used to overlap and wipe each other's primary flag); while one runs, only the newest waiting one is kept
+var amPutBusy=false, amPutNext=null;
+async function amMousePutQueued(d){
+  if(amPutBusy){ amPutNext=d; return; }
+  amPutBusy=true;
+  try{ await amMousePut(d); }
+  finally{ amPutBusy=false; if(amPutNext){ var n=amPutNext; amPutNext=null; amMousePutQueued(n); } }
 }
 async function amMousePut(d){
   var uidv=currentUser.id, c=d.computer, now=new Date().toISOString();
@@ -5904,11 +5912,11 @@ async function amMousePut(d){
   var keepD={}; devRows.forEach(function(x){keepD[x.id]=1;});
   var gone=(have.data||[]).filter(function(x){return !keepD[x.id];}).map(function(x){return x.id;});
   if(gone.length){ r=await db.from('per_devices').delete().in('id',gone); if(r.error) throw r.error; }
-  // only one primary per computer: clear the flag first, write devices, then set the primary
-  r=await db.from('per_devices').update({is_primary:false}).eq('computer_id',c.id); if(r.error) throw r.error;
-  var plain=devRows.map(function(x){var y=Object.assign({},x);delete y._primary;return y;});
+  // only one primary per computer, and never a moment with none: demote only the devices that must NOT be primary, then write every device with its real flag
+  var notPrim=devRows.filter(function(x){return !x._primary;}).map(function(x){return x.id;});
+  if(notPrim.length){ r=await db.from('per_devices').update({is_primary:false}).in('id',notPrim); if(r.error) throw r.error; }
+  var plain=devRows.map(function(x){var y=Object.assign({},x);y.is_primary=!!x._primary;delete y._primary;return y;});
   if(plain.length){ r=await db.from('per_devices').upsert(plain,{onConflict:'id'}); if(r.error) throw r.error; }
-  for(var i=0;i<devRows.length;i++){ if(devRows[i]._primary){ r=await db.from('per_devices').update({is_primary:true}).eq('id',devRows[i].id); if(r.error) throw r.error; } }
   if(ctlRows.length){ r=await db.from('per_controls').upsert(ctlRows,{onConflict:'device_id,control_id'}); if(r.error) throw r.error; }
   var allDev=devRows.map(function(x){return x.id;});
   // sets: a number can move or swap between sets (numbers are unique per device), so clear this device's sets and write them fresh in one go.
@@ -5924,7 +5932,7 @@ window.addEventListener('message',async function(ev){
   if(typeof currentUser==='undefined'||!currentUser||!currentUser.id){ if(ev.data.amitMouse==='get') reply(null,'Sign in to the Hub to keep this with your login.'); return; }
   try{
     if(ev.data.amitMouse==='get') reply(await amMouseGet(ev.data.computer));
-    else if(ev.data.amitMouse==='put') await amMousePut(ev.data.data);
+    else if(ev.data.amitMouse==='put') await amMousePutQueued(ev.data.data);
     else if(ev.data.amitMouse==='bar'){
       var bp=await db.from('hel_profiles').select('id,name,sort_order').eq('user_id',currentUser.id).order('sort_order');
       var bb=await db.from('hel_buttons').select('profile_id,name,sort_order').eq('user_id',currentUser.id).order('sort_order');

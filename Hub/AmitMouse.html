@@ -139,10 +139,11 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
       <b>Mouse:</b><select id="mousePick" title="Which mouse"></select>
       <span class="pill" id="activePill"></span>
       <span class="n2" id="pretendTxt" style="margin-left:6px">Which mouse I just used is not reported by the Helper yet, so choose it here:</span><select id="pretend" title="The Helper does not yet tell this page which mouse you touched. Once it does, this happens by itself."></select>
-      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.11</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
+      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.12</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
           </header>
     <div class="tabs"><div class="tab on" id="tabLearn">1. Learn mouse</div><div class="tab" id="tabSets">2. Mouse sets</div></div>
     <div class="tip2" id="safetyBar" style="margin:0;padding:6px 12px;border-bottom:1px solid var(--line);background:rgba(47,196,178,.08)"><b>Stuck, or a mouse acts strangely?</b> On the keyboard press <b>Ctrl + Alt + Shift + M</b>: every mouse set is switched off at once and all your buttons work as normal (press it again to switch them back on). To fix one button, use <b>Reset a button...</b> on the Mouse sets tab, with your main mouse if you have to.</div>
+    <div class="tip2" id="runBar" style="margin:0;padding:6px 12px;border-bottom:1px solid var(--line)"></div>
     <div class="notice" id="notice" hidden></div>
     <div class="learn" id="learnView">
       <div class="lside">
@@ -632,6 +633,7 @@ function fromRows(d){
     nm.push(m);
   });
   mice=nm;
+  if(mice.length&&!mice.some(function(m){return m.primary})){mice[0].primary=true;notifyLater('No main mouse was set, so "'+mice[0].name+'" is now your main mouse. To use another one as main, open that mouse and press "Make this my primary mouse".')}
   curMouse=mice[0];sets=curMouse.sets;seenState=curMouse.seen;selId=curMouse.selId;activeId=curMouse.activeId;
   return true;
 }
@@ -653,12 +655,13 @@ window.addEventListener('message',function(ev){
 });
 function setStatus(t){var n=document.getElementById('dbState');if(n)n.textContent=t}
 /* THE HELPER ON THIS COMPUTER: the setup goes to it (it runs the sets), and it says which mouse and which button you just used */
+var lastSentMaster=true;/* what this page last told the Helper about sets on/off */
 var HELPER_URL='http://localhost:8710', helperLive=false, evSince=0, lastLocal=0, syncT=null, pollBusy=false, polledOnce=false;
 function syncHelper(){
   if(!helperLive)return;
   clearTimeout(syncT);
   syncT=setTimeout(function(){
-    try{var r=toRows();r.master=master&&!resetMode;fetch(HELPER_URL+'/api/mouse/sync',{method:'POST',body:JSON.stringify(r)}).catch(function(){})}catch(e){}
+    try{var r=toRows();r.master=master&&!resetMode;lastSentMaster=r.master;fetch(HELPER_URL+'/api/mouse/sync',{method:'POST',body:JSON.stringify(r)}).catch(function(){})}catch(e){}
   },400);
 }
 function setLive(on){
@@ -717,17 +720,17 @@ function pollHelper(trigger){
   var ctl=new AbortController();setTimeout(function(){ctl.abort()},1500);
   fetch(HELPER_URL+'/api/mouse/status?since='+evSince,{cache:'no-store',signal:ctl.signal}).then(function(r){return r.json()}).then(function(j){
     pollBusy=false;
-    if(!j||!j.ok||j.raw===false){setLive(false);return}
-    setLive(true);
+    if(!j||!j.ok||j.raw===false){setLive(false);drawRun(null);return}
+    setLive(true);drawRun(j);
     if(trigger===true)followMouse(j);
-    if(!resetMode&&typeof j.master==='boolean'&&j.master!==master&&Date.now()-lastLocal>2500){master=j.master;$('master').className='tog'+(master?' on':'');$('masterTxt').textContent=master?'on':'off';if(busySelect())pendingDraw=true;else drawAll()}
+    if(!resetMode&&typeof j.master==='boolean'&&j.master!==lastSentMaster&&Date.now()-lastLocal>2500){/* the Helper's state changed on the computer (the keyboard switch), not because of what this page sent */master=j.master;lastSentMaster=j.master;$('master').className='tog'+(master?' on':'');$('masterTxt').textContent=master?'on':'off';if(busySelect())pendingDraw=true;else drawAll()}
     if(!polledOnce){polledOnce=true;evSince=j.seq}/* skip what happened before this page opened */
     else{(j.events||[]).forEach(function(e){handleRaw(e);if(e.seq>evSince)evSince=e.seq})}
     /* a set switched by a button or a voice command on this computer */
     if(j.active&&Date.now()-lastLocal>2500){
       mice.forEach(function(m){var sid=j.active[m.dev];if(!sid)return;var s=m.sets.filter(function(x){return x.uid===sid})[0];if(s&&s.id!==m.activeId){m.activeId=s.id;if(m===curMouse)activeId=s.id;if(busySelect())pendingDraw=true;else drawAll()}});
     }
-  }).catch(function(){pollBusy=false;setLive(false)});
+  }).catch(function(){pollBusy=false;setLive(false);drawRun(null)});
 }
 /* a slow background check (button learning, a set switched by a button, the keyboard switch); WHICH mouse is in use is only looked at when something new happens: the page gets the focus or is shown, or the person clicks on it, and then once more a moment later to verify */
 setInterval(function(){pollHelper(false)},2000);pollHelper(false);
@@ -737,6 +740,19 @@ window.addEventListener('focus',newFocus);
 document.addEventListener('visibilitychange',function(){if(!document.hidden)newFocus()});
 var lastClickAsk=0;
 document.addEventListener('mousedown',function(){var n=Date.now();if(n-lastClickAsk>400){lastClickAsk=n;newFocus()}},true);
+function drawRun(j){
+  var bar=$('runBar');if(!bar)return;
+  if(!j){bar.style.background='rgba(230,106,106,.10)';bar.innerHTML='<b>Running now:</b> the Amit Helper is not connected, so nothing is being changed on this computer.';return}
+  if(!j.master){bar.style.background='rgba(230,106,106,.18)';bar.innerHTML='<b>Running now: ALL MOUSE SETS ARE OFF.</b> Every button works as normal. To switch them on, use the switch at the top right, or press Ctrl + Alt + Shift + M on the keyboard.';return}
+  var parts=[];
+  mice.forEach(function(m){
+    var sid=j.active&&m.dev?j.active[m.dev]:null; if(!sid)return;
+    var s=m.sets.filter(function(x){return x.uid===sid})[0];
+    parts.push('<b>'+esc(m.name||'(unnamed)')+'</b>'+(m.primary?' (main)':'')+': '+(s?esc(s.name):'a set that is not in this list'));
+  });
+  bar.style.background='rgba(95,207,128,.10)';
+  bar.innerHTML='<b>Running now (checked on this computer):</b> '+(parts.length?parts.join(' &nbsp;|&nbsp; '):'no mouse has been set up yet')+' &nbsp;&middot;&nbsp; sets are ON';
+}
 function followMouse(j){
   /* the page shows the mouse that is in use (never while a drop-down is open, a mouse is being named or added) */
   if(resetMode||!j.lastDev||j.lastAgeMs>2000||adding||!curMouse.name||busySelect())return;
