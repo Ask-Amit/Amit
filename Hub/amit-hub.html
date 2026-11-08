@@ -1391,7 +1391,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.75</div>
+      <div class="page-version" id="hubVersionBadge">v8.76</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -5937,6 +5937,7 @@ window.addEventListener('message',async function(ev){
       var bp=await db.from('hel_profiles').select('id,name,sort_order').eq('user_id',currentUser.id).order('sort_order');
       var bb=await db.from('hel_buttons').select('profile_id,name,sort_order').eq('user_id',currentUser.id).order('sort_order');
       var menus=((bp.data)||[]).map(function(pr){return [String(pr.name||'').replace(/\s+/g,' ').trim(),((bb.data)||[]).filter(function(b){return b.profile_id===pr.id;}).map(function(b){return String(b.name||'').replace(/\s+/g,' ').trim();})];});
+      var sg=menus.filter(function(m){return m[0]==='Settings';})[0]; if(sg){ if(sg[1].indexOf('Amit menu')<0) sg[1].unshift('Amit menu'); } else menus.unshift(['Settings',['Amit menu']]);   // the standard button is on every computer
       try{ f.contentWindow.postMessage({amitMouse:'bar',menus:menus},location.origin); }catch(_){}
     }
   }catch(e){ if(ev.data.amitMouse==='get') reply(null,'Could not reach your login storage: '+(e&&e.message||e)); else { try{ f.contentWindow.postMessage({amitMouse:'data',row:null,error:'Could not save: '+(e&&e.message||e)},location.origin);}catch(_){} } }
@@ -6350,6 +6351,22 @@ async function hlLoad(){
   hl.settings=Object.assign({},HL_DEFAULTS,rs[0].data||{}); hlFillSettings(hl.settings); hlRender(); hlSyncBar(true);
 }
 function hlFillSettings(s){ hlEl('hlAlways').checked=!!s.always_on; hlEl('hlWiden').checked=!!s.widen_on_click; hlEl('hlIdle').value=String(s.idle_minutes); hlEl('hlRail').value=s.rail_width; }
+// THE STANDARD BUTTON (Ryan, 2026-11-08): "Amit menu" in the Settings group is the same on every computer. The bar program adds it itself, so it is not a row in the database; the editor only SHOWS it, locked.
+const HL_STD_NAME='Amit menu', HL_STD_ICON='\uD83D\uDCCB';
+function hlStdRow(p,bs){
+  if(!p||p.name!=='Settings'||bs.some(function(b){ return b.name===HL_STD_NAME; })) return '';
+  const c=(HL_KINDS.program||HL_KINDS.app)[1];
+  return '<div class="hl-tr" style="--hlc:'+c+'" title="This button is part of the standard on every computer. It cannot be changed or deleted.">'
+    +'<div class="hl-cell" style="cursor:default"><div class="hl-sl" style="color:'+c+'">'+HL_STD_ICON+'</div></div>'
+    +'<div class="hl-cell" style="cursor:default"><div class="hl-wd"><i style="color:'+c+'">'+HL_STD_ICON+'</i>'+HL_STD_NAME+'</div></div>'
+    +'<div class="hl-cell" style="cursor:default">Opens the Amit menu: Voice, Mouse, Keyboard and more. The middle mouse button runs this button.</div>'
+    +'<div class="hl-cell" style="cursor:default">open the menu Amit menu</div>'
+    +'<div style="display:flex;gap:6px;align-items:center"><button class="btn btn-gold" title="Open the Amit menu now" onclick="hlStdTest()">&#9654; Test</button><span style="color:var(--muted);font-size:12px">&#128274; standard</span></div></div>';
+}
+async function hlStdTest(){
+  try{ const r=await fetch(HL_HELPER+'/api/menu/open?id=amit-menu'); const j=await r.json(); hlNote(j&&j.ok?'Asked the Amit Helper to open the Amit menu.':((j&&j.error)||'It did not open.'),!(j&&j.ok)); }
+  catch(e){ hlNote('The Amit Helper on this computer did not answer.',true); }
+}
 function hlRender(){
   hlEl('hlProfiles').innerHTML=hl.profiles.length?hl.profiles.map(function(p){
     return '<div class="hl-prof'+(p.id===hl.sel?' on':'')+'" title="Click to change this profile" onclick="hlOpenProf(\''+p.id+'\')">'+hlEsc(p.name)+'<small>say: &ldquo;profile '+hlEsc(p.voice_phrase||p.name.toLowerCase())+'&rdquo;'+(p.is_current?' &middot; on the bar':'')+'</small></div>'; }).join(''):'<p class="amw-small" style="margin:0">No profiles yet. Add your first one below.</p>';
@@ -6358,6 +6375,7 @@ function hlRender(){
   hlEl('hlProfHead').innerHTML='Buttons in &ldquo;'+hlEsc(p.name)+'&rdquo;<small>&mdash; click any cell to change it</small>';
   const bs=hl.buttons.filter(function(b){ return b.profile_id===p.id; });
   hlEl('hlTable').innerHTML='<div class="hl-tr th"><span>Slim bar</span><span>Wide bar</span><span>Description</span><span>What it does</span><span>Test / delete</span></div>'
+    +hlStdRow(p,bs)
     +bs.map(function(b){ const c=(HL_KINDS[b.kind]||HL_KINDS.app)[1], i="'"+b.id+"'";
       return '<div class="hl-tr" style="--hlc:'+c+'">'
         +'<div class="hl-cell" title="Change the icon" onclick="hlOpenEdit('+i+',\'icon\')"><div class="hl-sl" style="color:'+c+'">'+hlEsc(b.icon)+'</div></div>'

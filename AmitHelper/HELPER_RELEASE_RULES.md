@@ -49,7 +49,7 @@ The Helper keeps ONE list of everything it can open (`MenuList()` in `amit_whisp
 1. Add a `MenuItemDef("<id>", name, what, where, mechanism, defaultFor, addedIn, buttonOk, open)` entry to `MenuList()`. `open` is the code that opens it (null and buttonOk false if it cannot be opened by a button yet; say why in the mechanism).
 2. Put `// AMIT-MENU: <id>` on the line above the function that opens it (or `// AMIT-MENU-EXTERNAL: <id>` next to its entry if it lives in another program, such as the bar).
 3. `verify_helper_release.ps1` compares the markers with the list and FAILS the release if they differ. Never push on that FAIL.
-A menu that is the DEFAULT of a button (the Amit menu for the middle button) is opened with `OpenDefaultMenu("<trigger>")`, never by naming the menu in the code; declare it with `// AMIT-DEFAULT: <trigger> = <id>` (the release check verifies it).
+THE MIDDLE BUTTON has no special code for what it opens (Ryan, 2026-11-08): it runs the standard, locked button "Settings > Amit menu" (a bar button whose step is "Open a menu: Amit menu"), which the bar program adds on every computer (`EnsureStandard` in AmitBar.cs) and the Hub shows locked. A secondary mouse can be given any other button; the primary mouse's middle button always runs this one. Do not add a second way to open the Amit menu.
 Not built yet: a button STEP "Open a menu" in the Hub editor and the bar (it needs the step to be added in every place listed under "Adding a NEW kind of button step").
 ## Never
 - Never push without Ryan saying so. Never push several times in a row. Never leave a copy out of step.
