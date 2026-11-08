@@ -161,6 +161,12 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
         <div id="steps"></div>
       </div>
       <div class="lmain">
+        <div class="fp" id="nameStep" hidden style="border-color:var(--gold);background:rgba(230,184,74,.10)">
+          <div class="fh">Step 1: name this mouse</div>
+          <div class="n2" style="margin-bottom:6px">Type one word that you will recognize and say (for example <b>Gaming</b> or <b>Office</b>), then press <b>Save name</b>. After that, press every button on this mouse, then press <b>Finished</b>.</div>
+          <div class="form"><input id="nameBig" style="width:220px" placeholder="One word, e.g. Gaming" maxlength="40"><button class="btn gold" id="nameSave">Save name</button></div>
+          <div class="warn" id="nameBigMsg" hidden style="margin-top:6px"></div>
+        </div>
         <div class="tip"><b>Before you start</b><br>Leave every button on your mouse the way it is now. If your mouse came with its own program, don't change its buttons there. Everything is set up right here instead. If something about your mouse changes later, come back to this tab and adjust it.<div class="n2" style="margin-top:4px">Why: your mouse's own program changes a button before Windows, and this program, ever see it. A button it has changed or keeps for itself can't be seen here. Use that program for lighting and speed (DPI), not for the buttons you want to set here.</div></div>
         <div class="wprompt" id="wPrompt"></div>
         <div class="pad" id="wpad">
@@ -170,7 +176,7 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
         <div class="form" style="margin-top:8px">
           <button class="btn" id="wSkip">Skip: my mouse has no such button</button>
           <button class="btn" id="wRestart">Start over</button>
-          <button class="btn gold tipbtn" id="wDone" data-tip="All buttons have been registered for this mouse. Press this when you have pressed every button it has.">Finished</button>
+          <span class="n2" id="finHint" hidden style="margin-right:6px">Name the mouse first (step 1 above).</span><button class="btn gold tipbtn" id="wDone" data-tip="All buttons have been registered for this mouse. Press this when you have pressed every button it has.">Finished</button>
         </div>
       </div>
     </div>
@@ -477,7 +483,7 @@ function toRows(){
     var setUid={};m.sets.forEach(function(s){s.uid=s.uid||uid();setUid[s.id]=s.uid});
     var act=m.sets.filter(function(s){return s.id===m.activeId})[0];
     var controls=BTNS.map(function(b){return {control_id:b.id,label:b.name,original_call:origOf(b.id),seen:!!m.seen[b.id]}});
-    var out={id:m.uid,kind:'mouse',name:m.name||'unnamed',device_key:m.dev||null,is_primary:!!m.primary,learned:!!m.learned,
+    var out={id:m.uid,kind:'mouse',name:m.name||('new-'+m.uid.slice(0,8)),device_key:m.dev||null,is_primary:!!m.primary,learned:!!m.learned,
       settings:{dbl:m.dbl||300,pickMs:m.pickMs||500,wiz:m.wiz||0,skip:m.skip||{},activeNum:act?act.num:1,nextNum:m.nextNum||2},
       controls:controls,sets:[]};
     m.sets.forEach(function(s){
@@ -531,7 +537,7 @@ function fromRows(d){
     });
     if(!sl.length)sl=[{id:nextId++,uid:uid(),num:1,label:'',name:'Set 1',map:{},gest:{},locks:{}}];
     var act=sl.filter(function(x){return x.num===st.activeNum})[0]||sl[0];
-    var m={id:nextMouse++,uid:dv.id,primary:!!dv.is_primary,learned:!!dv.learned,name:dv.name,dev:dv.device_key||'',dbl:st.dbl,pickMs:st.pickMs,
+    var m={id:nextMouse++,uid:dv.id,primary:!!dv.is_primary,learned:!!dv.learned,name:(String(dv.name).indexOf('new-')===0?'':dv.name),dev:dv.device_key||'',dbl:st.dbl,pickMs:st.pickMs,
       nextNum:st.nextNum||2,seen:seen,skip:st.skip||{},wiz:st.wiz||0,sets:sl,selId:act.id,activeId:act.id};
     nm.push(m);
   });
@@ -568,7 +574,19 @@ function setLive(on){
   if(on===helperLive)return;
   helperLive=on;
   $('pretend').hidden=on;$('pretendTxt').textContent=on?'Windows tells me which mouse you touch, because the Amit Helper is connected.':'Which mouse I just used is not reported by the Helper yet, so choose it here:';
-  if(on)syncHelper();
+  if(on){cleanPretend();syncHelper()}
+}
+function isReal(k){return typeof k==='string'&&k.indexOf('\\\\?\\')===0}
+function cleanPretend(){
+  /* the preview's pretend mouse and half-made unnamed mice from before the Helper was connected are dropped */
+  var keep=mice.filter(function(m){return isReal(m.dev)&&(m.name||m.learned)});
+  if(keep.length===mice.length)return;
+  if(!keep.length){
+    var b=newMouseObj('','');b.primary=true;b.sets[0].label='Everyday';b.sets[0].name='Set 1 \u00B7 Everyday';keep=[b];
+  }else if(!keep.some(function(m){return m.primary}))keep[0].primary=true;
+  mice=keep;curMouse=mice[0];sets=curMouse.sets;seenState=curMouse.seen;
+  if(curMouse.selId==null||!sets.some(function(s){return s.id===curMouse.selId})){curMouse.selId=curMouse.activeId=sets[0].id}
+  selId=curMouse.selId;activeId=curMouse.activeId;adding=null;drawAll();
 }
 function mouseByDev(k){for(var i=0;i<mice.length;i++)if(mice[i].dev===k)return mice[i];return null}
 function handleRaw(ev){
@@ -580,11 +598,14 @@ function handleRaw(ev){
   }
   var m=mouseByDev(dev);
   if(!m){
+    var blank=mice.filter(function(x){return !x.dev})[0];
+    if(blank){blank.dev=dev;if(curMouse!==blank)switchMouse(blank.id);showTab('learn');notify('Your first mouse was recognized. Give it a one-word name, then press every button on it, then press Finished.');drawAll();return}
+    if(!curMouse.name){notify('Another mouse was touched. Finish naming the one you are on first (step 1), then touch the other one.');return}
     var nm=newMouseObj('',dev);mice.push(nm);switchMouse(nm.id);showTab('learn');
     notify('A new mouse was picked up and recognized. Give it a one-word name first, then press every button it has, then press Finished.');
     return;
   }
-  if(m!==curMouse){switchMouse(m.id);notify('Now using "'+m.name+'". Its '+activeSet().name+' is active.')}
+  if(m!==curMouse){if(!curMouse.name&&$('setsView').hidden){notify('Give this mouse a one-word name first (step 1), then touch the other mouse.');return}switchMouse(m.id);notify('Now using "'+m.name+'". Its '+activeSet().name+' is active.')}
   if(!$('learnView').hidden){wiz(id);return}
   var wasNew=!seenState[id];
   flashT[id]=1;setTimeout(function(){flashT[id]=0;drawMouse()},250);
@@ -682,6 +703,7 @@ function drawLearn(){
     };
   }
   $('mouseName').value=m.name; $('devTxt').textContent='Connected through: '+friendly(m.dev);
+  $('nameStep').hidden=!!m.name; $('finHint').hidden=!!m.name; if(!m.name&&document.activeElement!==$('nameBig'))setTimeout(function(){try{if(!curMouse.name)$('nameBig').focus()}catch(e){}},0);
   var nm=m.name||'', np0=nm?nameProblem(nm,m):'';
   $('mouseName').style.borderColor=nm?'':'var(--gold)';
   $('nameMsg').hidden=true;
@@ -731,6 +753,13 @@ $('mouseName').onchange=function(){
   if(adding){adding.name=n;drawAll();return}
   if(n){var np=nameProblem(n,curMouse);if(np){say(np,true);this.value=curMouse.name;return}if(curMouse.name!==n){curMouse.name=n;drawAll()}}
 };
+$('nameSave').onclick=function(){
+  var n=$('nameBig').value.replace(/^\s+|\s+$/g,''), np=n?nameProblem(n,curMouse):'Type a one-word name first.';
+  var mm=$('nameBigMsg');
+  if(np){mm.textContent=np;mm.hidden=false;return}
+  mm.hidden=true;curMouse.name=n;say('This mouse is now called "'+n+'". Press every button on it, then press Finished.',true);drawAll();
+};
+$('nameBig').onkeydown=function(e){if(e.key==='Enter')$('nameSave').onclick()};
 $('mouseName').oninput=function(){
   if(!adding){
     var tv0=this.value.replace(/^\s+|\s+$/g,''), np1=tv0?nameProblem(tv0,curMouse):'';
