@@ -139,7 +139,7 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
       <b>Mouse:</b><select id="mousePick" title="Which mouse"></select>
       <span class="pill" id="activePill"></span>
       <span class="n2" id="pretendTxt" style="margin-left:6px">Which mouse I just used is not reported by the Helper yet, so choose it here:</span><select id="pretend" title="The Helper does not yet tell this page which mouse you touched. Once it does, this happens by itself."></select>
-      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.07</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
+      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.08</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
           </header>
     <div class="tabs"><div class="tab on" id="tabLearn">1. Learn mouse</div><div class="tab" id="tabSets">2. Mouse sets</div></div>
     <div class="notice" id="notice" hidden></div>
@@ -152,8 +152,8 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
         <div class="sim" id="primBox"></div>
         <button class="btn" id="addBtn" style="margin-top:6px">+ Add another mouse</button>
         <div class="form" id="addPanel" hidden>
-          <div class="sim"><b>Until the Helper reports which mouse was used:</b> this page cannot tell which mouse you touched (the real program can, by itself). Choose which mouse to pretend you pressed a button on.
-            <select id="devPick" style="width:100%"><option value="sharkoon">The gaming mouse that is already set up</option><option value="logi">A mouse on a wireless receiver</option><option value="other">A brand-new mouse</option></select></div>
+          <div class="sim"><b>The Amit Helper is not connected:</b> this page cannot tell which mouse you touched. Install and start the Amit Helper on this computer and it will do this by itself. Until then you can practice by choosing a mouse to pretend you pressed a button on.
+            <select id="devPick" style="width:100%"><option value="first">Practice mouse one</option><option value="second">Practice mouse two</option><option value="other">A brand-new practice mouse</option></select></div>
           <div id="addMsg" style="width:100%"></div>
           <button class="btn gold" id="addSave">Add this mouse</button><button class="btn" id="addCancel">Cancel</button>
         </div>
@@ -257,20 +257,15 @@ function setBarMenus(menus){
 }
 function hMenuOf(name){for(var i=0;i<HMENUS.length;i++)if(HMENUS[i][1].indexOf(name)>=0)return HMENUS[i][0];return ''}
 var sets=[
- {id:1,num:1,label:'Everyday',name:'Set 1 \u00B7 Everyday',map:{}},
- {id:2,num:2,label:'Design mode',name:'Set 2 \u00B7 Design mode',map:{
-   back:{t:'key',v:'Ctrl + Z'},forward:{t:'key',v:'Ctrl + Shift + Z'},
-   middle:{t:'key',v:'Shift'}, tiltl:{t:'helper',v:'Print from the screen'}, tiltr:{t:'key',v:'F'},
-   wheelup:{t:'key',v:'Ctrl + Plus'},wheeldown:{t:'key',v:'Ctrl + Minus'}},
-   gest:{back:{hold:{t:'key',v:'Ctrl + S',ms:600}},middle:{dbl:{t:'helper',v:'Ask Amit'}}}}
+ {id:1,num:1,label:'Everyday',name:'Set 1 \u00B7 Everyday',map:{}}
 ];
-var nextId=3, selId=2, learning=false, master=true, activeId=1, recBtn=null, delArm=null;
+var nextId=2, selId=1, learning=false, master=true, activeId=1, recBtn=null, delArm=null;
 var $=function(i){return document.getElementById(i)};
-var seenState={}; BTNS.forEach(function(b){seenState[b.id]=b.seen});
+var seenState={}; BTNS.forEach(function(b){seenState[b.id]=false});
 var flashT={};
 var STEPS=[['left','Press the LEFT button'],['right','Press the RIGHT button'],['middle','Press the MIDDLE button (push the wheel down)'],['wheelup','Turn the wheel UP (away from you)'],['wheeldown','Turn the wheel DOWN (toward you)'],['tiltl','Tilt the wheel LEFT (skip it if yours does not tilt)'],['tiltr','Tilt the wheel RIGHT'],['back','Press the side button nearer your wrist (BACK)'],['forward','Press the side button nearer your fingers (FORWARD)'],['extra','Now press any OTHER buttons your mouse has, one at a time, then press Finished']];
-var nextMouse=3;
-var mice=[{id:1,primary:true,learned:true,name:'Gaming',nextNum:3,dev:'Windows device 1EA7:0064 (vendor looks like Sharkoon)',seen:seenState,skip:{},wiz:5,sets:sets,selId:selId,activeId:activeId}];
+var nextMouse=2;
+var mice=[{id:1,primary:true,learned:false,name:'',nextNum:2,dev:'',seen:seenState,skip:{},wiz:0,sets:sets,selId:selId,activeId:activeId}];
 var curMouse=mice[0];
 
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
@@ -386,17 +381,37 @@ function cellHtml0(b,s){
   }
   return cell;
 }
+/* SAFETY: on a mouse that is not the primary one, something in every set must still left-click (the Left button as it is, or another button acting as the Left button) */
+function leftOk(st){
+  var l=st.map&&st.map.left;
+  if(!l||l.t==='keep')return true;
+  for(var k in st.map){var a=st.map[k];if(a&&a.t==='mouse'&&/^(left|double)/i.test(String(a.v||'')))return true}
+  return false;
+}
+var LEFTMSG='That would leave this mouse with no way to left-click, so you could not click your way back. It was not changed. Keep the Left button as it is, or give another button the action "Act as another mouse button: Left button" first.';
+function repairLeft(){
+  mice.forEach(function(m){
+    if(m.primary)return;
+    (m.sets||[]).forEach(function(st){
+      if(!leftOk(st)){delete st.map.left;if(st.gest){delete st.gest.left}notifyLater('A saved setting would have left "'+m.name+'" with no left click, so its Left button was put back to normal.')}
+    });
+  });
+}
+var laterMsg='';
+function notifyLater(t){laterMsg=t;setTimeout(function(){if(laterMsg){try{notify(laterMsg)}catch(e){}laterMsg=''}},300)}
 function bindCtl(root,s){
   [].forEach.call(root.querySelectorAll('[data-b]'),function(e){
     var b=e.getAttribute('data-b'), slot=e.getAttribute('data-slot'), k=e.getAttribute('data-k');
     if(k==='rec'){e.onclick=function(){recBtn=b+'|'+slot;focusId=b;drawRows();var r=document.querySelector('.key-in.rec');if(r)r.focus()};return}
     e.onchange=function(){
+      var prevMap=JSON.stringify(s.map||{}),prevGest=JSON.stringify(s.gest||{});
       var o=slotObj(s,b,slot)||{t:'keep'};
       if(k==='t'){var t=e.value;if(t==='helper'){setSlot(s,b,slot,{t:t,v:HELPER[0]||'',hm:hMenuOf(HELPER[0]||''),menu:'',ms:o.ms})}else setSlot(s,b,slot,{t:t,v:(t==='helper'?HELPER[0]:t==='mouse'?'Left button':t==='set'?String(sets[0].id):''),ms:o.ms})}
       else if(k==='hmenu'){o.menu=e.value;var hmn2=o.hm||hMenuOf(o.v);if(o.menu&&hmn2!==o.menu){var hf=HMENUS.filter(function(x){return x[0]===o.menu})[0];if(hf){o.hm=hf[0];o.v=hf[1][0]}}setSlot(s,b,slot,o)}
       else if(k==='hbtn'){var pv=e.value.split('|');o.hm=pv[0];o.v=pv.slice(1).join('|');setSlot(s,b,slot,o)}
       else if(k==='ms'){var n=Math.max(200,Math.min(3000,+e.value||500));o.ms=n;setSlot(s,b,slot,o)}
       else{o.v=e.value;setSlot(s,b,slot,o)}
+      if(!curMouse.primary&&!leftOk(s)){s.map=JSON.parse(prevMap);s.gest=JSON.parse(prevGest);notify(LEFTMSG);say(LEFTMSG,true)}
       focusId=b;drawAll();
     };
   });
@@ -482,6 +497,7 @@ function compInfo(){
 }
 /* the whole setup, in the shape of the Per_ tables: devices, their controls (the original call), their sets and what each control does in a set (the new call) */
 function toRows(){
+  repairLeft();
   curMouse.selId=selId;curMouse.activeId=activeId;curMouse.sets=sets;curMouse.seen=seenState;
   var devices=mice.map(function(m){
     m.uid=m.uid||uid();
@@ -813,15 +829,13 @@ $('addSave').onclick=function(){
 function friendly(d){
   var vm=/VID_([0-9A-F]{4})&PID_([0-9A-F]{4})/i.exec(d||'');
   if(vm)return 'USB or wireless mouse (vendor '+vm[1].toUpperCase()+', product '+vm[2].toUpperCase()+')';
-  if(d.indexOf('1EA7:0064')>=0)return 'USB (cable or receiver)';
-  if(d.indexOf('046D:C52F')>=0)return 'a wireless receiver (dongle)';
   return 'another USB connection';
 }
 function simDevice(){
   var v=$('devPick').value;
-  if(v==='sharkoon')return 'Windows device 1EA7:0064 (vendor looks like Sharkoon)';
-  if(v==='logi')return 'Windows device 046D:C52F (Logitech receiver)';
-  return 'Windows device 258A:00'+(10+mice.length)+' (another mouse)';
+  if(v==='first')return 'Windows device 0001:0001 (practice mouse one)';
+  if(v==='second')return 'Windows device 0001:0002 (practice mouse two)';
+  return 'Windows device 0001:00'+(10+mice.length)+' (another practice mouse)';
 }
 function detect(){
   var d=simDevice(), dup=mice.filter(function(x){return x.dev===d})[0]||null;
