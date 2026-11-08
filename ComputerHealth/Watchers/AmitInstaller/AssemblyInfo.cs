@@ -1,9 +1,9 @@
-using System.Reflection;
+﻿using System.Reflection;
 
 [assembly: AssemblyTitle("Amit Installer")]
 [assembly: AssemblyDescription("Installs Amit Live, Amit's helper (Whisper mode and a computer health check)")]
 [assembly: AssemblyProduct("Amit Installer")]
 [assembly: AssemblyCompany("Amit")]
 [assembly: AssemblyCopyright("Amit")]
-[assembly: AssemblyVersion("4.90.0.0")]
-[assembly: AssemblyFileVersion("4.90.0.0")]
+[assembly: AssemblyVersion("4.91.0.0")]
+[assembly: AssemblyFileVersion("4.91.0.0")]

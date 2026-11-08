@@ -341,12 +341,29 @@ public class BarForm : Form
     void DrawIcon(Graphics g, string icon, Rectangle area, Color c)
     {
         float px = Math.Max(10f, Math.Min(area.Width, area.Height) * 0.5f);
-        using (Font f = new Font("Segoe UI Emoji", px, FontStyle.Regular, GraphicsUnit.Pixel)) using (SolidBrush b = new SolidBrush(c)) using (StringFormat sf = new StringFormat())
+        // the font pads each glyph differently, so draw it once to a scratch picture, find where the ink really is, and center THAT
+        string key = icon + "|" + (int)px + "|" + c.ToArgb();
+        Bitmap bmp; Rectangle ink;
+        if (!inkCache.ContainsKey(key))
         {
-            sf.Alignment = StringAlignment.Center; sf.LineAlignment = StringAlignment.Center;
-            g.DrawString(icon, f, b, new RectangleF(area.X, area.Y, area.Width, area.Height), sf);
+            int S = (int)(px * 2.2f) + 4; Bitmap t = new Bitmap(S, S, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using (Graphics tg = Graphics.FromImage(t))
+            using (Font f = new Font("Segoe UI Emoji", px, FontStyle.Regular, GraphicsUnit.Pixel)) using (SolidBrush b = new SolidBrush(c)) using (StringFormat sf = new StringFormat())
+            {
+                tg.SmoothingMode = SmoothingMode.AntiAlias; tg.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+                sf.Alignment = StringAlignment.Center; sf.LineAlignment = StringAlignment.Center;
+                tg.DrawString(icon, f, b, new RectangleF(0, 0, S, S), sf);
+            }
+            int x0 = S, y0 = S, x1 = -1, y1 = -1;
+            for (int yy = 0; yy < S; yy++) for (int xx = 0; xx < S; xx++) if (t.GetPixel(xx, yy).A > 24) { if (xx < x0) x0 = xx; if (xx > x1) x1 = xx; if (yy < y0) y0 = yy; if (yy > y1) y1 = yy; }
+            if (x1 < 0) { x0 = 0; y0 = 0; x1 = S - 1; y1 = S - 1; }
+            inkCache[key] = t; inkBox[key] = new Rectangle(x0, y0, x1 - x0 + 1, y1 - y0 + 1);
         }
+        bmp = inkCache[key]; ink = inkBox[key];
+        float ix = area.X + (area.Width - ink.Width) / 2f, iy = area.Y + (area.Height - ink.Height) / 2f;
+        g.DrawImage(bmp, new RectangleF(ix, iy, ink.Width, ink.Height), new RectangleF(ink.X, ink.Y, ink.Width, ink.Height), GraphicsUnit.Pixel);
     }
+    Dictionary<string, Bitmap> inkCache = new Dictionary<string, Bitmap>(); Dictionary<string, Rectangle> inkBox = new Dictionary<string, Rectangle>();
     protected override void OnPaint(PaintEventArgs e)
     {
         Graphics g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
