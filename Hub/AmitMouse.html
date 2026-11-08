@@ -138,7 +138,7 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
     <header>
       <b>Mouse:</b><select id="mousePick" title="Which mouse"></select>
       <span class="pill" id="activePill"></span>
-      <span class="n2" style="margin-left:6px">Until this computer is connected: pretend I just picked up</span><select id="pretend" title="This page cannot tell which mouse you touched. Once the local connection is added, this happens by itself."></select>
+      <span class="n2" id="pretendTxt" style="margin-left:6px">Which mouse I just used is not reported by the Helper yet, so choose it here:</span><select id="pretend" title="The Helper does not yet tell this page which mouse you touched. Once it does, this happens by itself."></select>
       <div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on"></div><span id="masterTxt">on</span></div>
           </header>
     <div class="tabs"><div class="tab on" id="tabLearn">1. Learn mouse</div><div class="tab" id="tabSets">2. Mouse sets</div></div>
@@ -152,7 +152,7 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
         <div class="sim" id="primBox"></div>
         <button class="btn" id="addBtn" style="margin-top:6px">+ Add another mouse</button>
         <div class="form" id="addPanel" hidden>
-          <div class="sim"><b>Until the local connection is added:</b> this page cannot tell which mouse you touched (the real program can, by itself). Choose which mouse to pretend you pressed a button on.
+          <div class="sim"><b>Until the Helper reports which mouse was used:</b> this page cannot tell which mouse you touched (the real program can, by itself). Choose which mouse to pretend you pressed a button on.
             <select id="devPick" style="width:100%"><option value="sharkoon">The gaming mouse that is already set up</option><option value="logi">A mouse on a wireless receiver</option><option value="other">A brand-new mouse</option></select></div>
           <div id="addMsg" style="width:100%"></div>
           <button class="btn gold" id="addSave">Add this mouse</button><button class="btn" id="addCancel">Cancel</button>
@@ -540,7 +540,7 @@ function fromRows(d){
   return true;
 }
 function save(){try{
-  var rows=toRows();
+  var rows=toRows();lastLocal=Date.now();syncHelper();
   localStorage.setItem(KEY,JSON.stringify({rows:rows,master:master,at:Date.now()}));
   if(dbReady){clearTimeout(save.t);save.t=setTimeout(function(){try{parent.postMessage({amitMouse:'put',data:toRows()},location.origin)}catch(e){}},800)}
 }catch(e){}}
@@ -555,6 +555,60 @@ window.addEventListener('message',function(ev){
   setStatus(ev.data.error?ev.data.error:'Saved to your login'+(COMP?' for the computer '+COMP.name:'')+'.');
 });
 function setStatus(t){var n=document.getElementById('dbState');if(n)n.textContent=t}
+/* THE HELPER ON THIS COMPUTER: the setup goes to it (it runs the sets), and it says which mouse and which button you just used */
+var HELPER='http://localhost:8710', helperLive=false, evSince=0, lastLocal=0, syncT=null, pollBusy=false, polledOnce=false;
+function syncHelper(){
+  if(!helperLive)return;
+  clearTimeout(syncT);
+  syncT=setTimeout(function(){
+    try{var r=toRows();r.master=master;fetch(HELPER+'/api/mouse/sync',{method:'POST',body:JSON.stringify(r)}).catch(function(){})}catch(e){}
+  },400);
+}
+function setLive(on){
+  if(on===helperLive)return;
+  helperLive=on;
+  $('pretend').hidden=on;$('pretendTxt').textContent=on?'Windows tells me which mouse you touch, because the Amit Helper is connected.':'Which mouse I just used is not reported by the Helper yet, so choose it here:';
+  if(on)syncHelper();
+}
+function mouseByDev(k){for(var i=0;i<mice.length;i++)if(mice[i].dev===k)return mice[i];return null}
+function handleRaw(ev){
+  if(!ev.down)return;
+  var dev=String(ev.dev||'').slice(0,200), id=ev.ctl;
+  if(!BTNS.some(function(b){return b.id===id}))return;
+  if(adding){
+    var dup=mouseByDev(dev);adding.dup=dup;adding.dev=dup?null:dev;drawAll();return;
+  }
+  var m=mouseByDev(dev);
+  if(!m){
+    var nm=newMouseObj('',dev);mice.push(nm);switchMouse(nm.id);showTab('learn');
+    notify('A new mouse was picked up and recognized. Give it a one-word name first, then press every button it has, then press Finished.');
+    return;
+  }
+  if(m!==curMouse){switchMouse(m.id);notify('Now using "'+m.name+'". Its '+activeSet().name+' is active.')}
+  if(!$('learnView').hidden){wiz(id);return}
+  var wasNew=!seenState[id];
+  flashT[id]=1;setTimeout(function(){flashT[id]=0;drawMouse()},250);
+  focusId=id;
+  if(wasNew){seenState[id]=true;newId=id;setTimeout(function(){newId=null;drawRows()},2500);say('Windows received: '+nameOf(id)+'  - NEW. Added to the table below, choose what it does.',true);drawAll();var rw=document.querySelector('tr[data-row="'+id+'"]');if(rw)rw.scrollIntoView({block:'nearest'});return}
+  drawMouse();drawRows();
+}
+function pollHelper(){
+  if(pollBusy)return;pollBusy=true;
+  var ctl=new AbortController();setTimeout(function(){ctl.abort()},1500);
+  fetch(HELPER+'/api/mouse/status?since='+evSince,{cache:'no-store',signal:ctl.signal}).then(function(r){return r.json()}).then(function(j){
+    pollBusy=false;
+    if(!j||!j.ok||j.raw===false){setLive(false);return}
+    setLive(true);
+    if(!polledOnce){polledOnce=true;evSince=j.seq}/* skip what happened before this page opened */
+    else{(j.events||[]).forEach(function(e){handleRaw(e);if(e.seq>evSince)evSince=e.seq})}
+    /* a set switched by a button or a voice command on this computer */
+    if(j.active&&Date.now()-lastLocal>2500){
+      mice.forEach(function(m){var sid=j.active[m.dev];if(!sid)return;var s=m.sets.filter(function(x){return x.uid===sid})[0];if(s&&s.id!==m.activeId){m.activeId=s.id;if(m===curMouse)activeId=s.id;drawAll()}});
+    }
+  }).catch(function(){pollBusy=false;setLive(false)});
+}
+setInterval(pollHelper,700);pollHelper();
+
 function askHub(){try{if(parent!==window)parent.postMessage({amitMouse:'get',computer:compInfo()},location.origin)}catch(e){}}
 /* ask the Helper which computer this is; if it is not running, fall back to a name for this browser */
 (function(){
@@ -699,6 +753,8 @@ $('addSave').onclick=function(){
   var m=newMouseObj(n,adding.dev);mice.push(m);switchMouse(m.id);say('Added the mouse "'+n+'". Press its buttons now.',true);
 };
 function friendly(d){
+  var vm=/VID_([0-9A-F]{4})&PID_([0-9A-F]{4})/i.exec(d||'');
+  if(vm)return 'USB or wireless mouse (vendor '+vm[1].toUpperCase()+', product '+vm[2].toUpperCase()+')';
   if(d.indexOf('1EA7:0064')>=0)return 'USB (cable or receiver)';
   if(d.indexOf('046D:C52F')>=0)return 'a wireless receiver (dongle)';
   return 'another USB connection';

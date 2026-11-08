@@ -1727,6 +1727,23 @@ try {
                     } catch { Send-JsonRaw $response '{"ok":false,"error":"could not write the bar"}' }
                 }
             }
+            "/api/mouse/sync" {
+                # Amit Mouse (Helper 1.71): the page sends the person's mice and sets; the Helper keeps them (mouse_config.json) and runs them. Only the Amit site or a local program may send.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $msReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $msBody = $msReader.ReadToEnd(); $msReader.Dispose()
+                    try { Send-JsonRaw $response ([AmitWhisper]::MouseSync($msBody)) } catch { Send-JsonRaw $response '{"ok":false,"error":"could not keep the setup"}' }
+                }
+            }
+            "/api/mouse/status" {
+                # which mouse and which control, just now (Windows raw input), for the Amit Mouse page. ?since=N returns only newer events.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $msSince = 0; [void][long]::TryParse([string]$request.QueryString["since"], [ref]$msSince)
+                    try { Send-JsonRaw $response ([AmitWhisper]::MouseStatusJson($msSince)) } catch { Send-JsonRaw $response '{"ok":false}' }
+                }
+            }
             "/api/programs" {
                 # the programs installed on THIS computer (what the Start menu lists), for the Amit Helper "open a program" picker. Only the Amit site or a local program may ask.
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }

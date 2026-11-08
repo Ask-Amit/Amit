@@ -29,7 +29,7 @@ using System.Windows.Automation.Text;
 
 public static class AmitWhisper
 {
-    public const string Version = "1.70";   // 1.68: VOICE LIVES INSIDE THE MENU - once the wheel has opened the menu, closing the menu in any way (a click away, Esc, choosing something) turns Voice off too; nothing runs and no box shows. A single click with no wheel works as before. 1.67: LEFT BUTTON CAN NEVER BE LOCKED BY THE MENU - a left click is only taken when the pointer is really over the menu's own window; anywhere else the menu closes and the click goes through, whatever state the Helper is in. 1.66: THE MENU HAS THREE TABS - Voice (everything Voice understands, as before), Mouse and Keyboard. The mouse picks the tab by a click; the wheel scrolls inside the tab; speaking still works on every tab. Mouse shows a note until the Mouse screen creates sets; Keyboard is greyed until the keyboard app. 1.65: PREVIEWS CAN BE TRIED WITH THE REAL MOUSE - over an Amit preview window (title starts "Amit " and ends " Preview") the Voice button is left alone, so the middle button reaches the preview page instead of starting Voice. 1.64: VOICE MENU SAFETY - Esc closes the Voice menu (Voice keeps listening); the menu can never keep eating clicks after Voice has ended (it is cleared on the next click, and never appears if Voice ended while it was being built); the release of a click the menu took is only swallowed if it comes straight after (1.5 s), never left waiting. Fixes the left mouse button going dead after using the menu. 1.63: THE VOICE MENU - while Voice is listening (started by the middle click, Aurora, a key or by saying it), turning the wheel opens a menu of everything Voice understands: the built-in commands, your Helper bar buttons and your own commands. The wheel moves, a middle click or a left click chooses, a click elsewhere closes it, and speaking still works at the same time. If the wheel is never turned, Voice works as before. 1.62: VOICE ON RELEASE - the Voice button (middle by default) now acts when it is let go, and only if it was a click (shorter than 500 ms); a longer hold does nothing yet and is reserved for the mouse set picker. Before, Voice started the instant the button went down, so a hold could not be told from a click. 1.61: THE PHONE CAPTION COMES ALONG - a note typed on the phone with the photo is put in the note box when the photo opens (new "note" in the /api/mobile/pull answer). 1.60: PHONE NOTE NOT LOST - Ask Amit on a phone photo first lets the last dictated words in, then sends the note; Amit answers a question note right away. 1.59: HARDWARE SENSORS ON REQUEST - the 72 MB sensor reader is no longer in the installer; the Hardware tab adds it (/api/sensors/install, size and SHA-256 checked); dashboard 5.11. 1.58: ASK AMIT ABOUT A PHONE PHOTO - the editor button starts a new numbered Mobile chat in the Amit Live window with the photo and the note, and Amit greets out loud. 1.57: MOBILE RING SLICE - a phone photo (Amit Mobile > Send to computer) is fetched by the helper, saved in PicturesShow Amit, opened in the Show Amit editor on the clipboard with a note box and dictation on; the note goes back to the photo row. 1.56: DICTATE WINDOW (page amit_dictate.html, served at /dictate): choosing Dictate on the ring (or saying it, or a bar button) while NOT in a text box opens one window in the top right of the screen (in a text box it still types there as before, one plain press of the trigger button stops it), always in front, that hears the person (its own speech recognition, in its own Edge profile dictate_profile), shows the words in a Subject and a Message that can be split into numbered sections, remembers each dictation on this computer (Recent, Settings, Help), and nothing is typed anywhere until the person presses Place and left-clicks a text box (new routes /api/dictate/place and /api/dictate/cancel; the click is checked with the same text-box test as before and the message is typed there, a new line being Shift+Enter so a chat box does not send). The window hears through the original listening page (its words are handed to the window instead of typed); hold-to-talk is unchanged. 1.55: VOICE RUNS ANY BAR BUTTON BY ITS TITLE: no shortcut per button; the title list comes from the bar (bar_buttons.txt) when someone speaks. 1.54: SHOW AMIT QUICK SNAP: a fresh capture from the ring goes straight onto the clipboard and the editor waits minimized in the taskbar without taking focus; opened from the taskbar it is the normal editor; left alone for 60 seconds it closes itself (nothing saved, clipboard untouched). 1.53: DOUBLE-RIGHT-CLICK brings up the Amit Helper bar: two short right taps close together at the same spot (while nothing else is going on with the button) show the bar (an event it listens on) or start AmitBar.exe from this folder; the first tap is replayed as a normal click as always, a menu it opened is closed with Esc, and the second press and its release are swallowed. The ring (hold) and dictation are untouched. 1.52: a preview opened as a plain browser TAB (file double-clicked, a link) also splits the screen: the whole browser window goes on the right, the window the person was in on the left, both put back when they leave that tab; only a tab titled "Amit ... Preview" counts. 1.51: the window that goes on the LEFT of a preview is the WINDOW THE PERSON WAS IN (the Hub in a browser, VS Code, anything), taken from a short history of the windows they used; VS Code is only the fallback; the same window is put back when the preview closes. 1.50: PREVIEW SPLIT: whenever a window whose title ends with " Preview" appears (however it was opened: the opener script, the "preview" voice command, a button in a page), the person's VS Code goes on the LEFT half of its screen and the preview on the RIGHT half, and the focus goes back to VS Code; when the last preview has been closed for 4 seconds VS Code is put back the way it was (unless the person moved it). 1.49: the voice command "preview" opens the Amit Preview window. 1.48: an image layer is a WINDOW onto its image: the corner handles change the window to any shape (the image inside keeps its size and place, only what shows changes); the wheel over the window zooms the image inside, like the main picture (the size % box does the same); Ctrl + drag moves the image inside the window; dragging the body moves the window. Saved in the same .amitshot format. 1.47: a placed image layer has four corner handles (drag one to make it larger or smaller, the opposite corner stays), shows move/resize cursors, drags to move, and the mouse wheel over it resizes it (the wheel anywhere else zooms the whole picture). 1.46: Capture now places the new image layer at once (no click needed) and logs the placing. 1.45: a Capture button (camera) in the Show Amit editor: the editor steps aside, a bar waits while the person shows the screen they want ("Capture now"), they drag an area, click where it goes, and it becomes a new image layer (Capture 1, 2...) that can be switched on/off, resized with the size % box and dragged to move. 1.44: the Show Amit editor has a Clear & Recapture button: it drops the picture (asking first if there are unsaved changes) and lets the person choose a new area of the screen. 1.43: each part of Amit has its own icon: the same dark circle and gold ring, only the gold symbol changes (Whisper = microphone, Read = speaker, Show Amit = camera; Ask Amit keeps the aleph). The dictation "Amit is listening" box, the Whisper window, the Read window and the Show Amit editor each show their own, in the taskbar and the title bar. The Read windows are now named "Amit Read". The dictation box says "Amit is listening" until words come through, then "Amit is dictating", and the words always show beside the icon. The icons are bigger and bolder, with real 48/32/24/16 px images (256 first) so the taskbar is not blurry. Icons live in Templates; a missing icon falls back to the Amit one. 1.42: while Read is paused for dictation, the gold highlight over the screen is hidden (it cluttered the screen the person is dictating into) and comes back, in the same place, when the reading resumes. 1.41: FIX (dictation after Read paused it): (1) the speaking/voice windows of Read are now recognised as the helper's own windows, so dictation never "types" into the hidden Edge page and gives the focus back to the window the person was using (first failure: words heard, typed nowhere); (2) the "Read is speaking" mute can no longer be left on by a late message: it is set only when Read STARTS speaking while dictation is already listening, and cleared when Read pauses, ends or stops or the listening ends (second failure: a late heartbeat after "paused" made dictation throw the words away). 1.40: (1) a live voice change carries on from the word being spoken instead of starting the sentence over (amit_talk.html v1.04); (2) when dictation or Voice starts while Read is speaking, Read pauses by itself (the speaker shows the pause bars) and carries on where it was when the listening ends; a press of the speaker by the person cancels the automatic resume. 1.39: FIX: dictation could stay blocked after Read (the "Read is speaking" signal depended on a "finished" message that can get lost after live voice changes). Now the speaking page sends a heartbeat every 1.5 s while sound really plays, dictation is only quieted for 4 seconds after the last one, and a watchdog returns the speaker to waiting if the sound stops without a "finished"; the page also waits a moment between cancelling a sentence and saying it again with new settings (Edge sometimes dropped it). 1.38: while Read is speaking, dictation and Voice ignore what the microphone hears (it is Amit's own voice, which used to be typed into the person's text box) and dictation's "Amit is listening" box is taken off the screen; they work normally again when Read is not speaking, including while it is paused. 1.37: the voice window is INTERACTIVE (moving a slider or choosing another voice while Amit is reading changes the sound within about a third of a second; the current sentence is said again with the new settings; amit_talk.html v1.02); the hidden Edge speaking window is slimmed (extra switches) and now closes 30 seconds after the last reading instead of 3 minutes, never while the voice window is open. 1.36: a DOUBLE CLICK on the reading speaker opens a small voice window beside it (voice, speed, pause between sentences, pitch, volume, Test, Save); Save keeps the new voice on this computer at once and hands it to the person's login (their saved voice, their default) the next time an Amit page loads, without the old copy from the database overwriting it (new bridge routes /api/talk/voice-save and /api/talk/voice-ack). A single click is acted on after a very short wait (the double-click time, at most 400 ms) so a double click is no longer two presses. The note "Your saved voice is not on this computer" no longer pops up on the screen (it is only logged). 1.35: the ring choice is now called READ (it reads aloud what the person points at) and works ONE SHOT: press the speaker, and the very next click or selection is what is read, then it goes back to waiting so the person can use the computer freely; to read somewhere else, press it again. A click reads from the clicked word to the end of its paragraph; a highlight reads exactly the highlight (one word if one word, the whole page after Select All). Pressing while reading pauses it and the next click or selection is read instead (pressing again with none resumes). A soft gold highlight shows the words being read (where Windows accessibility gives their place). When the words cannot be read, Amit says so out loud in the person's voice ("Sorry, I'm not able to read this") and on screen, never silently; a plain click on a button or menu only shows a note. 1.33: TALK, a fourth choice in the Amit Live ring: a small see-through speaker stays on top of everything; the person selects words (or clicks where to start) in any program and presses it, and Amit reads aloud from there in the person's own saved Amit voice (copied here from their login; with none, Talk asks them to open Amit and sign in). Press again to pause or resume; Esc or a right click on the speaker removes it. The speaking is done by a hidden Edge window (page /talk, new bridge routes /api/talk/*) because the natural voices exist only in Edge. 1.32: a SHOW AMIT button in the Show Amit editor: saves the shot, hands it to the Amit Live window, which posts it into the person's own Ask Amit chat for today (under their own sign-in; the helper holds no login) and asks Amit to look at it (new bridge routes /api/showamit/pending and /api/showamit/pending.png, offered for 5 minutes, only to the Amit site). 1.31: the Amit Live window closes itself after 60 seconds without the focus (never while music plays; the no-internet page too). ONE Amit Live window only: choosing Ask Amit when its window is already open brings that window to the front instead of opening another (and a second press while the first is still opening starts nothing). 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
+    public const string Version = "1.71";   // 1.68: VOICE LIVES INSIDE THE MENU - once the wheel has opened the menu, closing the menu in any way (a click away, Esc, choosing something) turns Voice off too; nothing runs and no box shows. A single click with no wheel works as before. 1.67: LEFT BUTTON CAN NEVER BE LOCKED BY THE MENU - a left click is only taken when the pointer is really over the menu's own window; anywhere else the menu closes and the click goes through, whatever state the Helper is in. 1.66: THE MENU HAS THREE TABS - Voice (everything Voice understands, as before), Mouse and Keyboard. The mouse picks the tab by a click; the wheel scrolls inside the tab; speaking still works on every tab. Mouse shows a note until the Mouse screen creates sets; Keyboard is greyed until the keyboard app. 1.65: PREVIEWS CAN BE TRIED WITH THE REAL MOUSE - over an Amit preview window (title starts "Amit " and ends " Preview") the Voice button is left alone, so the middle button reaches the preview page instead of starting Voice. 1.64: VOICE MENU SAFETY - Esc closes the Voice menu (Voice keeps listening); the menu can never keep eating clicks after Voice has ended (it is cleared on the next click, and never appears if Voice ended while it was being built); the release of a click the menu took is only swallowed if it comes straight after (1.5 s), never left waiting. Fixes the left mouse button going dead after using the menu. 1.63: THE VOICE MENU - while Voice is listening (started by the middle click, Aurora, a key or by saying it), turning the wheel opens a menu of everything Voice understands: the built-in commands, your Helper bar buttons and your own commands. The wheel moves, a middle click or a left click chooses, a click elsewhere closes it, and speaking still works at the same time. If the wheel is never turned, Voice works as before. 1.62: VOICE ON RELEASE - the Voice button (middle by default) now acts when it is let go, and only if it was a click (shorter than 500 ms); a longer hold does nothing yet and is reserved for the mouse set picker. Before, Voice started the instant the button went down, so a hold could not be told from a click. 1.61: THE PHONE CAPTION COMES ALONG - a note typed on the phone with the photo is put in the note box when the photo opens (new "note" in the /api/mobile/pull answer). 1.60: PHONE NOTE NOT LOST - Ask Amit on a phone photo first lets the last dictated words in, then sends the note; Amit answers a question note right away. 1.59: HARDWARE SENSORS ON REQUEST - the 72 MB sensor reader is no longer in the installer; the Hardware tab adds it (/api/sensors/install, size and SHA-256 checked); dashboard 5.11. 1.58: ASK AMIT ABOUT A PHONE PHOTO - the editor button starts a new numbered Mobile chat in the Amit Live window with the photo and the note, and Amit greets out loud. 1.57: MOBILE RING SLICE - a phone photo (Amit Mobile > Send to computer) is fetched by the helper, saved in PicturesShow Amit, opened in the Show Amit editor on the clipboard with a note box and dictation on; the note goes back to the photo row. 1.56: DICTATE WINDOW (page amit_dictate.html, served at /dictate): choosing Dictate on the ring (or saying it, or a bar button) while NOT in a text box opens one window in the top right of the screen (in a text box it still types there as before, one plain press of the trigger button stops it), always in front, that hears the person (its own speech recognition, in its own Edge profile dictate_profile), shows the words in a Subject and a Message that can be split into numbered sections, remembers each dictation on this computer (Recent, Settings, Help), and nothing is typed anywhere until the person presses Place and left-clicks a text box (new routes /api/dictate/place and /api/dictate/cancel; the click is checked with the same text-box test as before and the message is typed there, a new line being Shift+Enter so a chat box does not send). The window hears through the original listening page (its words are handed to the window instead of typed); hold-to-talk is unchanged. 1.55: VOICE RUNS ANY BAR BUTTON BY ITS TITLE: no shortcut per button; the title list comes from the bar (bar_buttons.txt) when someone speaks. 1.54: SHOW AMIT QUICK SNAP: a fresh capture from the ring goes straight onto the clipboard and the editor waits minimized in the taskbar without taking focus; opened from the taskbar it is the normal editor; left alone for 60 seconds it closes itself (nothing saved, clipboard untouched). 1.53: DOUBLE-RIGHT-CLICK brings up the Amit Helper bar: two short right taps close together at the same spot (while nothing else is going on with the button) show the bar (an event it listens on) or start AmitBar.exe from this folder; the first tap is replayed as a normal click as always, a menu it opened is closed with Esc, and the second press and its release are swallowed. The ring (hold) and dictation are untouched. 1.52: a preview opened as a plain browser TAB (file double-clicked, a link) also splits the screen: the whole browser window goes on the right, the window the person was in on the left, both put back when they leave that tab; only a tab titled "Amit ... Preview" counts. 1.51: the window that goes on the LEFT of a preview is the WINDOW THE PERSON WAS IN (the Hub in a browser, VS Code, anything), taken from a short history of the windows they used; VS Code is only the fallback; the same window is put back when the preview closes. 1.50: PREVIEW SPLIT: whenever a window whose title ends with " Preview" appears (however it was opened: the opener script, the "preview" voice command, a button in a page), the person's VS Code goes on the LEFT half of its screen and the preview on the RIGHT half, and the focus goes back to VS Code; when the last preview has been closed for 4 seconds VS Code is put back the way it was (unless the person moved it). 1.49: the voice command "preview" opens the Amit Preview window. 1.48: an image layer is a WINDOW onto its image: the corner handles change the window to any shape (the image inside keeps its size and place, only what shows changes); the wheel over the window zooms the image inside, like the main picture (the size % box does the same); Ctrl + drag moves the image inside the window; dragging the body moves the window. Saved in the same .amitshot format. 1.47: a placed image layer has four corner handles (drag one to make it larger or smaller, the opposite corner stays), shows move/resize cursors, drags to move, and the mouse wheel over it resizes it (the wheel anywhere else zooms the whole picture). 1.46: Capture now places the new image layer at once (no click needed) and logs the placing. 1.45: a Capture button (camera) in the Show Amit editor: the editor steps aside, a bar waits while the person shows the screen they want ("Capture now"), they drag an area, click where it goes, and it becomes a new image layer (Capture 1, 2...) that can be switched on/off, resized with the size % box and dragged to move. 1.44: the Show Amit editor has a Clear & Recapture button: it drops the picture (asking first if there are unsaved changes) and lets the person choose a new area of the screen. 1.43: each part of Amit has its own icon: the same dark circle and gold ring, only the gold symbol changes (Whisper = microphone, Read = speaker, Show Amit = camera; Ask Amit keeps the aleph). The dictation "Amit is listening" box, the Whisper window, the Read window and the Show Amit editor each show their own, in the taskbar and the title bar. The Read windows are now named "Amit Read". The dictation box says "Amit is listening" until words come through, then "Amit is dictating", and the words always show beside the icon. The icons are bigger and bolder, with real 48/32/24/16 px images (256 first) so the taskbar is not blurry. Icons live in Templates; a missing icon falls back to the Amit one. 1.42: while Read is paused for dictation, the gold highlight over the screen is hidden (it cluttered the screen the person is dictating into) and comes back, in the same place, when the reading resumes. 1.41: FIX (dictation after Read paused it): (1) the speaking/voice windows of Read are now recognised as the helper's own windows, so dictation never "types" into the hidden Edge page and gives the focus back to the window the person was using (first failure: words heard, typed nowhere); (2) the "Read is speaking" mute can no longer be left on by a late message: it is set only when Read STARTS speaking while dictation is already listening, and cleared when Read pauses, ends or stops or the listening ends (second failure: a late heartbeat after "paused" made dictation throw the words away). 1.40: (1) a live voice change carries on from the word being spoken instead of starting the sentence over (amit_talk.html v1.04); (2) when dictation or Voice starts while Read is speaking, Read pauses by itself (the speaker shows the pause bars) and carries on where it was when the listening ends; a press of the speaker by the person cancels the automatic resume. 1.39: FIX: dictation could stay blocked after Read (the "Read is speaking" signal depended on a "finished" message that can get lost after live voice changes). Now the speaking page sends a heartbeat every 1.5 s while sound really plays, dictation is only quieted for 4 seconds after the last one, and a watchdog returns the speaker to waiting if the sound stops without a "finished"; the page also waits a moment between cancelling a sentence and saying it again with new settings (Edge sometimes dropped it). 1.38: while Read is speaking, dictation and Voice ignore what the microphone hears (it is Amit's own voice, which used to be typed into the person's text box) and dictation's "Amit is listening" box is taken off the screen; they work normally again when Read is not speaking, including while it is paused. 1.37: the voice window is INTERACTIVE (moving a slider or choosing another voice while Amit is reading changes the sound within about a third of a second; the current sentence is said again with the new settings; amit_talk.html v1.02); the hidden Edge speaking window is slimmed (extra switches) and now closes 30 seconds after the last reading instead of 3 minutes, never while the voice window is open. 1.36: a DOUBLE CLICK on the reading speaker opens a small voice window beside it (voice, speed, pause between sentences, pitch, volume, Test, Save); Save keeps the new voice on this computer at once and hands it to the person's login (their saved voice, their default) the next time an Amit page loads, without the old copy from the database overwriting it (new bridge routes /api/talk/voice-save and /api/talk/voice-ack). A single click is acted on after a very short wait (the double-click time, at most 400 ms) so a double click is no longer two presses. The note "Your saved voice is not on this computer" no longer pops up on the screen (it is only logged). 1.35: the ring choice is now called READ (it reads aloud what the person points at) and works ONE SHOT: press the speaker, and the very next click or selection is what is read, then it goes back to waiting so the person can use the computer freely; to read somewhere else, press it again. A click reads from the clicked word to the end of its paragraph; a highlight reads exactly the highlight (one word if one word, the whole page after Select All). Pressing while reading pauses it and the next click or selection is read instead (pressing again with none resumes). A soft gold highlight shows the words being read (where Windows accessibility gives their place). When the words cannot be read, Amit says so out loud in the person's voice ("Sorry, I'm not able to read this") and on screen, never silently; a plain click on a button or menu only shows a note. 1.33: TALK, a fourth choice in the Amit Live ring: a small see-through speaker stays on top of everything; the person selects words (or clicks where to start) in any program and presses it, and Amit reads aloud from there in the person's own saved Amit voice (copied here from their login; with none, Talk asks them to open Amit and sign in). Press again to pause or resume; Esc or a right click on the speaker removes it. The speaking is done by a hidden Edge window (page /talk, new bridge routes /api/talk/*) because the natural voices exist only in Edge. 1.32: a SHOW AMIT button in the Show Amit editor: saves the shot, hands it to the Amit Live window, which posts it into the person's own Ask Amit chat for today (under their own sign-in; the helper holds no login) and asks Amit to look at it (new bridge routes /api/showamit/pending and /api/showamit/pending.png, offered for 5 minutes, only to the Amit site). 1.31: the Amit Live window closes itself after 60 seconds without the focus (never while music plays; the no-internet page too). ONE Amit Live window only: choosing Ask Amit when its window is already open brings that window to the front instead of opening another (and a second press while the first is still opening starts nothing). 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
 
     // v1.03 (2026-10-29, Ryan): LATCH MODE. Hold the button to start; let go and dictation keeps going, so long dictations do not need the
     // button held. Hold the button again (same hold time) to stop; a quick tap during dictation is still a normal click. Dictation also
@@ -487,6 +487,7 @@ public static class AmitWhisper
         hookThread.IsBackground = true;
         hookThread.SetApartmentState(ApartmentState.STA);
         hookThread.Start();
+        try { MouseSetsStart(home); } catch (Exception ex) { Log("Amit Mouse could not start: " + ex.Message); }
         idleTimer = new System.Threading.Timer(delegate { IdleCheck(); }, null, 10000, 10000);
         lastHookTick = Environment.TickCount; prevTick = lastHookTick;
         { POINT p0; if (GetCursorPos(out p0)) { prevX = p0.x; prevY = p0.y; } }   // start the hook watchdog from where the pointer really is
@@ -545,6 +546,471 @@ public static class AmitWhisper
     }
 
     // =====================================================================================================
+    //  AMIT MOUSE (Ryan, 2026-11-07; Helper 1.71). Mice are told apart by Windows RAW INPUT (it names the device of every press but cannot block it);
+    //  the low-level hook below can block a press but does not know the device. They are matched: a short list of recent raw reports per control, the
+    //  oldest unused one within about 25 ms (waiting up to 3 ms for it to arrive). If two different mice pressed the same control at the same moment the
+    //  press is AMBIGUOUS and passes through untouched. A press nobody can name also passes through untouched. NOTHING is ever blocked unless this
+    //  computer has a set that changes that control for that mouse.
+    //  This first version changes only: side buttons (back, forward), the wheel and the wheel tilt. The left, right and middle buttons are never touched,
+    //  so the person can always click and always reach Voice. The setup comes from the Hub (Communications > Amit Mouse) through /api/mouse/sync and is
+    //  kept in mouse_config.json, so it works with no internet. Which mouse and which control, live, is at /api/mouse/status (the page uses it to learn).
+    // =====================================================================================================
+    class MsAct { public string type = "keep", value = ""; public int holdMs = 500; }
+    class MsSet
+    {
+        public string id = ""; public int num;
+        public Dictionary<string, MsAct> click = new Dictionary<string, MsAct>();
+        public Dictionary<string, MsAct> dbl = new Dictionary<string, MsAct>();
+        public Dictionary<string, MsAct> hold = new Dictionary<string, MsAct>();
+    }
+    class MsDev { public string key = "", name = ""; public bool primary; public int dblMs = 300; public string active = ""; public List<MsSet> sets = new List<MsSet>(); }
+    class MsEv { public long seq; public int tick; public string dev = "", ctl = ""; public bool down; public bool used; }
+    class MsPress { public bool down, held; public System.Threading.Timer ht, pend; }
+
+    static readonly object msLock = new object();
+    static List<MsDev> msDevs = new List<MsDev>();
+    static bool msMaster = true, msOn = false;
+    static string msConfigPath = "", msActivePath = "";
+    static List<MsEv> msEvents = new List<MsEv>();
+    static long msSeq = 0;
+    static Dictionary<long, string> msDevNames = new Dictionary<long, string>();
+    static Dictionary<string, int> msSeen = new Dictionary<string, int>();
+    static Dictionary<string, MsPress> msPress = new Dictionary<string, MsPress>();
+    static HashSet<string> msBlocked = new HashSet<string>();
+    static Dictionary<string, int> msLastWheel = new Dictionary<string, int>();
+    static Thread msRawThread;
+    static MsRawWindow msRawWin;   // kept for the life of the helper: if nothing holds the window, Windows cleans it up after a few seconds and the listening stops
+    static bool msRawOk = false;
+    static string msRawError = "";
+
+    [StructLayout(LayoutKind.Sequential)] struct RAWINPUTDEVICE { public ushort usUsagePage, usUsage; public uint dwFlags; public IntPtr hwndTarget; }
+    [DllImport("user32.dll", SetLastError = true)] static extern bool RegisterRawInputDevices(RAWINPUTDEVICE[] p, uint n, uint cb);
+    [DllImport("user32.dll")] static extern uint GetRawInputData(IntPtr hRaw, uint cmd, IntPtr data, ref uint size, uint cbHeader);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern uint GetRawInputDeviceInfo(IntPtr dev, uint cmd, StringBuilder data, ref uint size);
+    [DllImport("user32.dll")] static extern short VkKeyScan(char ch);
+
+    class MsRawWindow : NativeWindow
+    {
+        public MsRawWindow()
+        {
+            CreateParams cp = new CreateParams();
+            cp.Parent = new IntPtr(-3);   // a message-only window: it has no screen presence
+            CreateHandle(cp);
+        }
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == 0x00FF) { try { MsRaw(m.LParam); } catch { } }
+            base.WndProc(ref m);
+        }
+    }
+
+    // ---------- a small JSON reader (no extra library needed) ----------
+    class MsJ
+    {
+        string s; int i;
+        public static object Parse(string t) { MsJ j = new MsJ(); j.s = t ?? ""; j.i = 0; return j.Val(); }
+        void Ws() { while (i < s.Length && Char.IsWhiteSpace(s[i])) i++; }
+        object Val()
+        {
+            Ws(); if (i >= s.Length) throw new Exception("json end");
+            char c = s[i];
+            if (c == '{')
+            {
+                i++; Dictionary<string, object> d = new Dictionary<string, object>(); Ws();
+                if (i < s.Length && s[i] == '}') { i++; return d; }
+                while (true)
+                {
+                    Ws(); string k = Str(); Ws(); if (i >= s.Length || s[i] != ':') throw new Exception("json colon"); i++;
+                    d[k] = Val(); Ws();
+                    if (i < s.Length && s[i] == ',') { i++; continue; }
+                    if (i < s.Length && s[i] == '}') { i++; return d; }
+                    throw new Exception("json object");
+                }
+            }
+            if (c == '[')
+            {
+                i++; List<object> l = new List<object>(); Ws();
+                if (i < s.Length && s[i] == ']') { i++; return l; }
+                while (true)
+                {
+                    l.Add(Val()); Ws();
+                    if (i < s.Length && s[i] == ',') { i++; continue; }
+                    if (i < s.Length && s[i] == ']') { i++; return l; }
+                    throw new Exception("json array");
+                }
+            }
+            if (c == '"') return Str();
+            if (String.CompareOrdinal(s, i, "true", 0, 4) == 0) { i += 4; return true; }
+            if (String.CompareOrdinal(s, i, "false", 0, 5) == 0) { i += 5; return false; }
+            if (String.CompareOrdinal(s, i, "null", 0, 4) == 0) { i += 4; return null; }
+            int st = i; while (i < s.Length && "+-0123456789.eE".IndexOf(s[i]) >= 0) i++;
+            if (i == st) throw new Exception("json value");
+            return Double.Parse(s.Substring(st, i - st), System.Globalization.CultureInfo.InvariantCulture);
+        }
+        string Str()
+        {
+            if (i >= s.Length || s[i] != '"') throw new Exception("json string"); i++;
+            StringBuilder b = new StringBuilder();
+            while (i < s.Length && s[i] != '"')
+            {
+                char c = s[i++];
+                if (c != '\\') { b.Append(c); continue; }
+                if (i >= s.Length) break; char e = s[i++];
+                if (e == 'n') b.Append('\n'); else if (e == 't') b.Append('\t'); else if (e == 'r') b.Append('\r'); else if (e == 'b') b.Append('\b'); else if (e == 'f') b.Append('\f');
+                else if (e == 'u' && i + 4 <= s.Length) { b.Append((char)Convert.ToInt32(s.Substring(i, 4), 16)); i += 4; }
+                else b.Append(e);
+            }
+            i++; return b.ToString();
+        }
+    }
+    static string MsS(Dictionary<string, object> d, string k) { object o; if (d != null && d.TryGetValue(k, out o) && o != null) return Convert.ToString(o, System.Globalization.CultureInfo.InvariantCulture); return ""; }
+    static int MsI(Dictionary<string, object> d, string k, int def) { object o; if (d != null && d.TryGetValue(k, out o) && o is double) return (int)(double)o; return def; }
+    static bool MsB(Dictionary<string, object> d, string k, bool def) { object o; if (d != null && d.TryGetValue(k, out o) && o is bool) return (bool)o; return def; }
+    static Dictionary<string, object> MsD(Dictionary<string, object> d, string k) { object o; if (d != null && d.TryGetValue(k, out o)) return o as Dictionary<string, object>; return null; }
+    static List<object> MsL(Dictionary<string, object> d, string k) { object o; if (d != null && d.TryGetValue(k, out o)) return o as List<object>; return new List<object>(); }
+    static string MsQ(string s) { StringBuilder b = new StringBuilder("\""); foreach (char c in s ?? "") { if (c == '"' || c == '\\') { b.Append('\\'); b.Append(c); } else if (c < ' ') b.Append(' '); else b.Append(c); } b.Append('"'); return b.ToString(); }
+
+    // ---------- the setup ----------
+    public static string MouseSync(string json) { return MsApply(json, false); }
+    static string MsApply(string json, bool restoreActive)
+    {
+        try
+        {
+            Dictionary<string, object> root = MsJ.Parse(json) as Dictionary<string, object>;
+            if (root == null) return "{\"ok\":false,\"error\":\"not a setup\"}";
+            List<MsDev> nd = new List<MsDev>();
+            foreach (object o in MsL(root, "devices"))
+            {
+                Dictionary<string, object> dv = o as Dictionary<string, object>; if (dv == null) continue;
+                MsDev d = new MsDev(); d.key = MsS(dv, "device_key"); d.name = MsS(dv, "name"); d.primary = MsB(dv, "is_primary", false);
+                Dictionary<string, object> st = MsD(dv, "settings"); d.dblMs = Math.Max(150, Math.Min(800, MsI(st, "dbl", 300)));
+                int activeNum = MsI(st, "activeNum", 1);
+                foreach (object so in MsL(dv, "sets"))
+                {
+                    Dictionary<string, object> sd = so as Dictionary<string, object>; if (sd == null) continue;
+                    MsSet s = new MsSet(); s.id = MsS(sd, "id"); s.num = MsI(sd, "num", 1);
+                    foreach (object ao in MsL(sd, "actions"))
+                    {
+                        Dictionary<string, object> ad = ao as Dictionary<string, object>; if (ad == null) continue;
+                        MsAct a = new MsAct(); a.type = MsS(ad, "action_type"); a.value = MsS(ad, "action_value"); a.holdMs = Math.Max(200, Math.Min(3000, MsI(ad, "hold_ms", 500)));
+                        string ctl = MsS(ad, "control_id"), slot = MsS(ad, "slot");
+                        if (!MsControlOk(ctl)) continue;   // this version changes only back, forward, the wheel and the tilt
+                        if (slot == "dbl") s.dbl[ctl] = a; else if (slot == "hold") s.hold[ctl] = a; else s.click[ctl] = a;
+                    }
+                    d.sets.Add(s);
+                    if (s.num == activeNum) d.active = s.id;
+                }
+                if (d.active == "" && d.sets.Count > 0) d.active = d.sets[0].id;
+                if (d.key.Length > 0 && d.sets.Count > 0) nd.Add(d);
+            }
+            bool master = MsB(root, "master", true);
+            lock (msLock)
+            {
+                msDevs = nd; msMaster = master;
+            }
+            msOn = true;
+            try { File.WriteAllText(msConfigPath, json, new UTF8Encoding(false)); } catch { }
+            if (restoreActive) MsLoadActive();   // only when starting up: while running, the set the page chose is the one that counts
+            Log("Amit Mouse: setup received (" + nd.Count + " mouse sets, master " + (master ? "on" : "off") + ")");
+            return "{\"ok\":true,\"mice\":" + nd.Count + "}";
+        }
+        catch (Exception ex) { Log("Amit Mouse: setup not read: " + ex.Message); return "{\"ok\":false,\"error\":\"could not read the setup\"}"; }
+    }
+    static bool MsControlOk(string c) { return c == "back" || c == "forward" || c == "wheelup" || c == "wheeldown" || c == "tiltl" || c == "tiltr"; }
+    static void MsSaveActive()
+    {
+        try
+        {
+            StringBuilder b = new StringBuilder();
+            lock (msLock) { foreach (MsDev d in msDevs) b.AppendLine(d.key + "\t" + d.active); }
+            File.WriteAllText(msActivePath, b.ToString(), new UTF8Encoding(false));
+        }
+        catch { }
+    }
+    static void MsLoadActive()
+    {
+        try
+        {
+            if (!File.Exists(msActivePath)) return;
+            lock (msLock)
+            {
+                foreach (string line in File.ReadAllLines(msActivePath, Encoding.UTF8))
+                {
+                    string[] p = line.Split('\t'); if (p.Length < 2) continue;
+                    foreach (MsDev d in msDevs) if (d.key == p[0]) foreach (MsSet s in d.sets) if (s.id == p[1]) d.active = s.id;
+                }
+            }
+        }
+        catch { }
+    }
+    static void MouseSetsStart(string home)
+    {
+        msConfigPath = Path.Combine(home, "mouse_config.json"); msActivePath = Path.Combine(home, "mouse_active.txt");
+        try { if (File.Exists(msConfigPath)) MsApply(File.ReadAllText(msConfigPath, Encoding.UTF8), true); } catch { }
+        msRawThread = new Thread(delegate ()
+        {
+            try
+            {
+                MsRawWindow w = new MsRawWindow(); msRawWin = w;
+                RAWINPUTDEVICE[] rid = new RAWINPUTDEVICE[1];
+                rid[0].usUsagePage = 1; rid[0].usUsage = 2; rid[0].dwFlags = 0x100; rid[0].hwndTarget = w.Handle;   // 0x100 = also while another program has the focus
+                if (!RegisterRawInputDevices(rid, 1, (uint)Marshal.SizeOf(typeof(RAWINPUTDEVICE)))) { msRawError = "could not register (error " + Marshal.GetLastWin32Error() + ")"; Log("Amit Mouse: raw input " + msRawError); return; }
+                msRawOk = true; msOn = true;
+                Application.Run();
+            }
+            catch (Exception ex) { msRawError = ex.Message; Log("Amit Mouse: raw input thread: " + ex.Message); }
+        });
+        msRawThread.IsBackground = true; msRawThread.SetApartmentState(ApartmentState.STA); msRawThread.Start();
+    }
+
+    // ---------- raw input: which mouse did this ----------
+    static string MsDevName(IntPtr h)
+    {
+        long k = h.ToInt64(); string n;
+        lock (msLock) { if (msDevNames.TryGetValue(k, out n)) return n; }
+        n = "";
+        try
+        {
+            uint size = 0; GetRawInputDeviceInfo(h, 0x20000007, null, ref size);
+            if (size > 0 && size < 1024) { StringBuilder sb = new StringBuilder((int)size + 1); if (GetRawInputDeviceInfo(h, 0x20000007, sb, ref size) != 0xFFFFFFFF) n = sb.ToString(); }
+        }
+        catch { }
+        if (n.Length > 200) n = n.Substring(0, 200);
+        lock (msLock) { msDevNames[k] = n; }
+        return n;
+    }
+    static void MsAdd(string dev, string ctl, bool down)
+    {
+        MsEv e = new MsEv(); e.tick = Environment.TickCount; e.dev = dev; e.ctl = ctl; e.down = down;
+        lock (msLock)
+        {
+            e.seq = ++msSeq; msEvents.Add(e); if (msEvents.Count > 80) msEvents.RemoveAt(0);
+            msSeen[dev] = e.tick;
+        }
+    }
+    static void MsRaw(IntPtr l)
+    {
+        uint hdr = (uint)(IntPtr.Size == 8 ? 24 : 16), size = 0;
+        if (GetRawInputData(l, 0x10000003, IntPtr.Zero, ref size, hdr) != 0 || size == 0 || size > 2048) return;
+        IntPtr buf = Marshal.AllocHGlobal((int)size);
+        try
+        {
+            if (GetRawInputData(l, 0x10000003, buf, ref size, hdr) != size) return;
+            if (Marshal.ReadInt32(buf, 0) != 0) return;   // not a mouse
+            string dev = MsDevName(Marshal.ReadIntPtr(buf, 8)); if (dev.Length == 0) return;
+            int off = (int)hdr; int f = (ushort)Marshal.ReadInt16(buf, off + 4); short data = Marshal.ReadInt16(buf, off + 6);
+            if ((f & 0x01) != 0) MsAdd(dev, "left", true);   if ((f & 0x02) != 0) MsAdd(dev, "left", false);
+            if ((f & 0x04) != 0) MsAdd(dev, "right", true);  if ((f & 0x08) != 0) MsAdd(dev, "right", false);
+            if ((f & 0x10) != 0) MsAdd(dev, "middle", true); if ((f & 0x20) != 0) MsAdd(dev, "middle", false);
+            if ((f & 0x40) != 0) MsAdd(dev, "back", true);   if ((f & 0x80) != 0) MsAdd(dev, "back", false);
+            if ((f & 0x100) != 0) MsAdd(dev, "forward", true); if ((f & 0x200) != 0) MsAdd(dev, "forward", false);
+            if ((f & 0x400) != 0) MsAdd(dev, data > 0 ? "wheelup" : "wheeldown", true);
+            if ((f & 0x800) != 0) MsAdd(dev, data > 0 ? "tiltr" : "tiltl", true);
+        }
+        finally { Marshal.FreeHGlobal(buf); }
+    }
+
+    // ---------- the hook asks: is this press from a mouse that has a set for it? ----------
+    static MsSet MsActiveSet(MsDev d) { foreach (MsSet s in d.sets) if (s.id == d.active) return s; return d.sets.Count > 0 ? d.sets[0] : null; }
+    static bool MsAnyMapped(string ctl)
+    {
+        lock (msLock)
+        {
+            if (!msMaster) return false;
+            foreach (MsDev d in msDevs)
+            {
+                MsSet s = MsActiveSet(d); if (s == null) continue;
+                MsAct a;
+                if ((s.click.TryGetValue(ctl, out a) && a.type != "keep") || s.dbl.ContainsKey(ctl) || s.hold.ContainsKey(ctl)) return true;
+            }
+        }
+        return false;
+    }
+    // returns the device name, "" when two mice pressed the same control together, null when nothing can be matched
+    static string MsFindDev(string ctl, bool down)
+    {
+        for (int tries = 0; tries < 4; tries++)
+        {
+            int now = Environment.TickCount; string found = null; MsEv first = null; bool two = false;
+            lock (msLock)
+            {
+                foreach (MsEv e in msEvents)
+                {
+                    if (e.used || e.ctl != ctl || e.down != down || now - e.tick > 25) continue;
+                    if (first == null) { first = e; found = e.dev; } else if (e.dev != found) two = true;
+                }
+                if (two) return "";
+                if (first != null) { first.used = true; return found; }
+            }
+            if (tries < 3) Thread.Sleep(1);
+        }
+        return null;
+    }
+    static MsDev MsDevByKey(string key) { lock (msLock) { foreach (MsDev d in msDevs) if (d.key == key) return d; } return null; }
+
+    // called from the mouse hook for the side buttons, the wheel and the tilt; true = the press was taken and must not reach the program
+    static bool MsHook(int msg, uint md)
+    {
+        string ctl; bool down = true, wheel = false; int delta = 0;
+        if (msg == 0x20B || msg == 0x20C) { ctl = ((md >> 16) & 0xFFFF) == 1 ? "back" : "forward"; down = msg == 0x20B; }
+        else if (msg == 0x20A) { delta = (short)(md >> 16); ctl = delta > 0 ? "wheelup" : "wheeldown"; wheel = true; }
+        else if (msg == 0x20E) { delta = (short)(md >> 16); ctl = delta > 0 ? "tiltr" : "tiltl"; wheel = true; }
+        else return false;
+        if (!wheel && !down)
+        {
+            // the end of a press we took: take that too, whichever mouse it came from
+            string bk = null;
+            lock (msLock) { foreach (string k in msBlocked) { if (k.EndsWith("|" + ctl)) { bk = k; break; } } }
+            if (bk == null) return false;
+            MsRelease(bk.Substring(0, bk.Length - ctl.Length - 1), ctl);
+            return true;
+        }
+        if (!MsAnyMapped(ctl)) return false;
+        string dev = MsFindDev(ctl, down);
+        if (dev == null || dev.Length == 0) { Log("Amit Mouse: " + ctl + " " + (down ? "down" : "up") + ": " + (dev == null ? "no raw report matched, left alone" : "two mice at once, left alone")); return false; }   // nobody can say which mouse: leave it alone
+        MsDev d = MsDevByKey(dev); if (d == null) { Log("Amit Mouse: " + ctl + ": that mouse has no set, left alone"); return false; }
+        MsSet s; lock (msLock) { s = MsActiveSet(d); } if (s == null) return false;
+        MsAct ca = null; s.click.TryGetValue(ctl, out ca);
+        bool hasDbl = s.dbl.ContainsKey(ctl), hasHold = s.hold.ContainsKey(ctl);
+        if ((ca == null || ca.type == "keep") && !hasDbl && !hasHold) return false;
+        if (wheel)
+        {
+            int now = Environment.TickCount, last; string wk = dev + "|" + ctl;
+            lock (msLock) { if (!msLastWheel.TryGetValue(wk, out last)) last = now - 1000; msLastWheel[wk] = now; }
+            if (now - last < 120) return true;   // one turn of the wheel makes several notches: act once
+            MsAct wa = ca; ThreadPool.QueueUserWorkItem(delegate { MsDo(d, ctl, wa, delta); });
+            return true;
+        }
+        string key = dev + "|" + ctl;
+        lock (msLock) { msBlocked.Add(key); }
+        MsPressDown(d, s, key, ctl, hasHold);
+        return true;
+    }
+    static void MsPressDown(MsDev d, MsSet s, string key, string ctl, bool hasHold)
+    {
+        MsPress p; lock (msLock) { if (!msPress.TryGetValue(key, out p)) { p = new MsPress(); msPress[key] = p; } }
+        p.down = true; p.held = false;
+        if (hasHold)
+        {
+            MsAct h = s.hold[ctl];
+            p.ht = new System.Threading.Timer(delegate { p.held = true; MsDo(d, ctl, h, 0); }, null, h.holdMs, Timeout.Infinite);
+        }
+    }
+    static void MsRelease(string key, string ctl)
+    {
+        string dev = key; MsPress p; MsDev d = MsDevByKey(dev); MsSet s = null;
+        lock (msLock) { msBlocked.Remove(dev + "|" + ctl); if (!msPress.TryGetValue(dev + "|" + ctl, out p)) return; if (d != null) s = MsActiveSet(d); }
+        p.down = false; try { if (p.ht != null) p.ht.Dispose(); } catch { }
+        if (p.held || d == null || s == null) return;
+        MsAct ca = null; s.click.TryGetValue(ctl, out ca); MsAct da = null; s.dbl.TryGetValue(ctl, out da);
+        if (da != null)
+        {
+            if (p.pend != null) { try { p.pend.Dispose(); } catch { } p.pend = null; MsDo(d, ctl, da, 0); }
+            else p.pend = new System.Threading.Timer(delegate { p.pend = null; MsDo(d, ctl, ca, 0); }, null, d.dblMs, Timeout.Infinite);
+        }
+        else ThreadPool.QueueUserWorkItem(delegate { MsDo(d, ctl, ca, 0); });
+    }
+
+    // ---------- what an action does ----------
+    static void MsDo(MsDev d, string ctl, MsAct a, int delta)
+    {
+        try
+        {
+            string t = a == null ? "keep" : a.type;
+            Log("Amit Mouse: " + d.name + " " + ctl + " -> " + t + (a != null && a.value.Length > 0 ? " " + a.value : ""));
+            if (t == "keep") MsReplay(ctl, delta);
+            else if (t == "key") MsSendKeys(a.value);
+            else if (t == "mouse") MsClick(a.value);
+            else if (t == "set") MsSwitchSet(d, a.value);
+            else if (t == "helper") MsRunHelper(a.value);
+            // "none": nothing
+        }
+        catch (Exception ex) { Log("Amit Mouse: action failed: " + ex.Message); }
+    }
+    static void MsReplay(string ctl, int delta)
+    {
+        INPUT[] a;
+        if (ctl == "back" || ctl == "forward") { uint x = ctl == "back" ? 1u : 2u; a = new INPUT[] { Mouse(0x0080, x), Mouse(0x0100, x) }; }
+        else if (ctl == "wheelup" || ctl == "wheeldown") a = new INPUT[] { Mouse(0x0800, (uint)(delta == 0 ? (ctl == "wheelup" ? 120 : -120) : delta)) };
+        else a = new INPUT[] { Mouse(0x1000, (uint)(delta == 0 ? (ctl == "tiltr" ? 120 : -120) : delta)) };
+        SendInput((uint)a.Length, a, Marshal.SizeOf(typeof(INPUT)));
+    }
+    static void MsClick(string what)
+    {
+        string w = (what ?? "").ToLowerInvariant(); INPUT[] a;
+        if (w.StartsWith("left")) a = new INPUT[] { Mouse(0x0002, 0), Mouse(0x0004, 0) };
+        else if (w.StartsWith("right")) a = new INPUT[] { Mouse(0x0008, 0), Mouse(0x0010, 0) };
+        else if (w.StartsWith("middle")) a = new INPUT[] { Mouse(0x0020, 0), Mouse(0x0040, 0) };
+        else if (w.StartsWith("back")) a = new INPUT[] { Mouse(0x0080, 1), Mouse(0x0100, 1) };
+        else if (w.StartsWith("forward")) a = new INPUT[] { Mouse(0x0080, 2), Mouse(0x0100, 2) };
+        else if (w.StartsWith("double")) a = new INPUT[] { Mouse(0x0002, 0), Mouse(0x0004, 0), Mouse(0x0002, 0), Mouse(0x0004, 0) };
+        else return;
+        SendInput((uint)a.Length, a, Marshal.SizeOf(typeof(INPUT)));
+    }
+    static void MsSwitchSet(MsDev d, string setId)
+    {
+        MsSet hit = null; lock (msLock) { foreach (MsSet s in d.sets) if (s.id == setId) hit = s; if (hit != null) d.active = hit.id; }
+        if (hit == null) return;
+        MsSaveActive();
+        try { ShowOverlay("Mouse " + d.name + ": set " + hit.num); HideOverlayLater(1500); } catch { }
+    }
+    static void MsRunHelper(string v)
+    {
+        string[] p = (v ?? "").Split(new char[] { '|' }, 2); if (p.Length < 2 || p[1].Length == 0) return;
+        VoiceCand c = new VoiceCand(); c.Label = p[1]; c.Text = p[0] + "\t" + p[1]; c.Action = "barbutton";
+        RunBarButton(c);
+    }
+    static void MsKeyDownUp(List<INPUT> l, ushort vk, bool ext, bool up)
+    {
+        INPUT i = new INPUT(); i.type = 1; i.u.ki.wVk = vk; i.u.ki.dwFlags = (up ? 2u : 0u) | (ext ? 1u : 0u); i.u.ki.dwExtraInfo = MARK; l.Add(i);
+    }
+    static void MsSendKeys(string combo)
+    {
+        if (String.IsNullOrEmpty(combo)) return;
+        string[] parts = combo.Split(new string[] { " + " }, StringSplitOptions.None);
+        List<ushort> mods = new List<ushort>(); ushort vk = 0; bool ext = false;
+        foreach (string raw in parts)
+        {
+            string p = raw.Trim(); string lo = p.ToLowerInvariant();
+            if (lo == "ctrl" || lo == "control") mods.Add(0x11); else if (lo == "alt") mods.Add(0x12); else if (lo == "shift") mods.Add(0x10); else if (lo == "win" || lo == "meta") mods.Add(0x5B);
+            else if (lo == "enter") vk = 0x0D; else if (lo == "escape" || lo == "esc") vk = 0x1B; else if (lo == "tab") vk = 0x09; else if (lo == "backspace") vk = 0x08;
+            else if (lo == "delete") { vk = 0x2E; ext = true; } else if (lo == "insert") { vk = 0x2D; ext = true; }
+            else if (lo == "home") { vk = 0x24; ext = true; } else if (lo == "end") { vk = 0x23; ext = true; }
+            else if (lo == "pageup") { vk = 0x21; ext = true; } else if (lo == "pagedown") { vk = 0x22; ext = true; }
+            else if (lo == "arrowup") { vk = 0x26; ext = true; } else if (lo == "arrowdown") { vk = 0x28; ext = true; }
+            else if (lo == "arrowleft") { vk = 0x25; ext = true; } else if (lo == "arrowright") { vk = 0x27; ext = true; }
+            else if (lo == "space" || p == " ") vk = 0x20;
+            else if (lo.Length >= 2 && lo[0] == 'f' && Char.IsDigit(lo[1])) { int n; if (Int32.TryParse(lo.Substring(1), out n) && n >= 1 && n <= 24) vk = (ushort)(0x70 + n - 1); }
+            else if (p.Length == 1) { short r = VkKeyScan(p[0]); if (r != -1) vk = (ushort)(r & 0xFF); }
+        }
+        if (vk == 0 && mods.Count == 0) return;
+        List<INPUT> l = new List<INPUT>();
+        foreach (ushort m in mods) MsKeyDownUp(l, m, false, false);
+        if (vk != 0) { MsKeyDownUp(l, vk, ext, false); MsKeyDownUp(l, vk, ext, true); }
+        for (int i = mods.Count - 1; i >= 0; i--) MsKeyDownUp(l, mods[i], false, true);
+        INPUT[] a = l.ToArray(); SendInput((uint)a.Length, a, Marshal.SizeOf(typeof(INPUT)));
+    }
+
+    // ---------- what the page asks: which mouse, which control, just now ----------
+    public static string MouseStatusJson(long since)
+    {
+        StringBuilder b = new StringBuilder("{\"ok\":true,\"raw\":" + (msRawOk ? "true" : "false") + ",\"error\":" + MsQ(msRawError) + ",\"master\":" + (msMaster ? "true" : "false") + ",\"seq\":");
+        lock (msLock)
+        {
+            b.Append(msSeq).Append(",\"devices\":[");
+            bool first = true; int now = Environment.TickCount;
+            foreach (KeyValuePair<string, int> kv in msSeen) { if (!first) b.Append(','); first = false; b.Append("{\"key\":" + MsQ(kv.Key) + ",\"ageMs\":" + (now - kv.Value) + "}"); }
+            b.Append("],\"active\":{"); first = true;
+            foreach (MsDev d in msDevs) { if (!first) b.Append(','); first = false; b.Append(MsQ(d.key) + ":" + MsQ(d.active)); }
+            b.Append("},\"events\":[");
+            first = true;
+            foreach (MsEv e in msEvents) { if (e.seq <= since) continue; if (!first) b.Append(','); first = false; b.Append("{\"seq\":" + e.seq + ",\"dev\":" + MsQ(e.dev) + ",\"ctl\":" + MsQ(e.ctl) + ",\"down\":" + (e.down ? "true" : "false") + "}"); }
+            b.Append("]}");
+        }
+        return b.ToString();
+    }
+
+    // =====================================================================================================
     //  The hook. Keep it quick: it runs on the mouse's own path and Windows drops a slow hook.
     // =====================================================================================================
     static IntPtr HookCb(int nCode, IntPtr wParam, IntPtr lParam)
@@ -571,6 +1037,19 @@ public static class AmitWhisper
                             if (VoiceWheel(wdelta, Marshal.ReadInt32(lParam, 0), Marshal.ReadInt32(lParam, 4))) return (IntPtr)1;
                         }
                     }
+                    if (msOn)   // Amit Mouse (1.71): a wheel turn from a mouse that has a set for it
+                    {
+                        IntPtr exM = Marshal.ReadIntPtr(lParam, IntPtr.Size == 8 ? 24 : 20);
+                        if (exM != MARK && MsHook(msg, (uint)Marshal.ReadInt32(lParam, 8))) return (IntPtr)1;
+                    }
+                }
+                else if (msg == 0x20E)   // v1.71: the wheel tilt, only for Amit Mouse
+                {
+                    if (msOn)
+                    {
+                        IntPtr exT = Marshal.ReadIntPtr(lParam, IntPtr.Size == 8 ? 24 : 20);
+                        if (exT != MARK && MsHook(msg, (uint)Marshal.ReadInt32(lParam, 8))) return (IntPtr)1;
+                    }
                 }
                 else if (msg == 0x201 || msg == 0x202 || msg == 0x204 || msg == 0x205 || msg == 0x207 || msg == 0x208 || msg == 0x20B || msg == 0x20C)
                 {
@@ -579,6 +1058,7 @@ public static class AmitWhisper
                     {
                         int x = Marshal.ReadInt32(lParam, 0), y = Marshal.ReadInt32(lParam, 4);
                         uint md = (uint)Marshal.ReadInt32(lParam, 8);
+                        if (msOn && (msg == 0x20B || msg == 0x20C) && MsHook(msg, md)) return (IntPtr)1;   // v1.71: a side button from a mouse that has a set for it
                         if (HandleButton(msg, md, x, y)) return (IntPtr)1;
                     }
                 }
