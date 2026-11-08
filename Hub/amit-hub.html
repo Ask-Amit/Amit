@@ -1391,7 +1391,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.74</div>
+      <div class="page-version" id="hubVersionBadge">v8.75</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -5931,7 +5931,7 @@ window.addEventListener('message',async function(ev){
   function reply(row,err){ try{ f.contentWindow.postMessage({amitMouse:'data',row:row,error:err||''},location.origin); }catch(_){} }
   if(typeof currentUser==='undefined'||!currentUser||!currentUser.id){ if(ev.data.amitMouse==='get') reply(null,'Sign in to the Hub to keep this with your login.'); return; }
   try{
-    if(ev.data.amitMouse==='get') reply(await amMouseGet(ev.data.computer));
+    if(ev.data.amitMouse==='get'){ reply(await amMouseGet(ev.data.computer)); amMouseTabState(true); }
     else if(ev.data.amitMouse==='put') await amMousePutQueued(ev.data.data);
     else if(ev.data.amitMouse==='bar'){
       var bp=await db.from('hel_profiles').select('id,name,sort_order').eq('user_id',currentUser.id).order('sort_order');
@@ -5941,6 +5941,16 @@ window.addEventListener('message',async function(ev){
     }
   }catch(e){ if(ev.data.amitMouse==='get') reply(null,'Could not reach your login storage: '+(e&&e.message||e)); else { try{ f.contentWindow.postMessage({amitMouse:'data',row:null,error:'Could not save: '+(e&&e.message||e)},location.origin);}catch(_){} } }
 });
+// Amit Mouse pause while editing: the page pauses the person's mouse sets only while its tab is on screen. Only the Hub knows that (it is the Hub that shows and hides the tab),
+// so it tells the page whenever it changes: the tab is a visible box in a visible browser tab. One cheap check a second.
+var amMouseVisLast=null;
+function amMouseTabState(force){
+  var f=document.getElementById('amMouseFrame'); if(!f||!f.contentWindow||!f.getAttribute('src')) return;
+  var on=(f.offsetParent!==null)&&!document.hidden;
+  if(!force&&on===amMouseVisLast) return; amMouseVisLast=on;
+  try{ f.contentWindow.postMessage({amitMouse:'tab',on:on},location.origin); }catch(e){}
+}
+setInterval(amMouseTabState,1000);
 function amLoadMouse(){var f=document.getElementById('amMouseFrame');if(f&&!f.getAttribute('src'))f.setAttribute('src','AmitMouse.html')}
 function showChTab(detailNum,n){
   const detail=document.getElementById('detail-'+detailNum);
