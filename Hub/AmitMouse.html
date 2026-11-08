@@ -139,9 +139,10 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
       <b>Mouse:</b><select id="mousePick" title="Which mouse"></select>
       <span class="pill" id="activePill"></span>
       <span class="n2" id="pretendTxt" style="margin-left:6px">Which mouse I just used is not reported by the Helper yet, so choose it here:</span><select id="pretend" title="The Helper does not yet tell this page which mouse you touched. Once it does, this happens by itself."></select>
-      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.10</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
+      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.11</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
           </header>
     <div class="tabs"><div class="tab on" id="tabLearn">1. Learn mouse</div><div class="tab" id="tabSets">2. Mouse sets</div></div>
+    <div class="tip2" id="safetyBar" style="margin:0;padding:6px 12px;border-bottom:1px solid var(--line);background:rgba(47,196,178,.08)"><b>Stuck, or a mouse acts strangely?</b> On the keyboard press <b>Ctrl + Alt + Shift + M</b>: every mouse set is switched off at once and all your buttons work as normal (press it again to switch them back on). To fix one button, use <b>Reset a button...</b> on the Mouse sets tab, with your main mouse if you have to.</div>
     <div class="notice" id="notice" hidden></div>
     <div class="learn" id="learnView">
       <div class="lside">
@@ -429,40 +430,65 @@ function drawFocus(){
   $('focus').innerHTML=h;
   bindCtl($('focus'),s);
 }
-/* RESET A BUTTON (Ryan, 2026-11-08): put one button of this mouse back to normal in this set, even when the mouse is acting confused. While the panel is open ALL sets are switched off
-   (sent to the Helper as "master off") so every button works as normal; the Helper still reports the physical button that was pressed, whatever it was acting as. */
-var resetMode=false, resetTimerId=null;
+/* RESET A BUTTON (Ryan, 2026-11-08). From ANY mouse, and above all from the primary one (its left button never changes, so it can always be used), the person picks WHICH mouse,
+   WHICH set and WHICH button, and that one button goes back to normal. While the panel is open ALL sets of ALL mice are switched off (sent to the Helper as "master off"), so every
+   button works as normal; the Helper still reports the physical button that was pressed, whatever it was acting as. The page does not jump to another mouse while this is open. */
+var resetMode=false, resetTimerId=null, rMouseId=null, rSetId=null;
 function resetTimer(){clearTimeout(resetTimerId);resetTimerId=setTimeout(function(){if(resetMode)closeReset()},120000)}
 function closeReset(){resetMode=false;clearTimeout(resetTimerId);syncHelper();drawReset()}
+function rMouse(){for(var i=0;i<mice.length;i++)if(mice[i].id===rMouseId)return mice[i];return curMouse}
+function activeOf(m){return m===curMouse?activeId:m.activeId}
+function rSet(){var m=rMouse();for(var i=0;i<m.sets.length;i++)if(m.sets[i].id===rSetId)return m.sets[i];for(var j=0;j<m.sets.length;j++)if(m.sets[j].id===activeOf(m))return m.sets[j];return m.sets[0]}
+function pickResetMouse(id){rMouseId=id;var m=rMouse();rSetId=null;rSetId=rSet().id;drawReset()}
 function isChanged(st,id){
   var m=st.map&&st.map[id], g=st.gest&&st.gest[id];
   return !!((m&&m.t!=='keep')||(g&&(g.dbl||g.hold))||(st.locks&&st.locks[id]));
 }
+function protectedFor(m,id){return !!m.primary&&(id==='left'||id==='right'||id==='middle')}
+function resetableFor(m,b){return !!m.seen[b.id]&&!protectedFor(m,b.id)}
 function resetControl(cid){
-  var st=selSet();
+  var m=rMouse(), st=rSet();
   var was=isChanged(st,cid);
   if(st.map)delete st.map[cid];if(st.gest)delete st.gest[cid];if(st.locks)delete st.locks[cid];
-  notify(was?(nameOf(cid)+' of "'+curMouse.name+'" is back to normal in "'+st.name+'". The rest of the set was not touched.'):(nameOf(cid)+' was already normal in "'+st.name+'".'));
+  notify(was?(nameOf(cid)+' of "'+m.name+'" is back to normal in "'+st.name+'". The rest of the set was not touched.'):(nameOf(cid)+' of "'+m.name+'" was already normal in "'+st.name+'".'));
   resetTimer();drawAll();
 }
-function resetable(b){return seenState[b.id]&&!isLocked(b)&&!isReserved(b)&&!isPickBtn(b.id)}
+function resetPress(m,id){
+  /* a button was physically pressed while the reset panel is open */
+  if(!m)return;
+  var rm=rMouse();
+  if(m!==rm){notify('That press came from "'+m.name+'". To reset that mouse, choose it in step 1 of the reset panel.');return}
+  if(id==='left'||id==='wheelup'||id==='wheeldown')return;   /* used to click and scroll here: reset these from the list */
+  var b=BTNS.filter(function(x){return x.id===id})[0];
+  if(b&&resetableFor(m,b))resetControl(id);
+}
 function drawReset(){
   var box=$('resetBox');if(!box)return;
-  var st=selSet();
   if(!resetMode){
-    box.innerHTML='<div class="use"><button class="btn" id="resetOpen">Reset a button...</button> <span class="sim">If a button is acting as a different one and you cannot undo it, this puts just that button back to normal.</span></div>';
-    $('resetOpen').onclick=function(){resetMode=true;resetTimer();syncHelper();drawAll()};
+    box.innerHTML='<div class="use"><button class="btn" id="resetOpen">Reset a button...</button> <span class="sim">If a button is acting as a different one and you cannot undo it, this puts just that button back to normal. It works for any of your mice, and you can do it with your main mouse.</span></div>';
+    $('resetOpen').onclick=function(){resetMode=true;rMouseId=curMouse.id;rSetId=selId;resetTimer();syncHelper();drawAll()};
     return;
   }
-  var h='<div class="fp" style="border-color:var(--gold);background:rgba(230,184,74,.10)"><div class="fh">Reset a button on "'+esc(curMouse.name)+'" in "'+esc(st.name)+'"</div>'+
-    '<div class="n2" style="margin-bottom:6px">Every mouse set is switched OFF while this is open, so all your buttons work as normal. <b>Press the button you want to put back to normal on this mouse</b> (it is recognized even if it was acting as another button), or choose it below. Only that button in this set is reset; the rest of the set stays. The Left button and the wheel are reset from the list, because you use them to click and scroll here.</div>';
+  var rm=rMouse(), st=rSet();
+  var h='<div class="fp" style="border-color:var(--gold);background:rgba(230,184,74,.10)"><div class="fh">Reset a button</div>'+
+    '<div class="n2" style="margin-bottom:6px">Every mouse set of every mouse is switched OFF while this is open, so all your buttons work as normal. Your main mouse can always be used here: its Left button never changes.</div>'+
+    '<div class="slot"><span class="lab" style="width:150px"><b>1. Which mouse?</b></span>';
+  mice.forEach(function(m){h+='<button class="btn'+(m===rm?' gold':'')+'" data-rmouse="'+m.id+'">'+esc(m.name||'(unnamed)')+(m.primary?' (main)':'')+'</button> '});
+  h+='</div><div class="slot"><span class="lab" style="width:150px"><b>2. Which set?</b></span>';
+  rm.sets.slice().sort(function(x,y){return x.num-y.num}).forEach(function(s){h+='<button class="btn'+(s===st?' gold':'')+'" data-rset="'+s.id+'">'+esc(s.name)+(s.id===activeOf(rm)?' (in use)':'')+'</button> '});
+  h+='</div><div class="n2" style="margin:6px 0 4px"><b>3. Which button?</b> Press it on <b>'+esc(rm.name||'this mouse')+'</b> (it is recognized even if it was acting as another button), or choose it below. Only that button in "'+esc(st.name)+'" is reset; the rest of the set stays. The Left button and the wheel are reset from the list, because you use them to click and scroll here.</div>';
+  var any=false;
   BTNS.forEach(function(b){
-    if(!resetable(b))return;
+    if(!resetableFor(rm,b))return;
+    any=true;
     var ch=isChanged(st,b.id);
     h+='<div class="slot"><span class="lab" style="width:190px">'+esc(b.name)+'</span>'+(ch?'<b style="color:var(--gold)">changed</b> <button class="btn" data-reset="'+b.id+'">Back to normal</button>':'<span class="n2">normal</span>')+'</div>';
   });
+  if(!any)h+='<div class="n2">This mouse has no buttons that can be changed yet.</div>';
   h+='<div class="form" style="margin-top:8px"><button class="btn gold" id="resetDone">Done: switch my sets back on</button></div></div>';
   box.innerHTML=h;
+  [].forEach.call(box.querySelectorAll('[data-rmouse]'),function(e){e.onclick=function(){pickResetMouse(+e.getAttribute('data-rmouse'))}});
+  [].forEach.call(box.querySelectorAll('[data-rset]'),function(e){e.onclick=function(){rSetId=+e.getAttribute('data-rset');drawReset()}});
   [].forEach.call(box.querySelectorAll('[data-reset]'),function(e){e.onclick=function(){resetControl(e.getAttribute('data-reset'))}});
   $('resetDone').onclick=closeReset;
 }
@@ -663,6 +689,7 @@ function handleRaw(ev){
   if(adding){
     var dup=mouseByDev(dev);adding.dup=dup;adding.dev=dup?null:dev;drawAll();return;
   }
+  if(resetMode&&!adding){resetPress(mouseByDev(dev),id);return}
   var m=mouseByDev(dev);
   if(!m){
     var blank=mice.filter(function(x){return !x.dev})[0];
@@ -673,14 +700,6 @@ function handleRaw(ev){
     return;
   }
   if(m!==curMouse){if(!curMouse.name&&$('setsView').hidden){notify('Give this mouse a one-word name first (step 1), then touch the other mouse.');return}switchMouse(m.id);notify('Now using "'+m.name+'". Its '+activeSet().name+' is active.')}
-  if(resetMode&&!adding&&$('learnView').hidden){
-    var rmz=mouseByDev(dev);
-    if(rmz&&rmz===curMouse){
-      var rb=BTNS.filter(function(x){return x.id===id})[0];
-      if(rb&&resetable(rb)&&id!=='left'&&id!=='wheelup'&&id!=='wheeldown')resetControl(id);
-      return;
-    }
-  }
   if(!$('learnView').hidden){
     if(busySelect()){var wn=!seenState[id];seenState[id]=true;flashT[id]=1;setTimeout(function(){flashT[id]=0;drawMouse()},350);say('I felt: '+nameOf(id)+(wn?'  - NEW, added to this mouse':'  - already known'),true);drawMouse();pendingDraw=true;return}
     wiz(id);return}
@@ -720,7 +739,7 @@ var lastClickAsk=0;
 document.addEventListener('mousedown',function(){var n=Date.now();if(n-lastClickAsk>400){lastClickAsk=n;newFocus()}},true);
 function followMouse(j){
   /* the page shows the mouse that is in use (never while a drop-down is open, a mouse is being named or added) */
-  if(!j.lastDev||j.lastAgeMs>2000||adding||!curMouse.name||busySelect())return;
+  if(resetMode||!j.lastDev||j.lastAgeMs>2000||adding||!curMouse.name||busySelect())return;
   var lm=mouseByDev(String(j.lastDev).slice(0,200));
   if(!lm||lm===curMouse)return;
   switchMouse(lm.id);notify('Now showing "'+lm.name+'", the mouse you are using.');
@@ -839,6 +858,7 @@ function autoUse(v){
   else notify('Now using "'+m.name+'". Its '+activeSet().name+' is active.');
 }
 function showTab(w){
+  if(resetMode&&w!=='sets')closeReset();
   $('learnView').hidden=(w!=='learn');$('setsView').hidden=(w!=='sets');
   $('tabLearn').className='tab'+(w==='learn'?' on':'');$('tabSets').className='tab'+(w==='sets'?' on':'');
   drawAll();
