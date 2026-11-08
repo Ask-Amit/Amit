@@ -23,6 +23,9 @@ Fast, current-state record. Read this first when opening a session in this folde
 
 ## Log
 
+### 2026-11-08 (later still) - Amit Mouse page v1.09: the set you edit is the set in use
+- **Found by Ryan:** he made a new set for his second mouse to program it, but the old set (Left and Right swapped) stayed the one running, so he was editing one set while another acted on the mouse. **Fix (page only, no Helper change):** creating a set makes it the set in use at once (it starts with every button normal), and choosing a set in the list to edit makes it the set in use; a message at the top says so. Tested with simulated mice.
+
 ### 2026-11-08 (later) - Helper 1.79, installer 4.94, Amit Mouse page v1.08: a mouse can never be left with no left click
 - **What happened (Ryan, testing on his second mouse):** he swapped Left and Right (worked), then set Right back to normal while Left still acted as Right, so both buttons right-clicked and he could not click his way back to the setting. Not a Helper bug: the rule that nothing may lock the person out only covered the PRIMARY mouse.
 - **Unlocked at once:** the second mouse's left/right remaps were removed from the database (per_actions) and from the Helper's copy (mouse_config.json); the page open at the time had to be refreshed.

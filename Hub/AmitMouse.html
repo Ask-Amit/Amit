@@ -139,7 +139,7 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
       <b>Mouse:</b><select id="mousePick" title="Which mouse"></select>
       <span class="pill" id="activePill"></span>
       <span class="n2" id="pretendTxt" style="margin-left:6px">Which mouse I just used is not reported by the Helper yet, so choose it here:</span><select id="pretend" title="The Helper does not yet tell this page which mouse you touched. Once it does, this happens by itself."></select>
-      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.08</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
+      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.09</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
           </header>
     <div class="tabs"><div class="tab on" id="tabLearn">1. Learn mouse</div><div class="tab" id="tabSets">2. Mouse sets</div></div>
     <div class="notice" id="notice" hidden></div>
@@ -297,7 +297,7 @@ function drawSets(){
        '<div class="p">Say: "'+esc(phrase(s))+'"'+(s.num===1?' (starting set)':'')+'</div></div>';
   });
   $('setList').innerHTML=h;
-  [].forEach.call($('setList').children,function(e){e.onclick=function(){selId=+e.getAttribute('data-id');learningOff();drawAll()}});
+  [].forEach.call($('setList').children,function(e){e.onclick=function(){selId=+e.getAttribute('data-id');activeId=selId;/* the set you are editing is the set in use, so what you see is what the mouse does */var ss=setById(selId);if(ss)notify('Now editing and using "'+ss.name+'".');learningOff();drawAll()}});
   $('activePill').textContent=master?('In use now: '+a.name):'All buttons work normally';
 }
 function drawMouse(){
@@ -858,7 +858,7 @@ $('newCancel').onclick=function(){$('newForm').hidden=true};
 $('newSave').onclick=function(){
   var n=$('newName').value.replace(/^\s+|\s+$/g,'');
   
-  var num=+$('newNum').value||freeNums(null)[0];var ns={id:nextId,num:num,label:n,name:'',map:{}};ns.name=setName(ns);sets.push(ns);sets.sort(function(a,b){return a.num-b.num});selId=nextId++;$('newForm').hidden=true;drawAll();
+  var num=+$('newNum').value||freeNums(null)[0];var ns={id:nextId,num:num,label:n,name:'',map:{}};ns.name=setName(ns);sets.push(ns);sets.sort(function(a,b){return a.num-b.num});selId=nextId++;activeId=selId;$('newForm').hidden=true;notify('New set "'+ns.name+'" created and in use: every button works as normal until you change it here.');drawAll();
 };
 
 /* the real mouse, in the pad */
