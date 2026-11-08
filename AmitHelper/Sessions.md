@@ -2,6 +2,25 @@
 
 Fast, current-state record. Read this first when opening a session in this folder. Character and rules come from the root `CLAUDE.md`; this file is state only.
 
+## HAND-OFF FOR A NEW SESSION: READ THIS FIRST (written 2026-11-08 by the session that built the Helper and Amit Mouse)
+
+You are probably a new session (for example Ryan's partner, on Ryan's computer, with their own Claude account) and you have none of the earlier conversation. This file IS your hand-off: the **Current State** block below says what exists, the dated **Log** entries say what was decided and why. Nothing here is secret.
+
+**Read next, in this order:** (1) the Current State block and the 2026-11-07 and 2026-11-08 log entries below; (2) `HELPER_RELEASE_RULES.md` in this folder, which you must follow for every Helper release, running `verify_helper_release.ps1` (every line must PASS) before any push; (3) `Hub\Sessions.md` (Hub v8.70 to v8.76); (4) `CLAUDE.md` in this folder. More detail: `START_HERE_Handoff_2026-11-08.md`.
+
+**Hard-won rules (do not skip):**
+- The Helper is NOT Computer Health: record Helper work here. Never go backwards to an older Helper. **Rebuild the installer for EVERY Helper release** (run the build in the background).
+- **Never push unless Ryan says so.** Stage ONLY paths that exist and run `git diff --cached --name-only` before committing (a missing path once made `git add` stop and a half release went out for a few minutes).
+- **One way to open the Amit menu:** the standard locked button Settings > Amit menu; do not add a second route. Every new menu or pop-up needs a `MenuItemDef` entry AND an `// AMIT-MENU: <id>` marker (the release check fails otherwise).
+- **Keep every safety:** the main mouse's left, right and middle never change; every other mouse keeps a way to left-click; Ctrl+Alt+Shift+M switches all mouse sets off from the keyboard (the way out if a setting ever traps the mouse); Reset a button works from the main mouse.
+- Parse-check every script you patch (the bridge uses Windows line endings; JavaScript `String.replace` corrupts text containing `$'`, use a function replacer). Say what you are about to do before anything visible on Ryan's computer (a menu opening, the Helper restarting); never close his programs.
+
+**How Ryan works:** he speaks by voice, so words are transcribed (he may say "Spark" for "spar"); meaning matters more than exact words. He wants honest sparring, not just execution: say what you actually think and push back. He wants the action he must take in a banner at the very bottom of a reply, one decision at a time, in plain words.
+
+**What you will NOT have:** Ryan's conversation history. The root `CLAUDE.md` ("where we left off") and the session records in the database stop at 2026-10-26 and do not mention this work: this file is the current truth for the Helper, the bar and Amit Mouse.
+
+---
+
 ## Current State
 
 *(refreshed 2026-11-08, end of the day; the dated Log entries below are the detail)*
