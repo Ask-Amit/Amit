@@ -139,7 +139,7 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
       <b>Mouse:</b><select id="mousePick" title="Which mouse"></select>
       <span class="pill" id="activePill"></span>
       <span class="n2" id="pretendTxt" style="margin-left:6px">Which mouse I just used is not reported by the Helper yet, so choose it here:</span><select id="pretend" title="The Helper does not yet tell this page which mouse you touched. Once it does, this happens by itself."></select>
-      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.16</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
+      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.17</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
           </header>
     <div class="tabs"><div class="tab on" id="tabLearn">1. Learn mouse</div><div class="tab" id="tabSets">2. Mouse sets</div></div>
     <div class="tip2" id="safetyBar" style="margin:0;padding:6px 12px;border-bottom:1px solid var(--line);background:rgba(47,196,178,.08)"><b>Stuck, or a mouse acts strangely?</b> On the keyboard press <b>Ctrl + Alt + Shift + M</b>: every mouse set is switched off at once and all your buttons work as normal (press it again to switch them back on). To fix one button, use <b>Reset a button...</b> on the Mouse sets tab, with your main mouse if you have to.</div>
@@ -718,7 +718,14 @@ function handleRaw(ev){
     if(busySelect()){var wn=!seenState[id];seenState[id]=true;flashT[id]=1;setTimeout(function(){flashT[id]=0;drawMouse()},350);say('I felt: '+nameOf(id)+(wn?'  - NEW, added to this mouse':'  - already known'),true);drawMouse();pendingDraw=true;return}
     wiz(id);return}
   if(seenState[id]&&id==='left')return;   /* the left button is the one that SELECTS (it clicks this page); every other button and the wheel select their row when pressed, because the mouse sets are paused while editing */
-  if(id==='wheelup'||id==='wheeldown'){var nw=Date.now();if(nw-(handleRaw.lw||0)<350)return;handleRaw.lw=nw}   /* one turn of the wheel is several notches: select once */
+  if(id==='wheelup'||id==='wheeldown'){
+    /* the wheel needs FIVE clicks in the same direction to select it: pressing the middle button moves the wheel a little, and one or two clicks are not a turn */
+    var nw=Date.now(), wr=handleRaw.wr||(handleRaw.wr={dir:'',n:0,t:0});
+    if(wr.dir===id&&nw-wr.t<700)wr.n++;else{wr.dir=id;wr.n=1}
+    wr.t=nw;
+    if(wr.n<5)return;
+    wr.n=0;
+  }
   var wasNew=!seenState[id];
   flashT[id]=1;setTimeout(function(){flashT[id]=0;drawMouse()},250);
   focusId=id;
@@ -767,11 +774,12 @@ function drawEdit(){
     $('stopTest').onclick=stopTest;
   }else{
     b.style.background='rgba(47,196,178,.10)';
-    b.innerHTML='<b>Editing:</b> your mouse sets are <b>PAUSED</b> while you are on this tab, so every button works as normal and you can click what you want to change. They work again as soon as you leave this tab. <button class="btn" id="startTest">Test my sets for 30 seconds</button>';
+    b.innerHTML='<b>Editing:</b> your mouse sets are <b>PAUSED</b> while you are on this tab, so every button works as normal and you can click what you want to change. They work again as soon as you leave this tab. To select the wheel, turn it 5 clicks in one direction (pressing the middle button moves it a little, so one or two clicks are ignored). <button class="btn" id="startTest">Test my sets for 30 seconds</button>';
     $('startTest').onclick=startTest;
   }
 }
 setInterval(function(){if(editing&&Date.now()<testUntil)drawEdit()},1000);
+setInterval(function(){if(editing&&helperLive)pollHelper(false)},500);   /* while editing, a press is shown quickly */
 setInterval(function(){if(editing&&helperLive)syncHelper()},20000);   /* repeats the pause; the Helper resumes the sets by itself if this page goes quiet for a minute */
 if(parent===window){editing=!document.hidden;document.addEventListener('visibilitychange',function(){editing=!document.hidden;if(!editing)testUntil=0;syncHelper();drawEdit()})}   /* opened on its own, not inside the Hub */
 function drawRun(j){
