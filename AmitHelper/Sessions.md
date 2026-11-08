@@ -23,6 +23,9 @@ Fast, current-state record. Read this first when opening a session in this folde
 
 ## Log
 
+### 2026-11-08 (night) - Amit Mouse page v1.10: Reset a button
+- **Found by Ryan:** with Right acting as Left on his second mouse (the lockout safety correctly keeps a left click), he had two left buttons and no right button, and could not change the Right button because the computer no longer saw it as a right button. **Fix (page only, no Helper change):** a Reset a button panel on the Mouse sets screen. While it is open ALL sets are switched off (sent to the Helper as master off, restored when it closes, after 2 minutes, or when the page is closed) so every button works as normal; pressing a button on the mouse puts THAT button back to normal in THIS set only (the Helper reports the physical button whatever it was acting as, because raw input is not changed by a remap), or it can be chosen from a list. The Left button and the wheel are reset from the list (they are used to click and scroll there); the primary mouse's protected buttons are never offered; the right-click menu is blocked while it is open. Tested with simulated mice (press Right resets only Right, the other mouse changes nothing, list reset, Done).
+
 ### 2026-11-08 (later still) - Amit Mouse page v1.09: the set you edit is the set in use
 - **Found by Ryan:** he made a new set for his second mouse to program it, but the old set (Left and Right swapped) stayed the one running, so he was editing one set while another acted on the mouse. **Fix (page only, no Helper change):** creating a set makes it the set in use at once (it starts with every button normal), and choosing a set in the list to edit makes it the set in use; a message at the top says so. Tested with simulated mice.
 

@@ -139,7 +139,7 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
       <b>Mouse:</b><select id="mousePick" title="Which mouse"></select>
       <span class="pill" id="activePill"></span>
       <span class="n2" id="pretendTxt" style="margin-left:6px">Which mouse I just used is not reported by the Helper yet, so choose it here:</span><select id="pretend" title="The Helper does not yet tell this page which mouse you touched. Once it does, this happens by itself."></select>
-      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.09</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
+      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.10</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
           </header>
     <div class="tabs"><div class="tab on" id="tabLearn">1. Learn mouse</div><div class="tab" id="tabSets">2. Mouse sets</div></div>
     <div class="notice" id="notice" hidden></div>
@@ -224,6 +224,7 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
         <div class="tip2">Reminder: keep your mouse's own program set the way it was. Everything is set here, and if something changes, come back to tab 1 and adjust.</div>
         <h2 id="mapTitle">What each button does</h2>
         <div id="useBox"></div>
+        <div id="resetBox"></div>
         <table>
           <thead><tr><th>Button</th><th>Windows saw it</th><th>In this set it will</th></tr></thead>
           <tbody id="rows"></tbody>
@@ -428,6 +429,47 @@ function drawFocus(){
   $('focus').innerHTML=h;
   bindCtl($('focus'),s);
 }
+/* RESET A BUTTON (Ryan, 2026-11-08): put one button of this mouse back to normal in this set, even when the mouse is acting confused. While the panel is open ALL sets are switched off
+   (sent to the Helper as "master off") so every button works as normal; the Helper still reports the physical button that was pressed, whatever it was acting as. */
+var resetMode=false, resetTimerId=null;
+function resetTimer(){clearTimeout(resetTimerId);resetTimerId=setTimeout(function(){if(resetMode)closeReset()},120000)}
+function closeReset(){resetMode=false;clearTimeout(resetTimerId);syncHelper();drawReset()}
+function isChanged(st,id){
+  var m=st.map&&st.map[id], g=st.gest&&st.gest[id];
+  return !!((m&&m.t!=='keep')||(g&&(g.dbl||g.hold))||(st.locks&&st.locks[id]));
+}
+function resetControl(cid){
+  var st=selSet();
+  var was=isChanged(st,cid);
+  if(st.map)delete st.map[cid];if(st.gest)delete st.gest[cid];if(st.locks)delete st.locks[cid];
+  notify(was?(nameOf(cid)+' of "'+curMouse.name+'" is back to normal in "'+st.name+'". The rest of the set was not touched.'):(nameOf(cid)+' was already normal in "'+st.name+'".'));
+  resetTimer();drawAll();
+}
+function resetable(b){return seenState[b.id]&&!isLocked(b)&&!isReserved(b)&&!isPickBtn(b.id)}
+function drawReset(){
+  var box=$('resetBox');if(!box)return;
+  var st=selSet();
+  if(!resetMode){
+    box.innerHTML='<div class="use"><button class="btn" id="resetOpen">Reset a button...</button> <span class="sim">If a button is acting as a different one and you cannot undo it, this puts just that button back to normal.</span></div>';
+    $('resetOpen').onclick=function(){resetMode=true;resetTimer();syncHelper();drawAll()};
+    return;
+  }
+  var h='<div class="fp" style="border-color:var(--gold);background:rgba(230,184,74,.10)"><div class="fh">Reset a button on "'+esc(curMouse.name)+'" in "'+esc(st.name)+'"</div>'+
+    '<div class="n2" style="margin-bottom:6px">Every mouse set is switched OFF while this is open, so all your buttons work as normal. <b>Press the button you want to put back to normal on this mouse</b> (it is recognized even if it was acting as another button), or choose it below. Only that button in this set is reset; the rest of the set stays. The Left button and the wheel are reset from the list, because you use them to click and scroll here.</div>';
+  BTNS.forEach(function(b){
+    if(!resetable(b))return;
+    var ch=isChanged(st,b.id);
+    h+='<div class="slot"><span class="lab" style="width:190px">'+esc(b.name)+'</span>'+(ch?'<b style="color:var(--gold)">changed</b> <button class="btn" data-reset="'+b.id+'">Back to normal</button>':'<span class="n2">normal</span>')+'</div>';
+  });
+  h+='<div class="form" style="margin-top:8px"><button class="btn gold" id="resetDone">Done: switch my sets back on</button></div></div>';
+  box.innerHTML=h;
+  [].forEach.call(box.querySelectorAll('[data-reset]'),function(e){e.onclick=function(){resetControl(e.getAttribute('data-reset'))}});
+  $('resetDone').onclick=closeReset;
+}
+document.addEventListener('contextmenu',function(e){if(resetMode)e.preventDefault()});
+window.addEventListener('pagehide',function(){
+  if(resetMode){resetMode=false;try{var r=toRows();r.master=master;fetch(HELPER_URL+'/api/mouse/sync',{method:'POST',body:JSON.stringify(r),keepalive:true})}catch(e){}}
+});
 function drawRows(){
   var s=selSet(), h='';
   s.gest=s.gest||{};
@@ -443,6 +485,7 @@ function drawRows(){
   $('rows').innerHTML=h;
   bindCtl($('rows'),s);
   drawFocus();
+  drawReset();
   var d=$('delBtn'); if(d)d.onclick=function(){
     if(delArm===s.id){sets=sets.filter(function(x){return x.id!==s.id});if(activeId===s.id)activeId=1;selId=1;delArm=null}else delArm=s.id;
     drawAll();
@@ -589,7 +632,7 @@ function syncHelper(){
   if(!helperLive)return;
   clearTimeout(syncT);
   syncT=setTimeout(function(){
-    try{var r=toRows();r.master=master;fetch(HELPER_URL+'/api/mouse/sync',{method:'POST',body:JSON.stringify(r)}).catch(function(){})}catch(e){}
+    try{var r=toRows();r.master=master&&!resetMode;fetch(HELPER_URL+'/api/mouse/sync',{method:'POST',body:JSON.stringify(r)}).catch(function(){})}catch(e){}
   },400);
 }
 function setLive(on){
@@ -630,6 +673,14 @@ function handleRaw(ev){
     return;
   }
   if(m!==curMouse){if(!curMouse.name&&$('setsView').hidden){notify('Give this mouse a one-word name first (step 1), then touch the other mouse.');return}switchMouse(m.id);notify('Now using "'+m.name+'". Its '+activeSet().name+' is active.')}
+  if(resetMode&&!adding&&$('learnView').hidden){
+    var rmz=mouseByDev(dev);
+    if(rmz&&rmz===curMouse){
+      var rb=BTNS.filter(function(x){return x.id===id})[0];
+      if(rb&&resetable(rb)&&id!=='left'&&id!=='wheelup'&&id!=='wheeldown')resetControl(id);
+      return;
+    }
+  }
   if(!$('learnView').hidden){
     if(busySelect()){var wn=!seenState[id];seenState[id]=true;flashT[id]=1;setTimeout(function(){flashT[id]=0;drawMouse()},350);say('I felt: '+nameOf(id)+(wn?'  - NEW, added to this mouse':'  - already known'),true);drawMouse();pendingDraw=true;return}
     wiz(id);return}
@@ -650,7 +701,7 @@ function pollHelper(trigger){
     if(!j||!j.ok||j.raw===false){setLive(false);return}
     setLive(true);
     if(trigger===true)followMouse(j);
-    if(typeof j.master==='boolean'&&j.master!==master&&Date.now()-lastLocal>2500){master=j.master;$('master').className='tog'+(master?' on':'');$('masterTxt').textContent=master?'on':'off';if(busySelect())pendingDraw=true;else drawAll()}
+    if(!resetMode&&typeof j.master==='boolean'&&j.master!==master&&Date.now()-lastLocal>2500){master=j.master;$('master').className='tog'+(master?' on':'');$('masterTxt').textContent=master?'on':'off';if(busySelect())pendingDraw=true;else drawAll()}
     if(!polledOnce){polledOnce=true;evSince=j.seq}/* skip what happened before this page opened */
     else{(j.events||[]).forEach(function(e){handleRaw(e);if(e.seq>evSince)evSince=e.seq})}
     /* a set switched by a button or a voice command on this computer */
@@ -661,6 +712,7 @@ function pollHelper(trigger){
 }
 /* a slow background check (button learning, a set switched by a button, the keyboard switch); WHICH mouse is in use is only looked at when something new happens: the page gets the focus or is shown, or the person clicks on it, and then once more a moment later to verify */
 setInterval(function(){pollHelper(false)},2000);pollHelper(false);
+setInterval(function(){if(resetMode)pollHelper(false)},300);
 function newFocus(){pollHelper(true);setTimeout(function(){pollHelper(true)},300)}
 window.addEventListener('focus',newFocus);
 document.addEventListener('visibilitychange',function(){if(!document.hidden)newFocus()});
