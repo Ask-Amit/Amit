@@ -139,7 +139,7 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
       <b>Mouse:</b><select id="mousePick" title="Which mouse"></select>
       <span class="pill" id="activePill"></span>
       <span class="n2" id="pretendTxt" style="margin-left:6px">Which mouse I just used is not reported by the Helper yet, so choose it here:</span><select id="pretend" title="The Helper does not yet tell this page which mouse you touched. Once it does, this happens by itself."></select>
-      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.05</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on"></div><span id="masterTxt">on</span></div>
+      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.06</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
           </header>
     <div class="tabs"><div class="tab on" id="tabLearn">1. Learn mouse</div><div class="tab" id="tabSets">2. Mouse sets</div></div>
     <div class="notice" id="notice" hidden></div>
@@ -633,6 +633,7 @@ function pollHelper(){
     pollBusy=false;
     if(!j||!j.ok||j.raw===false){setLive(false);return}
     setLive(true);
+    if(typeof j.master==='boolean'&&j.master!==master&&Date.now()-lastLocal>2500){master=j.master;$('master').className='tog'+(master?' on':'');$('masterTxt').textContent=master?'on':'off';if(busySelect())pendingDraw=true;else drawAll()}
     if(!polledOnce){polledOnce=true;evSince=j.seq}/* skip what happened before this page opened */
     else{(j.events||[]).forEach(function(e){handleRaw(e);if(e.seq>evSince)evSince=e.seq})}
     /* a set switched by a button or a voice command on this computer */
