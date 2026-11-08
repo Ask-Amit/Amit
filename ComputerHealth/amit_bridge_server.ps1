@@ -200,7 +200,7 @@ $handlerScript = {
     # file the bar reads (amit_bar.json). The bar reloads by itself when the file changes. Every call replaces the whole file, so nothing old survives a delete.
     # Parsed with .NET's JavaScriptSerializer and written by hand: ConvertTo-Json/ConvertFrom-Json can hang on a cold runspace (see ConvertTo-JsonString below).
     function Write-AmitBarConfig([string]$Body, [string]$Path) {
-        $safe = @('open_app','open_url','open_program','play_music','speak','ask_amit','wait','open_file','audio','print','preview','preview_rules')   # preview and preview_rules: the Amit Preview button (2026-11-07)
+        $safe = @('open_app','open_url','open_program','play_music','speak','ask_amit','wait','open_file','audio','print','preview','preview_rules','menu')   # preview and preview_rules: the Amit Preview button (2026-11-07); menu: Open a menu (2026-11-08)
         $kinds = @('app','web','music','program','multi','ask')
         $fnFail = { param($m) return @{ ok = $false; error = $m } }
         $fnGet = { param($d, $k) if ($d -is [System.Collections.IDictionary] -and $d.ContainsKey($k)) { return $d[$k] } else { return $null } }
@@ -238,6 +238,7 @@ $handlerScript = {
                     $mv = & $fnGet $s 'ms';   if ($null -ne $mv) { $ms = [int][Math]::Max(0, [Math]::Min(60000, [double]$mv)) }
                     if ($st -eq 'audio') { $u = $null; $pa = $null; $ac = Get-AmitAudioCfg ([string](& $fnGet $s 'text')); if ($null -eq $ac) { return (& $fnFail ("the audio setting in '" + $bn + "' is not valid")) }; $tx = $ac; foreach ($lm in [regex]::Matches($ac, '"l":"([^"]*)"')) { if (-not (Get-AmitAudioBoundId $lm.Groups[1].Value)) { $missing++; break } } }
                     if ($st -eq 'print') { $u = $null; $pa = $null; $tx = 'menu' }
+                    if ($st -eq 'menu') { $u = $null; $pa = $null; if ([string]$tx -notmatch '^[a-z0-9-]{1,40}$') { return (& $fnFail ("the menu in '" + $bn + "' is not valid")) } }   # the text is the menu's id; the Helper keeps the list and the way each one opens
                     if ($st -eq 'open_file') { $u = $null; $pa = $null; $bp = Get-AmitBoundPath ([string](& $fnGet $s 'token')); if ($bp -and (Test-AmitFileOk $bp $true)) { $pa = $bp } else { $missing++ } }
                     [void]$stepJson.Add('{"t":' + (& $fnQuote $st) + ',"url":' + (& $fnQuote $u) + ',"path":' + (& $fnQuote $pa) + ',"text":' + (& $fnQuote $tx) + ',"ms":' + $ms + '}')
                 }

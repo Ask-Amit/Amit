@@ -516,6 +516,21 @@ public class BarForm : Form
 
     // The "preview" step: asks the Helper (the one shared local agent, http://localhost:8710) to open the Amit Preview window, or bring it forward. The Helper opens
     // the copy of the page that sits in its own folder (no internet needed) and splits the screen beside the window the person was in.
+    // The "menu" step: asks the Helper (the one shared local agent) to open one of its menus by id. The Helper keeps the list of menus and the mechanism that opens each one
+    // (/api/menus), so the bar never needs to know where a menu lives.
+    void OpenMenuStep(string id)
+    {
+        try
+        {
+            if (String.IsNullOrEmpty(id)) { Say("Menu", "This button has no menu chosen. Open the Hub, Amit Helper, and choose one."); return; }
+            System.Net.HttpWebRequest rq = (System.Net.HttpWebRequest)System.Net.WebRequest.Create("http://localhost:8710/api/menu/open?id=" + Uri.EscapeDataString(id));
+            rq.Timeout = 6000;
+            using (System.Net.WebResponse rs = rq.GetResponse())
+            using (StreamReader sr = new StreamReader(rs.GetResponseStream()))
+            { string body = sr.ReadToEnd(); if (body.IndexOf("\"ok\":true") < 0) Say("Menu", "That menu could not be opened. " + body); }
+        }
+        catch (Exception) { Say("Menu", "The Amit Helper is not running, so the menu could not be opened. Start the Amit Helper and press the button again."); }
+    }
     void OpenPreviewStep()
     {
         try
@@ -545,6 +560,7 @@ public class BarForm : Form
                     else if (s.t == "play_music") { if (!String.IsNullOrEmpty(s.path)) Process.Start(s.path); else if (!String.IsNullOrEmpty(s.url)) Process.Start(s.url); }
                     else if (s.t == "speak") { using (System.Speech.Synthesis.SpeechSynthesizer sp = new System.Speech.Synthesis.SpeechSynthesizer()) sp.Speak(s.text ?? ""); }
                     else if (s.t == "wait") { Thread.Sleep(Math.Max(0, Math.Min(5000, s.ms))); }
+                    else if (s.t == "menu") { OpenMenuStep(s.text); }   // asks the Helper to open one of ITS menus by id (the Helper keeps the list and knows how each opens)
                     else if (s.t == "preview") { OpenPreviewStep(); }   // opens (or brings forward) the Amit Preview window through the Helper
                     else if (s.t == "note") { }                          // carries written instructions with the button; pressing the button does nothing with it (a program or AI that presses the button through the Helper is handed the text)
                 }
