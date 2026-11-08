@@ -1391,7 +1391,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.73</div>
+      <div class="page-version" id="hubVersionBadge">v8.74</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -6538,16 +6538,17 @@ async function hlLoadMenus(){
     const r=await Promise.race([fetch(HL_HELPER+'/api/menus',{cache:'no-cache'}),new Promise(function(_,rej){ setTimeout(function(){ rej(new Error('slow')); },4000); })]);
     const j=await r.json(); hl.menus=(j&&j.ok&&Array.isArray(j.menus))?j.menus.filter(function(m){ return m.buttonOk; }):[];
   }catch(e){ hl.menus=[]; }
-  hl.steps.forEach(function(s){ if(s.t==='menu'&&s.mid) s.v=hlMenuName(s.mid); });
+  hl.steps.forEach(function(s){ if(s.t==='menu'&&!s.mid&&hl.menus.some(function(m){ return m.id==='amit-menu'; })){ s.mid='amit-menu'; }   // a new Open a menu step starts on the Amit menu, the pop-up the middle button opens
+    if(s.t==='menu'&&s.mid) s.v=hlMenuName(s.mid); });
   hlRenderSteps();
 }
 function hlMenuControl(s,i){
   if(hl.menus===undefined||hl.menus===null){ hl.menus=null; hlLoadMenus(); return '<div class="hint" style="flex:1;min-width:0">Asking the Amit Helper on this computer for its list of menus...</div>'; }
   if(!hl.menus.length) return '<div class="hint" style="flex:1;min-width:0">The Amit Helper on this computer did not give its list of menus. Start the Helper (or press Update and reload on the bar), then choose "Open a menu" again.</div>';
   const cur=s.mid||''; let o='<option value="">Choose a menu...</option>';
-  hl.menus.forEach(function(m){ o+='<option value="'+hlEsc(m.id)+'"'+(m.id===cur?' selected':'')+'>'+hlEsc(m.name)+'</option>'; });
+  hl.menus.forEach(function(m){ o+='<option value="'+hlEsc(m.id)+'"'+(m.id===cur?' selected':'')+'>'+hlEsc(m.name+(m.defaultFor?'  (the one that opens with: '+m.defaultFor+')':''))+'</option>'; });
   const cm=hl.menus.find(function(m){ return m.id===cur; });
-  return '<div style="flex:1;min-width:0"><select class="fg-input" style="width:100%" onchange="hlPickMenu('+i+',this.value)">'+o+'</select>'+(cm?'<div class="hint">'+hlEsc(cm.what)+' ('+hlEsc(cm.where)+')</div>':'')+'</div>';
+  return '<div style="flex:3 1 260px;min-width:0"><select class="fg-input" style="width:100%" onchange="hlPickMenu('+i+',this.value)">'+o+'</select>'+(cm?'<div class="hint" style="white-space:normal;margin-top:4px"><b>'+hlEsc(cm.name)+':</b> '+hlEsc(cm.what)+' '+hlEsc(cm.where)+'</div>':'')+'</div>';
 }
 function hlPickMenu(i,id){ const s=hl.steps[i]; if(!s) return; s.mid=id; s.v=id?hlMenuName(id):''; hlRenderSteps(); }
 function hlSetType(i,val){
