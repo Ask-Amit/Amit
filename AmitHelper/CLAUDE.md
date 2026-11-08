@@ -8,6 +8,9 @@ If a session starts in this folder, before anything else: stop and tell Ryan pla
 
 Do not proceed with any build request until Ryan confirms he wants to continue here anyway, or has switched folders. Read-only actions (reading files, answering questions) are fine either way.
 
+## NEW SESSION? READ `START_HERE_Handoff_2026-11-08.md` FIRST
+It is the hand-off for Amit Mouse and the one-button design (Helper 1.83): where things are, what to read, the hard-won rules and what is still open.
+
 ## RELEASING THE HELPER (update / install / push / reload): READ `HELPER_RELEASE_RULES.md` FIRST
 Ryan, 2026-11-07: "when I say update and install, the Helper has to be updated so it never reverts; I have explained this about 50 times". The full, ordered rules are in `AmitHelper\HELPER_RELEASE_RULES.md` and are checked by `AmitHelper\verify_helper_release.ps1` (every line must PASS before any push). A global hook (`C:\Users\user1\.claude\hooks\helper_release_hook.ps1`) hands the rules to Amit whenever a message is about updating, installing, pushing or reloading. In short: bump the Helper version; copy to every copy; rebuild the manifest; verify; push once; check the live manifest; reload locally; rebuild the installer `install-Amit.exe` (the Helper's package, small; the 72 MB `AmitSensorReader.exe` is Computer Health's and is never rebuilt for a Helper change); never go backwards; the Helper is NOT Computer Health. Computers update themselves from the published manifest.
 
