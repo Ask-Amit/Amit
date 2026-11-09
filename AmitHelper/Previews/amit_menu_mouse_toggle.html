@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Amit Menu Toggle Preview</title>
+<style>
+:root{--bg:#10161d;--page:#0b0f14;--gold:#e6b84a;--teal:#2fc4b2;--purple:#b48cf2;--mute:#8d99a8;--txt:#e8edf2;--sel:rgba(47,196,178,.18);--off:#3a4553}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--txt);font:14px "Segoe UI",system-ui,sans-serif;padding:16px}
+h1{font-size:16px;margin:0 0 4px;color:var(--gold)}
+p.note{color:var(--mute);margin:0 0 14px;max-width:880px}
+.wrap{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.col{flex:0 0 400px;max-width:100%}
+.label{font-weight:600;margin:0 0 6px;color:var(--txt)}
+.label small{color:var(--mute);font-weight:400}
+.menu{width:400px;max-width:100%;background:var(--bg);border:2px solid var(--gold);padding:0 0 8px;position:relative}
+.menu h2{margin:8px 14px 0;font-size:15px;color:var(--gold);font-weight:600}
+.menu .sub{margin:4px 14px 0;color:var(--mute);font-size:11.5px}
+.tabs{display:flex;gap:6px;margin:12px 14px 10px}
+.tab{flex:1;text-align:center;padding:4px 0;border:1px solid #46505c;font-size:12.5px;font-weight:600}
+.tab.on{border-color:var(--gold);background:var(--sel);color:var(--gold)}
+.tab.dim{color:#6e7884}
+.hdr{margin:10px 14px 2px;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--mute);font-weight:600}
+.row{display:flex;align-items:center;gap:10px;height:28px;margin:0 8px;padding:0 9px;font-size:14px}
+.row.sel{background:var(--sel);outline:1.5px solid var(--teal);outline-offset:-1.5px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--gold);flex:none}
+.dot.h{background:var(--teal)}.dot.m{background:var(--purple)}
+.grow{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.hint{margin:8px 14px 0;color:var(--mute);font-size:11.5px}
+/* A: pill switch */
+.switch{flex:none;width:58px;height:22px;border-radius:11px;background:var(--off);position:relative;cursor:pointer;border:1px solid #55606d;transition:background .15s}
+.switch .knob{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#dfe5ec;transition:left .15s}
+.switch .txt{position:absolute;top:0;right:7px;line-height:20px;font-size:10.5px;font-weight:700;color:#cfd6de}
+.switch.on{background:var(--teal);border-color:var(--teal)}
+.switch.on .knob{left:38px;background:#0b0f14}
+.switch.on .txt{left:8px;right:auto;color:#0b0f14}
+/* B: button with state */
+.btn{flex:none;min-width:116px;height:22px;border-radius:4px;border:1.5px solid var(--gold);background:transparent;color:var(--gold);font:600 11.5px "Segoe UI";cursor:pointer;padding:0 8px}
+.btn:hover{background:rgba(230,184,74,.15)}
+.state{flex:none;font-size:11px;font-weight:700;padding:1px 7px;border-radius:9px}
+.state.on{background:var(--teal);color:#0b0f14}.state.off{background:var(--off);color:#cfd6de}
+.clickme{cursor:pointer}
+.foot{margin:8px 14px 0;color:var(--mute);font-size:11px;border-top:1px solid #242d37;padding-top:6px}
+.screen{margin-top:18px;max-width:880px;padding:10px 12px;border:1px dashed #46505c;color:var(--mute);font-size:12.5px}
+.screen b{color:var(--txt)}
+#log{margin-top:8px;color:var(--teal);min-height:18px;font-size:12.5px}
+</style></head><body>
+<h1>Amit menu, Mouse tab: a real on/off control</h1>
+<p class="note">The "Open" button on the last row is new too, so it is clear that row is something to press. Both menus below are drawn at their real size (400 px wide), with the Logitech's sets as they are on your computer. <b>Click the on/off control in either one</b> to see it change. A real preview cannot do these things, and says so: it cannot open the real menu or switch your real mouse sets, and the real menu is drawn by the Helper, so spacing may differ by a pixel or two.</p>
+<div class="wrap">
+
+<div class="col">
+<p class="label">A. A switch <small>(you can see it is a switch)</small></p>
+<div class="menu" id="menuA">
+<h2>Amit menu</h2><div class="sub">Voice is off. Choose Voice to talk. Click a tab to switch.</div>
+<div class="tabs"><div class="tab dim">Voice</div><div class="tab on">Mouse</div><div class="tab dim">Keyboard (soon)</div></div>
+<div class="hdr">Logitech: choose a set</div>
+<div class="row"><span class="dot"></span><span class="grow">Set 1</span></div>
+<div class="row sel"><span class="dot h"></span><span class="grow">Set 2   (in use)</span></div>
+<div class="hdr">This mouse</div>
+<div class="row clickme" id="rowA"><span class="dot m"></span><span class="grow">Mouse sets</span>
+  <span class="switch on" id="swA" role="switch" aria-checked="true" tabindex="0"><span class="txt">ON</span><span class="knob"></span></span></div>
+<div class="row clickme hubrow"><span class="dot"></span><span class="grow">Amit Mouse settings in the Hub</span><button class="btn hubbtn">Open &#9656;</button></div>
+<div class="hint">Mouse sets: ON means your buttons do what you set. OFF means every button works as normal.</div>
+<div class="foot">Tabs: click     Wheel: move     Middle or left click: choose     Esc: close</div>
+</div>
+</div>
+
+<div class="col">
+<p class="label">B. A button with a clear state <small>(says what it will do)</small></p>
+<div class="menu" id="menuB">
+<h2>Amit menu</h2><div class="sub">Voice is off. Choose Voice to talk. Click a tab to switch.</div>
+<div class="tabs"><div class="tab dim">Voice</div><div class="tab on">Mouse</div><div class="tab dim">Keyboard (soon)</div></div>
+<div class="hdr">Logitech: choose a set</div>
+<div class="row"><span class="dot"></span><span class="grow">Set 1</span></div>
+<div class="row sel"><span class="dot h"></span><span class="grow">Set 2   (in use)</span></div>
+<div class="hdr">This mouse</div>
+<div class="row"><span class="dot m"></span><span class="grow">Mouse sets are <span class="state on" id="stB">ON</span></span>
+  <button class="btn" id="btnB">Turn OFF</button></div>
+<div class="row clickme hubrow"><span class="dot"></span><span class="grow">Amit Mouse settings in the Hub</span><button class="btn hubbtn">Open &#9656;</button></div>
+<div class="hint">Press the button to switch every mouse set off or on. OFF means every button works as normal.</div>
+<div class="foot">Tabs: click     Wheel: move     Middle or left click: choose     Esc: close</div>
+</div>
+</div>
+
+</div>
+<div id="log">Click an on/off control above.</div>
+<div class="screen"><b>What this does not show:</b> the real menu is a Helper window, so it opens at the mouse pointer, the wheel scrolls the rows, and the middle button chooses the highlighted row. Choosing the on/off row would flip the real switch the Helper already has (the same one as Ctrl + Alt + Shift + M). It would not close the menu, so you could see it change. The Helper's on-screen note ("Mouse sets ON" or "OFF") would also appear for a moment.</div>
+<script>
+(function(){
+  var on=true, log=document.getElementById('log');
+  var swA=document.getElementById('swA'), rowA=document.getElementById('rowA');
+  var btnB=document.getElementById('btnB'), stB=document.getElementById('stB');
+  function draw(){
+    swA.classList.toggle('on',on); swA.setAttribute('aria-checked',on?'true':'false'); swA.querySelector('.txt').textContent=on?'ON':'OFF';
+    stB.className='state '+(on?'on':'off'); stB.textContent=on?'ON':'OFF'; btnB.textContent=on?'Turn OFF':'Turn ON';
+  }
+  function flip(who){ on=!on; draw(); log.textContent=(who+': mouse sets are now '+(on?'ON (your buttons do what you set)':'OFF (every button works as normal)')+'.'); }
+  rowA.addEventListener('click',function(){flip('A')});
+  swA.addEventListener('keydown',function(e){ if(e.key===' '||e.key==='Enter'){e.preventDefault();flip('A');} });
+  btnB.addEventListener('click',function(){flip('B')});
+  var hubs=document.querySelectorAll('.hubrow');
+  for(var i=0;i<hubs.length;i++){ hubs[i].addEventListener('click',function(){ log.textContent='Open: the real menu would close and open the Hub on the Amit Mouse tab. (A preview cannot open your Hub.)'; }); }
+  draw();
+})();
+</script>
+</body></html>
