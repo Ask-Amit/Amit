@@ -139,7 +139,7 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
       <b>Mouse:</b><select id="mousePick" title="Which mouse"></select>
       <span class="pill" id="activePill"></span>
       <span class="n2" id="pretendTxt" style="margin-left:6px">Which mouse I just used is not reported by the Helper yet, so choose it here:</span><select id="pretend" title="The Helper does not yet tell this page which mouse you touched. Once it does, this happens by itself."></select>
-      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.19</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
+      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.20</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
           </header>
     <div class="tabs"><div class="tab on" id="tabLearn">1. Learn mouse</div><div class="tab" id="tabSets">2. Mouse sets</div></div>
     <div class="tip2" id="safetyBar" style="margin:0;padding:6px 12px;border-bottom:1px solid var(--line);background:rgba(47,196,178,.08)"><b>Stuck, or a mouse acts strangely?</b> On the keyboard press <b>Ctrl + Alt + Shift + M</b>: every mouse set is switched off at once and all your buttons work as normal (press it again to switch them back on). To fix one button, use <b>Reset a button...</b> on the Mouse sets tab, with your main mouse if you have to.</div>
@@ -153,6 +153,7 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
         <div class="warn" id="nameMsg" hidden style="margin-top:4px"></div>
         <div class="sim" id="devTxt"></div>
         <div class="sim" id="primBox"></div>
+        <div id="savedBox"></div>
         <button class="btn" id="addBtn" style="margin-top:6px">+ Add another mouse</button>
         <div class="form" id="addPanel" hidden>
           <div class="sim"><b>The Amit Helper is not connected:</b> this page cannot tell which mouse you touched. Install and start the Amit Helper on this computer and it will do this by itself. Until then you can practice by choosing a mouse to pretend you pressed a button on.
@@ -848,6 +849,7 @@ function drawLearn(){
   var m=curMouse;
   $('addBtn').hidden=!!adding; $('addPanel').hidden=!adding; $('stepsH').hidden=!!adding; $('wRestart').hidden=!!adding; $('wDone').hidden=!!adding;
   if(adding){
+    if($('savedBox'))$('savedBox').innerHTML='';
     $('mouseName').value=adding.name||''; $('mouseName').placeholder='One word, e.g. Gaming'; $('primBox').innerHTML='';
     var msg='';
     if(adding.dup)msg='<div class="warn"><b>This mouse is already set up.</b> Its name is "'+esc(adding.dup.name)+'". A mouse can only be added once. <span class="lk" id="goDup">Go to it</span></div>';
@@ -874,6 +876,7 @@ function drawLearn(){
       say('\"'+curMouse.name+'\" is now the primary mouse.',true);drawAll();
     };
   }
+  drawSaved();
   $('mouseName').value=m.name; $('devTxt').textContent='Connected through: '+friendly(m.dev);
   $('nameStep').hidden=!!m.name; $('finHint').hidden=!!m.name; if(!m.name&&document.activeElement!==$('nameBig'))setTimeout(function(){try{if(!curMouse.name)$('nameBig').focus()}catch(e){}},0);
   var nm=m.name||'', np0=nm?nameProblem(nm,m):'';
@@ -890,6 +893,92 @@ function drawLearn(){
   $('steps').innerHTML=h;
   $('wPrompt').textContent=m.learned?'Press every button on your mouse. Turn the wheel, tilt it, press the side buttons.':LEARNFIRST;
   $('wSkip').hidden=true;
+}
+/* v1.20 (Ryan, 2026-11-09): USE A SAVED SETUP. A mouse in a different USB port arrives under a new Windows name and shows as a NEW mouse. The person can MOVE a saved mouse's setup onto it
+   (the saved mouse takes the new device name; nothing is lost), COPY the sets onto it (the saved one stays), or DELETE a saved mouse. The page saves the whole list, so the database follows. */
+var savedSel='', savedArm='', delSel='', delArm=false;
+function savedOthers(){return mice.filter(function(x){return x!==curMouse&&x.learned})}
+function stripPrim(s){['left','right','middle'].forEach(function(k){delete s.map[k];if(s.gest)delete s.gest[k];if(s.locks)delete s.locks[k]})}
+function cloneSets(src,toPrimary){
+  var idMap={},out=[];
+  src.forEach(function(s){var n={id:nextId++,num:s.num,label:s.label||'',name:'',map:{},gest:{},locks:{}};n.name=setName(n);idMap[s.id]=n.id;out.push(n)});
+  src.forEach(function(s,i){var n=out[i];
+    Object.keys(s.map||{}).forEach(function(k){n.map[k]=JSON.parse(JSON.stringify(s.map[k]))});
+    Object.keys(s.gest||{}).forEach(function(k){n.gest[k]=JSON.parse(JSON.stringify(s.gest[k]))});
+    Object.keys(s.locks||{}).forEach(function(k){n.locks[k]=s.locks[k]});
+    function remap(o){if(o&&o.t==='set'&&idMap[o.v]!=null)o.v=idMap[o.v]}
+    Object.keys(n.map).forEach(function(k){remap(n.map[k])});
+    Object.keys(n.gest).forEach(function(k){Object.keys(n.gest[k]).forEach(function(sl){remap(n.gest[k][sl])})});
+    if(toPrimary)stripPrim(n);
+  });
+  return {sets:out,idMap:idMap};
+}
+function nmOf(m){return m.name||'new mouse (needs a name)'}
+function doMoveSaved(s){
+  var T=curMouse, dev=T.dev, wasPrim=T.primary, nn=s.name;
+  mice=mice.filter(function(x){return x!==T});
+  s.dev=dev;
+  if(wasPrim&&!s.primary){mice.forEach(function(x){x.primary=false});s.primary=true;s.sets.forEach(stripPrim)}
+  curMouse=s;sets=s.sets;seenState=s.seen;
+  if(s.selId==null||!sets.some(function(z){return z.id===s.selId})){s.selId=s.activeId=sets[0].id}
+  selId=s.selId;activeId=s.activeId;adding=null;savedSel='';savedArm='';
+  say('Moved: "'+nn+'" now runs on this mouse.',true);drawAll();
+  notify('Moved: "'+nn+'" now runs on this mouse. All its sets and buttons came with it, and the empty new mouse was removed.');
+}
+function doCopySaved(s){
+  var m=curMouse, res=cloneSets(s.sets,!!m.primary);
+  var actNum=null;s.sets.forEach(function(z){if(z.id===s.activeId)actNum=z.num});
+  m.sets=res.sets;sets=m.sets;
+  var sn={};Object.keys(s.seen||{}).forEach(function(k){sn[k]=s.seen[k]});m.seen=sn;seenState=m.seen;
+  m.skip=JSON.parse(JSON.stringify(s.skip||{}));m.nextNum=s.nextNum||2;m.dbl=s.dbl;m.pickMs=s.pickMs;m.learned=true;
+  var pick=sets[0];sets.forEach(function(z){if(z.num===actNum)pick=z});
+  m.selId=m.activeId=pick.id;selId=m.selId;activeId=m.activeId;savedSel='';savedArm='';
+  say('Copied the sets of "'+s.name+'" onto this mouse.',true);drawAll();
+  notify('Copied: this mouse now has the '+s.sets.length+' sets of "'+s.name+'". '+(m.name?'':'Give it its own one-word name. ')+'"'+s.name+'" is unchanged.');
+}
+function drawSaved(){
+  var box=$('savedBox'); if(!box)return;
+  var m=curMouse, others=savedOthers(), s=null, h='';
+  others.forEach(function(x){if(String(x.id)===String(savedSel))s=x});
+  if(!s){savedSel='';savedArm=''}
+  h+='<div class="fp" style="margin-top:8px"><div class="fh">Use a saved setup</div>';
+  if(!others.length)h+='<div class="n2">There is no other saved mouse to use yet.</div>';
+  else{
+    h+='<div class="n2">Already set up a mouse before? Put its sets and button choices on THIS mouse, so you do not start again.</div>';
+    h+='<div class="n2" style="margin-top:6px">Take the setup of:</div><select id="svPick" style="width:100%"><option value="">choose a saved mouse...</option>';
+    others.forEach(function(x){h+='<option value="'+x.id+'"'+(String(x.id)===String(savedSel)?' selected':'')+'>'+esc(x.name)+(x.primary?' (primary)':'')+' - '+x.sets.length+' sets</option>'});
+    h+='</select>';
+    var canMove=!!s&&isReal(m.dev);
+    h+='<div class="form" style="margin-top:6px"><button class="btn gold" id="svMove"'+(canMove?'':' disabled')+'>'+(savedArm==='move'?'Press again to confirm':'Move it to this mouse')+'</button><button class="btn" id="svCopy"'+(s?'':' disabled')+'>'+(savedArm==='copy'?'Press again to confirm':'Copy it to this mouse')+'</button></div>';
+    if(s&&!isReal(m.dev))h+='<div class="n2" style="margin-top:4px">To MOVE, this mouse must be recognized first: press a button on it. Copy works now.</div>';
+    if(s){
+      h+='<div class="n2" style="margin-top:4px"><b>Move:</b> "'+esc(s.name)+'" becomes THIS mouse (same name, same sets, same buttons). Use it when you plugged the same mouse into a different port. Nothing is left to delete.<br><b>Copy:</b> this mouse gets its own copy of the sets. "'+esc(s.name)+'" stays as it is. Use it for a second mouse that should work the same.</div>';
+      if(savedArm==='move')h+='<div class="warn">This mouse will be set up as "'+esc(s.name)+'" with its '+s.sets.length+' sets'+(s.primary?', and it stays your PRIMARY mouse':(m.primary?', and it becomes your PRIMARY mouse (any change to left, right or middle is removed)':''))+'. This mouse\'s own current setup is dropped.</div>';
+      if(savedArm==='copy')h+='<div class="warn">This mouse gets a copy of the '+s.sets.length+' sets of "'+esc(s.name)+'"'+(m.primary?'. Any change to a left, right or middle button is left out, because this is your primary mouse':'')+'. Its own current sets are replaced. "'+esc(s.name)+'" is not changed.</div>';
+    }
+  }
+  h+='</div>';
+  var del=mice.filter(function(x){return x!==curMouse&&!x.primary});
+  if(del.length){
+    h+='<div class="fp" style="margin-top:8px;border-color:var(--line);background:none"><div class="fh">Delete a saved mouse</div><div class="n2">Removes the mouse and all its sets from your login. It cannot be undone. The primary mouse cannot be deleted, and neither can the mouse you are on.</div><select id="dlPick" style="width:100%;margin-top:6px"><option value="">choose a mouse to delete...</option>';
+    del.forEach(function(x){h+='<option value="'+x.id+'"'+(String(x.id)===String(delSel)?' selected':'')+'>'+esc(nmOf(x))+'</option>'});
+    h+='</select><div class="form" style="margin-top:6px"><button class="btn red" id="dlGo"'+(delSel?'':' disabled')+'>'+(delArm?'Press again to delete':'Delete this mouse')+'</button></div>';
+    if(delArm){var dx=null;del.forEach(function(x){if(String(x.id)===String(delSel))dx=x});if(dx)h+='<div class="warn">This deletes "'+esc(nmOf(dx))+'" and its '+dx.sets.length+' sets from your login. It cannot be undone.</div>'}
+    h+='</div>';
+  }
+  box.innerHTML=h;
+  var sp=$('svPick'); if(sp)sp.onchange=function(){savedSel=this.value;savedArm='';drawSaved()};
+  var mv=$('svMove'); if(mv)mv.onclick=function(){if(!s||!isReal(m.dev))return;if(savedArm!=='move'){savedArm='move';drawSaved();return}doMoveSaved(s)};
+  var cp=$('svCopy'); if(cp)cp.onclick=function(){if(!s)return;if(savedArm!=='copy'){savedArm='copy';drawSaved();return}doCopySaved(s)};
+  var dp=$('dlPick'); if(dp)dp.onchange=function(){delSel=this.value;delArm=false;drawSaved()};
+  var dg=$('dlGo'); if(dg)dg.onclick=function(){
+    if(!delSel)return;
+    if(!delArm){delArm=true;drawSaved();return}
+    var gone=null;mice.forEach(function(x){if(String(x.id)===String(delSel))gone=x});
+    if(!gone||gone.primary||gone===curMouse){delArm=false;delSel='';drawSaved();return}
+    var nm0=nmOf(gone);mice=mice.filter(function(x){return x!==gone});delSel='';delArm=false;
+    say('Deleted "'+nm0+'" and its sets.',true);drawAll();notify('Deleted: "'+nm0+'" and its sets were removed from your login.');
+  };
 }
 function wiz(id,e){
   var wasNew=!seenState[id]; seenState[id]=true;

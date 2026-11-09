@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Amit Mouse Saved Setup Preview</title>
+<style>
+:root{--bg:#0b0e14;--glass:rgba(24,29,40,.92);--glass2:rgba(34,41,56,.9);--line:rgba(255,255,255,.10);--text:#e8ecf4;--mute:#97a1b5;--gold:#e6b84a;--teal:#2fc4b2;--green:#5fcf80;--red:#e66a6a;--gray:#7b8499;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:#0b0e14;color:var(--text);font:14px/1.45 "Segoe UI",system-ui,sans-serif;padding:14px}
+h1{font-size:15px;margin:0 0 4px;color:var(--gold)}
+.note{color:var(--mute);font-size:12px;margin:0 0 10px;max-width:900px}
+.win{border:1px solid var(--line);border-radius:10px;background:var(--glass);max-width:980px;overflow:hidden}
+header{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 12px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.03)}
+header b{font-size:13px}
+.chip{border:1px solid var(--line);border-radius:14px;padding:2px 10px;font-size:12px;background:var(--glass2)}
+.chip.cur{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+.chip.new{border-style:dashed}
+.pill{font-size:11px;border:1px solid var(--line);border-radius:10px;padding:1px 8px;color:var(--mute)}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tab{padding:7px 14px;font-size:13px;color:var(--mute)}.tab.on{color:var(--gold);border-bottom:2px solid var(--gold)}
+.notice{margin:8px 12px 0;padding:7px 10px;border:1px solid var(--teal);border-radius:8px;background:rgba(47,196,178,.10);font-size:12.5px}
+.learn{display:grid;grid-template-columns:330px 1fr;min-height:430px}
+.lside{border-right:1px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:7px}
+.lside h2{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:2px 0;font-weight:600}
+.lmain{padding:12px;color:var(--mute);font-size:12.5px}
+.sim{font-size:12px;color:var(--mute)}
+.badge{font-size:10px;padding:1px 6px;border-radius:9px;background:var(--green);color:#06210f;font-weight:600}
+input,select{background:#10141d;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 7px;font:inherit;max-width:100%}
+.btn{background:#2c3550;border:1px solid var(--line);color:var(--text);border-radius:7px;padding:5px 10px;font:inherit;cursor:pointer}
+.btn:hover:not([disabled]){background:#38426a}.btn[disabled]{opacity:.45;cursor:default}
+.btn.gold{background:var(--gold);color:#241a02;border-color:var(--gold);font-weight:600}
+.btn.red{background:#5a2323;border-color:var(--red)}
+.fp{border:1px solid var(--gold);border-radius:9px;padding:9px;background:rgba(230,184,74,.07)}
+.fh{font-weight:600;margin-bottom:3px}
+.row2{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.warn{margin-top:6px;padding:6px 8px;border:1px solid var(--gold);border-radius:7px;background:rgba(230,184,74,.10);font-size:12px}
+.explain{font-size:12px;color:var(--mute);margin-top:4px}
+.explain b{color:var(--text)}
+.lbl{font-size:12px;color:var(--mute);margin-top:6px}
+.reset{margin-top:10px;font-size:12px}.reset a{color:var(--teal);cursor:pointer;text-decoration:underline}
+.small{font-size:11.5px;color:var(--mute);margin-top:10px;max-width:900px}
+</style></head><body>
+<h1>Amit Mouse: use a saved setup on a different mouse</h1>
+<p class="note">This is the left column of the real <b>Learn mouse</b> tab, at its real width. The mouse below was just picked up on a different USB port, so the page sees a NEW mouse. The new panel, <b>Use a saved setup</b>, is what is added. Choose a saved mouse, then press <b>Move</b> or <b>Copy</b>, then <b>Delete</b>. Everything here works the way it will on the real page, except it saves nothing, and cannot read your real mice. Press <a href="#" id="again" style="color:var(--teal)">Start over</a> to try again.</p>
+<div class="win">
+<header><b>Mouse:</b><span id="chips"></span><span class="pill">v1.20 preview</span><span class="pill" style="margin-left:auto">Saved to your login</span></header>
+<div class="tabs"><div class="tab on">1. Learn mouse</div><div class="tab">2. Mouse sets</div></div>
+<div id="notice" class="notice" hidden></div>
+<div class="learn">
+  <div class="lside" id="lside"></div>
+  <div class="lmain">Press every button on the mouse, in the box on the right (the real page shows it here).<br><br>This preview only draws the left column, where the new panel lives.</div>
+</div>
+</div>
+<p class="small"><b>What it does not show:</b> your real mice (it uses made-up ones, Gaming and Logitech, with the same sets as yours), saving to your login, and the Helper picking up the change. On the real page, the change is saved the way every other change on the page is saved. The Helper starts using it by itself a moment later. A moved or copied setup with a button that needs a left click on a secondary mouse is checked by the page's existing left-click safety rule.</p>
+<script>
+(function(){
+  var mice,cur,sel,armed,notice;
+  function init(){
+    mice=[
+      {id:1,name:'Gaming',primary:true,learned:true,sets:2,dev:'port A'},
+      {id:2,name:'Logitech',primary:false,learned:true,sets:2,dev:'port B (old)'},
+      {id:3,name:'',primary:false,learned:false,sets:1,dev:'port C (new, just picked up)'}
+    ];
+    cur=3;sel='';armed='';notice='';draw();
+  }
+  function byId(i){for(var k=0;k<mice.length;k++)if(mice[k].id===i)return mice[k];return null}
+  function nm(m){return m.name||'new mouse (needs a name)'}
+  function note(t){notice=t;draw()}
+  function draw(){
+    var c='';mice.forEach(function(m){c+=' <span class="chip'+(m.id===cur?' cur':'')+(m.learned?'':' new')+'">'+nm(m)+(m.primary?' (primary)':'')+'</span>'});
+    document.getElementById('chips').innerHTML=c;
+    var n=document.getElementById('notice');n.hidden=!notice;n.textContent=notice;
+    var m=byId(cur);
+    var others=mice.filter(function(x){return x.id!==cur&&x.learned});
+    var h='<h2>This mouse</h2><input id="nameIn" style="width:100%" placeholder="Name this mouse" value="'+(m.name||'')+'">';
+    h+='<div class="sim">Connected through: '+m.dev+'</div>';
+    h+='<div class="sim">'+(m.primary?'<span class="badge">Primary mouse</span> Its left click, double-click, right click and right hold always keep their normal jobs.':'Secondary mouse: every button on it can be changed, even left and right.')+'</div>';
+    // the new panel
+    h+='<div class="fp"><div class="fh">Use a saved setup</div>';
+    if(!others.length){ h+='<div class="explain">There is no other saved mouse to use yet.</div>'; }
+    else{
+      h+='<div class="explain">Already set up a mouse before? Put its sets and button choices on THIS mouse, so you do not start again.</div>';
+      h+='<div class="lbl">Take the setup of:</div><select id="srcPick" style="width:100%"><option value="">choose a saved mouse...</option>';
+      others.forEach(function(x){h+='<option value="'+x.id+'"'+(String(x.id)===String(sel)?' selected':'')+'>'+x.name+(x.primary?' (primary)':'')+' - '+x.sets+' sets</option>'});
+      h+='</select>';
+      var s=sel?byId(+sel):null;
+      h+='<div class="row2"><button class="btn gold" id="mv"'+(s?'':' disabled')+'>'+(armed==='move'?'Press again to confirm':'Move it to this mouse')+'</button><button class="btn" id="cp"'+(s?'':' disabled')+'>'+(armed==='copy'?'Press again to confirm':'Copy it to this mouse')+'</button></div>';
+      if(s){
+        h+='<div class="explain"><b>Move:</b> "'+s.name+'" becomes THIS mouse (same name, same sets, same buttons). Use it when you plugged the same mouse into a different port. Nothing is left to delete.<br><b>Copy:</b> this mouse gets its own copy of the sets. "'+s.name+'" stays as it is. Use it for a second mouse that should work the same.</div>';
+        if(armed==='move')h+='<div class="warn">This mouse will be set up as "'+s.name+'" with its '+s.sets+' sets'+(s.primary?', and it becomes your PRIMARY mouse (the old primary entry goes away)':'')+'. The name "'+s.name+'" moves here. This mouse\'s own empty setup is dropped.</div>';
+        if(armed==='copy')h+='<div class="warn">This mouse gets a copy of the '+s.sets+' sets of "'+s.name+'"'+(m.primary?'. Any change to a left, right or middle button is left out, because this is your primary mouse':'')+'. Its own setup (if any) is replaced. "'+s.name+'" is not changed.</div>';
+      }
+    }
+    h+='</div>';
+    // delete
+    var del=mice.filter(function(x){return x.id!==cur&&!x.primary});
+    if(del.length){
+      h+='<div class="fp" style="border-color:var(--line);background:none"><div class="fh">Delete a saved mouse</div><div class="explain">Removes the mouse and all its sets from your login. It cannot be undone. The primary mouse cannot be deleted.</div><select id="delPick" style="width:100%;margin-top:6px"><option value="">choose a mouse to delete...</option>';
+      del.forEach(function(x){h+='<option value="'+x.id+'">'+nm(x)+'</option>'});
+      h+='</select><div class="row2"><button class="btn red" id="dl" disabled>Delete this mouse</button></div><div id="delWarn"></div></div>';
+    }
+    document.getElementById('lside').innerHTML=h;
+    var sp=document.getElementById('srcPick'); if(sp)sp.onchange=function(){sel=this.value;armed='';draw()};
+    var mv=document.getElementById('mv'); if(mv)mv.onclick=function(){ if(armed!=='move'){armed='move';draw();return}
+      var s=byId(+sel);
+      mice=mice.filter(function(x){return x.id!==cur});   // the empty new mouse is dropped
+      s.dev=m.dev; cur=s.id; var nn=s.name; armed='';sel='';
+      note('Moved: "'+nn+'" now runs on this mouse. All its sets and buttons came with it, and the empty new mouse was removed. Nothing else changed.');
+    };
+    var cp=document.getElementById('cp'); if(cp)cp.onclick=function(){ if(armed!=='copy'){armed='copy';draw();return}
+      var s=byId(+sel); m.sets=s.sets; m.learned=true; armed='';
+      note('Copied: this mouse now has the '+s.sets+' sets of "'+s.name+'". Give it its own one-word name, then press Finished. "'+s.name+'" is unchanged'+(m.name?'':' (it still needs a name)')+'.');
+    };
+    var dp=document.getElementById('delPick'),dl=document.getElementById('dl');
+    if(dp)dp.onchange=function(){dl.disabled=!this.value;document.getElementById('delWarn').innerHTML=''; dl.textContent='Delete this mouse'; dl.setAttribute('data-arm','')};
+    if(dl)dl.onclick=function(){
+      if(!dp.value)return;
+      if(dl.getAttribute('data-arm')!=='1'){dl.setAttribute('data-arm','1');dl.textContent='Press again to delete';var x=byId(+dp.value);document.getElementById('delWarn').innerHTML='<div class="warn">This deletes "'+nm(x)+'" and its '+x.sets+' sets from your login. It cannot be undone.</div>';return}
+      var x2=byId(+dp.value); mice=mice.filter(function(y){return y.id!==x2.id}); note('Deleted: "'+nm(x2)+'" and its sets were removed.');
+    };
+  }
+  document.getElementById('again').onclick=function(e){e.preventDefault();init()};
+  init();
+})();
+</script>
+</body></html>
