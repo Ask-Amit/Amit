@@ -66,6 +66,14 @@ You are probably a new session (for example Ryan's partner, on Ryan's computer, 
 
 ## Log
 
+### 2026-11-08 (evening) - Helper 1.84 and 1.85, installer 4.99 and 5.00: the mouse is independent of dictation and Voice
+- **Ryan's rule:** the mouse and its functions work no matter what else is running (dictation, Voice). Test list: `AmitHelper\MOUSE_TEST_MATRIX.md` (19 functions x both mice x three states, results at the bottom).
+- **1.84:** the middle button and the Amit menu now work WHILE DICTATION is listening, finishing or stopping (before, the middle press needed the Helper idle and did nothing). New function `MouseFreeDuringDictation`. Tested live on both mice (menu opened, dictation kept running, Esc closed it and dictation kept typing) and by a table of every Helper state.
+- **1.85:** the WHEEL opens the menu while VOICE is listening again (it did in 1.63, 1.74 removed it); if the wheel is never turned Voice works as before; a middle press during Voice still ends Voice (Ryan: fine). Compile and decision-table checked; the live wheel-in-Voice test was waiting for the install.
+- **Decided (Ryan):** double right-click while dictating is left as designed (a right press stops latched dictation; the bar opens only when nothing is dictating).
+- **Not tested yet:** middle press with Voice kept alive; the set functions (side buttons, wheel, key actions, Helper buttons, hold, drag) while dictating and while Voice is on (the code never looked at that state); the wheel and middle inside the open menu; the older gaps (other brands, clean install, USB port, Aurora/Print by button). A software-made press has no device name, so only real presses test the sets.
+- **Released:** verify_helper_release.ps1 ALL PASS (14 lines). The root CLAUDE.md with the Robin authorization was pushed in the same commit.
+
 ### 2026-11-08 (last) - To-do queued, not started: the Amit menu's Mouse tab follows the mouse that opened it
 - Ryan, at the end of the day and nearly out of weekly usage: when the middle button opens the Amit menu, its Mouse tab should recognize which mouse it was opened from and list that mouse's sets for scrolling and choosing; a different mouse shows its own sets. Details, what already exists and the open questions are in the Current State block (the first TO-DO bullet). Nothing was built; this entry only records the plan.
 
