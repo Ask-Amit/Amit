@@ -50,7 +50,7 @@ The Helper keeps ONE list of everything it can open (`MenuList()` in `amit_whisp
 2. Put `// AMIT-MENU: <id>` on the line above the function that opens it (or `// AMIT-MENU-EXTERNAL: <id>` next to its entry if it lives in another program, such as the bar).
 3. `verify_helper_release.ps1` compares the markers with the list and FAILS the release if they differ. Never push on that FAIL.
 THE MIDDLE BUTTON has no special code for what it opens (Ryan, 2026-11-08): it runs the standard, locked button "Settings > Amit menu" (a bar button whose step is "Open a menu: Amit menu"), which the bar program adds on every computer (`EnsureStandard` in AmitBar.cs) and the Hub shows locked. A secondary mouse can be given any other button; the primary mouse's middle button always runs this one. Do not add a second way to open the Amit menu.
-Not built yet: a button STEP "Open a menu" in the Hub editor and the bar (it needs the step to be added in every place listed under "Adding a NEW kind of button step").
+BUILT in Helper 1.81: the button STEP "Open a menu" (Hub editor and bar; stored as `open_program` with the coded value `menu:<id>`; the bar asks the Helper at `/api/menu/open?id=`). A new menu still goes into `MenuList()` first (above).
 ## Never
 - Never push without Ryan saying so. Never push several times in a row. Never leave a copy out of step.
 - Never say "installed" or "updated" without having run the verify script and the live tests.

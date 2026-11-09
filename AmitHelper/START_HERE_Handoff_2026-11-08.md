@@ -3,7 +3,7 @@
 Written by the session that built it, for whoever opens this next (Ryan's partner, on Ryan's computer, with their own Claude account). It does not replace the real notes; it tells you where they are and what to be careful about. Nothing here is a secret.
 
 ## Where things stand (all live and tested on Ryan's computer)
-- **Helper 1.83, installer 4.98, Hub v8.76, Amit Mouse page v1.19, Living Testimony v1.46.** Nothing is unpushed. The live release check passes.
+- **Helper 1.87, installer 5.02, Hub v8.76, Amit Mouse page v1.19, Living Testimony v1.49** (updated the night of 2026-11-08; the Amit menu's Mouse tab, its ON/OFF switch, and the mouse working during dictation and Voice were added after this file was first written; see the top of `AmitHelper\Sessions.md`). Nothing is unpushed except the notes edits of that night.
 - **Amit Mouse** (Hub > Communications > Amit Mouse): learns each mouse, numbered sets per mouse, any button of any mouse except the MAIN mouse's left/right/middle can be changed; saved per login and per computer in the five `Per_` tables; carried out by the Helper. The page pauses the sets while the person edits on that tab (Test button), has Reset a button, and shows which set is running.
 - **One standard locked button, Settings > Amit menu** (added by the bar program, `EnsureStandard` in `AmitHelper\Bar\AmitBar.cs`). The middle mouse button just runs it. There is a list of every menu the Helper can open (`MenuList()` in `amit_whisper.cs`, served at `/api/menus`); the button step "Open a menu" uses it.
 
