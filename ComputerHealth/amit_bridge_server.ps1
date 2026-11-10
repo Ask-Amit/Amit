@@ -1774,6 +1774,24 @@ try {
                     try { Send-JsonRaw $response ([AmitWhisper]::MouseStatusJson($msSince)) } catch { Send-JsonRaw $response '{"ok":false}' }
                 }
             }
+            "/api/keyboard/sync" {
+                # Amit Keyboard (Helper 1.88): the page sends the person's keyboards and sets; the Helper keeps them (keyboard_config.json) and runs them. Only the Amit site or a local program may send.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $kbReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $kbBody = $kbReader.ReadToEnd(); $kbReader.Dispose()
+                    try { Send-JsonRaw $response ([AmitWhisper]::KeyboardSync($kbBody)) } catch { Send-JsonRaw $response '{"ok":false,"error":"could not keep the setup"}' }
+                }
+            }
+            "/api/keyboard/status" {
+                # the keyboards and sets running now. ?learn=1 (the page asks every few seconds while it is learning) also returns which key on which keyboard; with no learn flag NO key is reported.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $kbSince = 0; [void][long]::TryParse([string]$request.QueryString["since"], [ref]$kbSince)
+                    $kbLearn = ([string]$request.QueryString["learn"]) -eq '1'
+                    try { Send-JsonRaw $response ([AmitWhisper]::KeyboardStatusJson($kbSince, $kbLearn)) } catch { Send-JsonRaw $response '{"ok":false}' }
+                }
+            }
             "/api/programs" {
                 # the programs installed on THIS computer (what the Start menu lists), for the Amit Helper "open a program" picker. Only the Amit site or a local program may ask.
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }

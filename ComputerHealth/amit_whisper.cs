@@ -29,7 +29,7 @@ using System.Windows.Automation.Text;
 
 public static class AmitWhisper
 {
-    public const string Version = "1.87";   // 1.87: THE MOUSE TAB HAS REAL CONTROLS (Ryan, 2026-11-08, design A in the preview): "Mouse sets" is a visible ON/OFF switch (choosing it flips it and the menu stays open so the change shows) and the Hub row is a visible "Open >" button; before they were plain text. 1.86: THE MOUSE TAB OF THE AMIT MENU (Ryan, 2026-11-08): the Mouse tab recognizes WHICH MOUSE opened the menu (Windows raw input names it with every press; a press older than 2.5 s is not trusted and the tab asks "which mouse?") and lists that mouse's sets with the one in use marked; the wheel scrolls, a click or the middle button chooses and that mouse switches to the set; also Sets ON/OFF and Open Amit Mouse in the Hub; a mouse the Helper does not know shows one clear line. 1.85: THE WHEEL OPENS THE MENU WHILE VOICE IS LISTENING (Ryan, 2026-11-08): turn the wheel with Voice on and the menu opens so a command can be chosen as well as spoken; if the wheel is never turned Voice works as before; with nothing listening the middle click opens the menu (1.74). 1.84: THE MOUSE IS INDEPENDENT OF DICTATION (Ryan, 2026-11-08): the middle button opens the Amit menu, and the menu opens, while dictation (not Voice) is listening, finishing or stopping; dictation keeps listening underneath. Double right-click still waits for nothing to be dictating (right press stops latched dictation, by design). 1.83: 1.77: AN OPEN DICTATE WINDOW MOVES ITS WORDS INTO THE NEXT TEXT BOX (opened by itself because the person left the text box while speaking, or opened from the ring): when the focus has been in a text box of another program for about a second, the window stops listening, everything in its message is typed into that box, the window closes and typing dictation starts there; Place (pick the exact spot) still works and switches the automatic move off for that window. 1.76: DICTATION FOLLOWS THE FOCUS (Ryan 2026-11-08): while words are typed into a text box the helper watches where the keyboard focus is; focus moves to another text box (any program) = typing carries on there; focus clearly NOT in a text box = the words are held, and if they keep coming for a second the typing dictation ends and the Dictate window opens with those words already in it; "cannot tell" never counts as no text box. FIX: after Enter or a change of box the phrase typed so far is never rewritten (the self-correcting typing used to retype half of an earlier phrase into the emptied box). 1.75: BAR ICONS ARE CENTERED - the icon in each bar button is drawn once to a scratch picture, where the visible pixels really are is measured, and THAT is centered (before, the glyph box was centered and the font padding pushed icons off-center). 1.74: MIDDLE CLICK OPENS THE MENU, VOICE STAYS OFF - a single middle click opens the Amit menu at the pointer and nothing listens; the Voice tab lists Voice first (choosing it turns listening on), Dictate second, then everything else; Esc or a click away closes it; the wheel only moves inside an open menu and no longer opens it. 1.73: SHOW AMIT SAVES EVERY CAPTURE AT ONCE - a fresh capture is saved to Pictures\Show Amit the moment it is taken (as well as going on the clipboard), so "look" always finds it without pressing Save. 1.68: VOICE LIVES INSIDE THE MENU - once the wheel has opened the menu, closing the menu in any way (a click away, Esc, choosing something) turns Voice off too; nothing runs and no box shows. A single click with no wheel works as before. 1.67: LEFT BUTTON CAN NEVER BE LOCKED BY THE MENU - a left click is only taken when the pointer is really over the menu's own window; anywhere else the menu closes and the click goes through, whatever state the Helper is in. 1.66: THE MENU HAS THREE TABS - Voice (everything Voice understands, as before), Mouse and Keyboard. The mouse picks the tab by a click; the wheel scrolls inside the tab; speaking still works on every tab. Mouse shows a note until the Mouse screen creates sets; Keyboard is greyed until the keyboard app. 1.65: PREVIEWS CAN BE TRIED WITH THE REAL MOUSE - over an Amit preview window (title starts "Amit " and ends " Preview") the Voice button is left alone, so the middle button reaches the preview page instead of starting Voice. 1.64: VOICE MENU SAFETY - Esc closes the Voice menu (Voice keeps listening); the menu can never keep eating clicks after Voice has ended (it is cleared on the next click, and never appears if Voice ended while it was being built); the release of a click the menu took is only swallowed if it comes straight after (1.5 s), never left waiting. Fixes the left mouse button going dead after using the menu. 1.63: THE VOICE MENU - while Voice is listening (started by the middle click, Aurora, a key or by saying it), turning the wheel opens a menu of everything Voice understands: the built-in commands, your Helper bar buttons and your own commands. The wheel moves, a middle click or a left click chooses, a click elsewhere closes it, and speaking still works at the same time. If the wheel is never turned, Voice works as before. 1.62: VOICE ON RELEASE - the Voice button (middle by default) now acts when it is let go, and only if it was a click (shorter than 500 ms); a longer hold does nothing yet and is reserved for the mouse set picker. Before, Voice started the instant the button went down, so a hold could not be told from a click. 1.61: THE PHONE CAPTION COMES ALONG - a note typed on the phone with the photo is put in the note box when the photo opens (new "note" in the /api/mobile/pull answer). 1.60: PHONE NOTE NOT LOST - Ask Amit on a phone photo first lets the last dictated words in, then sends the note; Amit answers a question note right away. 1.59: HARDWARE SENSORS ON REQUEST - the 72 MB sensor reader is no longer in the installer; the Hardware tab adds it (/api/sensors/install, size and SHA-256 checked); dashboard 5.11. 1.58: ASK AMIT ABOUT A PHONE PHOTO - the editor button starts a new numbered Mobile chat in the Amit Live window with the photo and the note, and Amit greets out loud. 1.57: MOBILE RING SLICE - a phone photo (Amit Mobile > Send to computer) is fetched by the helper, saved in PicturesShow Amit, opened in the Show Amit editor on the clipboard with a note box and dictation on; the note goes back to the photo row. 1.56: DICTATE WINDOW (page amit_dictate.html, served at /dictate): choosing Dictate on the ring (or saying it, or a bar button) while NOT in a text box opens one window in the top right of the screen (in a text box it still types there as before, one plain press of the trigger button stops it), always in front, that hears the person (its own speech recognition, in its own Edge profile dictate_profile), shows the words in a Subject and a Message that can be split into numbered sections, remembers each dictation on this computer (Recent, Settings, Help), and nothing is typed anywhere until the person presses Place and left-clicks a text box (new routes /api/dictate/place and /api/dictate/cancel; the click is checked with the same text-box test as before and the message is typed there, a new line being Shift+Enter so a chat box does not send). The window hears through the original listening page (its words are handed to the window instead of typed); hold-to-talk is unchanged. 1.55: VOICE RUNS ANY BAR BUTTON BY ITS TITLE: no shortcut per button; the title list comes from the bar (bar_buttons.txt) when someone speaks. 1.54: SHOW AMIT QUICK SNAP: a fresh capture from the ring goes straight onto the clipboard and the editor waits minimized in the taskbar without taking focus; opened from the taskbar it is the normal editor; left alone for 60 seconds it closes itself (nothing saved, clipboard untouched). 1.53: DOUBLE-RIGHT-CLICK brings up the Amit Helper bar: two short right taps close together at the same spot (while nothing else is going on with the button) show the bar (an event it listens on) or start AmitBar.exe from this folder; the first tap is replayed as a normal click as always, a menu it opened is closed with Esc, and the second press and its release are swallowed. The ring (hold) and dictation are untouched. 1.52: a preview opened as a plain browser TAB (file double-clicked, a link) also splits the screen: the whole browser window goes on the right, the window the person was in on the left, both put back when they leave that tab; only a tab titled "Amit ... Preview" counts. 1.51: the window that goes on the LEFT of a preview is the WINDOW THE PERSON WAS IN (the Hub in a browser, VS Code, anything), taken from a short history of the windows they used; VS Code is only the fallback; the same window is put back when the preview closes. 1.50: PREVIEW SPLIT: whenever a window whose title ends with " Preview" appears (however it was opened: the opener script, the "preview" voice command, a button in a page), the person's VS Code goes on the LEFT half of its screen and the preview on the RIGHT half, and the focus goes back to VS Code; when the last preview has been closed for 4 seconds VS Code is put back the way it was (unless the person moved it). 1.49: the voice command "preview" opens the Amit Preview window. 1.48: an image layer is a WINDOW onto its image: the corner handles change the window to any shape (the image inside keeps its size and place, only what shows changes); the wheel over the window zooms the image inside, like the main picture (the size % box does the same); Ctrl + drag moves the image inside the window; dragging the body moves the window. Saved in the same .amitshot format. 1.47: a placed image layer has four corner handles (drag one to make it larger or smaller, the opposite corner stays), shows move/resize cursors, drags to move, and the mouse wheel over it resizes it (the wheel anywhere else zooms the whole picture). 1.46: Capture now places the new image layer at once (no click needed) and logs the placing. 1.45: a Capture button (camera) in the Show Amit editor: the editor steps aside, a bar waits while the person shows the screen they want ("Capture now"), they drag an area, click where it goes, and it becomes a new image layer (Capture 1, 2...) that can be switched on/off, resized with the size % box and dragged to move. 1.44: the Show Amit editor has a Clear & Recapture button: it drops the picture (asking first if there are unsaved changes) and lets the person choose a new area of the screen. 1.43: each part of Amit has its own icon: the same dark circle and gold ring, only the gold symbol changes (Whisper = microphone, Read = speaker, Show Amit = camera; Ask Amit keeps the aleph). The dictation "Amit is listening" box, the Whisper window, the Read window and the Show Amit editor each show their own, in the taskbar and the title bar. The Read windows are now named "Amit Read". The dictation box says "Amit is listening" until words come through, then "Amit is dictating", and the words always show beside the icon. The icons are bigger and bolder, with real 48/32/24/16 px images (256 first) so the taskbar is not blurry. Icons live in Templates; a missing icon falls back to the Amit one. 1.42: while Read is paused for dictation, the gold highlight over the screen is hidden (it cluttered the screen the person is dictating into) and comes back, in the same place, when the reading resumes. 1.41: FIX (dictation after Read paused it): (1) the speaking/voice windows of Read are now recognised as the helper's own windows, so dictation never "types" into the hidden Edge page and gives the focus back to the window the person was using (first failure: words heard, typed nowhere); (2) the "Read is speaking" mute can no longer be left on by a late message: it is set only when Read STARTS speaking while dictation is already listening, and cleared when Read pauses, ends or stops or the listening ends (second failure: a late heartbeat after "paused" made dictation throw the words away). 1.40: (1) a live voice change carries on from the word being spoken instead of starting the sentence over (amit_talk.html v1.04); (2) when dictation or Voice starts while Read is speaking, Read pauses by itself (the speaker shows the pause bars) and carries on where it was when the listening ends; a press of the speaker by the person cancels the automatic resume. 1.39: FIX: dictation could stay blocked after Read (the "Read is speaking" signal depended on a "finished" message that can get lost after live voice changes). Now the speaking page sends a heartbeat every 1.5 s while sound really plays, dictation is only quieted for 4 seconds after the last one, and a watchdog returns the speaker to waiting if the sound stops without a "finished"; the page also waits a moment between cancelling a sentence and saying it again with new settings (Edge sometimes dropped it). 1.38: while Read is speaking, dictation and Voice ignore what the microphone hears (it is Amit's own voice, which used to be typed into the person's text box) and dictation's "Amit is listening" box is taken off the screen; they work normally again when Read is not speaking, including while it is paused. 1.37: the voice window is INTERACTIVE (moving a slider or choosing another voice while Amit is reading changes the sound within about a third of a second; the current sentence is said again with the new settings; amit_talk.html v1.02); the hidden Edge speaking window is slimmed (extra switches) and now closes 30 seconds after the last reading instead of 3 minutes, never while the voice window is open. 1.36: a DOUBLE CLICK on the reading speaker opens a small voice window beside it (voice, speed, pause between sentences, pitch, volume, Test, Save); Save keeps the new voice on this computer at once and hands it to the person's login (their saved voice, their default) the next time an Amit page loads, without the old copy from the database overwriting it (new bridge routes /api/talk/voice-save and /api/talk/voice-ack). A single click is acted on after a very short wait (the double-click time, at most 400 ms) so a double click is no longer two presses. The note "Your saved voice is not on this computer" no longer pops up on the screen (it is only logged). 1.35: the ring choice is now called READ (it reads aloud what the person points at) and works ONE SHOT: press the speaker, and the very next click or selection is what is read, then it goes back to waiting so the person can use the computer freely; to read somewhere else, press it again. A click reads from the clicked word to the end of its paragraph; a highlight reads exactly the highlight (one word if one word, the whole page after Select All). Pressing while reading pauses it and the next click or selection is read instead (pressing again with none resumes). A soft gold highlight shows the words being read (where Windows accessibility gives their place). When the words cannot be read, Amit says so out loud in the person's voice ("Sorry, I'm not able to read this") and on screen, never silently; a plain click on a button or menu only shows a note. 1.33: TALK, a fourth choice in the Amit Live ring: a small see-through speaker stays on top of everything; the person selects words (or clicks where to start) in any program and presses it, and Amit reads aloud from there in the person's own saved Amit voice (copied here from their login; with none, Talk asks them to open Amit and sign in). Press again to pause or resume; Esc or a right click on the speaker removes it. The speaking is done by a hidden Edge window (page /talk, new bridge routes /api/talk/*) because the natural voices exist only in Edge. 1.32: a SHOW AMIT button in the Show Amit editor: saves the shot, hands it to the Amit Live window, which posts it into the person's own Ask Amit chat for today (under their own sign-in; the helper holds no login) and asks Amit to look at it (new bridge routes /api/showamit/pending and /api/showamit/pending.png, offered for 5 minutes, only to the Amit site). 1.31: the Amit Live window closes itself after 60 seconds without the focus (never while music plays; the no-internet page too). ONE Amit Live window only: choosing Ask Amit when its window is already open brings that window to the front instead of opening another (and a second press while the first is still opening starts nothing). 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
+    public const string Version = "1.88";   // 1.88: AMIT KEYBOARD (Ryan and Robin, 2026-11-09): the same idea as Amit Mouse, with keys. Windows raw input names the keyboard behind every key; each keyboard has numbered sets; a key, a pair of keys held together, or a key held with Ctrl/Shift/Alt/Windows can send other keys, run a bar button, switch set (or send keys then switch), or do nothing, on a press, a double press or a hold; hold Space then press 1 to 9 switches to that set. Safety: Ctrl, Alt, Shift, Windows and Esc alone never change; Ctrl+Alt+Shift+M switches every mouse AND keyboard set off and puts every keyboard back on Set 1; the main keyboard keeps its typing keys in Set 1; sets pause while the Amit Keyboard page is open. What is typed is never logged; which key on which keyboard is only reported to the page while it is learning. New routes /api/keyboard/sync and /api/keyboard/status; the Amit menu Keyboard tab lists the sets of the keyboard last used. 1.87: THE MOUSE TAB HAS REAL CONTROLS (Ryan, 2026-11-08, design A in the preview): "Mouse sets" is a visible ON/OFF switch (choosing it flips it and the menu stays open so the change shows) and the Hub row is a visible "Open >" button; before they were plain text. 1.86: THE MOUSE TAB OF THE AMIT MENU (Ryan, 2026-11-08): the Mouse tab recognizes WHICH MOUSE opened the menu (Windows raw input names it with every press; a press older than 2.5 s is not trusted and the tab asks "which mouse?") and lists that mouse's sets with the one in use marked; the wheel scrolls, a click or the middle button chooses and that mouse switches to the set; also Sets ON/OFF and Open Amit Mouse in the Hub; a mouse the Helper does not know shows one clear line. 1.85: THE WHEEL OPENS THE MENU WHILE VOICE IS LISTENING (Ryan, 2026-11-08): turn the wheel with Voice on and the menu opens so a command can be chosen as well as spoken; if the wheel is never turned Voice works as before; with nothing listening the middle click opens the menu (1.74). 1.84: THE MOUSE IS INDEPENDENT OF DICTATION (Ryan, 2026-11-08): the middle button opens the Amit menu, and the menu opens, while dictation (not Voice) is listening, finishing or stopping; dictation keeps listening underneath. Double right-click still waits for nothing to be dictating (right press stops latched dictation, by design). 1.83: 1.77: AN OPEN DICTATE WINDOW MOVES ITS WORDS INTO THE NEXT TEXT BOX (opened by itself because the person left the text box while speaking, or opened from the ring): when the focus has been in a text box of another program for about a second, the window stops listening, everything in its message is typed into that box, the window closes and typing dictation starts there; Place (pick the exact spot) still works and switches the automatic move off for that window. 1.76: DICTATION FOLLOWS THE FOCUS (Ryan 2026-11-08): while words are typed into a text box the helper watches where the keyboard focus is; focus moves to another text box (any program) = typing carries on there; focus clearly NOT in a text box = the words are held, and if they keep coming for a second the typing dictation ends and the Dictate window opens with those words already in it; "cannot tell" never counts as no text box. FIX: after Enter or a change of box the phrase typed so far is never rewritten (the self-correcting typing used to retype half of an earlier phrase into the emptied box). 1.75: BAR ICONS ARE CENTERED - the icon in each bar button is drawn once to a scratch picture, where the visible pixels really are is measured, and THAT is centered (before, the glyph box was centered and the font padding pushed icons off-center). 1.74: MIDDLE CLICK OPENS THE MENU, VOICE STAYS OFF - a single middle click opens the Amit menu at the pointer and nothing listens; the Voice tab lists Voice first (choosing it turns listening on), Dictate second, then everything else; Esc or a click away closes it; the wheel only moves inside an open menu and no longer opens it. 1.73: SHOW AMIT SAVES EVERY CAPTURE AT ONCE - a fresh capture is saved to Pictures\Show Amit the moment it is taken (as well as going on the clipboard), so "look" always finds it without pressing Save. 1.68: VOICE LIVES INSIDE THE MENU - once the wheel has opened the menu, closing the menu in any way (a click away, Esc, choosing something) turns Voice off too; nothing runs and no box shows. A single click with no wheel works as before. 1.67: LEFT BUTTON CAN NEVER BE LOCKED BY THE MENU - a left click is only taken when the pointer is really over the menu's own window; anywhere else the menu closes and the click goes through, whatever state the Helper is in. 1.66: THE MENU HAS THREE TABS - Voice (everything Voice understands, as before), Mouse and Keyboard. The mouse picks the tab by a click; the wheel scrolls inside the tab; speaking still works on every tab. Mouse shows a note until the Mouse screen creates sets; Keyboard is greyed until the keyboard app. 1.65: PREVIEWS CAN BE TRIED WITH THE REAL MOUSE - over an Amit preview window (title starts "Amit " and ends " Preview") the Voice button is left alone, so the middle button reaches the preview page instead of starting Voice. 1.64: VOICE MENU SAFETY - Esc closes the Voice menu (Voice keeps listening); the menu can never keep eating clicks after Voice has ended (it is cleared on the next click, and never appears if Voice ended while it was being built); the release of a click the menu took is only swallowed if it comes straight after (1.5 s), never left waiting. Fixes the left mouse button going dead after using the menu. 1.63: THE VOICE MENU - while Voice is listening (started by the middle click, Aurora, a key or by saying it), turning the wheel opens a menu of everything Voice understands: the built-in commands, your Helper bar buttons and your own commands. The wheel moves, a middle click or a left click chooses, a click elsewhere closes it, and speaking still works at the same time. If the wheel is never turned, Voice works as before. 1.62: VOICE ON RELEASE - the Voice button (middle by default) now acts when it is let go, and only if it was a click (shorter than 500 ms); a longer hold does nothing yet and is reserved for the mouse set picker. Before, Voice started the instant the button went down, so a hold could not be told from a click. 1.61: THE PHONE CAPTION COMES ALONG - a note typed on the phone with the photo is put in the note box when the photo opens (new "note" in the /api/mobile/pull answer). 1.60: PHONE NOTE NOT LOST - Ask Amit on a phone photo first lets the last dictated words in, then sends the note; Amit answers a question note right away. 1.59: HARDWARE SENSORS ON REQUEST - the 72 MB sensor reader is no longer in the installer; the Hardware tab adds it (/api/sensors/install, size and SHA-256 checked); dashboard 5.11. 1.58: ASK AMIT ABOUT A PHONE PHOTO - the editor button starts a new numbered Mobile chat in the Amit Live window with the photo and the note, and Amit greets out loud. 1.57: MOBILE RING SLICE - a phone photo (Amit Mobile > Send to computer) is fetched by the helper, saved in PicturesShow Amit, opened in the Show Amit editor on the clipboard with a note box and dictation on; the note goes back to the photo row. 1.56: DICTATE WINDOW (page amit_dictate.html, served at /dictate): choosing Dictate on the ring (or saying it, or a bar button) while NOT in a text box opens one window in the top right of the screen (in a text box it still types there as before, one plain press of the trigger button stops it), always in front, that hears the person (its own speech recognition, in its own Edge profile dictate_profile), shows the words in a Subject and a Message that can be split into numbered sections, remembers each dictation on this computer (Recent, Settings, Help), and nothing is typed anywhere until the person presses Place and left-clicks a text box (new routes /api/dictate/place and /api/dictate/cancel; the click is checked with the same text-box test as before and the message is typed there, a new line being Shift+Enter so a chat box does not send). The window hears through the original listening page (its words are handed to the window instead of typed); hold-to-talk is unchanged. 1.55: VOICE RUNS ANY BAR BUTTON BY ITS TITLE: no shortcut per button; the title list comes from the bar (bar_buttons.txt) when someone speaks. 1.54: SHOW AMIT QUICK SNAP: a fresh capture from the ring goes straight onto the clipboard and the editor waits minimized in the taskbar without taking focus; opened from the taskbar it is the normal editor; left alone for 60 seconds it closes itself (nothing saved, clipboard untouched). 1.53: DOUBLE-RIGHT-CLICK brings up the Amit Helper bar: two short right taps close together at the same spot (while nothing else is going on with the button) show the bar (an event it listens on) or start AmitBar.exe from this folder; the first tap is replayed as a normal click as always, a menu it opened is closed with Esc, and the second press and its release are swallowed. The ring (hold) and dictation are untouched. 1.52: a preview opened as a plain browser TAB (file double-clicked, a link) also splits the screen: the whole browser window goes on the right, the window the person was in on the left, both put back when they leave that tab; only a tab titled "Amit ... Preview" counts. 1.51: the window that goes on the LEFT of a preview is the WINDOW THE PERSON WAS IN (the Hub in a browser, VS Code, anything), taken from a short history of the windows they used; VS Code is only the fallback; the same window is put back when the preview closes. 1.50: PREVIEW SPLIT: whenever a window whose title ends with " Preview" appears (however it was opened: the opener script, the "preview" voice command, a button in a page), the person's VS Code goes on the LEFT half of its screen and the preview on the RIGHT half, and the focus goes back to VS Code; when the last preview has been closed for 4 seconds VS Code is put back the way it was (unless the person moved it). 1.49: the voice command "preview" opens the Amit Preview window. 1.48: an image layer is a WINDOW onto its image: the corner handles change the window to any shape (the image inside keeps its size and place, only what shows changes); the wheel over the window zooms the image inside, like the main picture (the size % box does the same); Ctrl + drag moves the image inside the window; dragging the body moves the window. Saved in the same .amitshot format. 1.47: a placed image layer has four corner handles (drag one to make it larger or smaller, the opposite corner stays), shows move/resize cursors, drags to move, and the mouse wheel over it resizes it (the wheel anywhere else zooms the whole picture). 1.46: Capture now places the new image layer at once (no click needed) and logs the placing. 1.45: a Capture button (camera) in the Show Amit editor: the editor steps aside, a bar waits while the person shows the screen they want ("Capture now"), they drag an area, click where it goes, and it becomes a new image layer (Capture 1, 2...) that can be switched on/off, resized with the size % box and dragged to move. 1.44: the Show Amit editor has a Clear & Recapture button: it drops the picture (asking first if there are unsaved changes) and lets the person choose a new area of the screen. 1.43: each part of Amit has its own icon: the same dark circle and gold ring, only the gold symbol changes (Whisper = microphone, Read = speaker, Show Amit = camera; Ask Amit keeps the aleph). The dictation "Amit is listening" box, the Whisper window, the Read window and the Show Amit editor each show their own, in the taskbar and the title bar. The Read windows are now named "Amit Read". The dictation box says "Amit is listening" until words come through, then "Amit is dictating", and the words always show beside the icon. The icons are bigger and bolder, with real 48/32/24/16 px images (256 first) so the taskbar is not blurry. Icons live in Templates; a missing icon falls back to the Amit one. 1.42: while Read is paused for dictation, the gold highlight over the screen is hidden (it cluttered the screen the person is dictating into) and comes back, in the same place, when the reading resumes. 1.41: FIX (dictation after Read paused it): (1) the speaking/voice windows of Read are now recognised as the helper's own windows, so dictation never "types" into the hidden Edge page and gives the focus back to the window the person was using (first failure: words heard, typed nowhere); (2) the "Read is speaking" mute can no longer be left on by a late message: it is set only when Read STARTS speaking while dictation is already listening, and cleared when Read pauses, ends or stops or the listening ends (second failure: a late heartbeat after "paused" made dictation throw the words away). 1.40: (1) a live voice change carries on from the word being spoken instead of starting the sentence over (amit_talk.html v1.04); (2) when dictation or Voice starts while Read is speaking, Read pauses by itself (the speaker shows the pause bars) and carries on where it was when the listening ends; a press of the speaker by the person cancels the automatic resume. 1.39: FIX: dictation could stay blocked after Read (the "Read is speaking" signal depended on a "finished" message that can get lost after live voice changes). Now the speaking page sends a heartbeat every 1.5 s while sound really plays, dictation is only quieted for 4 seconds after the last one, and a watchdog returns the speaker to waiting if the sound stops without a "finished"; the page also waits a moment between cancelling a sentence and saying it again with new settings (Edge sometimes dropped it). 1.38: while Read is speaking, dictation and Voice ignore what the microphone hears (it is Amit's own voice, which used to be typed into the person's text box) and dictation's "Amit is listening" box is taken off the screen; they work normally again when Read is not speaking, including while it is paused. 1.37: the voice window is INTERACTIVE (moving a slider or choosing another voice while Amit is reading changes the sound within about a third of a second; the current sentence is said again with the new settings; amit_talk.html v1.02); the hidden Edge speaking window is slimmed (extra switches) and now closes 30 seconds after the last reading instead of 3 minutes, never while the voice window is open. 1.36: a DOUBLE CLICK on the reading speaker opens a small voice window beside it (voice, speed, pause between sentences, pitch, volume, Test, Save); Save keeps the new voice on this computer at once and hands it to the person's login (their saved voice, their default) the next time an Amit page loads, without the old copy from the database overwriting it (new bridge routes /api/talk/voice-save and /api/talk/voice-ack). A single click is acted on after a very short wait (the double-click time, at most 400 ms) so a double click is no longer two presses. The note "Your saved voice is not on this computer" no longer pops up on the screen (it is only logged). 1.35: the ring choice is now called READ (it reads aloud what the person points at) and works ONE SHOT: press the speaker, and the very next click or selection is what is read, then it goes back to waiting so the person can use the computer freely; to read somewhere else, press it again. A click reads from the clicked word to the end of its paragraph; a highlight reads exactly the highlight (one word if one word, the whole page after Select All). Pressing while reading pauses it and the next click or selection is read instead (pressing again with none resumes). A soft gold highlight shows the words being read (where Windows accessibility gives their place). When the words cannot be read, Amit says so out loud in the person's voice ("Sorry, I'm not able to read this") and on screen, never silently; a plain click on a button or menu only shows a note. 1.33: TALK, a fourth choice in the Amit Live ring: a small see-through speaker stays on top of everything; the person selects words (or clicks where to start) in any program and presses it, and Amit reads aloud from there in the person's own saved Amit voice (copied here from their login; with none, Talk asks them to open Amit and sign in). Press again to pause or resume; Esc or a right click on the speaker removes it. The speaking is done by a hidden Edge window (page /talk, new bridge routes /api/talk/*) because the natural voices exist only in Edge. 1.32: a SHOW AMIT button in the Show Amit editor: saves the shot, hands it to the Amit Live window, which posts it into the person's own Ask Amit chat for today (under their own sign-in; the helper holds no login) and asks Amit to look at it (new bridge routes /api/showamit/pending and /api/showamit/pending.png, offered for 5 minutes, only to the Amit site). 1.31: the Amit Live window closes itself after 60 seconds without the focus (never while music plays; the no-internet page too). ONE Amit Live window only: choosing Ask Amit when its window is already open brings that window to the front instead of opening another (and a second press while the first is still opening starts nothing). 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
 
     // v1.03 (2026-10-29, Ryan): LATCH MODE. Hold the button to start; let go and dictation keeps going, so long dictations do not need the
     // button held. Hold the button again (same hold time) to stop; a quick tap during dictation is still a normal click. Dictation also
@@ -488,6 +488,7 @@ public static class AmitWhisper
         hookThread.SetApartmentState(ApartmentState.STA);
         hookThread.Start();
         try { MouseSetsStart(home); } catch (Exception ex) { Log("Amit Mouse could not start: " + ex.Message); }
+        try { KeyboardSetsStart(home); } catch (Exception ex) { Log("Amit Keyboard could not start: " + ex.Message); }
         idleTimer = new System.Threading.Timer(delegate { IdleCheck(); }, null, 10000, 10000);
         lastHookTick = Environment.TickCount; prevTick = lastHookTick;
         { POINT p0; if (GetCursorPos(out p0)) { prevX = p0.x; prevY = p0.y; } }   // start the hook watchdog from where the pointer really is
@@ -804,9 +805,11 @@ public static class AmitWhisper
         }
         catch (Exception ex) { Log("Amit Mouse: setup not read: " + ex.Message); return "{\"ok\":false,\"error\":\"could not read the setup\"}"; }
     }
-    static void MsToggleMaster()
+    static void MsToggleMaster() { MsToggleMaster(true); }
+    static void MsToggleMaster(bool alsoKeyboard)
     {
         bool on; lock (msLock) { msMaster = !msMaster; on = msMaster; }
+        if (alsoKeyboard) { try { KbEmergency(on); } catch { } }
         Log("Amit Mouse: mouse sets turned " + (on ? "ON" : "OFF") + " from the keyboard");
         try { ShowOverlay(on ? "Mouse sets ON" : "Mouse sets OFF\nevery mouse button works as normal\n(Ctrl+Alt+Shift+M turns them on)"); HideOverlayLater(2500); } catch { }
     }
@@ -861,6 +864,7 @@ public static class AmitWhisper
                 rid[0].usUsagePage = 1; rid[0].usUsage = 2; rid[0].dwFlags = 0x100; rid[0].hwndTarget = w.Handle;   // 0x100 = also while another program has the focus
                 if (!RegisterRawInputDevices(rid, 1, (uint)Marshal.SizeOf(typeof(RAWINPUTDEVICE)))) { msRawError = "could not register (error " + Marshal.GetLastWin32Error() + ")"; Log("Amit Mouse: raw input " + msRawError); return; }
                 msRawOk = true; msOn = true;
+                try { RAWINPUTDEVICE[] rk = new RAWINPUTDEVICE[1]; rk[0].usUsagePage = 1; rk[0].usUsage = 6; rk[0].dwFlags = 0x100; rk[0].hwndTarget = w.Handle; if (RegisterRawInputDevices(rk, 1, (uint)Marshal.SizeOf(typeof(RAWINPUTDEVICE)))) kbRawOk = true; else { kbRawError = "could not register (error " + Marshal.GetLastWin32Error() + ")"; Log("Amit Keyboard: raw input " + kbRawError); } } catch (Exception ex) { kbRawError = ex.Message; }
                 Application.Run();
             }
             catch (Exception ex) { msRawError = ex.Message; Log("Amit Mouse: raw input thread: " + ex.Message); }
@@ -904,6 +908,7 @@ public static class AmitWhisper
         try
         {
             if (GetRawInputData(l, 0x10000003, buf, ref size, hdr) != size) return;
+            if (Marshal.ReadInt32(buf, 0) == 1) { KbRawIn(buf, (int)hdr); return; }   // a keyboard report (Amit Keyboard)
             if (Marshal.ReadInt32(buf, 0) != 0) return;   // not a mouse
             string dev = MsDevName(Marshal.ReadIntPtr(buf, 8)); if (dev.Length == 0) return;
             msLastDev = dev; msLastTick = Environment.TickCount;
@@ -1150,6 +1155,593 @@ public static class AmitWhisper
             b.Append("},\"events\":[");
             first = true;
             foreach (MsEv e in msEvents) { if (e.seq <= since) continue; if (!first) b.Append(','); first = false; b.Append("{\"seq\":" + e.seq + ",\"dev\":" + MsQ(e.dev) + ",\"ctl\":" + MsQ(e.ctl) + ",\"down\":" + (e.down ? "true" : "false") + "}"); }
+            b.Append("]}");
+        }
+        return b.ToString();
+    }
+
+    // =====================================================================================================
+    //  AMIT KEYBOARD (Helper 1.88; Ryan and Robin, 2026-11-09). The same idea as Amit Mouse, with keys.
+    //  Keyboards are told apart by Windows RAW INPUT (it names the device of every key but cannot block it); the low-level hook below can block a key but does not
+    //  know the device. They are matched by a short look-back (about 25 ms), like the mouse. A key nobody can name passes through untouched.
+    //  NOTHING is ever blocked unless this computer has a set that gives that key a job on that keyboard. SAFETY (never changed, whatever a set says):
+    //  Ctrl, Alt, Shift, Windows and Esc pressed on their own; Ctrl+Alt+Shift+M (switches every set off AND puts every keyboard back on Set 1); Ctrl+Alt+Delete,
+    //  Win+L, Alt+F4; and on the MAIN keyboard the typing keys of Set 1. Space held, then a number 1 to 9, switches to that numbered set in every set but Set 1.
+    //  PRIVACY: the key hook never writes what is typed anywhere. Which key and which keyboard is only reported to the Amit Keyboard page while it is LEARNING
+    //  (it asks every few seconds; after about six seconds of no asking nothing is recorded), and key actions are only logged in a short test.
+    //  The setup comes from the Hub (Communications > Amit Keyboard) through /api/keyboard/sync and is kept in keyboard_config.json, so it works with no internet.
+    // =====================================================================================================
+    class KbAct { public string type = "keep", value = ""; public int holdMs = 500; }
+    class KbSet
+    {
+        public string id = ""; public int num; public string label = ""; public bool spaceOn;
+        public Dictionary<string, KbAct> click = new Dictionary<string, KbAct>();
+        public Dictionary<string, KbAct> dbl = new Dictionary<string, KbAct>();
+        public Dictionary<string, KbAct> hold = new Dictionary<string, KbAct>();
+        public HashSet<string> bases = new HashSet<string>();      // keys that have a job of their own (alone, or held with Ctrl, Shift, Alt or Windows)
+        public HashSet<string> starters = new HashSet<string>();   // keys that take part in a pair job: they wait a moment for a partner
+    }
+    class KbDev { public string key = "", name = ""; public bool primary, spaceNum = true, spaceIn1; public int dblMs = 300, spaceMs = 400; public string active = ""; public List<KbSet> sets = new List<KbSet>(); }
+    class KbEv { public int tick; public string dev = "", code = ""; public bool down, used; }
+    class KbLearnEv { public long seq; public string dev = "", code = ""; public bool down; }
+    class KbPress
+    {
+        public string code = "", mods = ""; public int vk, scan, last, tick; public bool ext;
+        public KbDev dev; public KbSet set; public KbAct click;
+        public bool down = true, held, consumed, flushed, acted, second;
+        public System.Threading.Timer ht;
+    }
+
+    static readonly object kbLock = new object();
+    static List<KbDev> kbDevs = new List<KbDev>();
+    static bool kbMaster = true, kbOn = false, kbVerbose = false, kbSuspendOn = false, kbRawOk = false;
+    static int kbSuspendUntil, kbLearnUntil, kbTestUntil, kbLastTick, kbHookCount, kbRawCount;
+    static string kbConfigPath = "", kbActivePath = "", kbLastDev = "", kbTestDev = "", kbRawError = "";
+    static long kbSeq = 0;
+    static List<KbEv> kbRing = new List<KbEv>();
+    static List<KbLearnEv> kbLearn = new List<KbLearnEv>();
+    static Dictionary<string, int> kbSeen = new Dictionary<string, int>();
+    static Dictionary<string, KbPress> kbBlocked = new Dictionary<string, KbPress>();
+    static Dictionary<string, System.Threading.Timer> kbDblWait = new Dictionary<string, System.Threading.Timer>();
+    static KbPress kbPending = null;
+    static IntPtr kbSetsHandle = IntPtr.Zero; static LowLevelProc kbSetsProc; static Thread kbHookThread; static Control kbHookCtl;
+    static System.Collections.Concurrent.BlockingCollection<System.Action> kbQ = new System.Collections.Concurrent.BlockingCollection<System.Action>();
+    static Thread kbWorker;
+    static Dictionary<int, string> kbStd, kbExt;
+
+    static bool KbSuspended() { return kbSuspendOn && unchecked(Environment.TickCount - kbSuspendUntil) < 0; }
+    static bool KbTestActive() { return kbTestDev.Length > 0 && unchecked(Environment.TickCount - kbTestUntil) < 0; }
+    static void KbEnqueue(System.Action a) { try { kbQ.Add(a); } catch { } }
+    static void KbWorkerMain() { foreach (System.Action a in kbQ.GetConsumingEnumerable()) { try { a(); } catch (Exception ex) { Log("Amit Keyboard: action failed: " + ex.Message); } } }
+
+    // ---------- the key names (the same names a browser gives: KeyA, Digit1, F5, NumpadEnter ...) ----------
+    static void KbTables()
+    {
+        if (kbStd != null) return;
+        Dictionary<int, string> s = new Dictionary<int, string>(); Dictionary<int, string> e = new Dictionary<int, string>();
+        s[0x01] = "Escape"; string dg = "1234567890"; for (int i = 0; i < 10; i++) s[0x02 + i] = "Digit" + dg[i];
+        s[0x0C] = "Minus"; s[0x0D] = "Equal"; s[0x0E] = "Backspace"; s[0x0F] = "Tab";
+        string q = "QWERTYUIOP"; for (int i = 0; i < 10; i++) s[0x10 + i] = "Key" + q[i];
+        s[0x1A] = "BracketLeft"; s[0x1B] = "BracketRight"; s[0x1C] = "Enter"; s[0x1D] = "ControlLeft";
+        string a = "ASDFGHJKL"; for (int i = 0; i < 9; i++) s[0x1E + i] = "Key" + a[i];
+        s[0x27] = "Semicolon"; s[0x28] = "Quote"; s[0x29] = "Backquote"; s[0x2A] = "ShiftLeft"; s[0x2B] = "Backslash";
+        string z = "ZXCVBNM"; for (int i = 0; i < 7; i++) s[0x2C + i] = "Key" + z[i];
+        s[0x33] = "Comma"; s[0x34] = "Period"; s[0x35] = "Slash"; s[0x36] = "ShiftRight"; s[0x37] = "NumpadMultiply"; s[0x38] = "AltLeft"; s[0x39] = "Space"; s[0x3A] = "CapsLock";
+        for (int i = 0; i < 10; i++) s[0x3B + i] = "F" + (i + 1);
+        s[0x45] = "NumLock"; s[0x46] = "ScrollLock";
+        s[0x47] = "Numpad7"; s[0x48] = "Numpad8"; s[0x49] = "Numpad9"; s[0x4A] = "NumpadSubtract"; s[0x4B] = "Numpad4"; s[0x4C] = "Numpad5"; s[0x4D] = "Numpad6"; s[0x4E] = "NumpadAdd";
+        s[0x4F] = "Numpad1"; s[0x50] = "Numpad2"; s[0x51] = "Numpad3"; s[0x52] = "Numpad0"; s[0x53] = "NumpadDecimal";
+        s[0x56] = "IntlBackslash"; s[0x57] = "F11"; s[0x58] = "F12";
+        for (int i = 0; i < 11; i++) s[0x64 + i] = "F" + (13 + i);   // F13 .. F23
+        s[0x76] = "F24";
+        e[0x1C] = "NumpadEnter"; e[0x1D] = "ControlRight"; e[0x35] = "NumpadDivide"; e[0x37] = "PrintScreen"; e[0x38] = "AltRight";
+        e[0x47] = "Home"; e[0x48] = "ArrowUp"; e[0x49] = "PageUp"; e[0x4B] = "ArrowLeft"; e[0x4D] = "ArrowRight"; e[0x4F] = "End"; e[0x50] = "ArrowDown"; e[0x51] = "PageDown";
+        e[0x52] = "Insert"; e[0x53] = "Delete"; e[0x5B] = "MetaLeft"; e[0x5C] = "MetaRight"; e[0x5D] = "ContextMenu"; e[0x5E] = "Power"; e[0x5F] = "Sleep"; e[0x63] = "WakeUp";
+        kbExt = e; kbStd = s;
+    }
+    static string KbCodeOf(int vk, int scan, bool ext)
+    {
+        if (vk == 0xFF) return null;
+        if (vk == 0x13) return "Pause";
+        if (vk == 0x90) return "NumLock";
+        if (vk >= 0xA6 && vk <= 0xB7)
+        {
+            switch (vk)
+            {
+                case 0xA6: return "BrowserBack"; case 0xA7: return "BrowserForward"; case 0xA8: return "BrowserRefresh"; case 0xA9: return "BrowserStop"; case 0xAA: return "BrowserSearch";
+                case 0xAB: return "BrowserFavorites"; case 0xAC: return "BrowserHome"; case 0xAD: return "VolumeMute"; case 0xAE: return "VolumeDown"; case 0xAF: return "VolumeUp";
+                case 0xB0: return "MediaTrackNext"; case 0xB1: return "MediaTrackPrevious"; case 0xB2: return "MediaStop"; case 0xB3: return "MediaPlayPause"; case 0xB4: return "LaunchMail";
+                case 0xB5: return "MediaSelect"; case 0xB6: return "LaunchApp1"; case 0xB7: return "LaunchApp2";
+            }
+        }
+        KbTables(); string c;
+        if (ext) { if (scan == 0x2A || scan == 0x36) return null; if (kbExt.TryGetValue(scan, out c)) return c; }
+        else if (kbStd.TryGetValue(scan, out c)) return c;
+        return "Key:" + vk.ToString("X2");
+    }
+    static bool KbIsProt(string c)
+    {
+        switch (c) { case "ControlLeft": case "ControlRight": case "AltLeft": case "AltRight": case "ShiftLeft": case "ShiftRight": case "MetaLeft": case "MetaRight": case "Escape": case "Power": case "Sleep": case "WakeUp": return true; }
+        return false;
+    }
+    static readonly System.Text.RegularExpressions.Regex kbTypingRx = new System.Text.RegularExpressions.Regex("^(Key[A-Z]|Digit\\d|Backquote|Minus|Equal|Bracket(Left|Right)|Backslash|Semicolon|Quote|Comma|Period|Slash|Space|Enter|Backspace|Tab)$");
+    static string KbChord(string a, string b)
+    {
+        string x = a, y = b;
+        if (b == "Space" || (a != "Space" && String.CompareOrdinal(b, a) < 0)) { x = b; y = a; }
+        return x + "&" + y;
+    }
+    static string KbIdOf(string mods, string code) { return mods.Length == 0 ? code : mods + "|" + code; }
+    static string KbModsNow()
+    {
+        string r = "";
+        if ((GetAsyncKeyState(0x11) & 0x8000) != 0) r = "Ctrl";
+        if ((GetAsyncKeyState(0x10) & 0x8000) != 0) r += (r.Length > 0 ? "+" : "") + "Shift";
+        if ((GetAsyncKeyState(0x12) & 0x8000) != 0) r += (r.Length > 0 ? "+" : "") + "Alt";
+        if ((GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0) r += (r.Length > 0 ? "+" : "") + "Win";
+        return r;
+    }
+    static bool KbIsDigitKey(string c, out int n)
+    {
+        n = 0;
+        if (c.Length == 6 && c.StartsWith("Digit") && c[5] >= '1' && c[5] <= '9') { n = c[5] - '0'; return true; }
+        if (c.Length == 7 && c.StartsWith("Numpad") && c[6] >= '1' && c[6] <= '9') { n = c[6] - '0'; return true; }
+        return false;
+    }
+    // what may never be given a job, whatever the page says (the page shows the same locks; this is the Helper's own guard)
+    static bool KbControlOk(bool primary, int setNum, string id, bool spaceRuleOn)
+    {
+        int bar = id.IndexOf('|'); string mods = bar < 0 ? "" : id.Substring(0, bar), b = bar < 0 ? id : id.Substring(bar + 1);
+        string[] parts = b.Split('&');
+        foreach (string p in parts)
+        {
+            if (p.Length == 0 || KbIsProt(p)) return false;
+            if (primary && setNum == 1 && kbTypingRx.IsMatch(p)) return false;
+        }
+        if (parts.Length > 2) return false;
+        string m = "+" + mods + "+";
+        bool ctrl = m.Contains("+Ctrl+"), alt = m.Contains("+Alt+"), shift = m.Contains("+Shift+"), win = m.Contains("+Win+");
+        if (ctrl && alt && shift && b == "KeyM") return false;
+        if (ctrl && alt && b == "Delete") return false;
+        if (win && !ctrl && !alt && !shift && b == "KeyL") return false;
+        if (alt && !ctrl && !shift && !win && b == "F4") return false;
+        int dn; if (spaceRuleOn && parts.Length == 2 && parts[0] == "Space" && KbIsDigitKey(parts[1], out dn)) return false;
+        return true;
+    }
+
+    // ---------- the setup ----------
+    public static string KeyboardSync(string json) { return KbApply(json, false); }
+    static KbSet KbActive(KbDev d) { foreach (KbSet s in d.sets) if (s.id == d.active) return s; return d.sets.Count > 0 ? d.sets[0] : null; }
+    static string KbApply(string json, bool restoreActive)
+    {
+        try
+        {
+            Dictionary<string, object> root = MsJ.Parse(json) as Dictionary<string, object>;
+            if (root == null) return "{\"ok\":false,\"error\":\"not a setup\"}";
+            List<KbDev> nd = new List<KbDev>();
+            foreach (object o in MsL(root, "devices"))
+            {
+                Dictionary<string, object> dv = o as Dictionary<string, object>; if (dv == null) continue;
+                KbDev d = new KbDev(); d.key = MsS(dv, "device_key"); d.name = MsS(dv, "name"); d.primary = MsB(dv, "is_primary", false);
+                Dictionary<string, object> st = MsD(dv, "settings");
+                d.dblMs = Math.Max(150, Math.Min(800, MsI(st, "dbl", 300))); d.spaceMs = Math.Max(200, Math.Min(1500, MsI(st, "spaceMs", 400)));
+                d.spaceNum = MsB(st, "spaceNum", true); d.spaceIn1 = MsB(st, "spaceIn1", false);
+                int activeNum = MsI(st, "activeNum", 1);
+                List<object> sl = MsL(dv, "sets"); bool several = sl.Count > 1;
+                foreach (object so in sl)
+                {
+                    Dictionary<string, object> sd = so as Dictionary<string, object>; if (sd == null) continue;
+                    KbSet s = new KbSet(); s.id = MsS(sd, "id"); s.num = MsI(sd, "num", 1); s.label = MsS(sd, "label");
+                    s.spaceOn = several && d.spaceNum && (s.num != 1 || d.spaceIn1);
+                    foreach (object ao in MsL(sd, "actions"))
+                    {
+                        Dictionary<string, object> ad = ao as Dictionary<string, object>; if (ad == null) continue;
+                        KbAct a = new KbAct(); a.type = MsS(ad, "action_type"); a.value = MsS(ad, "action_value"); a.holdMs = Math.Max(200, Math.Min(3000, MsI(ad, "hold_ms", 500)));
+                        string ctl = MsS(ad, "control_id"), slot = MsS(ad, "slot");
+                        if (a.type == "key" && a.value.Trim().Length == 0) continue;
+                        if (!KbControlOk(d.primary, s.num, ctl, s.spaceOn)) continue;
+                        if (slot == "dbl") s.dbl[ctl] = a; else if (slot == "hold") s.hold[ctl] = a; else s.click[ctl] = a;
+                        int bar = ctl.IndexOf('|'); string b = bar < 0 ? ctl : ctl.Substring(bar + 1);
+                        if (b.IndexOf('&') > 0) { foreach (string pc in b.Split('&')) s.starters.Add(pc); }
+                        else if (slot != "click" || a.type != "keep") s.bases.Add(b);
+                    }
+                    if (s.spaceOn) s.starters.Add("Space");
+                    d.sets.Add(s);
+                    if (s.num == activeNum) d.active = s.id;
+                }
+                if (d.active == "" && d.sets.Count > 0) d.active = d.sets[0].id;
+                if (d.key.Length > 0 && d.sets.Count > 0) nd.Add(d);
+            }
+            bool master = MsB(root, "master", true);
+            if (!restoreActive)
+            {
+                int susp = Math.Max(0, Math.Min(180, MsI(root, "suspendSeconds", 0))); kbSuspendOn = susp > 0; if (susp > 0) kbSuspendUntil = unchecked(Environment.TickCount + susp * 1000);
+                string td = MsS(root, "testDevice"); int ts = Math.Max(0, Math.Min(120, MsI(root, "testSeconds", 0)));
+                if (td.Length > 0 && ts > 0) { kbTestDev = td; kbTestUntil = unchecked(Environment.TickCount + ts * 1000); kbVerbose = MsB(root, "verbose", false); } else { kbTestDev = ""; kbVerbose = false; }
+            }
+            lock (kbLock) { kbDevs = nd; kbMaster = master; }
+            kbOn = nd.Count > 0;
+            try { File.WriteAllText(kbConfigPath, json, new UTF8Encoding(false)); } catch { }
+            if (restoreActive) KbLoadActive();
+            if (kbOn) KbEnsureHook();
+            Log("Amit Keyboard: setup received (" + nd.Count + " keyboards, master " + (master ? "on" : "off") + ")");
+            return "{\"ok\":true,\"keyboards\":" + nd.Count + "}";
+        }
+        catch (Exception ex) { Log("Amit Keyboard: setup not read: " + ex.Message); return "{\"ok\":false,\"error\":\"could not read the setup\"}"; }
+    }
+    static void KbSaveActive()
+    {
+        try
+        {
+            StringBuilder b = new StringBuilder();
+            lock (kbLock) { foreach (KbDev d in kbDevs) b.AppendLine(d.key + "\t" + d.active); }
+            File.WriteAllText(kbActivePath, b.ToString(), new UTF8Encoding(false));
+        }
+        catch { }
+    }
+    static void KbLoadActive()
+    {
+        try
+        {
+            if (!File.Exists(kbActivePath)) return;
+            lock (kbLock)
+            {
+                foreach (string line in File.ReadAllLines(kbActivePath, Encoding.UTF8))
+                {
+                    string[] p = line.Split('\t'); if (p.Length < 2) continue;
+                    foreach (KbDev d in kbDevs) if (d.key == p[0]) foreach (KbSet s in d.sets) if (s.id == p[1]) d.active = s.id;
+                }
+            }
+        }
+        catch { }
+    }
+    // the emergency switch (Ctrl+Alt+Shift+M) also puts every keyboard back on its Set 1, so nobody is left in a scrambled set
+    static void KbEmergency(bool nowOn)
+    {
+        lock (kbLock)
+        {
+            kbMaster = nowOn;
+            if (!nowOn)
+            {
+                foreach (KbDev d in kbDevs) { KbSet first = null; foreach (KbSet s in d.sets) if (first == null || s.num < first.num) first = s; if (first != null) d.active = first.id; }
+                kbPending = null;
+            }
+        }
+        if (!nowOn) KbSaveActive();
+    }
+    static void KeyboardSetsStart(string home)
+    {
+        kbSink = null;   // (the test seam is off in the real program)
+        kbConfigPath = Path.Combine(home, "keyboard_config.json"); kbActivePath = Path.Combine(home, "keyboard_active.txt");
+        KbTables();
+        kbWorker = new Thread(KbWorkerMain); kbWorker.IsBackground = true; kbWorker.Start();
+        try { if (File.Exists(kbConfigPath)) KbApply(File.ReadAllText(kbConfigPath, Encoding.UTF8), true); } catch { }
+        kbWdTimer = new System.Threading.Timer(delegate { KbWatchdog(); }, null, 9000, 4000);
+    }
+    static System.Threading.Timer kbWdTimer;
+    static void KbEnsureHook()
+    {
+        if (kbHookThread != null) return;
+        kbHookThread = new Thread(delegate ()
+        {
+            try
+            {
+                kbHookCtl = new Control(); IntPtr h0 = kbHookCtl.Handle;
+                kbSetsProc = new LowLevelProc(KbSetsCb);
+                kbSetsHandle = SetWindowsHookEx(13, kbSetsProc, GetModuleHandle(null), 0);
+                if (kbSetsHandle == IntPtr.Zero) Log("Amit Keyboard: could not watch the keyboard (error " + Marshal.GetLastWin32Error() + ")");
+                Application.Run();
+            }
+            catch (Exception ex) { Log("Amit Keyboard: hook thread: " + ex.Message); }
+        });
+        kbHookThread.IsBackground = true; kbHookThread.SetApartmentState(ApartmentState.STA); kbHookThread.Start();
+    }
+    // Windows drops a low-level hook that is ever too slow, WITHOUT saying so. Raw input keeps arriving, the hook goes quiet: put it back (called every few seconds)
+    static int kbWdRaw, kbWdHook;
+    static void KbWatchdog()
+    {
+        try
+        {
+            if (!kbOn || kbHookCtl == null || !kbHookCtl.IsHandleCreated) return;
+            int raw = kbRawCount, hk = kbHookCount;
+            bool rawMoved = raw - kbWdRaw > 4, hookMoved = hk != kbWdHook;
+            kbWdRaw = raw; kbWdHook = hk;
+            if (rawMoved && !hookMoved)
+            {
+                Log("Amit Keyboard: the key hook stopped answering: putting it back");
+                kbHookCtl.BeginInvoke(new System.Action(delegate ()
+                {
+                    try { if (kbSetsHandle != IntPtr.Zero) UnhookWindowsHookEx(kbSetsHandle); } catch { }
+                    kbSetsHandle = SetWindowsHookEx(13, kbSetsProc, GetModuleHandle(null), 0);
+                }));
+            }
+        }
+        catch { }
+    }
+
+    // ---------- raw input: which keyboard did this ----------
+    static void KbRawIn(IntPtr buf, int hdr)
+    {
+        string dev = MsDevName(Marshal.ReadIntPtr(buf, 8)); if (dev.Length == 0) return;
+        int off = hdr; int make = (ushort)Marshal.ReadInt16(buf, off); int flg = (ushort)Marshal.ReadInt16(buf, off + 2); int vk = (ushort)Marshal.ReadInt16(buf, off + 6);
+        string code = KbCodeOf(vk, make, (flg & 2) != 0); if (code == null) return;
+        bool down = (flg & 1) == 0; int now = Environment.TickCount;
+        kbRawCount++;
+        lock (kbLock)
+        {
+            KbEv e = new KbEv(); e.tick = now; e.dev = dev; e.code = code; e.down = down; kbRing.Add(e);
+            for (int i = kbRing.Count - 1; i >= 0; i--) if (now - kbRing[i].tick > 500 || kbRing.Count > 60) kbRing.RemoveAt(i);
+            kbSeen[dev] = now; kbLastDev = dev; kbLastTick = now;
+            if (unchecked(now - kbLearnUntil) < 0)
+            {
+                KbLearnEv le = new KbLearnEv(); le.seq = ++kbSeq; le.dev = dev; le.code = code; le.down = down; kbLearn.Add(le);
+                if (kbLearn.Count > 120) kbLearn.RemoveAt(0);
+            }
+        }
+    }
+    // the keyboard behind this key: its name, "" when two keyboards pressed it together, null when nothing can be matched
+    static string KbFindDev(string code, bool down, bool injected)
+    {
+        for (int tries = 0; tries < 4; tries++)
+        {
+            int now = Environment.TickCount; string found = null; KbEv first = null; bool two = false;
+            lock (kbLock)
+            {
+                foreach (KbEv e in kbRing)
+                {
+                    if (e.used || e.code != code || e.down != down || now - e.tick > 25) continue;
+                    if (first == null) { first = e; found = e.dev; } else if (e.dev != found) two = true;
+                }
+                if (two) return "";
+                if (first != null) { first.used = true; return found; }
+            }
+            if (tries < 3) Thread.Sleep(1);
+        }
+        if (injected && KbTestActive()) return kbTestDev;   // only inside a short test that asked for it: a program-made key is named as the test keyboard
+        return null;
+    }
+
+    // ---------- the hook ----------
+    static IntPtr KbSetsCb(int nCode, IntPtr wParam, IntPtr lParam)
+    {
+        try
+        {
+            if (nCode >= 0)
+            {
+                kbHookCount++;
+                if (kbOn)
+                {
+                    IntPtr extra = Marshal.ReadIntPtr(lParam, 16);
+                    if (extra != MARK)
+                    {
+                        int msg = wParam.ToInt32();
+                        if (KbHook(Marshal.ReadInt32(lParam, 0), Marshal.ReadInt32(lParam, 4), Marshal.ReadInt32(lParam, 8), msg == 0x100 || msg == 0x104)) return (IntPtr)1;
+                    }
+                }
+            }
+        }
+        catch { }
+        return CallNextHookEx(kbSetsHandle, nCode, wParam, lParam);
+    }
+    static bool KbHook(int vk, int scan, int fl, bool down)
+    {
+        string code = KbCodeOf(vk, scan, (fl & 1) != 0); if (code == null) return false;
+        int now = Environment.TickCount; bool injected = (fl & 0x10) != 0;
+        if (!down)
+        {
+            KbPress up;
+            lock (kbLock) { if (!kbBlocked.TryGetValue(code, out up)) return false; kbBlocked.Remove(code); }
+            KbRelease(up);
+            return true;   // the end of a key we took is always taken, so no key is ever left pressed
+        }
+        KbPress rep = null;
+        lock (kbLock)
+        {
+            if (kbBlocked.TryGetValue(code, out rep))
+            {
+                if (unchecked(now - rep.last) < 1200) rep.last = now; else { kbBlocked.Remove(code); rep = null; }   // a key whose release was lost is forgotten after a moment
+            }
+        }
+        if (rep != null) { KbRepeat(rep); return true; }
+        if (!kbMaster || KbSuspended() || KbIsProt(code)) return false;
+        string mods = KbModsNow();
+        // Windows keeps a few for itself, and the emergency switch must always get through
+        if (code == "Delete" && mods.Contains("Ctrl") && mods.Contains("Alt")) return false;
+        if (code == "KeyM" && mods == "Ctrl+Shift+Alt") return false;
+        string devOfThis = null; bool devKnown = false;
+        KbPress pend; lock (kbLock) { pend = kbPending; }
+        bool flushedNow = false;
+        if (pend != null && pend.down && !pend.consumed && !pend.flushed && pend.code != code)
+        {
+            string cid = KbChord(pend.code, code), jid = KbIdOf(mods, cid);
+            int bn = 0; bool builtin = pend.code == "Space" && pend.set != null && pend.set.spaceOn && KbIsDigitKey(code, out bn) && unchecked(now - pend.tick) >= pend.dev.spaceMs;
+            KbAct pa = null; bool hasJob = pend.set != null && pend.set.click.TryGetValue(jid, out pa) && pa.type != "keep";
+            if (builtin || hasJob)
+            {
+                if (!devKnown) { devOfThis = KbFindDev(code, true, injected); devKnown = true; }
+                if (devOfThis != null && devOfThis == pend.dev.key)
+                {
+                    pend.consumed = true; try { if (pend.ht != null) pend.ht.Dispose(); } catch { }
+                    KbPress sec = new KbPress(); sec.code = code; sec.second = true; sec.last = now;
+                    lock (kbLock) { kbPending = null; kbBlocked[code] = sec; }
+                    KbDev pd = pend.dev; KbPress pp = pend; KbAct fa = pa; int fn = bn; bool bi = builtin;
+                    KbEnqueue(delegate () { if (bi) KbSwitchNum(pd, fn); else KbRunAct(pp, fa); });
+                    return true;
+                }
+            }
+            KbFlush(pend); flushedNow = true;   // not a partner: the key that was waiting goes first, so the typing stays in order
+        }
+        // does any keyboard have something for this key right now?
+        KbDev dv = null; KbSet st = null;
+        lock (kbLock)
+        {
+            if (!devKnown)
+            {
+                bool any = false;
+                foreach (KbDev d in kbDevs) { KbSet s = KbActive(d); if (s != null && (s.bases.Contains(code) || s.starters.Contains(code))) any = true; }
+                if (!any) { if (!flushedNow) return false; }
+            }
+        }
+        if (!devKnown) { devOfThis = KbFindDev(code, true, injected); devKnown = true; }
+        if (!String.IsNullOrEmpty(devOfThis))
+            lock (kbLock) { foreach (KbDev d in kbDevs) if (d.key == devOfThis) { dv = d; st = KbActive(d); } }
+        KbAct ca = null, da = null, ha = null; bool starter = false;
+        if (st != null)
+        {
+            string id = KbIdOf(mods, code);
+            st.click.TryGetValue(id, out ca); st.dbl.TryGetValue(id, out da); st.hold.TryGetValue(id, out ha);
+            starter = st.starters.Contains(code);
+        }
+        bool own = (ca != null && ca.type != "keep") || da != null || ha != null;
+        KbPress p = new KbPress(); p.code = code; p.vk = vk; p.scan = scan; p.ext = (fl & 1) != 0; p.mods = mods; p.last = now; p.tick = now; p.dev = dv; p.set = st; p.click = ca;
+        if (st == null || (!own && !starter))
+        {
+            if (!flushedNow) return false;
+            // a key was waiting and has just been let through: this one follows it, in order, instead of racing past it
+            p.flushed = true; lock (kbLock) { kbBlocked[code] = p; }
+            KbEnqueue(delegate () { KbReplayKey(p); });
+            return true;
+        }
+        lock (kbLock) { kbBlocked[code] = p; if (starter) kbPending = p; }
+        if (ha != null) { KbAct hh = ha; p.ht = new System.Threading.Timer(delegate { KbHoldFired(p, hh); }, null, ha.holdMs, Timeout.Infinite); }
+        if (!(starter || da != null || ha != null)) { p.acted = true; KbAct ac = ca; KbEnqueue(delegate () { KbRunAct(p, ac); }); }
+        return true;
+    }
+    static void KbFlush(KbPress p)
+    {
+        p.flushed = true; try { if (p.ht != null) p.ht.Dispose(); } catch { }
+        lock (kbLock) { if (kbPending == p) kbPending = null; }
+        KbEnqueue(delegate () { KbReplayKey(p); });
+    }
+    static void KbHoldFired(KbPress p, KbAct a)
+    {
+        if (p.consumed || p.flushed || !p.down) return;
+        p.held = true; lock (kbLock) { if (kbPending == p) kbPending = null; }
+        KbEnqueue(delegate () { KbRunAct(p, a); });
+    }
+    static void KbRepeat(KbPress p)
+    {
+        if (p.second || p.consumed || p.held || p.flushed || !p.acted) return;
+        if (p.click != null && p.click.type == "key") { KbAct a = p.click; KbEnqueue(delegate () { KbRunAct(p, a); }); }   // a key that only sends keys keeps repeating while held
+    }
+    static void KbRelease(KbPress p)
+    {
+        p.down = false; try { if (p.ht != null) p.ht.Dispose(); } catch { }
+        lock (kbLock) { if (kbPending == p) kbPending = null; }
+        if (p.second || p.acted || p.consumed || p.held || p.flushed) return;
+        KbAct da = null; if (p.set != null) p.set.dbl.TryGetValue(KbIdOf(p.mods, p.code), out da);
+        if (da != null)
+        {
+            System.Threading.Timer t; lock (kbLock) { if (!kbDblWait.TryGetValue(p.code, out t)) t = null; else kbDblWait.Remove(p.code); }
+            if (t != null) { try { t.Dispose(); } catch { } KbAct d2 = da; KbEnqueue(delegate () { KbRunAct(p, d2); }); }
+            else
+            {
+                System.Threading.Timer nt = null;
+                nt = new System.Threading.Timer(delegate { lock (kbLock) { kbDblWait.Remove(p.code); } KbAct c2 = p.click; KbEnqueue(delegate () { KbRunAct(p, c2); }); }, null, p.dev != null ? p.dev.dblMs : 300, Timeout.Infinite);
+                lock (kbLock) { kbDblWait[p.code] = nt; }
+            }
+        }
+        else { KbAct c3 = p.click; KbEnqueue(delegate () { KbRunAct(p, c3); }); }
+    }
+
+    // ---------- what a job does ----------
+    static void KbRunAct(KbPress p, KbAct a)
+    {
+        string t = a == null ? "keep" : a.type;
+        if (kbVerbose) Log("Amit Keyboard (test): " + (p.dev != null ? p.dev.name : "?") + " " + p.code + " -> " + t + (a != null && a.value.Length > 0 ? " " + a.value : ""));
+        if (t == "keep") KbReplayKey(p);
+        else if (t == "key") KbSendKeys(a.value);
+        else if (t == "helper") { if (kbSink != null) kbSink("helper " + a.value); else MsRunHelper(a.value); }
+        else if (t == "set")
+        {
+            string[] v = a.value.Split(new char[] { '|' }, 2);
+            if (v.Length > 1 && v[1].Length > 0) KbSendKeys(v[1]);   // "send keys, then switch set"
+            if (p.dev != null) KbSwitchSet(p.dev, v[0]);
+        }
+        // "none": nothing
+    }
+    static void KbKeyEvt(List<INPUT> l, ushort vk, ushort scan, bool ext, bool up)
+    {
+        INPUT i = new INPUT(); i.type = 1; i.u.ki.wVk = vk; i.u.ki.wScan = scan; i.u.ki.dwFlags = (up ? 2u : 0u) | (ext ? 1u : 0u); i.u.ki.dwExtraInfo = MARK; l.Add(i);
+    }
+    static System.Action<string> kbSink;   // a test only: when set, nothing is sent to Windows; what would have been done is passed here instead
+    static void KbReplayKey(KbPress p)
+    {
+        if (kbSink != null) { kbSink("replay " + p.code); return; }
+        List<INPUT> l = new List<INPUT>(); KbKeyEvt(l, (ushort)p.vk, (ushort)p.scan, p.ext, false); KbKeyEvt(l, (ushort)p.vk, (ushort)p.scan, p.ext, true);
+        INPUT[] a = l.ToArray(); SendInput((uint)a.Length, a, Marshal.SizeOf(typeof(INPUT)));
+    }
+    static void KbSwitchSet(KbDev d, string setId)
+    {
+        KbSet hit = null; lock (kbLock) { foreach (KbSet s in d.sets) if (s.id == setId) hit = s; if (hit != null) d.active = hit.id; }
+        if (hit == null) return;
+        KbSaveActive(); Log("Amit Keyboard: " + d.name + " switched to set " + hit.num);
+        if (kbSink != null) { kbSink("set " + d.name + " " + hit.num); return; }
+        try { ShowOverlay("Keyboard " + d.name + ": set " + hit.num + (hit.label.Length > 0 ? " - " + hit.label : "")); HideOverlayLater(1500); } catch { }
+    }
+    static void KbSwitchNum(KbDev d, int n)
+    {
+        KbSet hit = null; lock (kbLock) { foreach (KbSet s in d.sets) if (s.num == n) hit = s; }
+        if (hit == null) { try { ShowOverlay("Keyboard " + d.name + " has no set " + n); HideOverlayLater(1500); } catch { } return; }
+        KbSwitchSet(d, hit.id);
+    }
+    static void KbSendKeys(string combo)
+    {
+        if (String.IsNullOrEmpty(combo)) return;
+        if (kbSink != null) { kbSink("send " + combo); return; }
+        List<string> parts = new List<string>(); string c = combo;
+        if (c == "+") parts.Add("+");
+        else
+        {
+            bool endPlus = c.EndsWith("++"); if (endPlus) c = c.Substring(0, c.Length - 2);
+            foreach (string x in c.Split(new char[] { '+' })) { string y = x.Trim(); if (y.Length > 0 || c.Length == 0) parts.Add(y); }
+            if (endPlus) parts.Add("+");
+        }
+        List<ushort> mods = new List<ushort>(); ushort vk = 0; bool ext = false; bool needShift = false;
+        foreach (string raw in parts)
+        {
+            string p = raw; string lo = p.ToLowerInvariant();
+            if (lo == "ctrl" || lo == "control") { if (!mods.Contains(0x11)) mods.Add(0x11); }
+            else if (lo == "alt") { if (!mods.Contains(0x12)) mods.Add(0x12); }
+            else if (lo == "shift") { if (!mods.Contains(0x10)) mods.Add(0x10); }
+            else if (lo == "win" || lo == "meta" || lo == "windows") { if (!mods.Contains(0x5B)) mods.Add(0x5B); }
+            else if (lo == "enter") vk = 0x0D; else if (lo == "escape" || lo == "esc") vk = 0x1B; else if (lo == "tab") vk = 0x09; else if (lo == "backspace") vk = 0x08;
+            else if (lo == "delete" || lo == "del") { vk = 0x2E; ext = true; } else if (lo == "insert") { vk = 0x2D; ext = true; }
+            else if (lo == "home") { vk = 0x24; ext = true; } else if (lo == "end") { vk = 0x23; ext = true; }
+            else if (lo == "pageup") { vk = 0x21; ext = true; } else if (lo == "pagedown") { vk = 0x22; ext = true; }
+            else if (lo == "arrowup") { vk = 0x26; ext = true; } else if (lo == "arrowdown") { vk = 0x28; ext = true; }
+            else if (lo == "arrowleft") { vk = 0x25; ext = true; } else if (lo == "arrowright") { vk = 0x27; ext = true; }
+            else if (lo == "space" || p == " ") vk = 0x20;
+            else if (lo == "capslock") vk = 0x14; else if (lo == "printscreen") { vk = 0x2C; ext = true; } else if (lo == "contextmenu") { vk = 0x5D; ext = true; }
+            else if (lo == "audiovolumemute" || lo == "volumemute") vk = 0xAD; else if (lo == "audiovolumedown" || lo == "volumedown") vk = 0xAE; else if (lo == "audiovolumeup" || lo == "volumeup") vk = 0xAF;
+            else if (lo == "mediatracknext") vk = 0xB0; else if (lo == "mediatrackprevious") vk = 0xB1; else if (lo == "mediastop") vk = 0xB2; else if (lo == "mediaplaypause") vk = 0xB3;
+            else if (lo.Length >= 2 && lo[0] == 'f' && Char.IsDigit(lo[1])) { int n; if (Int32.TryParse(lo.Substring(1), out n) && n >= 1 && n <= 24) vk = (ushort)(0x70 + n - 1); }
+            else if (p.Length == 1) { short r = VkKeyScan(p[0]); if (r != -1) { vk = (ushort)(r & 0xFF); if (((r >> 8) & 1) != 0) needShift = true; } }
+        }
+        if (vk == 0 && mods.Count == 0) return;
+        if (needShift && !mods.Contains(0x10) && !mods.Contains(0x11) && !mods.Contains(0x12) && !mods.Contains(0x5B)) mods.Add(0x10);   // a capital or a # needs Shift; with Ctrl, Alt or Windows the letter is the key itself (Ctrl+S)
+        List<INPUT> l = new List<INPUT>();
+        foreach (ushort m in mods) MsKeyDownUp(l, m, false, false);
+        if (vk != 0) { MsKeyDownUp(l, vk, ext, false); MsKeyDownUp(l, vk, ext, true); }
+        for (int i = mods.Count - 1; i >= 0; i--) MsKeyDownUp(l, mods[i], false, true);
+        INPUT[] a = l.ToArray(); SendInput((uint)a.Length, a, Marshal.SizeOf(typeof(INPUT)));
+    }
+    static KbDev KbDevByKey(string key) { lock (kbLock) { foreach (KbDev d in kbDevs) if (d.key == key) return d; } return null; }
+
+    // ---------- what the page asks: the keyboards and (only while it is learning) which key on which keyboard ----------
+    public static string KeyboardStatusJson(long since, bool learn)
+    {
+        if (learn) kbLearnUntil = unchecked(Environment.TickCount + 6000);
+        StringBuilder b = new StringBuilder("{\"ok\":true,\"raw\":" + (kbRawOk ? "true" : "false") + ",\"hook\":" + (kbSetsHandle != IntPtr.Zero ? "true" : "false") + ",\"error\":" + MsQ(kbRawError) + ",\"master\":" + (kbMaster ? "true" : "false") + ",\"suspended\":" + (KbSuspended() ? "true" : "false") + ",\"seq\":");
+        lock (kbLock)
+        {
+            b.Append(kbSeq).Append(",\"lastDev\":" + MsQ(kbLastDev) + ",\"lastAgeMs\":" + (Environment.TickCount - kbLastTick) + ",\"devices\":[");
+            bool first = true; int now = Environment.TickCount;
+            foreach (KeyValuePair<string, int> kv in kbSeen) { if (!first) b.Append(','); first = false; b.Append("{\"key\":" + MsQ(kv.Key) + ",\"ageMs\":" + (now - kv.Value) + "}"); }
+            b.Append("],\"active\":{"); first = true;
+            foreach (KbDev d in kbDevs) { if (!first) b.Append(','); first = false; b.Append(MsQ(d.key) + ":" + MsQ(d.active)); }
+            b.Append("},\"events\":["); first = true;
+            if (learn) foreach (KbLearnEv e in kbLearn) { if (e.seq <= since) continue; if (!first) b.Append(','); first = false; b.Append("{\"seq\":" + e.seq + ",\"dev\":" + MsQ(e.dev) + ",\"code\":" + MsQ(e.code) + ",\"down\":" + (e.down ? "true" : "false") + "}"); }
             b.Append("]}");
         }
         return b.ToString();
@@ -9005,7 +9597,7 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
     static volatile int vmTab = 0;
     static List<VoiceCand> vmVoiceItems = new List<VoiceCand>();
     static List<VMRow> vmVoiceRows = new List<VMRow>();
-    static readonly string[] VmTabNames = new string[] { "Voice", "Mouse", "Keyboard (soon)" };
+    static readonly string[] VmTabNames = new string[] { "Voice", "Mouse", "Keyboard" };
     static Rectangle VmTabRect(int i) { int w = (VmW - 28) / 3; return new Rectangle(14 + i * w, 54, w - 6, 24); }
 
     class VoiceMenuForm : Form
@@ -9055,11 +9647,11 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
                     using (StringFormat sfC = new StringFormat())
                     {
                         sfC.Alignment = StringAlignment.Center; sfC.LineAlignment = StringAlignment.Center;
-                        using (SolidBrush bt = new SolidBrush(on ? gold : (ti == 2 ? Color.FromArgb(110, 120, 132) : txt))) { g.DrawString(VmTabNames[ti], fTab, bt, new RectangleF(tr.X, tr.Y, tr.Width, tr.Height), sfC); }
+                        using (SolidBrush bt = new SolidBrush(on ? gold : txt)) { g.DrawString(VmTabNames[ti], fTab, bt, new RectangleF(tr.X, tr.Y, tr.Width, tr.Height), sfC); }
                     }
                 }
                 if (vmTab == 1 && vmRows.Count == 0) g.DrawString("No mouse sets are set up yet. Open Amit Mouse in the Hub (Communications, then Amit Mouse) to set them up. They will show here, and the wheel will switch between them.", fR, bMute, new RectangleF(16, VmHeadH + 10, Width - 32, 150));
-                if (vmTab == 2) g.DrawString("Keyboard sets come with the keyboard app, the next build. They will work here the same way as the Mouse sets.", fR, bMute, new RectangleF(16, VmHeadH + 10, Width - 32, 150));
+                if (vmTab == 2 && vmRows.Count == 0) g.DrawString("No keyboard sets are set up yet. Open Amit Keyboard in the Hub (Communications, then Amit Keyboard) to set them up. They will show here.", fR, bMute, new RectangleF(16, VmHeadH + 10, Width - 32, 150));
                 List<VMRow> rows = vmRows; int top = vmTop; int vis = Math.Min(VmMaxRows, rows.Count);
                 for (int i = 0; i < vis; i++)
                 {
@@ -9213,7 +9805,15 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
             int ri = VoiceMenuRowOf(sel), vis = Math.Min(VmMaxRows, rw.Count);
             vmTop = (sel > 0 && ri >= vis) ? ri - vis + 1 : 0;
         }
-        else { vmItems = new List<VoiceCand>(); vmRows = new List<VMRow>(); }
+        else
+        {
+            // v1.88: the Keyboard tab lists the sets of THE KEYBOARD LAST USED (Windows raw input names it); a click or the middle button chooses
+            List<VoiceCand> it = new List<VoiceCand>(); List<VMRow> rw = new List<VMRow>(); int sel = 0;
+            try { sel = VmBuildKeyboard(it, rw); } catch (Exception ex) { Log("Keyboard tab: " + ex.Message); }
+            vmItems = it; vmRows = rw; vmSel = sel;
+            int ri = VoiceMenuRowOf(sel), vis = Math.Min(VmMaxRows, rw.Count);
+            vmTop = (sel > 0 && ri >= vis) ? ri - vis + 1 : 0;
+        }
         VoiceMenuRepaint();
     }
 
@@ -9270,7 +9870,7 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
         if (p[0] == "pick" && p.Length > 1) { vmMouseDev = p[1]; vmTab = 0; VoiceMenuSetTab(1); return; }   // the menu stays open: this only says which mouse
         if (p[0] == "master")   // v1.87: the switch flips and the menu stays open, so the person SEES it change
         {
-            MsToggleMaster(); vmTab = 0; VoiceMenuSetTab(1);
+            MsToggleMaster(false); vmTab = 0; VoiceMenuSetTab(1);
             for (int i = 0; i < vmItems.Count; i++) if (vmItems[i].Text == "master") { vmSel = i; break; }
             VoiceMenuRepaint(); return;
         }
@@ -9280,7 +9880,70 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
             MsDev d = MsDevByKey(p[1]);
             if (d != null) { MsSwitchSet(d, p[2]); Log("Amit menu: mouse " + d.name + " switched to a set from the Mouse tab"); }
         }
-        else if (p[0] == "master") MsToggleMaster();
+        else if (p[0] == "master") MsToggleMaster(false);
+        else if (p[0] == "hub") ThreadPool.QueueUserWorkItem(delegate { try { OpenHub(); } catch (Exception ex) { Log("Amit menu: " + ex.Message); } });
+    }
+
+    // ---- v1.88: the Keyboard tab of the Amit menu ----
+    static string vmKbDev = "";   // the keyboard last used (Windows raw input names it with every key); "" = not known
+    static void VmCaptureKeyboard()
+    {
+        int age = unchecked(Environment.TickCount - kbLastTick);
+        vmKbDev = (kbLastDev != null && kbLastDev.Length > 0 && age < 120000) ? kbLastDev : "";   // a key older than two minutes is not trusted: the tab asks which keyboard
+    }
+    static void VmAddKbRow(List<VoiceCand> items, List<VMRow> rows, string text, string cmd, string dot, string kind, bool on)
+    {
+        VoiceCand c = new VoiceCand(); c.Label = text; c.Text = cmd; c.Action = "kbtab"; c.Phrase = "";
+        VMRow r = new VMRow(); r.Text = text; r.Say = ""; r.Dot = dot; r.Item = items.Count; r.Kind = kind; r.On = on;
+        items.Add(c); rows.Add(r);
+    }
+    static int VmBuildKeyboard(List<VoiceCand> items, List<VMRow> rows)
+    {
+        List<KbDev> all; KbDev d = null; bool master;
+        lock (kbLock) { all = new List<KbDev>(kbDevs); master = kbMaster; foreach (KbDev x in all) if (vmKbDev.Length > 0 && x.key == vmKbDev) d = x; }
+        if (d == null)
+        {
+            if (all.Count > 0)
+            {
+                VmAddHeader(rows, vmKbDev.Length == 0 ? "Which keyboard? Choose one" : "This keyboard is not set up yet. Choose one");
+                foreach (KbDev x in all) VmAddKbRow(items, rows, x.name + (x.primary ? " (main keyboard)" : ""), "pick|" + x.key, "m", "", false);
+            }
+            else VmAddHeader(rows, "No keyboard sets are set up yet");
+            VmAddKbRow(items, rows, "Amit Keyboard settings in the Hub", "hub", "b", "open", false);
+            return 0;
+        }
+        VmAddHeader(rows, d.name + (d.primary ? " (main keyboard)" : "") + ": choose a set");
+        int sel = 0;
+        lock (kbLock)
+        {
+            foreach (KbSet s in d.sets)
+            {
+                bool on = s.id == d.active;
+                if (on) sel = items.Count;
+                VmAddKbRow(items, rows, "Set " + s.num + (s.label.Length > 0 ? ": " + s.label : "") + (on ? "   (in use)" : ""), "set|" + d.key + "|" + s.id, on ? "h" : "b", "", false);
+            }
+        }
+        VmAddHeader(rows, "This computer");
+        VmAddKbRow(items, rows, "Keyboard sets", "master", "m", "toggle", master);
+        VmAddKbRow(items, rows, "Amit Keyboard settings in the Hub", "hub", "b", "open", false);
+        return sel;
+    }
+    static void VmKbChoose(VoiceCand c)
+    {
+        string[] p = (c.Text ?? "").Split(new char[] { '|' }, 3);
+        if (p[0] == "pick" && p.Length > 1) { vmKbDev = p[1]; vmTab = 0; VoiceMenuSetTab(2); return; }
+        if (p[0] == "master")   // the switch flips and the menu stays open, so the person SEES it change
+        {
+            KbEmergency(!kbMaster); vmTab = 0; VoiceMenuSetTab(2);
+            for (int i = 0; i < vmItems.Count; i++) if (vmItems[i].Text == "master") { vmSel = i; break; }
+            VoiceMenuRepaint(); return;
+        }
+        if (vmStandalone) VoiceMenuClose(false); else VoiceMenuDismiss();
+        if (p[0] == "set" && p.Length > 2)
+        {
+            KbDev d = KbDevByKey(p[1]);
+            if (d != null) { KbSwitchSet(d, p[2]); Log("Amit menu: keyboard " + d.name + " switched to a set from the Keyboard tab"); }
+        }
         else if (p[0] == "hub") ThreadPool.QueueUserWorkItem(delegate { try { OpenHub(); } catch (Exception ex) { Log("Amit menu: " + ex.Message); } });
     }
 
@@ -9322,6 +9985,7 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
                 capTimer = new System.Threading.Timer(delegate { VoiceTimeout(t); }, null, 60000, Timeout.Infinite);
             }
             VmCaptureMouse();   // v1.86: the wheel that opened the menu names the mouse
+            VmCaptureKeyboard();
             BuildVoiceMenu();
             if (vmItems.Count == 0) { vmOpening = false; return; }
             EnsureVoiceMenuForm();
@@ -9352,6 +10016,7 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
         {
             lock (sync) { if ((state != ST_IDLE && !MouseFreeDuringDictation()) || vmOpen || vmOpening) return; vmOpening = true; }
             VmCaptureMouse();   // v1.86: remember which mouse opened the menu (the Mouse tab lists THAT mouse's sets)
+            VmCaptureKeyboard();
             BuildVoiceMenu();
             EnsureVoiceMenuForm();
             int vis = Math.Min(VmMaxRows, vmRows.Count);
@@ -9424,6 +10089,7 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
     {
         if (idx < 0 || idx >= vmItems.Count) return;
         VoiceCand c = vmItems[idx];
+        if (c.Action == "kbtab") { VmKbChoose(c); return; }   // v1.88: a choice on the Keyboard tab
         if (c.Action == "mousetab") { VmMouseChoose(c); return; }   // v1.86: a choice on the Mouse tab is handled here, never run as a spoken command
         if (vmStandalone)   // v1.74: nothing is listening: close the menu and run the choice
         {

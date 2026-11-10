@@ -1,0 +1,1072 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Amit Keyboard</title>
+<style>
+:root{--bg:#0b0e14;--glass:rgba(24,29,40,.92);--glass2:rgba(34,41,56,.9);--line:rgba(255,255,255,.10);--text:#e8ecf4;--mute:#97a1b5;--gold:#e6b84a;--blue:#4a9be6;--teal:#2fc4b2;--coral:#f08a6b;--green:#5fcf80;--gray:#7b8499;--red:#e66a6a;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:#0b0e14;color:var(--text);font:14px/1.45 "Segoe UI",system-ui,sans-serif;height:100vh}
+.win{position:absolute;inset:0;background:var(--glass);display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.03);flex-wrap:wrap}
+header b{font-size:13px}
+.sw{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px}
+.tog{width:34px;height:18px;border-radius:9px;background:var(--gray);position:relative;cursor:pointer;flex:none}
+.tog::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:.15s}
+.tog.on{background:var(--green)}.tog.on::after{left:18px}
+.pill{font-size:10px;padding:1px 7px;border-radius:9px;border:1px solid var(--line);color:var(--mute)}
+.pill.g{border-color:var(--gold);color:var(--gold)}
+.n2{color:var(--mute);font-size:12px}
+.tip2{color:var(--mute);font-size:12px;margin:0;padding:6px 12px;border-bottom:1px solid var(--line)}
+.tabs{display:flex;gap:4px;padding:6px 12px 0;border-bottom:1px solid var(--line)}
+.tab{padding:6px 14px;border-radius:7px 7px 0 0;cursor:pointer;color:var(--mute);border:1px solid transparent;border-bottom:0}
+.tab.on{background:var(--glass2);color:var(--text);border-color:var(--line)}
+.btn{background:#2c3550;border:1px solid var(--line);color:var(--text);border-radius:7px;padding:5px 10px;font:inherit;cursor:pointer}
+.btn:hover{background:#38426a}.btn.gold{background:var(--gold);color:#241a02;border-color:var(--gold);font-weight:600}
+input,select{background:#10141d;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 7px;font:inherit;max-width:100%}
+h2{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:2px 0 4px;font-weight:600}
+[hidden]{display:none!important}
+.two{flex:1;min-height:0;display:grid;grid-template-columns:220px 1fr}
+.side{border-right:1px solid var(--line);padding:9px;overflow:auto;display:flex;flex-direction:column;gap:6px}
+.main{padding:10px 12px;overflow:auto;min-width:0}
+.set{border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--glass2);cursor:pointer}
+.set.sel{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+.set .n{font-weight:600;display:flex;align-items:center;gap:6px}.set .p{color:var(--mute);font-size:11px}
+.badge{font-size:10px;padding:1px 6px;border-radius:9px;background:var(--green);color:#06210f;font-weight:600}
+.tip{background:rgba(47,196,178,.10);border:1px solid var(--teal);border-radius:8px;padding:8px 11px;margin-bottom:10px;line-height:1.5}
+.warn{background:rgba(230,106,106,.12);border:1px solid var(--red);border-radius:8px;padding:6px 9px;font-size:12px}
+.notice{background:rgba(230,184,74,.14);border-bottom:1px solid var(--gold);padding:6px 12px;font-size:12px}
+.wprompt{font-size:18px;font-weight:600;margin:4px 0 8px;color:var(--gold)}
+.pad{border:2px dashed #566082;border-radius:10px;background:rgba(255,255,255,.025);padding:9px;min-height:120px;outline:none}
+.pad:focus,.pad.live{border-color:var(--gold);background:rgba(230,184,74,.07)}
+.log{font-size:12px;color:var(--mute);max-height:90px;overflow:auto;margin-top:4px}.log .a{color:var(--text)}
+.form{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:5px}
+/* the drawn keyboard */
+.kb{background:var(--glass2);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px;overflow:auto}
+.krow{display:flex;gap:3px;margin-bottom:3px}
+.kbs{display:flex;gap:14px;align-items:flex-start;flex-wrap:nowrap}
+.kblock.special{border-top:1px solid var(--line);margin-top:6px;padding-top:5px;width:100%}
+.kblock .sh{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin-bottom:4px;font-weight:600}
+.sk{display:flex;flex-wrap:wrap;gap:3px;width:100%}
+.key.spk{width:auto!important;padding:0 4px}
+.key{height:var(--ku,30px);min-width:var(--ku,30px);border-radius:6px;background:#2b3347;border:1px solid #566082;color:var(--mute);display:grid;place-items:center;font-size:calc(var(--ku,30px)*.36);cursor:pointer;flex:none;position:relative;user-select:none;transition:.1s}
+.key.unk{opacity:.5;border-style:dashed}
+.key.seen{background:#2d4a45;border-color:var(--teal);color:var(--text);opacity:1}
+.key.asg{background:#4a3d14;border-color:var(--gold);color:#fff;opacity:1}
+.key.prot{background:#2a2f3e;border-color:#3a4256;color:#6f7a90}
+.key.prot::after{content:"\1F512";position:absolute;right:2px;top:0;font-size:8px}
+.key.fix{opacity:.8}
+.key.hasjob::after{content:"";position:absolute;left:3px;top:3px;width:5px;height:5px;border-radius:50%;background:var(--gold)}
+.key.pick{background:var(--gold)!important;color:#241a02!important;border-color:#fff!important;box-shadow:0 0 0 2px var(--gold)!important;opacity:1!important;font-weight:700}
+.key.sel{box-shadow:0 0 0 2px var(--gold)}
+.key.flash{background:var(--gold);color:#111}
+.key.gap{visibility:hidden;pointer-events:none}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--mute);margin-top:4px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px;border:1px solid}
+table{border-collapse:collapse;width:100%}
+th{font-size:11px;text-align:left;color:var(--mute);font-weight:600;padding:3px 6px;border-bottom:1px solid var(--line)}
+td{padding:5px 6px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top}
+tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-left:3px solid var(--gold)}
+td .sub{margin-top:3px}
+.lock{color:var(--mute);font-size:12px}
+.fp{border:1px solid var(--gold);border-radius:10px;background:rgba(230,184,74,.08);padding:9px 11px}
+.fp .fh{font-weight:600;margin-bottom:6px}
+.fp .slot{display:flex;gap:8px;align-items:flex-start;margin:5px 0;flex-wrap:wrap}.fp .slot .lab{width:118px;color:var(--mute);font-size:12px;padding-top:5px;flex:none}
+.fp .slot .sub{margin:0 0 0 0}
+.pickpad{border:2px dashed #566082;border-radius:8px;padding:5px 9px;font-size:12px;color:var(--mute);outline:none;margin-bottom:6px;cursor:pointer}.pickpad:focus{border-color:var(--gold);background:rgba(230,184,74,.07);color:var(--text)}
+tr.clk{cursor:pointer}tr.clk:hover td{background:rgba(255,255,255,.04)}
+.foot{margin-top:12px;font-size:12px;color:var(--mute);border-top:1px solid var(--line);padding-top:7px}.foot b{color:var(--text)}
+/* amit menu mock */
+.stage{flex:1;position:relative;background:linear-gradient(135deg,#1b2540,#10192e 60%,#1a1530);overflow:auto;padding:16px}
+.amenu{width:340px;background:rgba(18,22,32,.97);border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.55);overflow:hidden;margin:0 auto}
+.amenu .mt{display:flex;border-bottom:1px solid var(--line)}
+.amenu .mt div{flex:1;text-align:center;padding:8px 4px;color:var(--mute);cursor:pointer}
+.amenu .mt div.on{color:var(--gold);box-shadow:0 -2px 0 var(--gold) inset;background:rgba(255,255,255,.04)}
+.amenu .mt div.dim{opacity:.5;cursor:default}
+.amenu .mb{padding:8px}
+.mrow{padding:8px 10px;border-radius:7px;display:flex;align-items:center;gap:8px;cursor:pointer}
+.mrow:hover{background:#2c3550}.mrow.cur{outline:1px solid var(--gold)}
+.mrow .r{margin-left:auto}
+.openb{border:1px solid var(--gold);color:var(--gold);border-radius:6px;padding:2px 9px;font-size:12px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:var(--gray)}
+.dot.key{background:var(--teal)}.dot.helper{background:var(--gold)}.dot.set,.dot.keyswitch{background:var(--coral)}.dot.none{background:var(--red)}
+.slot{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:2px 0}.slot .lab{width:84px;color:var(--mute);font-size:11px;flex:none}
+.ms{width:68px;text-align:center}.lk{color:var(--blue);font-size:11px;cursor:pointer;text-decoration:underline}.lk:hover{color:var(--gold)}
+.key-in{width:150px;cursor:pointer;text-align:center}.key-in.rec{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.syslock{background:rgba(230,184,74,.08);border:1px solid var(--gold);border-radius:8px;padding:6px 9px}.syslock.user{border-color:var(--teal);background:rgba(47,196,178,.08)}
+.lockb{color:var(--gold);margin-top:2px;white-space:normal;max-width:170px}
+.fp{background:var(--glass2);border:1px solid var(--gold);border-radius:8px;padding:8px 10px;margin:6px 0}.fh{font-weight:600;font-size:14px;margin-bottom:4px}
+.pad{border:2px dashed #566082;border-radius:10px;background:rgba(255,255,255,.025);padding:9px;display:flex;flex-direction:column;gap:4px;user-select:none;outline:none}
+.pad.live{border-color:var(--gold);background:rgba(230,184,74,.07)}
+.pad .h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.pad .big{font-size:13px;font-weight:600}
+.pad .log{font-size:12px;color:var(--mute);max-height:48px;overflow:auto}
+.use{margin:2px 0 9px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--glass2)}
+.sim{font-size:12px;color:var(--mute)}
+#v2 .main.mainc{display:flex;flex-direction:column;padding:0;overflow:hidden}
+#v2 .topc{flex:none;padding:9px 12px 8px;border-bottom:1px solid var(--line);max-height:80%;overflow:auto}
+#v2 .botc{flex:1;min-height:0;overflow:auto;padding:9px 12px}
+td.nm{white-space:nowrap}.btn.red{background:#5a2323;border-color:var(--red)}
+</style>
+</head>
+<body>
+<div class="win">
+  <header>
+    <b>Keyboard:</b><select id="devPick" title="Which keyboard"></select>
+    <span class="pill g" id="activePill"></span>
+    <span id="pretendBox" hidden><span class="n2">Which keyboard I just used:</span><select id="pretend" title="The Amit Helper tells me this by itself when it is connected. Until then you choose it."></select></span>
+    <span class="pill" id="pageVer" title="Version of this Amit Keyboard page">v1.00</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser until your login answers.</span>
+    <div class="sw"><span>Keyboard sets are</span><div class="tog on" id="master" title="Turn all keyboard sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
+  </header>
+  <div class="tabs"><div class="tab on" id="t1">1. Learn keyboard</div><div class="tab" id="t2">2. Keyboard sets</div><div class="tab" id="t3">3. Secret code</div><div class="tab" id="t4">4. Secret modifier</div><div class="tab" id="t5">5. Secret decipher</div></div>
+  <div class="tip2" style="background:rgba(47,196,178,.08)"><b>Stuck, or a keyboard acts strangely?</b> Press <b>Ctrl + Alt + Shift + M</b> on ANY keyboard: every keyboard set is switched off at once and all your keys work as normal (press it again to switch them back on). Ctrl, Alt, Shift, Windows and Esc can never be changed on any keyboard. </div>
+  <div class="notice" id="editBar" hidden></div>
+
+  <!-- 1. LEARN -->
+  <div class="two" id="v1">
+    <div class="side">
+      <h2>This keyboard</h2>
+      <input id="kName" placeholder="Name this keyboard">
+      <div class="warn" id="nameMsg" hidden></div>
+      <div class="n2" id="devTxt"></div>
+      <button class="btn" id="addBtn" style="margin-top:6px">+ Add another keyboard</button>
+      <div class="form"><select id="copyFrom" title="Copy the sets of another keyboard onto this one"></select><button class="btn" id="copyBtn">Copy its sets here</button></div>
+      <button class="btn" id="delDev" style="margin-top:6px">Delete this keyboard</button>
+      <div class="form" id="addPanel" hidden>
+        <div class="sim" id="addTxt">Plug the keyboard in and press any key on it. Windows tells the Amit Helper which keyboard it came from, and it is added here.</div>
+        <button class="btn" id="addCancel">Cancel</button>
+      </div>
+      <h2 style="margin-top:8px">Keys Amit has seen</h2>
+      <div class="n2" id="seenList"></div>
+    </div>
+    <div class="main">
+      <div class="tip"><b>Before you start</b><br>Leave every key on your keyboard the way it is now. If your keyboard came with its own program, don't change its keys there. Everything is set up right here instead.<div class="n2" style="margin-top:4px">Why: a keyboard's own program changes a key before Windows, and Amit, ever see it. A key it keeps for itself (a Fn key, say) can't be seen here.</div></div>
+      <div class="wprompt" id="wPrompt">Step 1: name this keyboard, then press the keys you want to use</div>
+      <div class="n2" style="margin-bottom:6px">Press only the keys you plan to give a job. You do not have to teach every key: a key you never teach keeps typing exactly as it does now. Just press keys on your keyboard.</div>
+      <div class="pad" id="pad" tabindex="0"><span id="padTitle" style="font-weight:600">Press any key on your keyboard</span><div class="log" id="log"></div></div>
+      <div class="n2" id="learnState" style="margin-top:3px"></div>
+      <h2 style="margin-top:10px" id="kbTitle">This keyboard</h2>
+      <div class="kb" id="kbLearn"></div>
+      <div class="legend"><span><i style="background:#2b3347;border-color:#566082;border-style:dashed"></i>Not seen yet</span><span><i style="background:#2d4a45;border-color:var(--teal)"></i>Seen</span><span><i style="background:#2a2f3e;border-color:#3a4256"></i>Protected: never changes</span></div>
+    </div>
+  </div>
+
+  <!-- 2. SETS -->
+  <div class="two" id="v2" hidden>
+    <div class="side">
+      <h2>Your sets</h2>
+      <div id="setList"></div>
+      <button class="btn" id="newBtn">+ New set</button>
+      <h2 style="margin-top:8px">Switching sets</h2>
+      <div class="n2">Any time, in any program: from a key set to <b>Switch keyboard set</b>, from a Helper bar button, from the Amit menu's Keyboard tab, or by voice: say "keyboard" and its one-word name (always Set 1), or add "set" and a number, for example "keyboard macro set two".
+        <div class="form"><input id="voiceIn" placeholder='Try: keyboard macro set two' style="width:100%"><button class="btn" id="voiceBtn">Say it</button></div></div>
+    </div>
+    <div class="main mainc">
+      <div class="topc">
+        <h2 id="kbTitle2">Pick a key to give it a job</h2>
+        <div class="form" id="modBar" style="margin:0 0 6px"></div>
+        <div class="pad" id="spad" tabindex="0" style="margin-bottom:8px">
+          <div class="h"><span class="big" id="spadTitle">Press a key on your keyboard in this box</span></div>
+          <div id="focus"></div>
+          <div class="log" id="slog"></div>
+        </div>
+
+        <div class="kb" id="kbSets" style="margin-bottom:6px"></div>
+                <div class="legend" style="margin-top:5px"><span><i style="background:var(--gold);border-color:#fff"></i>The key or pair you are changing</span><span><i style="background:#2b3347;border-color:#566082"></i>Other keys: plain; a small <b style="color:var(--gold)">&bull;</b> marks a key that already has a saved job</span><span><i style="background:#2a2f3e;border-color:#3a4256"></i>Locked: never changes (&#128274;)</span></div>
+      </div>
+      <div class="botc">
+        <div id="useBox"></div>
+        <div class="tip2" id="lockNote"></div>
+        <h2 id="mapTitle">Saved jobs in this set</h2>
+        <table><thead><tr><th>Key</th><th>Saved job (change it here or at the top)</th></tr></thead><tbody id="rows"></tbody></table>
+        <h2 style="margin-top:12px">Try it on this computer</h2>
+      <div class="form"><button class="btn gold" id="testBtn">Test for 30 seconds</button><span class="n2" id="testTxt">Sets are paused while you are on this page, so nothing can trap you. Press Test to turn them on for 30 seconds.</span></div>
+      <div class="pad" id="tpad" tabindex="0" style="min-height:70px;margin-top:6px"><span style="font-weight:600">Click here and type; mapped keys show what they would do (a simulation inside this page)</span><div class="log" id="tlog"></div></div>
+      <div class="foot"><b>What to know.</b> The Amit Helper on this computer watches every keyboard through Windows, tells them apart, and applies the sets everywhere on the computer. Windows keeps a few keys for itself (Ctrl+Alt+Delete, Win+L, Alt+F4). A key with a double-press action has to wait a moment before a single press acts. A key that is part of a pair waits a moment too, so the pair can be told from two single keys; it is typed the instant you let go or press anything else. Holding Space for 400 ms then pressing a number switches sets: a Space held that long and let go on its own still types one space. Auto-repeat, AltGr, dead keys and input methods are worth trying on your own keyboards. This page cannot see the Windows key or the Fn key by itself; the Helper sees the Windows key. A keyboard that handles a key before Windows sees it (a Fn key, say) cannot be changed here.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. CODE -->
+  <div class="main" id="v3" hidden style="flex:1;min-height:0;overflow:auto;padding:12px 16px">
+    <div class="notice" style="border:1px solid var(--gold);border-radius:8px;margin-bottom:10px"><b>Scrambled, not secure.</b> A Code keeps a message from casual eyes. A determined person with a computer can break a code like this (the Enigma machine was broken). For real privacy, real encryption goes underneath; that is a separate step and is not built.</div>
+    <div class="tip"><b>How a Code works</b><br>Each of your keyboard sets (not Set 1) is a scramble table: in Set 4, G types Q, and so on. EVERY key can be scrambled, not only letters: <b>Space is not necessarily a space</b> (in a set, M can type the space and the Space key can type a letter), and a combination such as <b>Ctrl+G</b> or a pair of keys held together can be a symbol of its own. Some keys also say <b>"type this, then switch to Set N"</b> (set it on the Keyboard sets tab: <i>Send keys, then switch set</i>). So the table changes as you type, and the next letter is scrambled by a different set. To read the message, the other person needs the same sets: they follow the same switches and arrive at the same set for every letter.<div class="n2" style="margin-top:4px">Rules that make a message readable: every scramble set must be one-to-one (no two keys type the same character, a space counts as a character), and every key that switches must also type something, because the reader can only see the letters, not the switches. The checks below look for both.</div></div>
+    <div class="form" style="margin:6px 0">
+      <span>Keyboard: <b id="cKb"></b></span>
+      <span class="n2">1. Choose the set to start with:</span><select id="cStart"></select>
+      <button class="btn" id="cNew">New message</button>
+      <button class="btn gold" id="cDemo" title="Builds three example scramble sets (Sets 2, 3 and 4) on this keyboard, so you can try it">Fill a demo code</button>
+    </div>
+    <h2>Checks on the sets</h2>
+    <div id="cChecks" class="n2" style="margin-bottom:8px"></div>
+    <h2>2. Type your message: the sets do the scrambling</h2>
+    <div class="pad" id="cin" tabindex="0" style="min-height:0;cursor:text"><span class="big" id="cinTitle" style="font-size:13px;font-weight:600">Click here, then type your message (Ctrl+G and other combinations count too if the set gives them a job). Backspace takes the last symbol back.</span></div>
+    <div id="cView" style="margin:8px 0"></div>
+    <div id="cOut"></div>
+    
+    <h2 style="margin-top:12px">Share this keyboard's sets</h2>
+    <div class="n2" style="margin-bottom:4px">A person you send the text to can import it and gets their own copy of the sets (the sets only; nothing here reaches into their computer). Jobs that run your Helper bar buttons are left out, because they do not have your buttons.</div>
+    <div class="form"><button class="btn" id="cExp">Show these sets as text</button><button class="btn" id="cImp">Import the text below</button></div>
+    <textarea id="cShare" rows="4" style="width:100%;margin-top:4px;background:#10141d;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 7px;font:12px ui-monospace,Consolas,monospace" placeholder="Exported sets appear here. To import, paste the text here and press Import."></textarea>
+    <div class="n2" id="cShareMsg" style="margin-top:3px"></div>
+  </div>
+
+  <!-- 4. SECRET MODIFIER -->
+  <div class="main" id="v4" hidden style="flex:1;min-height:0;overflow:auto;padding:12px 16px">
+    <div class="notice" style="border:1px solid var(--gold);border-radius:8px;margin-bottom:10px"><b>Scrambled, not secure.</b> The modifiers add a private layer on top of the sets: the keyboard sets can be shared with anyone, but the secrets below stay between the two of you. It still does not make this real encryption. A birthday or a date can be guessed by trying them all, and stacking several simple shifts adds less than it feels like. A long secret that nobody could guess helps more than more steps do.</div>
+    <div class="tip"><b>How a modifier works</b><br>You and the other person agree on a secret that only you two know (today's date, a birthday, a word, a number). Amit turns it into a number by adding up the ASCII codes of its characters (A is 65, B is 66, 0 is 48, and so on). Then it changes <b>every character</b> of the code from the Secret code tab by that number: add it, subtract it, multiply by it, or add it plus one more for each place along the message. You can use up to four modifiers, one after another. The receiver needs the same keyboard sets AND the same modifiers, in the same order, to read the message on the Secret decipher tab.<div class="n2" style="margin-top:4px">The code characters are the 38 symbols A to Z, 0 to 9, space and #. A shift wraps around from the end back to the start. Multiplying only works with a number that has no common factor with 38, so if your number does not, Amit uses the next number up that does (the receiver's Amit does the same).</div></div>
+    <h2>The message, step by step</h2>
+    <div id="mFlow" class="use"></div>
+    <h2 style="margin-top:10px">Your modifiers (1 to 4, applied in order)</h2>
+    <div id="mCards"></div>
+    <div id="mCheck" class="n2" style="margin:6px 0"></div>
+  </div>
+
+  <!-- 5. SECRET DECIPHER -->
+  <div class="main" id="v5" hidden style="flex:1;min-height:0;overflow:auto;padding:12px 16px">
+    <div class="notice" style="border:1px solid var(--gold);border-radius:8px;margin-bottom:10px"><b>Scrambled, not secure.</b> This reads a message that was scrambled with a set of keyboard sets. You need the same sets as the sender (the sender can share them; see the last section of the Secret code tab).</div>
+    <div class="tip"><b>How to read a message</b><br>1. Choose the set the sender started with (they tell you). 2. Paste the message you were sent. 3. Press <b>Decipher</b>. Amit follows the same switches the sender's sets made, letter by letter, and shows the real message.</div>
+    <div class="form" style="margin:6px 0"><span>Keyboard: <b id="dKb"></b></span><span class="n2">1. The set it started with:</span><select id="cStart2"></select></div>
+    <div class="use" id="dMods" style="margin:6px 0"></div>
+    <div class="n2">2. Paste the message you were sent:</div>
+    <textarea id="cPaste" rows="3" style="width:100%;background:#10141d;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:15px ui-monospace,Consolas,monospace" placeholder="Paste the coded message here"></textarea>
+    <div class="form" style="margin:6px 0"><button class="btn gold" id="cDec">3. Decipher</button><button class="btn" id="cDecClear">Clear</button></div>
+    <div id="cDecOut" style="margin-top:6px"></div>
+  </div>
+
+</div>
+
+<script>
+var $=function(i){return document.getElementById(i)};
+var KU=30; /* one key unit, in pixels */
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+/* ---- layouts: blocks of rows; a key is [code,label,width]; null = gap; [] = empty row ---- */
+var L_MAIN_KEYS=[
+ [['Escape','Esc',1],null,['F1','F1',1],['F2','F2',1],['F3','F3',1],['F4','F4',1],['F5','F5',1],['F6','F6',1],['F7','F7',1],['F8','F8',1],['F9','F9',1],['F10','F10',1],['F11','F11',1],['F12','F12',1]],
+ [['Backquote','`',1]].concat('1234567890'.split('').map(function(c){return['Digit'+c,c,1]}),[['Minus','-',1],['Equal','=',1],['Backspace','Back',2]]),
+ [['Tab','Tab',1.5]].concat('QWERTYUIOP'.split('').map(function(c){return['Key'+c,c,1]}),[['BracketLeft','[',1],['BracketRight',']',1],['Backslash','\\',1.5]]),
+ [['CapsLock','Caps',1.75]].concat('ASDFGHJKL'.split('').map(function(c){return['Key'+c,c,1]}),[['Semicolon',';',1],['Quote',"'",1],['Enter','Enter',2.25]]),
+ [['ShiftLeft','Shift',2.25]].concat('ZXCVBNM'.split('').map(function(c){return['Key'+c,c,1]}),[['Comma',',',1],['Period','.',1],['Slash','/',1],['ShiftRight','Shift',2.75]]),
+ [['ControlLeft','Ctrl',1.25],['MetaLeft','⊞ Win',1.25],['AltLeft','Alt',1.25],['Space','Space',6.25],['AltRight','Alt',1.25],['MetaRight','⊞ Win',1.25],['ContextMenu','Menu',1.25],['ControlRight','Ctrl',1.25]]
+];
+var L_NAV=[
+ [['PrintScreen','PrtSc',1],['ScrollLock','ScrLk',1],['Pause','Pause',1]],
+ [['Insert','Ins',1],['Home','Home',1],['PageUp','PgUp',1]],
+ [['Delete','Del',1],['End','End',1],['PageDown','PgDn',1]],
+ [],
+ [null,['ArrowUp','↑',1]],
+ [['ArrowLeft','←',1],['ArrowDown','↓',1],['ArrowRight','→',1]]
+];
+var L_NUM=[
+ [],
+ [['NumLock','Num',1],['NumpadDivide','/',1],['NumpadMultiply','*',1],['NumpadSubtract','-',1]],
+ [['Numpad7','7',1],['Numpad8','8',1],['Numpad9','9',1],['NumpadAdd','+',1]],
+ [['Numpad4','4',1],['Numpad5','5',1],['Numpad6','6',1]],
+ [['Numpad1','1',1],['Numpad2','2',1],['Numpad3','3',1],['NumpadEnter','Enter',1]],
+ [['Numpad0','0',2],['NumpadDecimal','.',1]]
+];
+var L_MAIN=[L_MAIN_KEYS,L_NAV,L_NUM];
+var L_PAD=[[
+ [['F13','F13',1.6],['F14','F14',1.6],['F15','F15',1.6],['F16','F16',1.6]],
+ [['F17','F17',1.6],['F18','F18',1.6],['F19','F19',1.6],['F20','F20',1.6]],
+ [['F21','F21',1.6],['F22','F22',1.6],['F23','F23',1.6],['F24','F24',1.6]]
+]];
+var L_SCAN=[[[['Digit1','1',1],['Digit2','2',1],['Digit3','3',1],['Digit4','4',1],['Digit5','5',1]],[['Enter','Enter',2.5],['Tab','Tab',2.5]]]];
+/* special keys: the ones keyboards commonly have. Anything ELSE a keyboard sends is added to this area the moment it is pressed. */
+var SPECIAL=[['VolumeMute','Mute'],['VolumeDown','Vol -'],['VolumeUp','Vol +'],['MediaPlayPause','Play'],['MediaStop','Stop'],['MediaTrackPrevious','Prev'],['MediaTrackNext','Next'],['MediaSelect','Media'],
+ ['BrowserBack','Back'],['BrowserForward','Fwd'],['BrowserRefresh','Reload'],['BrowserHome','Home pg'],['BrowserSearch','Search'],['BrowserFavorites','Favs'],
+ ['LaunchMail','Mail'],['LaunchApp1','App 1'],['LaunchApp2','Calc'],['Fn','Fn'],['FnLock','FnLock'],['Help','Help'],['Sleep','Sleep'],['WakeUp','Wake'],['Power','Power']];
+var PROT=/^(Control|Alt|Shift|Meta)(Left|Right)$|^Escape$|^(Power|Sleep|WakeUp)$/;
+var TYPING=/^(Key[A-Z]|Digit\d|Backquote|Minus|Equal|Bracket(Left|Right)|Backslash|Semicolon|Quote|Comma|Period|Slash|Space|Enter|Backspace|Tab)$/;
+var WORDS=['zero','one','two','three','four','five','six','seven','eight','nine'];
+
+/* ---- state ---- */
+var nid=10;
+function mkSet(num,label,map){return{id:nid++,num:num,label:label,map:map||{}}}
+var L_ALL=L_MAIN.concat(L_PAD);
+var HELPERBTNS=[],HB=[['Settings','Amit menu']];
+function mkDev(name,devKey,primary){var s1=mkSet(1,'Everyday',{});return{id:nid++,name:name,dev:devKey||'',primary:!!primary,layout:L_ALL,seen:{},extra:[],labels:{},sets:[s1],selId:s1.id,activeId:s1.id,nextNum:2,dbl:300,spaceNum:true,spaceMs:400,spaceIn1:false,learned:false}}
+var devs=[mkDev('Main','',true)];
+var cur=devs[0], master=true, paused=true, pauseT=null, sel=null, tab=1, lastUsed=cur.id;
+function dev(id){for(var i=0;i<devs.length;i++)if(devs[i].id==id)return devs[i]}
+function setOf(d,id){for(var i=0;i<d.sets.length;i++)if(d.sets[i].id==id)return d.sets[i];return d.sets[0]}
+function aset(d){return setOf(d,d.activeId)}
+function sname(s){return 'Set '+s.num+(s.label?' · '+s.label:'')}
+function phrase(d,s){return 'keyboard '+d.name.toLowerCase()+(s.num===1?'':' set '+(WORDS[s.num]||s.num))}
+/* a key's status on this keyboard: 'prot' never changes; 'fix' = main keyboard typing key, locked; else free */
+function lockKind(d,code,st){st=st||aset(d);if(code.indexOf('&')>0){var ps=code.split('&');if(ps.some(function(c){return PROT.test(c)}))return 'prot';if(d.primary&&st.num===1&&ps.some(function(c){return TYPING.test(c)}))return 'fix';return ''}if(PROT.test(code))return 'prot';if(d.primary&&TYPING.test(code)&&st.num===1)return 'fix';return ''}
+/* a job belongs to a key AND the modifiers held with it. id = "Ctrl+Shift|F5"; no modifiers = just "F5" */
+var MODS=['Ctrl','Shift','Alt','Win'],selMods=[];
+function baseOf(id){var i=id.indexOf('|');return i<0?id:id.slice(i+1)}
+function modsOfId(id){var i=id.indexOf('|');return i<0?[]:id.slice(0,i).split('+')}
+function idOf(mods,code){var m=MODS.filter(function(x){return mods.indexOf(x)>=0});return m.length?m.join('+')+'|'+code:code}
+function idLabel(d,id){var m=modsOfId(id);return (m.length?m.join(' + ')+' + ':'')+labelOf(d,baseOf(id))}
+/* TWO KEYS HELD TOGETHER are one combination, in either order: Space + 1 and 1 + Space are the same thing. Its code is the two keys joined by &, Space first, otherwise alphabetical. */
+var HELD=[];
+function isModCode(c){return /^(Control|Shift|Alt|Meta)(Left|Right)$/.test(c)}
+function chordId(a,b){var x=[a,b].sort(function(p,q){return p==='Space'?-1:q==='Space'?1:(p<q?-1:1)});return x[0]+'&'+x[1]}
+document.addEventListener('keydown',function(e){
+  if(isModCode(e.code)||e.repeat)return;
+  var other=null;for(var i=HELD.length-1;i>=0;i--)if(HELD[i]!==e.code){other=HELD[i];break}
+  e.__ch=other?chordId(other,e.code):null;
+  if(HELD.indexOf(e.code)<0)HELD.push(e.code);
+},true);
+document.addEventListener('keyup',function(e){var i=HELD.indexOf(e.code);if(i>=0)HELD.splice(i,1)},true);
+window.addEventListener('blur',function(){HELD=[]});
+function hasJob(st,code){return Object.keys(st.map).some(function(id){return baseOf(id)===code})}
+/* what is locked for this key + modifiers: prot never changes, em = the emergency switch, sys = Windows keeps it, fix = a typing key on the main keyboard held with one plain modifier (Ctrl+C, Shift+A) */
+function lockId(d,id,st){
+  var c=baseOf(id),m=modsOfId(id),k=lockKind(d,c,st||stOf()),h=function(x){return m.indexOf(x)>=0};
+  if(/^Space&(Digit|Numpad)[1-9]$/.test(c)&&d.spaceNum!==false)return 'bi';
+  if(k==='prot')return 'prot';
+  if(h('Ctrl')&&h('Alt')&&h('Shift')&&c==='KeyM')return 'em';
+  if((h('Ctrl')&&h('Alt')&&c==='Delete')||(m.length===1&&h('Win')&&c==='KeyL')||(h('Alt')&&c==='F4'&&m.length===1))return 'sys';
+  if(k==='fix')return 'fix';
+  return '';
+}
+function labelOf(d,code){
+  var b,r,j,k,i,n;
+  if(code.indexOf('&')>0)return code.split('&').map(function(c){return labelOf(d,c)}).join(' + ');
+  for(b=0;b<d.layout.length;b++)for(i=0;i<d.layout[b].length;i++){r=d.layout[b][i];for(j=0;j<r.length;j++){k=r[j];if(k&&k[0]===code)return k[1]}}
+  for(n=0;n<SPECIAL.length;n++)if(SPECIAL[n][0]===code)return SPECIAL[n][1];
+  return (d.labels&&d.labels[code])||code;
+}
+function inLayout(d,code){var b,i,j,r,k;for(b=0;b<d.layout.length;b++)for(i=0;i<d.layout[b].length;i++){r=d.layout[b][i];for(j=0;j<r.length;j++){k=r[j];if(k&&k[0]===code)return true}}return false}
+/* a key Amit has never heard of (a gaming key, a volume knob, a vendor key): add it to this keyboard's Special keys the moment it is pressed */
+function captureUnknown(d,code,keyName){
+  if(!code||code==='Unidentified')code='Key:'+(keyName||'unknown');
+  if(!inLayout(d,code)&&(d.extra||(d.extra=[])).indexOf(code)<0){d.extra.push(code);(d.labels||(d.labels={}))[code]=(keyName&&keyName.length<=9&&keyName!==' '?keyName:code.replace(/^Key:/,'')).slice(0,9)}
+  return code;
+}
+function actDesc(a,d){if(!a||a.t==='keep')return 'Keeps typing as it does now';if(a.t==='key')return 'Sends '+a.v;if(a.t==='helper')return 'Runs the Helper button "'+String(a.v||'').split('|').slice(-1)[0]+'"';if(a.t==='set'){var x=setOf(d,a.v);return 'Switches to '+sname(x)}if(a.t==='keyswitch'){var y=setOf(d,a.v2);return 'Sends '+a.v+', then switches to '+sname(y)}if(a.t==='none')return 'Does nothing';return ''}
+
+/* ---- drawn keyboard ---- */
+function keyHtml(code,label,w,mode,extraCls){
+  var lk=lockKind(cur,code,aset(cur)),cls='key',s=aset(cur),asg=hasJob(s,code);
+  if(mode==='sets'){
+    /* Keyboard sets: only the key or pair being changed is lit; every other key stays plain (a small dot marks a key that already has a saved job) */
+    if(lk==='prot')cls+=' prot';else if(lk==='fix')cls+=' fix';
+    if(asg)cls+=' hasjob';
+    if(sel&&(sel===code||sel.split('&').indexOf(code)>=0))cls+=' sel pick';
+  }else{
+    if(lk==='prot')cls+=' prot';else if(lk==='fix')cls+=' fix'+(cur.seen[code]?' seen':' unk');
+    else cls+=cur.seen[code]?' seen':' unk';
+  }
+  if(extraCls)cls+=' '+extraCls;
+  return '<div class="'+cls+'" data-c="'+esc(code)+'" title="'+esc(code)+'" style="width:'+Math.round(KU*w+(w>1?(w-1)*3:0))+'px">'+esc(label)+'</div>';
+}
+function drawKb(el,clickFn,mode){
+  var W=el.clientWidth;KU=W>200?Math.max(18,Math.min(38,Math.floor((W-20-130)/29))):30;el.style.setProperty('--ku',KU+'px');
+  var h='<div class="kbs">';
+  cur.layout.forEach(function(block){
+    h+='<div class="kblock">';
+    block.forEach(function(row){
+      if(!row.length){h+='<div class="krow" style="height:'+KU+'px"></div>';return}
+      h+='<div class="krow">';
+      row.forEach(function(k){
+        if(!k){h+='<div class="key gap" style="width:'+KU+'px"></div>';return}
+        h+=keyHtml(k[0],k[1],k[2],mode);
+      });
+      h+='</div>';
+    });
+    h+='</div>';
+  });
+  h+='</div>';
+  /* the Special keys area, under the keyboard: common special keys, then anything else this keyboard has sent */
+  h+='<div class="kblock special"><div class="sh">Special keys</div><div class="sk">';
+  (cur.extra||[]).forEach(function(c){h+=keyHtml(c,labelOf(cur,c),1,mode,'spk')});
+  h+='</div><div class="n2" style="margin-top:2px">'+((cur.extra&&cur.extra.length)?'Special keys this keyboard has sent.':'Nothing yet: a volume, media, gaming or other special key appears here when pressed.')+'</div></div>';
+  el.innerHTML=h;
+  [].forEach.call(el.querySelectorAll('.key[data-c]'),function(e){e.onclick=function(){clickFn(e.getAttribute('data-c'))}});
+}
+function flash(code){
+  [].forEach.call(document.querySelectorAll('.key[data-c="'+code+'"]'),function(e){e.classList.add('flash');setTimeout(function(){e.classList.remove('flash')},350)});
+}
+
+/* ---- header ---- */
+function drawHead(){
+  $('devPick').innerHTML=devs.map(function(d){return'<option value="'+d.id+'"'+(d===cur?' selected':'')+'>'+esc(d.name||'(unnamed)')+(d.primary?' (main)':'')+'</option>'}).join('');
+  $('pretend').innerHTML=devs.map(function(d){return'<option value="'+d.id+'"'+(d.id==lastUsed?' selected':'')+'>'+esc(d.name)+'</option>'}).join('');
+  var a=aset(dev(lastUsed));
+  $('activePill').textContent=master?('In use now: '+esc(dev(lastUsed).name)+' · '+sname(a)):'All keys work normally';
+  $('master').className='tog'+(master?' on':'');$('masterTxt').textContent=master?'on':'off';
+  $('editBar').hidden=false;
+  $('editBar').textContent=!helperLive?'The Amit Helper is not connected, so nothing is being changed on this computer. Your sets are kept and will work as soon as the Helper is running.':(paused?'Your keyboard sets are PAUSED while you are on this page, so nothing can trap you. Press Test on the Keyboard sets tab to try them for 30 seconds. They work everywhere as soon as you leave this page.':'TESTING: your keyboard sets are ON for 30 seconds, so you can try them. Ctrl + Alt + Shift + M switches them all off.');
+}
+
+/* ---- tab 1 ---- */
+function drawLearn(){
+  $('kName').value=cur.name;
+  $('devTxt').textContent=cur.primary?'This is your MAIN keyboard. Set 1 (the starting set) keeps its typing keys as they are, and Ctrl, Alt, Shift, Windows and Esc stay as they are in every set. In a new set every other key can be changed.':'An extra keyboard. Only Ctrl, Alt, Shift, Windows and Esc are locked; every other key can be given a job.';
+  $('kbTitle').textContent='Keys on "'+cur.name+'"';
+  drawKb($('kbLearn'),function(c){learnKey(c,true)},'learn');
+  var ks=Object.keys(cur.seen);
+  $('seenList').innerHTML=ks.length?ks.map(function(c){return esc(labelOf(cur,c))}).join(', '):'None yet. Press a key.';
+}
+function learnKey(code,fake,keyName){
+  var wasNew=!inLayout(cur,code);
+  code=captureUnknown(cur,code,keyName);
+  if(!cur.seen[code]&&!PROT.test(code))cur.seen[code]=1;
+  var lk=lockKind(cur,code);
+  var d=document.createElement('div');d.className='a';
+  d.textContent=(fake?'(pretend) ':'')+labelOf(cur,code)+(wasNew?' (a new special key, added to Special keys)':'')+' → '+(lk==='prot'?'seen, but protected: never changes':lk==='fix'?'seen: typing key on the main keyboard, keeps typing':'learned: it can be given a job in a set');
+  var lg=$('log');lg.insertBefore(d,lg.firstChild);flash(code);drawLearn();
+}
+
+$('pad').classList.add('live');$('padTitle').textContent='Press any key on your keyboard';
+$('kName').oninput=function(){
+  var n=this.value.trim(),m=$('nameMsg');
+  if(/\s/.test(n)){m.hidden=false;m.textContent='Use one word only, so the spoken command is just "keyboard" and the name.';return}
+  if(n&&!/^[A-Za-z0-9]+$/.test(n)){m.hidden=false;m.textContent='Use letters and numbers only.';return}
+  if(devs.some(function(d){return d!==cur&&d.name.toLowerCase()===n.toLowerCase()})){m.hidden=false;m.textContent='Another keyboard already has that name.';return}
+  m.hidden=true;cur.name=n;drawHead();$('kbTitle').textContent='Keys on "'+cur.name+'"';save();
+};
+$('addBtn').onclick=function(){if(!helperLive){alert('The Amit Helper is not connected, so I cannot see which keyboard you touch. Open the Amit Helper first.');return}adding={};$('addPanel').hidden=false};
+$('addCancel').onclick=function(){adding=null;$('addPanel').hidden=true};
+
+$('devPick').onchange=function(){cur=dev(this.value);sel=null;drawAll()};
+$('pretend').onchange=function(){lastUsed=+this.value;drawHead()};
+
+/* ---- tab 2: laid out like the Mouse sets page. TOP = the chosen key, changed there. BELOW = the saved list. ---- */
+var OPTS=[['keep','Keep as it is'],['key','Send keys (another key, or a combination)'],['keyswitch','Send keys, then switch keyboard set'],['helper','Run a Helper button'],['set','Switch keyboard set'],['none','Do nothing']];
+var recSlot=null, delArm=null, slog=[];
+function stOf(){return setOf(cur,cur.selId)}
+function getSlot(st,id,slot){var m=st.map[id];return m?m[slot]:null}
+function putSlot(st,id,slot,o){
+  if(o){(st.map[id]||(st.map[id]={}))[slot]=o}
+  else if(st.map[id]){delete st.map[id][slot];if(!Object.keys(st.map[id]).length)delete st.map[id]}
+}
+function slotHtml(id,slot,m){
+  var A='data-c="'+esc(id)+'" data-s="'+slot+'" ',rec=(recSlot===id+'~'+slot);
+  var c='<span class="dot '+m.t+'"></span><select '+A+'data-k="t">'+OPTS.map(function(o){return'<option value="'+o[0]+'"'+(m.t===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select> ';
+  if(m.t==='key')c+='<input class="key-in'+(rec?' rec':'')+'" '+A+'data-k="rec" readonly value="'+(rec?'Press the keys now...':esc(m.v||''))+'" placeholder="Click, then press keys">';
+  if(m.t==='helper')c+='<select '+A+'data-k="v">'+helperOpts(m.v)+'</select>';
+  if(m.t==='set')c+='<select '+A+'data-k="v">'+cur.sets.map(function(x){return'<option value="'+x.id+'"'+(String(m.v)===String(x.id)?' selected':'')+'>'+esc(sname(x))+'</option>'}).join('')+'</select>';
+  if(m.t==='keyswitch')c+='<input class="key-in'+(rec?' rec':'')+'" '+A+'data-k="rec" readonly value="'+(rec?'Press the keys now...':esc(m.v||''))+'" placeholder="Click, then press keys"> <span class="n2">then switch to</span> <select '+A+'data-k="v2">'+cur.sets.map(function(x){return'<option value="'+x.id+'"'+(String(m.v2)===String(x.id)?' selected':'')+'>'+esc(sname(x))+'</option>'}).join('')+'</select>';
+  return c;
+}
+var LOCKTXT={bi:'Built in: Space held with a number (1 to 9) switches to that numbered set, in either order. Turn that rule off above the list if you want to give this pair a different job.',prot:'Primary key. It cannot be changed. Ctrl, Alt, Shift, Windows and Esc, pressed on their own, always work as normal so Amit can always be used.',em:'Reserved: Ctrl + Alt + Shift + M is the emergency switch that turns every keyboard set off.',sys:'Windows keeps this one for itself, so it cannot be changed.',fix:'Set 1 is the safe starting set: the typing keys on the main keyboard stay as they are in it, so you can always type. Make a new set (+ New set) and this key can be given any job there, for example to act as another key.'};
+function cellK(id,st){
+  var lk=lockId(cur,id);
+  if(lk)return'<div class="syslock"><b>&#128274; '+LOCKTXT[lk]+'</b></div>';
+  var g=st.map[id]||{},p=g.p||{t:'keep'};
+  if(st.locks&&st.locks[id]){
+    var lc='<div class="syslock user"><b>&#128274; Locked by you. It will not change.</b><div class="slot"><span class="lab">Press</span>'+esc(actDesc(p,cur))+'</div>';
+    if(g.d)lc+='<div class="slot"><span class="lab">Double-press</span>'+esc(actDesc(g.d,cur))+'</div>';
+    if(g.h)lc+='<div class="slot"><span class="lab">Hold</span>for '+(g.h.ms||500)+' ms: '+esc(actDesc(g.h,cur))+'</div>';
+    return lc+'<div class="n2"><span class="lk" data-lock="'+esc(id)+'">Unlock this key</span> if you want to change it.</div></div>';
+  }
+  var c='<div class="slot" style="justify-content:flex-end;padding:0"><span class="lk" data-lock="'+esc(id)+'">&#128274; Lock this key</span></div><div class="slot"><span class="lab">Press</span>'+slotHtml(id,'p',p)+(g.d?' <span class="n2">acts after '+(cur.dbl||300)+' ms, to be sure it is not a double-press</span>':'')+'</div>';
+  if(g.d)c+='<div class="slot"><span class="lab">Double-press</span>'+slotHtml(id,'d',g.d)+' <span class="lk" data-rm="'+esc(id)+'~d">remove</span></div>';
+  if(g.h)c+='<div class="slot"><span class="lab">Hold</span>for <input type="number" min="200" max="3000" step="50" value="'+(g.h.ms||500)+'" data-c="'+esc(id)+'" data-s="h" data-k="ms" class="ms"> ms '+slotHtml(id,'h',g.h)+' <span class="lk" data-rm="'+esc(id)+'~h">remove</span></div>';
+  var add='';
+  if(!g.d)add+='<span class="lk" data-add="'+esc(id)+'~d">+ Double-press action</span> ';
+  if(!g.h)add+='<span class="lk" data-add="'+esc(id)+'~h">+ Hold action</span>';
+  if(add)c+='<div class="slot">'+add+'</div>';
+  return c;
+}
+function recText(e){
+  var k=e.key,p=[],combo=e.ctrlKey||e.altKey||e.metaKey;
+  if(k.length===1&&combo)k=k.toUpperCase();
+  if(e.ctrlKey)p.push('Ctrl');if(e.shiftKey&&!(k.length===1&&!combo))p.push('Shift');if(e.altKey)p.push('Alt');if(e.metaKey)p.push('Win');
+  p.push(k===' '?'Space':k);return p.join('+');
+}
+function pick(id){sel=baseOf(id);selMods=modsOfId(id)}
+function bindK(root,st){
+  [].forEach.call(root.querySelectorAll('[data-k]'),function(e){
+    var id=e.getAttribute('data-c'),slot=e.getAttribute('data-s'),k=e.getAttribute('data-k');
+    if(k==='rec'){
+      e.onclick=function(){recSlot=id+'~'+slot;pick(id);drawSetsView();var r=document.querySelector('.key-in.rec');if(r)r.focus()};
+      e.onkeydown=function(ev){
+        ev.preventDefault();ev.stopPropagation();
+        if(/^(Control|Shift|Alt|Meta)(Left|Right)$/.test(ev.code))return;
+        if(ev.code==='Escape'&&!ev.ctrlKey&&!ev.altKey&&!ev.shiftKey&&!ev.metaKey){recSlot=null;drawSetsView();return}
+        var a=getSlot(st,id,slot);if(a)a.v=recText(ev);recSlot=null;drawSetsView();
+      };
+      e.onblur=function(){if(recSlot===id+'~'+slot){recSlot=null;drawSetsView()}};
+      return;
+    }
+    e.onchange=function(){
+      var o=getSlot(st,id,slot)||{t:'keep'};
+      if(k==='t'){var t=e.value;if(t==='keep'&&slot==='p')putSlot(st,id,'p',null);else putSlot(st,id,slot,{t:t,v:t==='helper'?(HB[0][0]+'|'+HB[0][1]):t==='set'?cur.sets[0].id:'',v2:t==='keyswitch'?cur.sets[0].id:undefined,ms:o.ms})}
+      else if(k==='ms')o.ms=Math.max(200,Math.min(3000,+e.value||500));
+      else if(k==='v2')o.v2=+e.value;
+      else o.v=(o.t==='set')?+e.value:e.value;
+      pick(id);drawSetsView();
+    };
+  });
+  [].forEach.call(root.querySelectorAll('[data-add]'),function(e){e.onclick=function(){var p=e.getAttribute('data-add').split('~');putSlot(st,p[0],p[1],p[1]==='h'?{t:'key',v:'',ms:500}:{t:'key',v:''});pick(p[0]);drawSetsView()}});
+  [].forEach.call(root.querySelectorAll('[data-rm]'),function(e){e.onclick=function(){var p=e.getAttribute('data-rm').split('~');putSlot(st,p[0],p[1],null);pick(p[0]);drawSetsView()}});
+  [].forEach.call(root.querySelectorAll('[data-lock]'),function(e){e.onclick=function(){var id=e.getAttribute('data-lock');st.locks=st.locks||{};if(st.locks[id])delete st.locks[id];else st.locks[id]=true;pick(id);drawSetsView()}});
+}
+function numOpts(st){var used={};cur.sets.forEach(function(x){if(x!==st)used[x.num]=1});var h='';for(var n=1;n<=9;n++)if(!used[n])h+='<option value="'+n+'"'+(n===st.num?' selected':'')+'>Set '+n+'</option>';return h}
+function drawSetsView(){
+  var s=stOf(),sid=sel?idOf(selMods,sel):null;
+  $('setList').innerHTML=cur.sets.map(function(x){return'<div class="set'+(x.id===cur.selId?' sel':'')+'" data-id="'+x.id+'"><div class="n">'+esc(sname(x))+(master&&x.id===cur.activeId?' <span class="badge">in use now</span>':'')+'</div><div class="p">Say: "'+esc(phrase(cur,x))+'"'+(x.num===1?' (starting set)':'')+'</div></div>'}).join('');
+  [].forEach.call($('setList').children,function(e){e.onclick=function(){cur.selId=+e.getAttribute('data-id');cur.activeId=cur.selId;drawAll()}});
+  $('kbTitle2').textContent='Keyboard "'+cur.name+'" · '+sname(s)+' — press or click a key, then say what it does';
+  $('lockNote').textContent='Two keys held together are one combination in either order (G + K is the same as K + G). Space held + a number (1 to 9) switches sets in every set, so you can always get back. Locked on every keyboard: Ctrl, Alt, Shift, Windows and Esc pressed on their own (so Amit always works), and the emergency switch Ctrl+Alt+Shift+M. '+(cur.primary?'On your main keyboard, Set 1 (the starting set) also keeps its typing keys as they are, so you can always type. In any new set every other key can be changed: a letter can act as another letter (G as K), a key can send a combination, or run a Helper button.':'Every other key on this keyboard can be given a job, alone or held with Ctrl, Shift, Alt or Windows.');
+  $('modBar').innerHTML='<span class="n2">When the key is pressed with:</span>'+MODS.map(function(m){return'<button class="btn'+(selMods.indexOf(m)>=0?' gold':'')+'" data-m="'+m+'">'+m+'</button>'}).join('')+'<span class="n2">'+(selMods.length?'(holding '+selMods.join(' + ')+')':'(none: the key by itself)')+'</span>';
+  [].forEach.call($('modBar').querySelectorAll('[data-m]'),function(b){b.onclick=function(){var m=b.getAttribute('data-m'),i=selMods.indexOf(m);if(i<0)selMods.push(m);else selMods.splice(i,1);drawSetsView()}});
+  drawKb($('kbSets'),function(c){sel=c;drawSetsView()},'sets');
+  /* TOP: the chosen key, what it does, changed right here */
+  if(!sid)$('focus').innerHTML='<div class="fp"><div class="fh">Press any key on your keyboard</div><div class="n2">It shows up here, so you can say what it does in "'+esc(sname(s))+'". Hold it or double-press it to try those too.</div></div>';
+  else $('focus').innerHTML='<div class="fp"><div class="fh">'+esc(idLabel(cur,sid))+' <span class="n2">in "'+esc(sname(s))+'"'+(lockId(cur,sid)||(s.locks&&s.locks[sid])?'':'. What should it do?')+'</span></div>'+cellK(sid,s)+'</div>';
+  bindK($('focus'),s);
+  $('slog').innerHTML=slog.slice(0,1).map(function(t){return'<div>'+esc(t)+'</div>'}).join('');
+  /* BELOW: the saved list */
+  $('useBox').innerHTML='<div class="use"><button class="btn gold" id="useNow">'+(cur.activeId===s.id?'This set is in use':'Use this set now')+'</button> <span class="sim">Number: <select id="setNum"'+(s.num===1?' disabled':'')+'>'+numOpts(s)+'</select> &nbsp; Label (optional, not spoken): <input id="setLabel" value="'+esc(s.label||'')+'" placeholder="e.g. Editing" style="width:120px"> &nbsp; Double-press speed: two presses within <input type="number" id="dblMs" min="150" max="800" step="25" value="'+(cur.dbl||300)+'" class="ms"> ms count as a double-press (this keyboard). Holding is timed per key.</span></div>';
+  $('useBox').innerHTML+='<div class="use"><label><input type="checkbox" id="spN"'+(cur.spaceNum!==false?' checked':'')+'> Hold <b>Space</b>, then press a number: switch to that numbered set</label> <span class="sim">&nbsp; after Space has been held for <input type="number" id="spMs" min="200" max="1500" step="50" value="'+(cur.spaceMs||400)+'" class="ms"> ms &nbsp; <label><input type="checkbox" id="spI"'+(cur.spaceIn1?' checked':'')+'> also work in Set 1</label></span><div class="n2" style="margin-top:3px">Works in every set except Set 1 (the safe starting set) unless you tick the box, so Space + 1 always takes you straight back to Set 1, Space + 2 to Set 2, and so on. A quick Space tap, or a number typed right after a normal space, types as usual; only a Space that has been held this long counts, and then the Space is not typed.</div></div>';
+  $('spN').onchange=function(){cur.spaceNum=this.checked;drawSetsView()};
+  $('spI').onchange=function(){cur.spaceIn1=this.checked;drawSetsView()};
+  $('spMs').onchange=function(){cur.spaceMs=Math.max(200,Math.min(1500,+this.value||400));drawSetsView()};
+  $('useNow').onclick=function(){cur.activeId=s.id;drawAll()};
+  $('setNum').onchange=function(){s.num=+this.value;cur.sets.sort(function(a,b){return a.num-b.num});drawAll()};
+  $('setLabel').onchange=function(){s.label=this.value.replace(/^\s+|\s+$/g,'');drawAll()};
+  $('dblMs').onchange=function(){cur.dbl=Math.max(150,Math.min(800,+this.value||300));drawAll()};
+  $('mapTitle').textContent='Saved jobs of "'+cur.name+'" in "'+sname(s)+'"';
+  var order=Object.keys(s.map);var builtin=(cur.spaceNum!==false&&(s.num!==1||cur.spaceIn1))?'<tr><td class="nm">Space (held) + a number</td><td><div class="syslock"><b>&#128274; Built in.</b> Hold Space for '+(cur.spaceMs||400)+' ms, then press <b>1 to 9</b>: switches to that numbered set (Space + 1 is always the way back to Set 1). It is on in every set'+(cur.spaceIn1?'':' except Set 1')+'. You can change or turn it off just above the list.</div></td></tr>':'';
+  $('rows').innerHTML=builtin+(order.length?order.map(function(id){return'<tr data-row="'+esc(id)+'" class="'+(id===sid?'selrow':'')+'"><td class="nm" style="cursor:pointer" title="Click to change it at the top">'+esc(idLabel(cur,id))+(s.locks&&s.locks[id]?'<div class="n2 lockb">&#128274; Locked by you</div>':'')+'</td><td>'+cellK(id,s)+'</td></tr>'}).join(''):(builtin?'':'<tr><td colspan="2" class="n2">Nothing saved yet. Press a key in the box above, say what it should do, and it is saved here.</td></tr>'));
+  if(s.num!==1)$('rows').innerHTML+='<tr><td colspan="2" style="text-align:right;border:0"><button class="btn'+(delArm===s.id?' red':'')+'" id="delBtn">'+(delArm===s.id?'Press again to delete "'+esc(sname(s))+'"':'Delete this set')+'</button></td></tr>';
+  bindK($('rows'),s);
+  [].forEach.call($('rows').querySelectorAll('tr[data-row] .nm'),function(td){td.onclick=function(){pick(td.parentNode.getAttribute('data-row'));drawSetsView()}});
+  var db=$('delBtn');if(db)db.onclick=function(){if(delArm===s.id){cur.sets=cur.sets.filter(function(x){return x.id!==s.id});cur.activeId=cur.selId=cur.sets[0].id;delArm=null}else delArm=s.id;drawAll()};
+  drawHead();
+}
+/* the box: press a key on the real keyboard to choose it (with its modifiers) */
+(function(){var p=$('spad');
+  $('spadTitle').textContent='Press a key, or two keys together in either order (Space + 1 is the same as 1 + Space). Hold Ctrl, Shift, Alt or Windows too for a longer combination.';p.classList.add('live');
+  window.padCore=function(code,ch,held,keyName){
+    if(!inLayout(cur,code))captureUnknown(cur,code,keyName);
+    cur.seen[code]=1;if(ch)ch.split('&').forEach(function(c){cur.seen[c]=1});sel=ch||code;selMods=held;
+    var id=idOf(held,sel),m=stOf().map[id];slog.unshift(idLabel(cur,id)+' pressed'+(m&&m.p?' \u2192 '+actDesc(m.p,cur):''));
+    drawSetsView();sel.split('&').forEach(flash);
+  };
+  window.padKey=function(e){
+    if(e.ctrlKey&&e.altKey&&e.shiftKey&&e.code==='KeyM')return;e.preventDefault();
+    if(/^(Control|Shift|Alt|Meta)(Left|Right)$/.test(e.code))return;
+    var held=[];if(e.ctrlKey)held.push('Ctrl');if(e.shiftKey)held.push('Shift');if(e.altKey)held.push('Alt');if(e.metaKey)held.push('Win');
+    window.padCore(e.code,e.__ch,held,e.key);
+  };
+})();
+$('newBtn').onclick=function(){var ns=mkSet(cur.nextNum++,'',{});cur.sets.push(ns);cur.selId=cur.activeId=ns.id;drawAll()};
+$('voiceBtn').onclick=function(){
+  var t=$('voiceIn').value.toLowerCase().trim(),m=t.match(/^keyboard (\w+)(?: set (\w+))?$/);if(!m){alert('Say: keyboard <name> [set <number>]');return}
+  var d=devs.filter(function(x){return x.name.toLowerCase()===m[1]})[0];if(!d){alert('No keyboard with that name');return}
+  var n=m[2]?(WORDS.indexOf(m[2])>=0?WORDS.indexOf(m[2]):+m[2]):1,s=d.sets.filter(function(x){return x.num===n})[0];
+  if(!s){alert('That keyboard has no set '+n);return}d.activeId=s.id;if(d===cur)cur.selId=s.id;lastUsed=d.id;drawAll();
+};
+/* a key press is registered straight away on the Learn and Keyboard sets tabs, like a mouse press in the Mouse page (no click needed first) */
+document.addEventListener('keydown',function(e){
+  var t=e.target,tag=t&&t.tagName;
+  if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA'||(t&&t.id==='tpad'))return;
+  if(e.ctrlKey&&e.altKey&&e.shiftKey&&e.code==='KeyM')return;
+  if(/^(Control|Shift|Alt|Meta)(Left|Right)$/.test(e.code))return;
+  if(helperLive)return;
+  if(tab===2&&window.padKey)window.padKey(e);
+  else if(tab===1){e.preventDefault();learnKey(e.code,false,e.key)}
+});
+/* master + emergency switch */
+function setMaster(v){master=v;lastLocal=Date.now();drawAll()}
+$('master').onclick=function(){setMaster(!master)};
+document.addEventListener('keydown',function(e){if(!helperLive&&e.ctrlKey&&e.altKey&&e.shiftKey&&e.code==='KeyM'){e.preventDefault();setMaster(!master);tlog((master?'Ctrl+Alt+Shift+M: keyboard sets are ON again':'Ctrl+Alt+Shift+M: ALL keyboard sets are OFF, every key works as normal'))}},true);
+/* test */
+$('testBtn').onclick=function(){startTest()};
+function tlog(t,cls){var d=document.createElement('div');d.className=cls||'a';d.textContent=t;var l=$('tlog');l.insertBefore(d,l.firstChild)}
+$('tpad').addEventListener('keyup',function(e){if(e.code==='Space'){var q=dev(lastUsed);q._sp=0}});
+$('tpad').addEventListener('blur',function(){var q=dev(lastUsed);q._sp=0});
+$('tpad').addEventListener('keydown',function(e){
+  if(e.ctrlKey&&e.altKey&&e.shiftKey&&e.code==='KeyM')return;
+  var dd=dev(lastUsed);
+  if(e.code==='Space'){if(!e.repeat)dd._sp=Date.now()}
+  else if(dd._sp&&master&&!paused&&dd.spaceNum!==false){
+    var mm=e.code.match(/^(?:Digit|Numpad)([1-9])$/);
+    if(mm&&Date.now()-dd._sp>=(dd.spaceMs||400)&&(aset(dd).num!==1||dd.spaceIn1)){
+      var n=+mm[1],t=dd.sets.filter(function(x){return x.num===n})[0];e.preventDefault();
+      if(t){dd.activeId=t.id;if(dd===cur)cur.selId=t.id;tlog('Space held + '+n+' → switched to '+sname(t)+' (the held Space is not typed)');drawHead();drawSetsView()}
+      else tlog('Space held + '+n+': "'+dd.name+'" has no Set '+n+'.');
+      return;
+    }
+  }
+  var d=dev(lastUsed),s=aset(d),held=[];if(e.ctrlKey&&!/^Control/.test(e.code))held.push('Ctrl');if(e.shiftKey&&!/^Shift/.test(e.code))held.push('Shift');if(e.altKey&&!/^Alt/.test(e.code))held.push('Alt');if(e.metaKey&&!/^Meta/.test(e.code))held.push('Win');var tid=idOf(held,(e.__ch&&s.map[idOf(held,e.__ch)])?e.__ch:e.code),m=s.map[tid];
+  if(!inLayout(d,e.code))captureUnknown(d,e.code,e.key);
+  if(!master){tlog('Sets are off: '+labelOf(d,e.code)+' types normally.','');return}
+  if(false){return}
+  if(!m||lockId(d,tid,s)){tlog(idLabel(d,tid)+' on "'+d.name+'" has no job: types normally.','');return}
+  e.preventDefault();var a=m.p||m.d||m.h;
+  tlog(idLabel(d,tid)+' on "'+d.name+'" ('+sname(s)+') → '+actDesc(m.p||{t:'keep'},d)+(m.d?' | double-press: '+actDesc(m.d,d):'')+(m.h?' | hold: '+actDesc(m.h,d):''));
+  if(m.p&&m.p.t==='set'){d.activeId=m.p.v;drawHead();drawSetsView()}
+  if(m.p&&m.p.t==='keyswitch'){d.activeId=m.p.v2;drawHead();drawSetsView()}
+});
+
+
+
+/* ---- tab 3: Code (a scramble machine built from keyboard sets; honest: scrambled, not secure) ---- */
+var codeState={startNum:2,curId:null,hist:[],sampleCoded:''};
+var decState={startNum:2};
+var SAMPLE='MEET ME AT NOON'.split('').map(function(c){return c===' '?'Space':'Key'+c}).concat(['Ctrl|KeyG']);
+function setByNum(d,n){for(var i=0;i<d.sets.length;i++)if(d.sets[i].num===n)return d.sets[i];return null}
+/* The code's alphabet: every key counts as a symbol, not only letters: A-Z, 0-9 and Space by default, plus ANY key or combination (Ctrl+G, a pair) that a set gives a job.
+   Space is NOT necessarily a space: in a set, M can type a space and Space can type a letter. A symbol's "output" is the single character it types. */
+var BASEIN=[];(function(){for(var i=0;i<26;i++)BASEIN.push('Key'+String.fromCharCode(65+i));for(var n=0;n<10;n++)BASEIN.push('Digit'+n);BASEIN.push('Space')})();
+function baseChar(id){if(id==='Space')return' ';var m=/^(?:Key|Digit)(.)$/.exec(id);return m?m[1]:null}
+function outChar(v){if(v==='Space')return' ';if(v&&v.length===1)return v.toUpperCase();return null}
+function inLabel(id){var b=baseChar(id);return b!==null?b:'['+idLabel(cur,id)+']'}
+function jobOf(st,id){
+  var m=st.map[id],p=m&&m.p;
+  if(p){
+    if(p.t==='key')return{out:outChar(p.v),sw:null,bad:outChar(p.v)===null};
+    if(p.t==='keyswitch')return{out:outChar(p.v),sw:p.v2||null,bad:outChar(p.v)===null};
+    if(p.t==='set')return{out:'',sw:+p.v,only:true};
+  }
+  var b=baseChar(id);if(b!==null&&BASEIN.indexOf(id)>=0)return{out:b,sw:null};
+  return null;
+}
+function universe(st){var u=BASEIN.slice();Object.keys(st.map).forEach(function(id){if(u.indexOf(id)<0&&st.map[id].p)u.push(id)});return u}
+function checkSet(st){
+  var seen={},bad=[],only=[],mapped=0,sw=[],u=universe(st),i,id,j;
+  for(i=0;i<u.length;i++){id=u[i];j=jobOf(st,id);if(!j)continue;
+    if(st.map[id]&&st.map[id].p)mapped++;
+    if(j.only){only.push(inLabel(id));continue}
+    if(j.bad){bad.push(inLabel(id)+' types more than one character');continue}
+    if(j.sw)sw.push(inLabel(id));
+    if(seen[j.out]!==undefined)bad.push(inLabel(seen[j.out])+' and '+inLabel(id)+' both type '+(j.out===' '?'a space':j.out));else seen[j.out]=id;
+  }
+  return{mapped:mapped,bad:bad,only:only,sw:sw};
+}
+function drawCode(){
+  var d=cur;$('cKb').textContent=d.name;
+  if(!d.sets.some(function(x){return x.num!==1})){$('cStart').innerHTML='';$('cChecks').innerHTML='There are no scramble sets yet. Make a set 2 or higher on the Keyboard sets tab, or press <b>Fill a demo code</b> to try the idea.';$('cView').innerHTML='';$('cOut').innerHTML='';return}
+  var opts=d.sets.filter(function(x){return x.num!==1}).map(function(x){return'<option value="'+x.num+'"'+(x.num===codeState.startNum?' selected':'')+'>'+esc(sname(x))+'</option>'}).join('');
+  $('cStart').innerHTML=opts;
+  var sm=setByNum(d,codeState.startNum);if(!sm&&d.sets.length>1){sm=d.sets.filter(function(x){return x.num!==1})[0];codeState.startNum=sm?sm.num:2}
+  if(!codeState.hist.length)codeState.curId=sm?sm.id:null;
+  var ch=d.sets.filter(function(x){return x.num!==1}).map(function(x){
+    var c=checkSet(x),ok=!c.bad.length&&!c.only.length;
+    return'<div>'+(ok?'<span style="color:var(--green)">&#10003;</span>':'<span style="color:var(--red)">&#9888;</span>')+' <b>'+esc(sname(x))+'</b>: '+c.mapped+' key'+(c.mapped===1?'':'s')+' given a job'+(c.sw.length?', switches after '+c.sw.join(', '):'')+(c.bad.length?'. <span style="color:var(--red)">Cannot be read back: '+esc(c.bad.join('; '))+'.</span>':'. One-to-one.')+(c.only.length?' <span style="color:var(--red)">'+c.only.join(', ')+' only switch and type nothing, so a reader cannot see them.</span>':'')+'</div>'}).join('');
+  $('cChecks').innerHTML=ch||'No scramble sets yet. Make sets 2 or higher on the Keyboard sets tab, or press <b>Fill a demo code</b>.';
+  drawCodeView();
+}
+function drawDecipher(){
+  var d=cur;$('dKb').textContent=d.name;
+  if(!d.sets.some(function(x){return x.num!==1})){$('cStart2').innerHTML='';$('dMods').innerHTML='<div class="n2">There are no scramble sets yet (see the Secret code tab).</div>';return}
+  $('cStart2').innerHTML=d.sets.filter(function(x){return x.num!==1}).map(function(x){return'<option value="'+x.num+'"'+(x.num===decState.startNum?' selected':'')+'>'+esc(sname(x))+'</option>'}).join('');
+  var am=activeMods();
+  $('dMods').innerHTML='<label><input type="checkbox" id="dUseMods"'+(am.length?' checked':'')+'> The sender also used secret modifiers: undo them first</label><div class="n2" style="margin-top:3px">'+(am.length?'Using your '+am.length+' modifier'+(am.length===1?'':'s')+' from the Secret modifier tab, last one undone first: '+am.map(function(m){return esc(MKINDS.filter(function(k){return k[0]===m.kind})[0][1])+' ('+esc(MOPS.filter(function(o){return o[0]===m.op})[0][1].split(',')[0].toLowerCase())+', secret hidden)'}).join('; ')+'. Set them there to match the sender\'s exactly.':'No modifier is switched on in the Secret modifier tab, so only the sets will be used.')+'</div>';
+  if(!$('cPaste').value&&codeState.sampleCoded){$('cPaste').value=applyMods(codeState.sampleCoded)}
+}
+function cellsHtml(arr){
+  function vis(x,dim){return x===' '?'<span style="opacity:.55">&#9251;</span>':x===''?'&middot;':esc(x)}
+  return'<div style="display:flex;flex-wrap:wrap;gap:2px;font:14px ui-monospace,Consolas,monospace">'+arr.map(function(e){return'<div style="min-width:24px;padding:0 2px;text-align:center"><div style="color:var(--mute);font-size:'+(e.p.length>1?'10':'14')+'px">'+vis(e.p)+'</div><div style="color:var(--gold);font-weight:700;background:rgba(255,255,255,.05);border-radius:4px">'+vis(e.c)+'</div><div style="color:var(--teal);font-size:11px">'+(e.n||'')+'</div></div>'}).join('')+'</div>';
+}
+function decodeText(d,startId,text){
+  var curSet=setOf(d,startId),out=[],i,ch,k,id,j,u;
+  for(i=0;i<text.length;i++){
+    ch=text.charAt(i);if(/[a-z]/.test(ch))ch=ch.toUpperCase();
+    u=universe(curSet);var found=null;
+    for(k=0;k<u.length;k++){id=u[k];j=jobOf(curSet,id);if(j&&!j.only&&!j.bad&&j.out===ch){found=id;break}}
+    if(!found){out.push({p:text.charAt(i),c:text.charAt(i),n:''});continue}
+    out.push({p:inLabel(found),c:ch,n:curSet.num});
+    j=jobOf(curSet,found);if(j&&j.sw){var t=setOf(d,j.sw);if(t&&t.id===j.sw)curSet=t}
+  }
+  return out;
+}
+function drawCodeView(){
+  var h=codeState.hist;
+  if(!h.length){$('cView').innerHTML='<div class="n2">Nothing typed yet. Your message will appear here as you typed it, with the coded version below it.</div>';$('cOut').innerHTML='';return}
+  var coded=h.map(function(e){return e.c}).join(''),plain=h.map(function(e){return e.p}).join('');
+  var big='font:20px ui-monospace,Consolas,monospace;word-break:break-word;margin:2px 0 4px';
+  $('cView').innerHTML='<div class="use"><span class="n2">What you typed (the original):</span><div style="'+big+'">'+esc(plain)+'</div><div class="n2" style="text-align:center;margin:2px 0">&#8595; the sets scramble it as you type &#8595;</div><span class="n2">What is sent (the code):</span><div style="'+big+';color:var(--gold)">'+esc(coded)+'</div></div><details open><summary class="n2" style="cursor:pointer">Letter by letter (top: what you pressed, gold: what appears, bottom: the set used)</summary>'+cellsHtml(h.map(function(e){return{p:e.p,c:e.c,n:e.n}}))+'</details>';
+  var startId=h[0].before,dec=decodeText(cur,startId,coded),decS=dec.map(function(e){return e.p}).join('');
+  $('cOut').innerHTML='<div class="n2" style="margin:4px 0">Starts at '+esc(sname(setOf(cur,startId)))+'. '+(decS===plain?'<span style="color:var(--green)">&#10003; Anyone with the same sets reads it back exactly as you typed it.</span>':'<span style="color:var(--red)">It does not read back the same: check the sets above.</span>')+' Send the coded text and tell them the starting set.</div>';
+}
+function codeTypeId(id){
+  var d=cur;if(!codeState.curId)return;
+  var st=setOf(d,codeState.curId),j=jobOf(st,id);
+  if(!j)return;                                  /* a key with no job in this set types nothing here */
+  var ent={p:inLabel(id),c:(j.out===null?'':j.out),n:st.num,before:st.id};
+  codeState.hist.push(ent);
+  if(j.sw){var t=setOf(d,j.sw);if(t&&t.id===j.sw)codeState.curId=t.id}
+  drawCodeView();
+}
+function codeType(code){            /* used by the example: a base key, or a ready-made id such as Ctrl|KeyG */
+  if(code==='Backspace'){var e=codeState.hist.pop();if(e)codeState.curId=e.before;drawCodeView();return}
+  codeTypeId(code);
+}
+$('cin').addEventListener('keydown',function(e){
+  if(/^(Control|Shift|Alt|Meta)(Left|Right)$/.test(e.code))return;
+  if(e.ctrlKey&&e.altKey&&e.shiftKey&&e.code==='KeyM')return;
+  e.preventDefault();
+  if(e.code==='Backspace'){codeType('Backspace');return}
+  var held=[];if(e.ctrlKey)held.push('Ctrl');if(e.shiftKey)held.push('Shift');if(e.altKey)held.push('Alt');if(e.metaKey)held.push('Win');
+  var st=codeState.curId?setOf(cur,codeState.curId):null,id=idOf(held,e.code);
+  /* a pair held together counts only if the set gives that pair a job; Shift alone is just the same key here (a capital) */
+  if(e.__ch&&st&&st.map[idOf(held,e.__ch)])id=idOf(held,e.__ch);
+  else if(held.length===1&&held[0]==='Shift'&&st&&!st.map[id])id=e.code;
+  codeTypeId(id);
+});
+$('cin').addEventListener('focus',function(){$('cin').classList.add('live')});
+$('cin').addEventListener('blur',function(){$('cin').classList.remove('live')});
+$('cStart').onchange=function(){codeState.startNum=+this.value;codeState.hist=[];drawCode()};
+$('cStart2').onchange=function(){decState.startNum=+this.value;$('cDecOut').innerHTML=''};
+$('cDecClear').onclick=function(){$('cPaste').value='';$('cDecOut').innerHTML=''};
+$('cNew').onclick=function(){codeState.hist=[];drawCode();$('cin').focus()};
+$('cDec').onclick=function(){
+  var sm=setByNum(cur,+$('cStart2').value);if(!sm){$('cDecOut').innerHTML='<div class="n2">Choose the set the message started with.</div>';return}
+  var txt=$('cPaste').value;if(!txt.trim()){$('cDecOut').innerHTML='<div class="n2">Paste the message first.</div>';return}
+  var um=$('dUseMods')&&$('dUseMods').checked,afterMods=um?undoMods(txt):txt,dec=decodeText(cur,sm.id,afterMods),plain=dec.map(function(e){return e.p}).join('');
+  $('cDecOut').innerHTML=(um?'<div class="n2" style="margin-bottom:4px">After undoing the modifiers: <span style="font-family:ui-monospace,Consolas,monospace;color:var(--gold)">'+esc(afterMods)+'</span></div>':'')+'<div class="use"><span class="n2">The message says:</span><div style="font:20px ui-monospace,Consolas,monospace;color:var(--green);word-break:break-word;margin-top:2px">'+esc(plain)+'</div>'+(plain.indexOf('?')>=0?'<div class="n2" style="margin-top:4px;color:var(--red)">A "?" means that letter did not fit the sets: the sets or the starting set may not be the ones the sender used.</div>':'')+'</div><details open><summary class="n2" style="cursor:pointer">Letter by letter (top: the real letter, gold: what was sent, bottom: the set used)</summary>'+cellsHtml(dec)+'</details>';
+};
+/* a demo: three scramble sets with switching keys, so the idea can be tried */
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+$('cDemo').onclick=function(){if(confirm('This builds three example scramble sets (Sets 2, 3 and 4) on the keyboard "'+cur.name+'", replacing any sets with those numbers. They are saved and the Helper will use them. Continue?'))buildDemo(true)};
+function buildDemo(sample){
+  var d=cur,r=rng(11);
+  d.sets=d.sets.filter(function(x){return x.num===1||[2,3,4].indexOf(x.num)<0});
+  var made=[2,3,4].map(function(n,i){var s=mkSet(n,'Code '+'ABC'.charAt(i),{});d.sets.push(s);return s});
+  /* the demo alphabet: 26 letters, Space, and Ctrl+G are the INPUT symbols; the OUTPUT characters are the 26 letters, a space, and #.
+     So in each set some letter types a SPACE, the Space key types a letter, and Ctrl+G types something too. */
+  var inputs=[];for(var q=0;q<26;q++)inputs.push('Key'+String.fromCharCode(65+q));inputs.push('Space');inputs.push('Ctrl|KeyG');
+  var outsBase=[];for(var w=0;w<26;w++)outsBase.push(String.fromCharCode(65+w));outsBase.push('Space');outsBase.push('#');
+  made.forEach(function(s,si){
+    var sh=outsBase.slice(),i,j,t;
+    for(i=sh.length-1;i>0;i--){j=Math.floor(r()*(i+1));t=sh[i];sh[i]=sh[j];sh[j]=t}
+    var trig={KeyE:made[(si+1)%3].id,KeyT:made[(si+2)%3].id,KeyA:made[(si+1)%3].id,KeyO:made[(si+2)%3].id};
+    inputs.forEach(function(id,k){s.map[id]={p:trig[id]?{t:'keyswitch',v:sh[k],v2:trig[id]}:{t:'key',v:sh[k]}}});
+  });
+  d.sets.sort(function(a,b){return a.num-b.num});
+  codeState.startNum=2;decState.startNum=2;codeState.hist=[];codeState.curId=setByNum(d,2).id;
+  if(sample){SAMPLE.forEach(function(c){codeType(c)});codeState.sampleCoded=codeState.hist.map(function(e){return e.c}).join('')}
+  $('cPaste').value=applyMods(codeState.sampleCoded||'');
+  drawAll();
+}
+/* share: the sets as text, and back in. Set references are written as set NUMBERS so they survive the trip. */
+$('cExp').onclick=function(){
+  var d=cur,numOf={};d.sets.forEach(function(x){numOf[x.id]=x.num});
+  var out=d.sets.filter(function(x){return x.num!==1}).map(function(x){
+    var map={};Object.keys(x.map).forEach(function(id){var m=x.map[id],o={};
+      ['p','d','h'].forEach(function(sl){var a=m[sl];if(!a||a.t==='helper')return;var c=JSON.parse(JSON.stringify(a));
+        if(c.t==='set')c.v=numOf[c.v];if(c.t==='keyswitch')c.v2=numOf[c.v2];o[sl]=c});
+      if(Object.keys(o).length)map[id]=o});
+    return{num:x.num,label:x.label||'',map:map}});
+  $('cShare').value=JSON.stringify({amitKeyboardSets:1,sets:out});
+  $('cShareMsg').textContent=out.length?('Exported '+out.length+' set'+(out.length===1?'':'s')+' (Set 1 is never shared). Copy the text and send it.'):'There are no sets to share yet (Set 1 is never shared).';
+};
+$('cImp').onclick=function(){
+  var d=cur,msg=$('cShareMsg'),data;
+  try{data=JSON.parse($('cShare').value)}catch(e){msg.textContent='That is not a keyboard-sets text. Nothing was imported.';return}
+  if(!data||data.amitKeyboardSets!==1||!data.sets){msg.textContent='That is not a keyboard-sets text. Nothing was imported.';return}
+  var idOfNum={};
+  data.sets.forEach(function(x){if(x.num===1)return;var ex=setByNum(d,x.num);if(ex){ex.map={};ex.label=x.label;idOfNum[x.num]=ex.id}else{var s=mkSet(x.num,x.label,{});d.sets.push(s);idOfNum[x.num]=s.id}});
+  data.sets.forEach(function(x){if(x.num===1)return;var s=setOf(d,idOfNum[x.num]);
+    Object.keys(x.map).forEach(function(id){var m=x.map[id];['p','d','h'].forEach(function(sl){var a=m[sl];if(!a)return;
+      if(a.t==='set'){a.v=idOfNum[a.v];if(!a.v)return}
+      if(a.t==='keyswitch'){a.v2=idOfNum[a.v2];if(!a.v2)a.v2=s.id}
+      (s.map[id]||(s.map[id]={}))[sl]=a})})});
+  d.sets.sort(function(a,b){return a.num-b.num});
+  msg.textContent='Imported '+data.sets.filter(function(x){return x.num!==1}).length+' set(s) as your own copy. Set 1 was not touched.';
+  codeState.hist=[];drawCode();
+};
+
+/* ---- tab 4: Secret modifier. A secret both people know becomes a number (the sum of the ASCII codes of its characters); every character of the coded text is then moved by it. ---- */
+var MABC='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 #',MN=MABC.length;
+function localDate(){var t=new Date(),m=t.getMonth()+1,d=t.getDate();return t.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(d<10?'0':'')+d}
+var modState=[
+  {on:false,kind:'date',     text:localDate(),   op:'add'},
+  {on:false,kind:'word',     text:'',            op:'mul'},
+  {on:false,kind:'birthday', text:'',            op:'sub'},
+  {on:false,kind:'number',   text:'',            op:'grow'}
+];
+var MKINDS=[['date','Today\'s date'],['birthday','A birthday'],['word','A word or phrase'],['number','A number']];
+var MOPS=[['add','Add it'],['sub','Subtract it'],['mul','Multiply by it'],['grow','Add it, plus one more for each place along the message']];
+function gcd(a,b){while(b){var t=a%b;a=b;b=t}return a}
+function secretNum(m){
+  var t=String(m.text||''),i,s=0;
+  if(m.kind==='number'){var n=parseInt(t,10);return isNaN(n)?0:Math.abs(n)}
+  for(i=0;i<t.length;i++)s+=t.charCodeAt(i);return s;
+}
+function mulPart(n){var k=n%MN;if(k===0)k=1;while(gcd(k,MN)!==1)k=(k+1)%MN;if(k===0)k=1;return k}
+function invMod(k){for(var x=1;x<MN;x++)if((k*x)%MN===1)return x;return 1}
+function activeMods(){return modState.filter(function(m){return m.on&&String(m.text||'').length>0})}
+function modStep(m,text,undo){
+  var n=secretNum(m),i,ch,ix,out='';
+  for(i=0;i<text.length;i++){
+    ch=text.charAt(i);var up=ch.toUpperCase();ix=MABC.indexOf(up);
+    if(ix<0){out+=ch;continue}
+    var v;
+    if(m.op==='add')v=undo?ix-n:ix+n;
+    else if(m.op==='sub')v=undo?ix+n:ix-n;
+    else if(m.op==='mul'){var k=mulPart(n);v=ix*(undo?invMod(k):k)}
+    else v=undo?ix-(n+i):ix+(n+i);
+    v=((v%MN)+MN)%MN;out+=MABC.charAt(v);
+  }
+  return out;
+}
+function applyMods(text){var l=activeMods(),i;for(i=0;i<l.length;i++)text=modStep(l[i],text,false);return text}
+function undoMods(text){var l=activeMods(),i;for(i=l.length-1;i>=0;i--)text=modStep(l[i],text,true);return text}
+function modNumText(m){
+  var t=String(m.text||'');if(!t)return'Type the secret to see its number.';
+  var n=secretNum(m);
+  var base=(m.kind==='number')?('the number '+n):('the ASCII codes of &ldquo;'+esc(t)+'&rdquo; add up to '+n);
+  var use=(m.op==='mul')?(n+' becomes '+mulPart(n)+' for multiplying ('+(mulPart(n)===(n%MN||1)?'it already works':'adjusted so it works with 38')+')'):(n+' becomes '+(n%MN)+' after wrapping around 38');
+  return base+'; '+use+'.';
+}
+function drawModifier(){
+  var d=cur;
+  $('mCards').innerHTML=modState.map(function(m,i){
+    return'<div class="fp" style="margin:6px 0"><div class="slot"><label><input type="checkbox" data-mi="'+i+'" data-f="on"'+(m.on?' checked':'')+'> <b>Modifier '+(i+1)+'</b></label>'+
+      '<select data-mi="'+i+'" data-f="kind">'+MKINDS.map(function(k){return'<option value="'+k[0]+'"'+(m.kind===k[0]?' selected':'')+'>'+k[1]+'</option>'}).join('')+'</select>'+
+      '<input data-mi="'+i+'" data-f="text" value="'+esc(m.text)+'" placeholder="'+(m.kind==='date'?'yyyy-mm-dd':m.kind==='number'?'a number':m.kind==='birthday'?'e.g. 1985-03-14':'a word or phrase only you two know')+'" style="width:230px">'+
+      (m.kind==='date'?'<button class="btn" data-mi="'+i+'" data-f="today">Use today\'s date</button>':'')+
+      '<span class="n2">then</span><select data-mi="'+i+'" data-f="op">'+MOPS.map(function(o){return'<option value="'+o[0]+'"'+(m.op===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></div>'+
+      '<div class="n2" id="mnum'+i+'" style="margin-top:3px">'+modNumText(m)+'</div>'+
+      (m.kind==='date'?'<div class="n2">The other person must use the same date. Today\'s date changes every day, so a message only reads on the day it was sent unless you agree on a date.</div>':'')+'</div>';
+  }).join('');
+  [].forEach.call($('mCards').querySelectorAll('[data-mi]'),function(e){
+    var i=+e.getAttribute('data-mi'),f=e.getAttribute('data-f'),m=modState[i];
+    if(f==='today'){e.onclick=function(){m.text=localDate();drawModifier()};return}
+    if(f==='text'){e.oninput=function(){m.text=e.value;$('mnum'+i).innerHTML=modNumText(m);updateModFlow()};return}
+    e.onchange=function(){if(f==='on')m.on=e.checked;else if(f==='kind'){m.kind=e.value;if(m.kind==='date'&&!m.text)m.text=localDate()}else m[f]=e.value;drawModifier()};
+  });
+  updateModFlow();
+}
+function updateModFlow(){
+  var h=codeState.hist,flow=$('mFlow'),big='font:18px ui-monospace,Consolas,monospace;word-break:break-word;margin:2px 0 6px';
+  if(!h.length){flow.innerHTML='<div class="n2">Type a message on the Secret code tab first. It will appear here, and then change step by step.</div>';$('mCheck').innerHTML='';return}
+  var plain=h.map(function(e){return e.p}).join(''),coded=h.map(function(e){return e.c}).join(''),fin=applyMods(coded),n=activeMods().length;
+  flow.innerHTML='<span class="n2">1. What you typed (the original):</span><div style="'+big+'">'+esc(plain)+'</div>'+
+    '<span class="n2">2. After the keyboard sets (the Secret code tab):</span><div style="'+big+';color:var(--gold)">'+esc(coded)+'</div>'+
+    '<span class="n2">3. After '+(n?n+' modifier'+(n===1?'':'s'):'the modifiers (none switched on)')+' (this is what you send):</span><div style="'+big+';color:var(--green)">'+esc(fin)+'</div>';
+  var back=undoMods(fin),dec=decodeText(cur,h[0].before,back),ds=dec.map(function(e){return e.p}).join('');
+  $('mCheck').innerHTML=(ds===plain)?'<span style="color:var(--green)">&#10003; Someone with the same keyboard sets and the same '+n+' modifier'+(n===1?'':'s')+' reads it back exactly as you typed it.</span> Anyone missing a modifier, or using a different one, gets nonsense. Tell them the starting set and the order of the modifiers, not the secrets themselves.':'<span style="color:var(--red)">It does not read back the same: check the modifiers.</span>';
+}
+
+/* ---- tabs ---- */
+function go(n){tab=n;['1','2','3','4','5'].forEach(function(i){$('t'+i).className='tab'+(+i===n?' on':'');$('v'+i).hidden=(+i!==n)});drawAll()}
+$('t1').onclick=function(){go(1)};$('t2').onclick=function(){go(2)};$('t3').onclick=function(){go(3)};$('t4').onclick=function(){go(4)};$('t5').onclick=function(){go(5)};
+function drawAll(){
+  drawHead();
+  if(tab===1)drawLearn();else if(tab===2)drawSetsView();else if(tab===3)drawCode();else if(tab===4)drawModifier();else drawDecipher();
+  $('editBar').hidden=(tab>=3);
+  $('pretendBox').hidden=helperLive;save();
+}
+window.addEventListener("resize",function(){drawAll()});
+drawAll();
+/* ================= THE REAL THING: your login (the Hub) and the Amit Helper on this computer ================= */
+var HELPER_URL='http://localhost:8710',helperLive=false,evSince=0,polledOnce=false,pollBusy=false,syncT=null,lastLocal=0,dbReady=false,editing=false,testUntil=0,testT=null,COMP=null,lastJson='',adding=null,loadedOnce=false,heldReal=[],modsReal={},unknownDev='',KEYSTORE='amit_keyboard_v1';
+function uid(){try{return crypto.randomUUID()}catch(e){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){var r=Math.random()*16|0;return (c==='x'?r:(r&3|8)).toString(16)})}}
+function compInfo(){
+  if(COMP)return COMP;
+  var k=null,n=null;
+  try{k=localStorage.getItem('amit_mouse_computer');n=localStorage.getItem('amit_mouse_computer_name')}catch(e){}
+  if(!k){k=uid();try{localStorage.setItem('amit_mouse_computer',k)}catch(e){}}
+  return {id:k,name:n||'This browser (temporary name)',machine_key:'browser-'+k};
+}
+function helperOpts(v){
+  var h='',found=false;
+  HB.forEach(function(b){var val=b[0]+'|'+b[1];if(val===v)found=true;h+='<option value="'+esc(val)+'"'+(val===v?' selected':'')+'>'+esc(b[0]+' · '+b[1])+'</option>'});
+  if(v&&!found)h='<option value="'+esc(v)+'" selected>'+esc(String(v).replace('|',' · '))+'</option>'+h;
+  return h;
+}
+function devByKey(k){for(var i=0;i<devs.length;i++)if(devs[i].dev&&devs[i].dev===k)return devs[i];return null}
+function updPaused(){paused=editing&&Date.now()>=testUntil}
+
+/* the whole setup, in the shape of the Per_ tables (devices, their sets, what each key does in a set) */
+function toRows(){
+  var devices=devs.map(function(d){
+    d.uid=d.uid||uid();
+    var setUid={};d.sets.forEach(function(s){s.uid=s.uid||uid();setUid[s.id]=s.uid});
+    var act=setOf(d,d.activeId);
+    var out={id:d.uid,kind:'keyboard',name:(d.name||('new-'+d.uid.slice(0,8))).slice(0,40),device_key:d.dev||null,is_primary:!!d.primary,learned:!!d.learned,
+      settings:{dbl:d.dbl||300,spaceMs:d.spaceMs||400,spaceNum:d.spaceNum!==false,spaceIn1:!!d.spaceIn1,activeNum:act?act.num:1,nextNum:d.nextNum||2,seen:Object.keys(d.seen||{}),extra:d.extra||[],labels:d.labels||{}},
+      controls:[],sets:[]};
+    d.sets.forEach(function(s){
+      var acts=[];
+      function add(cid,slot,o,locked){
+        if(cid.length>40)return;   /* too long for the database: such a combination is not saved */
+        if(!o&&!locked)return;o=o||{t:'keep'};
+        var ty=o.t,v=o.v==null?'':String(o.v);
+        if(ty==='set'){v=setUid[o.v]||'';if(!v)return}
+        else if(ty==='keyswitch'){if(!setUid[o.v2])return;ty='set';v=setUid[o.v2]+'|'+(o.v||'')}
+        else if(ty==='key'&&!v.trim())return;
+        else if(ty==='keep'&&!locked)return;
+        acts.push({control_id:cid,slot:slot,action_type:ty,action_value:v.slice(0,200),hold_ms:slot==='hold'?(o.ms||500):null,locked:!!locked});
+      }
+      var ids={};Object.keys(s.map||{}).forEach(function(k){ids[k]=1});Object.keys(s.locks||{}).forEach(function(k){ids[k]=1});
+      Object.keys(ids).forEach(function(cid){
+        var g=s.map[cid]||{},lk=!!(s.locks&&s.locks[cid]);
+        add(cid,'click',g.p,lk);
+        if(g.d)add(cid,'dbl',g.d,false);
+        if(g.h)add(cid,'hold',g.h,false);
+      });
+      out.sets.push({id:s.uid,num:s.num,label:s.label||'',actions:acts});
+    });
+    return out;
+  });
+  return {computer:compInfo(),devices:devices};
+}
+function fromRows(d){
+  if(!d||!d.devices||!d.devices.length)return false;
+  var nd=[];
+  d.devices.forEach(function(dv){
+    var st=dv.settings||{};
+    var sl=(dv.sets||[]).slice().sort(function(a,b){return a.num-b.num}).map(function(s){return{id:nid++,uid:s.id,num:s.num,label:s.label||'',map:{},locks:{}}});
+    var byUid={};sl.forEach(function(o){byUid[o.uid]=o});
+    (dv.sets||[]).forEach(function(s){
+      var o=byUid[s.id];
+      (s.actions||[]).forEach(function(a){
+        var slot=a.slot==='dbl'?'d':a.slot==='hold'?'h':'p',ob,ty=a.action_type,val=a.action_value||'';
+        if(a.locked)o.locks[a.control_id]=true;
+        if(ty==='keep')return;
+        if(ty==='set'){var q=val.split('|'),tg=byUid[q[0]];if(!tg)return;var combo=q.slice(1).join('|');ob=combo?{t:'keyswitch',v:combo,v2:tg.id}:{t:'set',v:tg.id}}
+        else ob={t:ty,v:val};
+        if(slot==='h')ob.ms=a.hold_ms||500;
+        (o.map[a.control_id]||(o.map[a.control_id]={}))[slot]=ob;
+      });
+    });
+    if(!sl.length)sl=[{id:nid++,uid:uid(),num:1,label:'Everyday',map:{},locks:{}}];
+    var act=sl.filter(function(x){return x.num===st.activeNum})[0]||sl[0];
+    var seen={};(st.seen||[]).forEach(function(c){seen[c]=1});
+    nd.push({id:nid++,uid:dv.id,name:(String(dv.name).indexOf('new-')===0?'':dv.name),dev:dv.device_key||'',primary:!!dv.is_primary,learned:!!dv.learned,layout:L_ALL,seen:seen,extra:st.extra||[],labels:st.labels||{},sets:sl,selId:act.id,activeId:act.id,nextNum:st.nextNum||2,dbl:st.dbl||300,spaceNum:st.spaceNum!==false,spaceMs:st.spaceMs||400,spaceIn1:!!st.spaceIn1});
+  });
+  devs=nd;if(!devs.some(function(x){return x.primary}))devs[0].primary=true;
+  cur=devs[0];lastUsed=cur.id;sel=null;
+  return true;
+}
+function setStatus(t){var n=$('dbState');if(n)n.textContent=t}
+function save(){
+  if(!loadedOnce)return;
+  try{
+    var rows=toRows(),js=JSON.stringify([rows.devices,master]);
+    if(js===lastJson)return;lastJson=js;lastLocal=Date.now();
+    try{localStorage.setItem(KEYSTORE,JSON.stringify({rows:rows,master:master}))}catch(e){}
+    syncHelper();
+    if(dbReady){clearTimeout(save.t);save.t=setTimeout(function(){try{parent.postMessage({amitKeyboard:'put',data:toRows()},location.origin)}catch(e){}},800)}
+  }catch(e){}
+}
+function loadLocal(){try{var d=JSON.parse(localStorage.getItem(KEYSTORE)||'null');if(d&&d.rows&&fromRows(d.rows)){master=d.master!==false}}catch(e){}}
+/* THE HUB (the parent page) holds the login and talks to the database for this page */
+window.addEventListener('message',function(ev){
+  if(ev.origin!==location.origin||!ev.data||!ev.data.amitKeyboard)return;
+  var m=ev.data.amitKeyboard;
+  if(m==='tab'){editing=!!ev.data.on;if(!editing){testUntil=0;clearTimeout(testT)}updPaused();syncHelper();drawAll();return}
+  if(m==='bar'){var l=[];(ev.data.menus||[]).forEach(function(mn){(mn[1]||[]).forEach(function(t){l.push([mn[0],t])})});if(l.length)HB=l;drawAll();return}
+  if(m!=='data')return;
+  dbReady=!ev.data.error;
+  var r=ev.data.row;
+  if(r&&fromRows(r)){lastJson='';loadedOnce=true;drawAll();say('Your keyboard setup was loaded from your login.',true)}
+  else{loadedOnce=true;lastJson='';save()}
+  setStatus(ev.data.error?ev.data.error:'Saved to your login'+(COMP?' for the computer '+COMP.name:'')+'.');
+});
+function say(t,a){var l=$('log');if(!l)return;var d=document.createElement('div');if(a)d.className='a';d.textContent=t;l.insertBefore(d,l.firstChild);while(l.children.length>30)l.removeChild(l.lastChild)}
+/* THE HELPER: the setup goes to it (it runs the sets) and it says which keyboard and which key you just used */
+function syncHelper(){
+  if(!helperLive)return;
+  clearTimeout(syncT);
+  syncT=setTimeout(function(){
+    try{var r=toRows();r.master=master;r.suspendSeconds=(editing&&Date.now()>=testUntil)?60:0;fetch(HELPER_URL+'/api/keyboard/sync',{method:'POST',body:JSON.stringify(r)}).catch(function(){})}catch(e){}
+  },400);
+}
+function setLive(on){if(on===helperLive)return;helperLive=on;if(on)syncHelper();drawAll()}
+function busySelect(){var a=document.activeElement;return !!a&&(a.tagName==='SELECT'||a.tagName==='INPUT'||a.tagName==='TEXTAREA')}
+var pendingDraw=false;
+function pollHelper(){
+  if(pendingDraw&&!busySelect()){pendingDraw=false;drawAll()}
+  if(pollBusy)return;pollBusy=true;
+  var learning=(tab===1||tab===2)&&editing;
+  var ctl=new AbortController();setTimeout(function(){ctl.abort()},1500);
+  fetch(HELPER_URL+'/api/keyboard/status?since='+evSince+(learning?'&learn=1':''),{cache:'no-store',signal:ctl.signal}).then(function(r){return r.json()}).then(function(j){
+    pollBusy=false;
+    if(!j||!j.ok||j.raw===false){setLive(false);return}
+    setLive(true);
+    if(typeof j.master==='boolean'&&j.master!==master&&Date.now()-lastLocal>2500){master=j.master;if(busySelect())pendingDraw=true;else drawAll()}
+    if(!polledOnce){polledOnce=true;evSince=j.seq}
+    else (j.events||[]).forEach(function(e){realKey(e);if(e.seq>evSince)evSince=e.seq});
+    if(j.active&&Date.now()-lastLocal>2500){
+      devs.forEach(function(d){var sid=j.active[d.dev];if(!sid)return;var s=d.sets.filter(function(x){return x.uid===sid})[0];if(s&&s.id!==d.activeId){d.activeId=s.id;if(busySelect())pendingDraw=true;else drawAll()}});
+    }
+    var ld=devByKey(j.lastDev);if(ld&&j.lastAgeMs<60000&&ld.id!==lastUsed){lastUsed=ld.id;drawHead()}
+  }).catch(function(){pollBusy=false;setLive(false)});
+}
+setInterval(pollHelper,800);pollHelper();
+/* a key the Helper saw while this page was learning: which keyboard, which key */
+function realKey(ev){
+  var code=ev.code;
+  if(/^(Control|Shift|Alt|Meta)(Left|Right)$/.test(code)){modsReal[code]=!!ev.down;return}
+  if(!ev.down){var i0=heldReal.indexOf(code);if(i0>=0)heldReal.splice(i0,1);return}
+  var d=devByKey(ev.dev);
+  if(!d){
+    var blank=devs.filter(function(x){return !x.dev})[0];
+    if(blank&&!adding){blank.dev=ev.dev;d=blank;cur=blank;say('Your keyboard was recognized. Give it a one-word name.',true)}
+    else if(adding){d=mkDev('',ev.dev,false);devs.push(d);cur=d;adding=null;$('addPanel').hidden=true;say('A new keyboard was picked up and recognized. Give it a one-word name.',true)}
+    else{unknownDev=ev.dev;drawAll();return}
+  }
+  if(d!==cur){cur=d;sel=null;lastUsed=d.id}
+  var other=null;for(var i=heldReal.length-1;i>=0;i--)if(heldReal[i]!==code){other=heldReal[i];break}
+  if(heldReal.indexOf(code)<0)heldReal.push(code);
+  var held=[];if(modsReal.ControlLeft||modsReal.ControlRight)held.push('Ctrl');if(modsReal.ShiftLeft||modsReal.ShiftRight)held.push('Shift');if(modsReal.AltLeft||modsReal.AltRight)held.push('Alt');if(modsReal.MetaLeft||modsReal.MetaRight)held.push('Win');
+  var ch=other?chordId(other,code):null;
+  if(tab===1)learnKey(code,false,null);
+  else if(tab===2&&window.padCore)window.padCore(code,ch,held,null);
+  else drawAll();
+}
+setInterval(function(){heldReal=[]},20000);   /* a key whose release was missed is forgotten */
+/* the keyboard that is not set up: use it in place of one that is (a new USB port), or add it */
+function drawLearnExtra(){
+  var ls=$('learnState');
+  if(ls)ls.innerHTML=helperLive?'':'<span style="color:var(--red)">The Amit Helper is not connected, so I cannot see which keyboard you touch. Open the Amit Helper (it also needs to be version 1.88 or newer).</span>';
+  var cf=$('copyFrom');if(cf){cf.innerHTML='<option value="">Copy sets from...</option>'+devs.filter(function(x){return x!==cur}).map(function(x){return'<option value="'+x.id+'">'+esc(x.name||'(unnamed)')+'</option>'}).join('')}
+  $('delDev').hidden=devs.length<2;
+  var mp=$('mkPrim');if(mp)mp.hidden=!!cur.primary;
+  var ub=$('unkBox');
+  if(unknownDev){
+    if(!ub){ub=document.createElement('div');ub.id='unkBox';ub.className='warn';ub.style.marginTop='6px';$('learnState').parentNode.insertBefore(ub,$('learnState'))}
+    ub.innerHTML='Keys came from a keyboard that is not set up yet. Is it a new keyboard, or one you already set up that is now on another USB port? <select id="unkPick"><option value="new">A new keyboard</option>'+devs.map(function(x){return'<option value="'+x.id+'">'+esc(x.name||'(unnamed)')+' (use this one instead)</option>'}).join('')+'</select> <button class="btn gold" id="unkGo">Use it</button> <button class="btn" id="unkNo">Ignore</button>';
+    $('unkGo').onclick=function(){var v=$('unkPick').value;if(v==='new'){var d=mkDev('',unknownDev,false);devs.push(d);cur=d}else{var t=dev(+v);t.dev=unknownDev;cur=t}unknownDev='';ub.remove();drawAll()};
+    $('unkNo').onclick=function(){unknownDev='';ub.remove()};
+  }else if(ub)ub.remove();
+}
+var _drawLearn=drawLearn;drawLearn=function(){_drawLearn();drawLearnExtra()};
+(function(){var b=document.createElement('button');b.className='btn';b.id='mkPrim';b.style.marginTop='6px';b.textContent='Make this my main keyboard';b.onclick=function(){devs.forEach(function(x){x.primary=false});cur.primary=true;drawAll()};$('delDev').parentNode.insertBefore(b,$('delDev'))})();
+$('delDev').onclick=function(){
+  if(devs.length<2)return;
+  if(!confirm('Delete the keyboard "'+(cur.name||'unnamed')+'" and all its sets? This cannot be undone.'))return;
+  devs=devs.filter(function(x){return x!==cur});if(!devs.some(function(x){return x.primary}))devs[0].primary=true;
+  cur=devs[0];lastUsed=cur.id;sel=null;drawAll();
+};
+$('copyBtn').onclick=function(){
+  var v=$('copyFrom').value;if(!v)return;var src=dev(+v);if(!src)return;
+  if(!confirm('Replace all sets of "'+(cur.name||'this keyboard')+'" with a copy of the sets of "'+src.name+'"?'))return;
+  var idMap={},ns=src.sets.map(function(s){var o={id:nid++,num:s.num,label:s.label,map:JSON.parse(JSON.stringify(s.map)),locks:JSON.parse(JSON.stringify(s.locks||{}))};idMap[s.id]=o.id;return o});
+  ns.forEach(function(o){Object.keys(o.map).forEach(function(id){['p','d','h'].forEach(function(sl){var a=o.map[id][sl];if(!a)return;if(a.t==='set')a.v=idMap[a.v];if(a.t==='keyswitch')a.v2=idMap[a.v2]})})});
+  cur.sets=ns;cur.selId=cur.activeId=ns[0].id;cur.nextNum=Math.max.apply(null,ns.map(function(x){return x.num}))+1;cur.dbl=src.dbl;cur.spaceNum=src.spaceNum;cur.spaceMs=src.spaceMs;cur.spaceIn1=src.spaceIn1;drawAll();
+};
+/* TEST: the sets are paused while this page is on screen (so nothing can trap you); Test turns them on for 30 seconds */
+function startTest(){
+  if(!helperLive){alert('The Amit Helper is not connected, so there is nothing to test yet.');return}
+  testUntil=Date.now()+30000;clearTimeout(testT);testT=setTimeout(function(){testUntil=0;updPaused();syncHelper();drawAll();$('testTxt').textContent='Sets are paused again while you are on this page. Press Test to try them.'},30000);
+  updPaused();syncHelper();drawAll();$('testTxt').textContent='Test is on for 30 seconds: your keyboard sets work everywhere now. Ctrl + Alt + Shift + M switches them all off.';
+}
+if(parent===window){editing=!document.hidden;document.addEventListener('visibilitychange',function(){editing=!document.hidden;if(!editing)testUntil=0;updPaused();syncHelper()})}
+setInterval(function(){if(editing&&helperLive)syncHelper()},20000);   /* repeats the pause; the Helper resumes the sets by itself if this page goes quiet */
+setInterval(function(){updPaused()},1000);
+window.addEventListener('focus',function(){try{if(parent!==window)parent.postMessage({amitKeyboard:'bar'},location.origin)}catch(e){}});
+/* ask the Helper which computer this is, then ask the Hub for the saved setup */
+(function(){
+  var done=false;
+  function go(){if(done)return;done=true;
+    if(parent===window){loadedOnce=true;return}
+    try{parent.postMessage({amitKeyboard:'bar'},location.origin);parent.postMessage({amitKeyboard:'get',computer:compInfo()},location.origin)}catch(e){loadedOnce=true}
+    setTimeout(function(){if(!loadedOnce){loadedOnce=true;setStatus('Your login did not answer, so this is kept in this browser.');save()}},4000);
+  }
+  setTimeout(function(){if(!done){setStatus('The Amit Helper did not answer, so this is kept under this browser.');go()}},3000);
+  try{fetch(HELPER_URL+'/api/device',{cache:'no-store'}).then(function(r){return r.json()}).then(function(j){
+    if(j&&j.deviceId){COMP={id:uid(),name:String(j.deviceName||'This computer').slice(0,60),machine_key:String(j.deviceId).slice(0,80)};setStatus('Computer: '+COMP.name)}
+    go();
+  }).catch(function(){go()})}catch(e){go()}
+})();
+loadLocal();updPaused();
+
+</script>
+</body>
+</html>

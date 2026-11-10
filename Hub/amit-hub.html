@@ -1391,7 +1391,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.76</div>
+      <div class="page-version" id="hubVersionBadge">v8.77</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2513,6 +2513,7 @@ header{
           <button class="ch-tab-btn" id="ch-tab-btn-comm-live" onclick="showChTab('comm',5)">Amit Live</button>
           <button class="ch-tab-btn" id="ch-tab-btn-comm-helper" onclick="showChTab('comm',6);hlLoad()">Amit Helper</button>
           <button class="ch-tab-btn" id="ch-tab-btn-comm-mouse" onclick="showChTab('comm',7);amLoadMouse()">Amit Mouse</button>
+          <button class="ch-tab-btn" id="ch-tab-btn-comm-keyboard" onclick="showChTab('comm',8);amLoadKeyboard()">Amit Keyboard</button>
         </div>
         <div class="ch-tab-main">
 
@@ -2740,6 +2741,11 @@ header{
         <!-- TAB 7: AMIT MOUSE (Ryan, 2026-11-07; Hub v8.70): learn each mouse, then make sets of what its buttons do. Its own page (AmitMouse.html) shown here; kept in this browser for now, database and the connection to this computer come next. -->
         <div class="ch-tab-content" id="ch-tab-comm-7">
           <iframe id="amMouseFrame" title="Amit Mouse" style="width:100%;height:calc(100vh - 190px);min-height:560px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:12px;background:rgba(0,0,0,.22)"></iframe>
+        </div>
+
+        <!-- TAB 8: AMIT KEYBOARD (Ryan and Robin, 2026-11-09; Hub v8.77): the same idea as Amit Mouse, with keys. Its own page (AmitKeyboard.html) shown here; saved to the same Per_ tables with kind keyboard. -->
+        <div class="ch-tab-content" id="ch-tab-comm-8">
+          <iframe id="amKeyboardFrame" title="Amit Keyboard" style="width:100%;height:calc(100vh - 190px);min-height:560px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:12px;background:rgba(0,0,0,.22)"></iframe>
         </div>
 
         </div><!-- /ch-tab-main -->
@@ -5866,12 +5872,13 @@ async function amvInitAboutMePanel(){
 // just concatenated into the element IDs (detail-aboutme, ch-tab-nav-
 // aboutme, ch-tab-aboutme-N), so either works identically.
 // Amit Mouse page <-> database (Per_ tables: computers, devices, controls, sets, actions). The page asks; the Hub holds the login.
-async function amMouseGet(comp){
+async function amMouseGet(comp,kind){
+  kind=kind||'mouse';
   var q=await db.from('per_computers').select('id').eq('user_id',currentUser.id).eq('machine_key',comp.machine_key).maybeSingle();
   if(q.error) throw q.error;
   if(!q.data) return null;
   var cid=q.data.id;
-  var dv=await db.from('per_devices').select('*').eq('computer_id',cid).eq('kind','mouse').order('created_at',{ascending:true}); if(dv.error) throw dv.error;   /* oldest first: if no mouse is marked main, the first one added becomes it */
+  var dv=await db.from('per_devices').select('*').eq('computer_id',cid).eq('kind',kind).order('created_at',{ascending:true}); if(dv.error) throw dv.error;   /* oldest first: if no mouse is marked main, the first one added becomes it */
   var devs=dv.data||[]; if(!devs.length) return null;
   var ids=devs.map(function(x){return x.id;});
   var cs=await db.from('per_controls').select('*').in('device_id',ids); if(cs.error) throw cs.error;
@@ -5887,20 +5894,21 @@ async function amMouseGet(comp){
 }
 // saves run ONE AT A TIME (several quick edits used to overlap and wipe each other's primary flag); while one runs, only the newest waiting one is kept
 var amPutBusy=false, amPutNext=null;
-async function amMousePutQueued(d){
-  if(amPutBusy){ amPutNext=d; return; }
+async function amMousePutQueued(d,kind){
+  if(amPutBusy){ amPutNext=[d,kind]; return; }
   amPutBusy=true;
-  try{ await amMousePut(d); }
-  finally{ amPutBusy=false; if(amPutNext){ var n=amPutNext; amPutNext=null; amMousePutQueued(n); } }
+  try{ await amMousePut(d,kind); }
+  finally{ amPutBusy=false; if(amPutNext){ var n=amPutNext; amPutNext=null; amMousePutQueued(n[0],n[1]); } }
 }
-async function amMousePut(d){
+async function amMousePut(d,kind){
+  kind=kind||'mouse';
   var uidv=currentUser.id, c=d.computer, now=new Date().toISOString();
   var ex=await db.from('per_computers').select('id').eq('user_id',uidv).eq('machine_key',c.machine_key).maybeSingle(); if(ex.error) throw ex.error;
   if(ex.data) c.id=ex.data.id;
   var r=await db.from('per_computers').upsert({id:c.id,user_id:uidv,name:c.name,machine_key:c.machine_key,updated_at:now},{onConflict:'id'}); if(r.error) throw r.error;
   var devRows=[],ctlRows=[],setRows=[],actRows=[];
   d.devices.forEach(function(x){
-    devRows.push({id:x.id,user_id:uidv,computer_id:c.id,kind:'mouse',name:String(x.name).slice(0,40),device_key:x.device_key,is_primary:false,learned:!!x.learned,settings:x.settings||{},updated_at:now,_primary:!!x.is_primary});
+    devRows.push({id:x.id,user_id:uidv,computer_id:c.id,kind:kind,name:String(x.name).slice(0,40),device_key:x.device_key,is_primary:false,learned:!!x.learned,settings:x.settings||{},updated_at:now,_primary:!!x.is_primary});
     x.controls.forEach(function(k){ctlRows.push({user_id:uidv,device_id:x.id,control_id:k.control_id,label:String(k.label||'').slice(0,80),original_call:k.original_call||'',seen:!!k.seen});});
     x.sets.forEach(function(s){
       setRows.push({id:s.id,user_id:uidv,device_id:x.id,num:s.num,label:String(s.label||'').slice(0,40)});
@@ -5908,7 +5916,7 @@ async function amMousePut(d){
     });
   });
   // remove what the person deleted (a device's controls and sets go with it)
-  var have=await db.from('per_devices').select('id').eq('computer_id',c.id); if(have.error) throw have.error;
+  var have=await db.from('per_devices').select('id').eq('computer_id',c.id).eq('kind',kind); if(have.error) throw have.error;   /* only this kind: saving the mice must never delete the keyboards, or the other way round */
   var keepD={}; devRows.forEach(function(x){keepD[x.id]=1;});
   var gone=(have.data||[]).filter(function(x){return !keepD[x.id];}).map(function(x){return x.id;});
   if(gone.length){ r=await db.from('per_devices').delete().in('id',gone); if(r.error) throw r.error; }
@@ -5942,6 +5950,33 @@ window.addEventListener('message',async function(ev){
     }
   }catch(e){ if(ev.data.amitMouse==='get') reply(null,'Could not reach your login storage: '+(e&&e.message||e)); else { try{ f.contentWindow.postMessage({amitMouse:'data',row:null,error:'Could not save: '+(e&&e.message||e)},location.origin);}catch(_){} } }
 });
+window.addEventListener('message',async function(ev){
+  if(ev.origin!==location.origin||!ev.data||!ev.data.amitKeyboard) return;
+  var f=document.getElementById('amKeyboardFrame'); if(!f||ev.source!==f.contentWindow) return;
+  function reply(row,err){ try{ f.contentWindow.postMessage({amitKeyboard:'data',row:row,error:err||''},location.origin); }catch(_){} }
+  if(typeof currentUser==='undefined'||!currentUser||!currentUser.id){ if(ev.data.amitKeyboard==='get') reply(null,'Sign in to the Hub to keep this with your login.'); return; }
+  try{
+    if(ev.data.amitKeyboard==='get'){ reply(await amMouseGet(ev.data.computer,'keyboard')); amKeyboardTabState(true); }
+    else if(ev.data.amitKeyboard==='put') await amMousePutQueued(ev.data.data,'keyboard');
+    else if(ev.data.amitKeyboard==='bar'){
+      var bp=await db.from('hel_profiles').select('id,name,sort_order').eq('user_id',currentUser.id).order('sort_order');
+      var bb=await db.from('hel_buttons').select('profile_id,name,sort_order').eq('user_id',currentUser.id).order('sort_order');
+      var menus=((bp.data)||[]).map(function(pr){return [String(pr.name||'').replace(/s+/g,' ').trim(),((bb.data)||[]).filter(function(b){return b.profile_id===pr.id;}).map(function(b){return String(b.name||'').replace(/s+/g,' ').trim();})];});
+      var sg=menus.filter(function(m){return m[0]==='Settings';})[0]; if(sg){ if(sg[1].indexOf('Amit menu')<0) sg[1].unshift('Amit menu'); } else menus.unshift(['Settings',['Amit menu']]);
+      try{ f.contentWindow.postMessage({amitKeyboard:'bar',menus:menus},location.origin); }catch(_){}
+    }
+  }catch(e){ if(ev.data.amitKeyboard==='get') reply(null,'Could not reach your login storage: '+(e&&e.message||e)); else { try{ f.contentWindow.postMessage({amitKeyboard:'data',row:null,error:'Could not save: '+(e&&e.message||e)},location.origin);}catch(_){} } }
+});
+// Amit Keyboard pause while editing: like the mouse, the sets are paused only while this tab is on screen.
+var amKeyboardVisLast=null;
+function amKeyboardTabState(force){
+  var f=document.getElementById('amKeyboardFrame'); if(!f||!f.contentWindow||!f.getAttribute('src')) return;
+  var on=(f.offsetParent!==null)&&!document.hidden;
+  if(!force&&on===amKeyboardVisLast) return; amKeyboardVisLast=on;
+  try{ f.contentWindow.postMessage({amitKeyboard:'tab',on:on},location.origin); }catch(e){}
+}
+setInterval(amKeyboardTabState,1000);
+function amLoadKeyboard(){var f=document.getElementById('amKeyboardFrame');if(f&&!f.getAttribute('src'))f.setAttribute('src','AmitKeyboard.html')}
 // Amit Mouse pause while editing: the page pauses the person's mouse sets only while its tab is on screen. Only the Hub knows that (it is the Hub that shows and hides the tab),
 // so it tells the page whenever it changes: the tab is a visible box in a visible browser tab. One cheap check a second.
 var amMouseVisLast=null;
