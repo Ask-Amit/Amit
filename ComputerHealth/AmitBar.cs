@@ -51,7 +51,7 @@ static class Program
             if (args[q] == "--print-selftest" && q + 1 < args.Length) { PrintCtl.SelfTest(args[q + 1]); return; }
         }
         string shot = null; bool wide = false, showNow = false;
-        for (int i = 0; i < args.Length; i++) { if (args[i] == "--shot" && i + 1 < args.Length) shot = args[i + 1]; if (args[i] == "--wide") wide = true; if (args[i] == "--show") showNow = true; }
+        for (int i = 0; i < args.Length; i++) { if (args[i] == "--shot" && i + 1 < args.Length) shot = args[i + 1]; if (args[i] == "--wide") wide = true; if (args[i] == "--show") showNow = true; if (args[i] == "--welcome") BarForm.WelcomeAtStart = true; }
         Application.EnableVisualStyles();
         if (shot != null) { BarForm f = new BarForm(true, false); f.RenderTo(shot, wide); return; }   // picture only: no window is ever shown
         bool createdNew;
@@ -114,7 +114,10 @@ public class BarForm : Form
     int hover = -1; List<Rectangle> tiles = new List<Rectangle>(); Rectangle iconRect, chipRect, reloadRect; bool reloadHot = false;
     System.Windows.Forms.Timer idleTimer; ToolTip tip = new ToolTip(); NotifyIcon tray;
     LLProc hookProc; IntPtr hook = IntPtr.Zero; int lastRDown = 0, lastRX = 0, lastRY = 0; bool swallowRUp = false;
-    EventWaitHandle showEvent, runEvent;
+    EventWaitHandle showEvent, runEvent, welcomeEvent;
+    // the Amit welcome (at sign-in) shows the bar for 30 seconds and then it closes itself, unless the person used it meanwhile or keeps it Always on
+    public static bool WelcomeAtStart;
+    DateTime welcomeHideAt = DateTime.MinValue;
 
     public BarForm(bool test, bool showNow)
     {
@@ -141,7 +144,11 @@ public class BarForm : Form
         Thread t2 = new Thread(delegate () { while (true) { try { runEvent.WaitOne(); BeginInvoke(new MethodInvoker(delegate { RunByVoice(); })); } catch { return; } } });
         t2.IsBackground = true; t2.Start();
         if (cfg.ownHook) { hookProc = HookCb; hook = SetWindowsHookEx(14, hookProc, GetModuleHandle(null), 0); }
+        bool created3; welcomeEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "Local\\AmitBarWelcome", out created3);
+        Thread t3 = new Thread(delegate () { while (true) { try { welcomeEvent.WaitOne(); BeginInvoke(new MethodInvoker(delegate { ShowBar(); welcomeHideAt = DateTime.Now.AddSeconds(30); })); } catch { return; } } });
+        t3.IsBackground = true; t3.Start();
         if (cfg.alwaysOn || showNow) ShowBar();
+        if (WelcomeAtStart) welcomeHideAt = DateTime.Now.AddSeconds(30);
     }
 
     protected override bool ShowWithoutActivation { get { return true; } }
@@ -280,7 +287,16 @@ public class BarForm : Form
     // ---------- show, hide, idle ----------
     void ShowBar() { allowVisible = true; RegisterBar(); PlaceBar(); lastUse = DateTime.Now; if (!Visible) Show(); else Invalidate(); TopMost = true; }
     void HideBar() { if (cfg.alwaysOn) return; tip.Hide(this); UnregisterBar(); Hide(); }
-    void IdleCheck() { ReloadIfChanged(); if (Visible && !cfg.alwaysOn && (DateTime.Now - lastUse).TotalMinutes >= cfg.idleMinutes) HideBar(); }
+    void IdleCheck()
+    {
+        if (welcomeHideAt != DateTime.MinValue && DateTime.Now >= welcomeHideAt)
+        {
+            welcomeHideAt = DateTime.MinValue;
+            if (Visible && (DateTime.Now - lastUse).TotalSeconds >= 29) HideBar();   // not if the person used the bar meanwhile (HideBar also keeps an Always-on bar)
+        }
+        IdleCheck2();
+    }
+    void IdleCheck2() { ReloadIfChanged(); if (Visible && !cfg.alwaysOn && (DateTime.Now - lastUse).TotalMinutes >= cfg.idleMinutes) HideBar(); }
     void Used() { lastUse = DateTime.Now; }
 
     // ---------- the double-right-click (watched here for the prototype) ----------

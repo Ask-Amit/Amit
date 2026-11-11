@@ -183,7 +183,7 @@ try {
 $amitTrackingDisabledFlag = "$env:TEMP\amit_tracking_disabled.flag"
 if (-not (Test-Path $amitTrackingDisabledFlag)) {
     try {
-        $autoStartCmd = "Start-Sleep -Seconds 2; try { Invoke-RestMethod -Uri 'http://localhost:$port/api/start-tracking' -Method Get -TimeoutSec 25 -ErrorAction Stop | Out-Null } catch {}"
+        $autoStartCmd = "Start-Sleep -Seconds 2; try { Invoke-RestMethod -Uri 'http://localhost:$port/api/start-tracking' -Method Get -TimeoutSec 25 -ErrorAction Stop | Out-Null } catch {}; try { Invoke-RestMethod -Uri 'http://localhost:$port/api/sensors/card-open?logon=1' -Method Get -TimeoutSec 15 -ErrorAction Stop | Out-Null } catch {}"
         Start-Process powershell.exe -ArgumentList "-NoProfile -WindowStyle Hidden -Command `"$autoStartCmd`"" -WindowStyle Hidden -ErrorAction Stop
         Write-Host "Performance tracking will auto-start (default) in a couple seconds - use Stop Tracking in the dashboard to turn it off (stays off across restarts until Start Tracking is used again)."
     } catch {
@@ -821,6 +821,59 @@ $handlerScript = {
     $sensorReaderPath = Join-Path $watcherDir "AmitSensorReader.exe"
     $sensorDataPath = "$env:TEMP\amit_sensor_data.json"
 
+    # ---- Sensor permission (2026-11-10, Robin): the old way asked Windows for administrator rights through a bare PowerShell box on EVERY sign-in.
+    # Now the Amit card explains first and asks ONCE; that one OK creates a Windows scheduled task (run with the highest rights, started on demand),
+    # and every later sign-in starts the reader through the task with no prompt at all. The reader is copied into Program Files (only an administrator
+    # can change it there) so that nothing running as a normal user can swap it for something else and get administrator rights for free. ----
+    $sensorTaskName = "AmitSensorReader"
+    $amitDataDir = Split-Path $watcherDir -Parent
+    $sensorDeclinedFlag = Join-Path $amitDataDir "sensors_declined.flag"
+    $sensorEnableResult = "$env:TEMP\amit_sensor_enable.txt"
+    # The task counts as set up only when it runs the reader through conhost.exe --headless (no black console window). An older task that
+    # starts the reader directly would show a console window at every sign-in, so it is treated as not set up and the card asks again once.
+    function Test-SensorTask() {
+        try {
+            $st = Get-ScheduledTask -TaskName $sensorTaskName -ErrorAction Stop
+            return ([string]$st.Actions[0].Execute -like '*conhost.exe')
+        } catch { return $false }
+    }
+    function Start-SensorTask() {
+        try { & schtasks.exe /run /tn $sensorTaskName *> $null; return ($LASTEXITCODE -eq 0) } catch { return $false }
+    }
+    function Stop-SensorTask() {
+        try { & schtasks.exe /end /tn $sensorTaskName *> $null } catch {}
+    }
+    # "No" is remembered for 30 days, then Amit asks again (a person who said not now may want it later)
+    function Test-SensorDeclined() {
+        try { return ((Test-Path $sensorDeclinedFlag) -and (((Get-Date) - (Get-Item $sensorDeclinedFlag).LastWriteTime).TotalDays -lt 30)) } catch { return $false }
+    }
+    # ---- The welcome sequence checks (2026-11-10, Robin): each answers at once with ok, fail or pending; the card page asks again until it is ok or fail.
+    # "Show the full welcome at every sign-in" is ON unless the file welcome_full.off exists (then the checks run silently and the card opens only if one fails). ----
+    $welcomeOffFlag = Join-Path $amitDataDir "welcome_full.off"
+    function Get-WelcomeHealth() {
+        # (the request handlers do not see top-level variables: the flag's full path is written out, like the stop/start tracking routes do)
+        $tr = Get-TrackerStatus
+        if (-not $tr.running) {
+            # not running: it is "your choice" only when the person really turned tracking off (the flag); otherwise it is still starting
+            if (Test-Path "$env:TEMP\amit_tracking_disabled.flag") { return '{"state":"ok","detail":"Monitoring is turned off (your choice)"}' }
+            return '{"state":"pending","detail":"the monitor is starting"}'
+        }
+        if (Test-SensorTask) {
+            $fresh = $false
+            try { $fresh = (Test-Path $sensorDataPath) -and (((Get-Date) - (Get-Item $sensorDataPath).LastWriteTime).TotalSeconds -lt 15) } catch {}
+            if ($fresh) { return '{"state":"ok","detail":"Monitor connected"}' }
+            if (-not (Get-Process -Name "AmitSensorReader" -ErrorAction SilentlyContinue)) { Start-SensorTask | Out-Null }
+            return '{"state":"pending","detail":"waiting for the first sensor reading"}'
+        }
+        return '{"state":"ok","detail":"Monitor connected (hardware sensors off)"}'
+    }
+    # which card to show: 'wake' (Amit is waking up) or 'ask' (the one-time permission, only when the reader is installed and no OK was given)
+    function Get-SensorCardMode() {
+        if (Test-SensorTask) { return 'wake' }
+        if ((Test-Path $sensorReaderPath) -and -not (Test-SensorDeclined)) { return 'ask' }
+        return 'wake'
+    }
+
     function Get-TrackerStatus() {
         $running = $false
         $pids = @()
@@ -1035,25 +1088,21 @@ $handlerScript = {
             # directly when signaled. No new elevation ever needed again
             # after this one initial approval, and stopping is a plain,
             # always-reliable file write instead of a second UAC gamble.
-            try {
+            # 2026-11-10: no bare Windows prompt any more (see the sensor permission block above). With the one-time OK given, the Windows task starts the reader.
+            if (Test-SensorTask) {
                 Remove-Item $lhmStopFlag -ErrorAction SilentlyContinue
                 Remove-Item $sensorDataPath -ErrorAction SilentlyContinue
-                $lhmWatcherScript = @"
-try {
-    `$readerProc = Start-Process -FilePath '$sensorReaderPath' -ArgumentList '"$sensorDataPath"','"$lhmStopFlag"' -WindowStyle Hidden -PassThru -ErrorAction Stop
-    while (-not (Test-Path '$lhmStopFlag')) {
-        Start-Sleep -Seconds 1
-        `$readerProc.Refresh()
-        if (`$readerProc.HasExited) { break }
-    }
-    if (-not `$readerProc.HasExited) { Stop-Process -Id `$readerProc.Id -Force -ErrorAction SilentlyContinue }
-    Remove-Item '$lhmStopFlag' -ErrorAction SilentlyContinue
-} catch {}
-"@
-                $lhmEncoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($lhmWatcherScript))
-                Start-Process powershell.exe -Verb RunAs -WindowStyle Hidden -ArgumentList "-NoProfile -EncodedCommand $lhmEncoded"
-            } catch {
-                $warnings += "Sensor reader needs admin approval to run (UAC) - sensor readings (temps/voltages/fans) won't be available this session. Resource and diagnostic tracking still work."
+                if (-not (Start-SensorTask)) {
+                    $warnings += "The sensor reader could not be started by its Windows task. Resource and diagnostic tracking still work."
+                }
+            } elseif (-not (Test-SensorDeclined)) {
+                $warnings += "Hardware sensors need a one-time OK. Amit is asking with its welcome card. Resource and diagnostic tracking still work."
+                if (-not $global:AmitSensorCardAsked) {
+                    $global:AmitSensorCardAsked = $true
+                    try { [AmitWhisper]::OpenListedMenu('sensor-welcome') | Out-Null } catch {}
+                }
+            } else {
+                $warnings += "Hardware sensors are off (the one-time OK was not given). Amit will ask again later. Resource and diagnostic tracking still work."
             }
         } else {
             # 2026-11-05: the sensor reader (about 72 MB) is no longer inside the installer; it is added on request from the Hardware tab (/api/sensors/install)
@@ -1200,9 +1249,8 @@ try {
                 foreach ($p in $stillRunning) {
                     try { Stop-Process -Id $p.Id -Force -ErrorAction Stop }
                     catch {
-                        try {
-                            Start-Process powershell -Verb RunAs -WindowStyle Hidden -ArgumentList "-NoProfile -Command `"Stop-Process -Name AmitSensorReader -Force -ErrorAction SilentlyContinue`""
-                        } catch {}
+                        # 2026-11-10: the reader runs with administrator rights through its Windows task, so ask the task to end it (no Windows prompt)
+                        Stop-SensorTask
                     }
                 }
             }
@@ -1453,6 +1501,259 @@ try {
                     Send-Html $response ([System.IO.File]::ReadAllText($dictPage, [System.Text.Encoding]::UTF8).Replace('__WHISPER_TOKEN__', $dTok).Replace('__START__', [AmitWhisper]::StartId()))
                 }
                 else { $response.StatusCode = 404; Send-Html $response "The Dictate page is not installed." }
+            }
+            # ---- Amit welcome card (2026-11-10): "Amit is waking up" at sign-in, and the ONE-TIME sensor permission. Same secret rule as /dictate. ----
+            "/sensors-welcome" {
+                $swTok = ''
+                if (-not $request.Headers['Origin']) { $swTok = [AmitWhisper]::Token() }
+                $swHtml = @'
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Amit initializing</title><link rel="icon" href="data:image/x-icon;base64,__ICON__">
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{font:14px/1.45 "Segoe UI",system-ui,sans-serif;background:#161c28;color:#e8ecf3;border:2px solid #c9a24a;padding:16px;display:flex;flex-direction:column;overflow:hidden}
+body.err{border-color:#e0605a}
+#root{flex:1;position:relative;display:flex;flex-direction:column;min-height:0}
+.hd{display:flex;gap:12px;align-items:center;margin-bottom:8px}
+.logo{width:42px;height:42px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#f2d98a,#b8862b);display:grid;place-items:center;color:#2a1c00;font-weight:700;font-size:22px;flex:none}
+.logo.pulse{animation:pl 1.4s ease-in-out infinite}@keyframes pl{50%{box-shadow:0 0 0 8px #c9a24a33}}
+.ti{font-weight:600;font-size:16px}
+p{margin:6px 0;color:#cdd6e4}
+ul{list-style:none;padding:0;margin:8px 0}li{padding:2px 0;color:#cdd6e4}li.d::before{content:"\2713  ";color:#8fd19e}
+.btns{display:flex;gap:8px;margin-top:auto;padding-top:10px}
+button{flex:1;padding:10px;border-radius:8px;border:1px solid #2c3750;background:#1f2838;color:#e8ecf3;cursor:pointer;font:inherit}
+button.go{background:#c9a24a;color:#1a1405;border-color:#c9a24a;font-weight:600}
+.step{display:flex;gap:10px;align-items:flex-start;padding:7px 0}
+.ic{width:22px;height:22px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:13px;font-weight:700;border:2px solid #3a4560;color:#9aa6b8;margin-top:1px}
+.ic.wk{border-color:#c9a24a;border-top-color:transparent;animation:sp .8s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
+.ic.ok{background:#2e7d4f;border-color:#2e7d4f;position:relative}.ic.no{background:#c0443d;border-color:#c0443d;position:relative}
+.ic.ok::before{content:"";position:absolute;left:6px;top:2px;width:5px;height:10px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg)}
+.ic.no::before,.ic.no::after{content:"";position:absolute;left:8px;top:3px;width:2.5px;height:12px;background:#fff;border-radius:1px}
+.ic.no::before{transform:rotate(45deg)}.ic.no::after{transform:rotate(-45deg)}
+.st b{display:block;font-weight:600}.st span{font-size:12.5px;color:#9aa6b8}.st span.g{color:#8fd19e}.st span.r{color:#ff9a94}
+.word2{align-self:center;margin:18px 0 8px;transform:rotate(-8deg) scale(.85);font-size:28px;font-weight:800;letter-spacing:.05em;color:#f2d98a;text-shadow:0 3px 12px #000;opacity:0;transition:.4s;white-space:nowrap}
+.word2.on{opacity:1;transform:rotate(-8deg) scale(1)}
+.fade{transition:opacity .8s;opacity:0}
+</style></head><body><div id="root"></div>
+<script>
+var TOK='__TOKEN__',root=document.getElementById('root'),run=0;
+function sl(ms){return new Promise(function(r){setTimeout(r,ms)})}
+function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]})}
+function hd(c,t){return '<div class="hd"><div class="ti">'+t+'</div></div>'}
+function closeSoon(ms){setTimeout(function(){root.className='fade';setTimeout(function(){try{window.close()}catch(e){}},900)},ms)}
+var STEPS=[
+ {t:"Your computer monitor",failName:"Your computer monitor did not initialize",to:18000,fix:"http://localhost:8710/",fixName:"Open your computer monitor"},
+ {t:"Connecting your helper",failName:"Your helper did not initialize",to:10000,fix:"https://ask-amit.github.io/Amit/AmitFix/AmitFix.html",fixName:"Open Amit Fix"},
+ {t:"Initializing Amit Live",failName:"Amit Live did not initialize",to:9000,fix:"https://ask-amit.github.io/Amit/AmitFix/AmitFix.html",fixName:"Open Amit Fix"}];
+// the window opens only as big as what it shows: the page measures itself and asks the Helper to resize the window (its bottom-right corner stays put)
+var fitT=0,lastFit='';
+function fit(){
+ var w=document.body.className==='err'?400:(root.querySelector('.step')?340:420);
+ try{
+  document.body.style.width=w+'px';root.style.flex='none';
+  var h=root.offsetHeight+36;
+  root.style.flex='';document.body.style.width='';
+  var dpr=window.devicePixelRatio||1;
+  var ow=Math.round((w+(window.outerWidth-window.innerWidth))*dpr),oh=Math.round((h+(window.outerHeight-window.innerHeight))*dpr);
+  var key=ow+'x'+oh;if(key===lastFit)return;lastFit=key;
+  fetch('/api/welcome/size?w='+ow+'&h='+oh+'&k='+TOK,{method:'POST'}).catch(function(){});
+ }catch(e){}
+}
+new MutationObserver(function(){clearTimeout(fitT);fitT=setTimeout(fit,30)}).observe(root,{childList:true});function draw(st,dt,title,foot,word,pulse){
+ var h=hd(pulse?'pulse':'',title);
+ STEPS.forEach(function(s,i){var x=st[i]||'';var ic='';var cls=x=='wk'?'ic wk':x=='ok'?'ic ok':x=='no'?'ic no':'ic';
+  var sub=x=='ok'?'<span class="g">'+esc(dt[i])+'</span>':x=='no'?'<span class="r">'+esc(dt[i])+'</span>':x=='wk'?'<span>Checking\u2026</span>':'<span>Waiting</span>';
+  h+='<div class="step"><div class="'+cls+'">'+ic+'</div><div class="st"><b>'+s.t+'</b>'+sub+'</div></div>'});
+ root.innerHTML=h+(foot||'')+(word?'<div class="word2" id="w2">INITIALIZED</div>':'');
+}
+// each check answers quickly (ok, fail or still starting); this asks again until it is ok or fail, or the time for that step is up
+async function poll(n,me){
+ var t0=Date.now(),first=1,last={state:'pending',detail:''};
+ while(Date.now()-t0<STEPS[n-1].to){
+  try{var r=await fetch('/api/welcome/step?n='+n+'&first='+first+'&k='+TOK,{method:'POST'});last=await r.json();first=0;if(last.state!=='pending')return last}catch(e){}
+  await sl(600);if(me!=run)return {state:'stale'};
+ }
+ return {state:'fail',detail:'Did not start in time'+(last.detail?' ('+last.detail+')':'')};
+}
+async function sequence(){
+ var me=++run,st=[],dt=[];
+ document.body.className='';
+ draw(st,dt,'Initializing','',false,true);
+ for(var i=0;i<3;i++){
+  st[i]='wk';draw(st,dt,'Initializing','',false,true);
+  var hold=sl(1300);
+  var res=await poll(i+1,me);await hold;if(me!=run)return;
+  if(res.state==='ok'){st[i]='ok';dt[i]=res.detail||'Ready';draw(st,dt,'Initializing','',false,true);await sl(400);if(me!=run)return}
+  else{st[i]='no';dt[i]=res.detail||'This did not start';failure(i,st,dt);return}
+ }
+ draw(st,dt,'Everything is up and running','',true,false);
+ await sl(60);var w=document.getElementById('w2');if(w)w.className='word2 on';
+ await sl(2300);if(me!=run)return;
+ closeSoon(100);
+}
+function failure(i,st,dt){
+ document.body.className='err';
+ var foot='<div class="btns"><button class="go" id="fx">'+esc(STEPS[i].fixName)+'</button><button id="rt">Try again</button><button id="cl">Close</button></div>';
+ draw(st,dt,STEPS[i].failName,foot,false,false);
+ document.getElementById('fx').onclick=function(){try{window.open(STEPS[i].fix,'_blank')}catch(e){}};
+ document.getElementById('rt').onclick=function(){sequence()};
+ document.getElementById('cl').onclick=function(){try{window.close()}catch(e){}};
+}
+function ask(){
+ root.innerHTML=hd('pulse',"Let Amit watch over your computer's health")+
+ '<p>Amit can keep an eye on how hard your computer is working and how hot it is running, so you hear about a problem <b>before it becomes one</b>.</p>'+
+ '<ul><li class="d">Catches overheating before it slows or freezes your computer</li><li class="d">Helps find the real reason when something runs slow or crashes</li><li class="d">Helps your computer last longer</li></ul>'+
+ '<p>Windows needs your OK for this <b>one time</b>. Its box may say <i>PowerShell</i>; that is just how Windows asks. Amit only reads, it never changes anything, and it all stays on your computer.</p>'+
+ '<div class="btns"><button id="no">Not now</button><button class="go" id="yes">Yes, watch over my computer</button></div>';
+ var watch=setInterval(function(){fetch('/api/sensors/welcome').then(function(r){return r.json()}).then(function(s){if(s.taskExists&&document.getElementById('yes')){clearInterval(watch);sequence()}}).catch(function(){})},2000);
+ document.getElementById('no').onclick=function(){clearInterval(watch);fetch('/api/sensors/decline?k='+TOK,{method:'POST'}).catch(function(){});sequence()};
+ document.getElementById('yes').onclick=function(){
+  clearInterval(watch);
+  root.innerHTML=hd('pulse','Waiting for Windows\u2026')+'<p>Windows is asking for your OK. Please answer Yes in its box.</p>';
+  fetch('/api/sensors/enable?k='+TOK,{method:'POST'}).catch(function(){});
+  var n=0,t=setInterval(function(){n++;
+   fetch('/api/sensors/welcome').then(function(r){return r.json()}).then(function(s){
+    if(s.taskExists){clearInterval(t);fetch('/api/sensors/start?k='+TOK,{method:'POST'}).catch(function(){});sequence()}
+    else if(s.enable==='declined'){clearInterval(t);sequence()}
+    else if(s.enable==='done'&&n>3){clearInterval(t);root.innerHTML=hd('','That did not finish')+'<p>Windows did not finish setting this up. Amit will ask again next time.</p>';setTimeout(sequence,3500)}
+   }).catch(function(){});
+   if(n>150){clearInterval(t);sequence()}
+  },1000)}
+}
+fetch('/api/sensors/welcome').then(function(r){return r.json()}).then(function(s){if(s.mode==='ask')ask();else sequence()}).catch(function(){sequence()});
+</script></body></html>
+'@
+                $swIcon = ''; try { $swIcon = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes((Join-Path $watcherDir 'amit_icon.ico'))) } catch {}
+                Send-Html $response ($swHtml.Replace('__TOKEN__', $swTok).Replace('__ICON__', $swIcon))
+            }
+            "/api/sensors/welcome" {
+                $swMode = Get-SensorCardMode
+                $swTask = Test-SensorTask
+                $swEn = ''
+                try { if (Test-Path $sensorEnableResult) { $swEn = ([System.IO.File]::ReadAllText($sensorEnableResult)).Trim() } } catch {}
+                if ($swEn -eq 'declined') { try { 'declined' | Set-Content -Path $sensorDeclinedFlag -Encoding ASCII } catch {} }
+                Send-JsonRaw $response ('{"mode":"' + $swMode + '","taskExists":' + $swTask.ToString().ToLower() + ',"enable":"' + $swEn + '"}')
+            }
+            "/api/welcome/step" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $wsN = 0; [void][int]::TryParse([string]$request.QueryString["n"], [ref]$wsN)
+                    $wsFirst = ($request.QueryString["first"] -eq "1")
+                    $wsOut = '{"state":"fail","detail":"Unknown step"}'
+                    # self-test hook: a file holding a step number makes that step fail on purpose (to see the failure screen); nothing else uses it
+                    $wsTf = ''
+                    try { $tfp = "$env:TEMP\amit_welcome_testfail.txt"; if (Test-Path $tfp) { $wsTf = ([System.IO.File]::ReadAllText($tfp)).Trim() } } catch {}
+                    try {
+                        if ($wsTf -eq [string]$wsN) { $wsOut = '{"state":"fail","detail":"Test failure on purpose"}' }
+                        elseif ($wsN -eq 1) { $wsOut = Get-WelcomeHealth }
+                        elseif ($wsN -eq 2) { $wsOut = [AmitWhisper]::WelcomeBar($wsFirst, $true) }
+                        elseif ($wsN -eq 3) { $wsOut = [AmitWhisper]::WelcomeLive($wsFirst, $true) }
+                    } catch {
+                        $wsMsg = ([string]$_.Exception.Message) -replace '[\r\n"\\]', ' '
+                        if ($wsMsg.Length -gt 110) { $wsMsg = $wsMsg.Substring(0, 110) }
+                        $wsOut = '{"state":"fail","detail":"The check itself failed (' + $wsMsg + ')"}'
+                    }
+                    Send-JsonRaw $response $wsOut
+                }
+            }
+            "/api/welcome/size" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $szW = 0; $szH = 0
+                    [void][int]::TryParse([string]$request.QueryString["w"], [ref]$szW); [void][int]::TryParse([string]$request.QueryString["h"], [ref]$szH)
+                    Send-JsonRaw $response ([AmitWhisper]::WelcomeSize($szW, $szH))
+                }
+            }
+            "/api/welcome/quiet-check" {
+                # read-only version for the silent sign-in (switch OFF): nothing is shown; the Helper bar is only made sure to be running
+                $qOk = $false
+                try {
+                    $q1 = Get-WelcomeHealth; $q2 = [AmitWhisper]::WelcomeBar($true, $false); $q3 = [AmitWhisper]::WelcomeLive($false, $false)
+                    $qOk = ($q1 -like '*"state":"ok"*') -and ($q2 -like '*"state":"ok"*') -and ($q3 -like '*"state":"ok"*')
+                } catch {}
+                Send-JsonRaw $response ('{"ok":' + $qOk.ToString().ToLower() + '}')
+            }
+            "/api/welcome/setting" {
+                if ($request.HttpMethod -eq 'POST') {
+                    if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                    else {
+                        if ($request.QueryString["full"] -eq "0") { try { 'off' | Set-Content -Path $welcomeOffFlag -Encoding ASCII } catch {} }
+                        else { Remove-Item $welcomeOffFlag -ErrorAction SilentlyContinue }
+                        Send-JsonRaw $response ('{"full":' + (-not (Test-Path $welcomeOffFlag)).ToString().ToLower() + '}')
+                    }
+                } else { Send-JsonRaw $response ('{"full":' + (-not (Test-Path $welcomeOffFlag)).ToString().ToLower() + '}') }
+            }
+            "/api/sensors/start" {
+                # The card calls this once the one-time OK exists: start the reader now (through its Windows task) instead of waiting for the next sign-in.
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $swStarted = $false
+                    try {
+                        if ((Test-SensorTask) -and -not (Get-Process -Name "AmitSensorReader" -ErrorAction SilentlyContinue)) {
+                            Remove-Item $lhmStopFlag -ErrorAction SilentlyContinue
+                            Remove-Item $sensorDataPath -ErrorAction SilentlyContinue
+                            $swStarted = Start-SensorTask
+                        }
+                    } catch {}
+                    Send-JsonRaw $response ('{"started":' + $swStarted.ToString().ToLower() + '}')
+                }
+            }
+            "/api/sensors/card-open" {
+                # Called once at sign-in by the auto-start. 'wake' only right after sign-in (never after an update restart); 'ask' is opened by Start-Tracking itself.
+                $swOpen = $false
+                try {
+                    $swMode2 = Get-SensorCardMode
+                    $explorerAge = 9999
+                    $ex = Get-Process -Name explorer -ErrorAction SilentlyContinue | Sort-Object StartTime | Select-Object -First 1
+                    if ($ex) { $explorerAge = ((Get-Date) - $ex.StartTime).TotalMinutes }
+                    if ($swMode2 -eq 'wake' -and $explorerAge -lt 5) {
+                        $port = $request.Url.Port
+                        if (Test-Path $welcomeOffFlag) {
+                            # switch OFF: check quietly in a hidden PowerShell; the card opens only if something does not come up
+                            $quietCmd = "Start-Sleep -Seconds 4; `$bad=`$true; for(`$i=0;`$i -lt 20;`$i++){ try { `$r=Invoke-RestMethod -Uri 'http://localhost:$port/api/welcome/quiet-check' -TimeoutSec 8; if(`$r.ok){`$bad=`$false;break} } catch {}; Start-Sleep -Seconds 2 }; if(`$bad){ try { Invoke-RestMethod -Uri 'http://localhost:$port/api/menu/open?id=sensor-welcome' -TimeoutSec 8 | Out-Null } catch {} }"
+                            Start-Process powershell.exe -ArgumentList "-NoProfile -WindowStyle Hidden -Command `"$quietCmd`"" -WindowStyle Hidden -ErrorAction SilentlyContinue
+                        } else { $swOpen = $true }
+                    }
+                    elseif ($swMode2 -eq 'ask' -and -not $global:AmitSensorCardAsked) { $global:AmitSensorCardAsked = $true; $swOpen = $true }
+                    if ($swOpen) { [AmitWhisper]::OpenListedMenu('sensor-welcome') | Out-Null }
+                } catch {}
+                Send-JsonRaw $response ('{"opened":' + $swOpen.ToString().ToLower() + '}')
+            }
+            "/api/sensors/decline" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    try { 'declined' | Set-Content -Path $sensorDeclinedFlag -Encoding ASCII } catch {}
+                    Send-JsonRaw $response '{"ok":true}'
+                }
+            }
+            "/api/sensors/enable" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                elseif (-not (Test-Path $sensorReaderPath)) { Send-JsonRaw $response '{"ok":false,"error":"The hardware sensors are not added on this computer yet."}' }
+                else {
+                    Remove-Item $sensorEnableResult -ErrorAction SilentlyContinue
+                    Remove-Item $sensorDeclinedFlag -ErrorAction SilentlyContinue
+                    $q = { param($s) ([string]$s).Replace("'", "''") }
+                    $regScript = @'
+$ErrorActionPreference='Stop'
+$src='__SRC__'
+$dstDir=Join-Path $env:ProgramFiles 'Amit'
+New-Item -ItemType Directory -Force -Path $dstDir | Out-Null
+$dst=Join-Path $dstDir 'AmitSensorReader.exe'
+Copy-Item -LiteralPath $src -Destination $dst -Force
+$a=New-ScheduledTaskAction -Execute (Join-Path $env:SystemRoot 'System32\conhost.exe') -Argument ('--headless "' + $dst + '" "__DATA__" "__FLAG__"')
+$p=New-ScheduledTaskPrincipal -UserId '__USER__' -LogonType Interactive -RunLevel Highest
+$s=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
+Register-ScheduledTask -TaskName '__TASK__' -Action $a -Principal $p -Settings $s -Description 'Starts the Amit hardware sensor reader (temperatures, fans, voltages) with the permission given once. It only reads.' -Force | Out-Null
+'@
+                    $regScript = $regScript.Replace('__SRC__', (& $q $sensorReaderPath)).Replace('__DATA__', (& $q $sensorDataPath)).Replace('__FLAG__', (& $q $lhmStopFlag)).Replace('__USER__', (& $q ([Environment]::UserDomainName + '\' + [Environment]::UserName))).Replace('__TASK__', $sensorTaskName)
+                    $regEnc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($regScript))
+                    # The Windows question blocks whoever asks it, so a separate hidden PowerShell asks it; this bridge stays free to answer the page.
+                    $outerScript = "try { Start-Process powershell.exe -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile -EncodedCommand $regEnc'; 'done' | Set-Content -Path '" + (& $q $sensorEnableResult) + "' -Encoding ASCII } catch { 'declined' | Set-Content -Path '" + (& $q $sensorEnableResult) + "' -Encoding ASCII }"
+                    $outerEnc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($outerScript))
+                    try {
+                        Start-Process powershell.exe -ArgumentList "-NoProfile -EncodedCommand $outerEnc" -WindowStyle Hidden -ErrorAction Stop
+                        Send-JsonRaw $response '{"ok":true}'
+                    } catch { Send-JsonRaw $response '{"ok":false}' }
+                }
             }
             "/api/dictate/place" {
                 if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
