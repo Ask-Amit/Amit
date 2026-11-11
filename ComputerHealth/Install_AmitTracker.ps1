@@ -22,7 +22,10 @@
 # "Download the Installer" link - it fetches every other required file
 # directly from GitHub instead, since nothing else exists locally yet.
 
-param([switch]$Force, [switch]$NoAutoStart, [string]$InstallerVersion = "")
+# -WithClaude (added 2026-11-11, Ryan's direct instruction): Steps 1b and 1c (Node.js, the Claude Code CLI and the offer to connect a Claude account)
+# are OFF by default. The Helper (bar, voice, Read, Show Amit, the updater) needs none of them; for now the receipt processing, the phone watcher and
+# Ask Amit answering all run through Ryan's own Claude account. The steps are kept, not deleted, so a later release can ask the person to set them up.
+param([switch]$Force, [switch]$NoAutoStart, [switch]$WithClaude, [string]$InstallerVersion = "")
 
 $installDir = "$env:LOCALAPPDATA\AmitComputerHealth"
 $watcherInstallDir = "$installDir\Watchers"
@@ -127,6 +130,10 @@ if ($alreadyInstalled) {
 }
 if ($env:AMIT_INSTALL_TEST_COPY_ONLY) { Write-Host "(test run: stopping after step 1)"; exit 0 }
 
+if (-not $WithClaude) {
+    Write-Host ""
+    Write-Host "Node.js and a Claude account are not needed here, so nothing about them is installed or asked."
+} else {
 # --- Step 1b: Node.js + Claude Code CLI (for AmitBooks local receipt
 # processing) - optional, non-fatal if it fails. This is what
 # process_inbox.bat needs to actually run; the tracker/dashboard itself
@@ -232,6 +239,7 @@ if (-not (Get-Command claude -ErrorAction SilentlyContinue) -and -not (Test-Path
         }
     }
 }
+}   # end of: if ($WithClaude)
 
 # --- Step 2: sensor reading ---
 # PERMANENT FIX (2026-07-19): this used to hunt down, download, and manage a
