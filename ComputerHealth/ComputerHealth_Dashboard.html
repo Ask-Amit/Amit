@@ -558,7 +558,7 @@ table.chd-x tbody tr:hover td{background:var(--amit-row-hover,rgba(255,255,255,.
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Computer Health</div>
-      <div class="page-version" id="pageVersion">v5.11</div>
+      <div class="page-version" id="pageVersion">v5.12</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -8562,7 +8562,7 @@ function chFindSpec(specs,text,extraTest){let best=null,bestLen=-1;(specs||[]).f
 // call shape as supabase-js (from/select/eq/order/limit), same RLS rules.
 function chToken(){try{for(const k of Object.keys(localStorage)){if(/^sb-.*-auth-token$/.test(k)){const v=JSON.parse(localStorage.getItem(k));const t=v&&(v.access_token||(v.currentSession&&v.currentSession.access_token));if(t)return t}}}catch(e){}return null}
 const chdb={from(t){const q={t,p:[],sel:'*',ord:null,lim:null};const b={
-  select(s){q.sel=s;return b},eq(col,v){q.p.push(col+'=eq.'+encodeURIComponent(v));return b},
+  select(s){q.sel=s;return b},eq(col,v){q.p.push(col+'=eq.'+encodeURIComponent(v));return b},neq(col,v){q.p.push(col+'=neq.'+encodeURIComponent(v));return b},
   order(col,o){q.ord=col+'.'+(o&&o.ascending===false?'desc':'asc');return b},limit(n){q.lim=n;return b},
   then(res,rej){const qs=['select='+encodeURIComponent(q.sel)].concat(q.p);if(q.ord)qs.push('order='+q.ord);if(q.lim)qs.push('limit='+q.lim);
     const tok=currentUser?chToken():null;
@@ -8574,24 +8574,32 @@ const chdb={from(t){const q={t,p:[],sel:'*',ord:null,lim:null};const b={
 // and a request here could wait behind the others forever ("Loading…" stuck).
 // Now: a second request while one is running just queues one more run; the
 // whole load has a 25 s limit; a failure shows what happened and retries.
-let chLoading=false,chLoadAgain=false,chRetries=0;
-async function chLoad(){
-  if(chLoading){chLoadAgain=true;return}
-  chLoading=true;
+// v5.12 (2026-11-14, Ryan): the load takes as long as it takes. The old 25-second give-up plus four restarts
+// threw the download away and started it over and over (the stuck "Loading…"), and every sign-in notice queued
+// another full run. Now: one load at a time, no time limit, a second request while one is running only queues a
+// re-run when the PERSON changed (sign-in, demo), and a load that just finished for this person is not repeated
+// for two minutes. A real failure (network down) retries later with a growing wait.
+let chLoading=false,chLoadingFor=null,chLoadAgain=false,chLoadedFor=null,chLoadedAt=0,chRetries=0;
+function chOwnerNow(){return currentUser?currentUser.id:(demoMode?AMIT_DEMO_UID:null)}
+async function chLoad(force){
+  const owner=chOwnerNow();
+  if(chLoading){if(owner!==chLoadingFor)chLoadAgain=true;return}
+  if(force!==true&&CH.loaded&&!CH.msg&&owner&&chLoadedFor===owner&&Date.now()-chLoadedAt<120000)return;
+  chLoading=true;chLoadingFor=owner;
   try{
-    await Promise.race([chLoadInner(),new Promise((_,rej)=>setTimeout(()=>rej(new Error("timed out waiting for the database")),25000))]);
-    chRetries=0;
+    await chLoadInner();
+    chLoadedFor=owner;chLoadedAt=Date.now();chRetries=0;
   }catch(e){
     console.error("Computer Health load:",e);
     CH.loaded=true;CH.msg="Couldn’t finish loading ("+(e&&e.message||e)+"). Trying again…";if(!CH.dev)chdRenderAll();
-    if(chRetries++<4)setTimeout(chLoad,4000*chRetries);
+    chRetries++;setTimeout(chLoad,Math.min(60000,5000*chRetries));
   }finally{
     chLoading=false;
-    if(chLoadAgain){chLoadAgain=false;setTimeout(chLoad,300)}
+    if(chLoadAgain){chLoadAgain=false;setTimeout(function(){chLoad(true)},300)}
   }
 }
 async function chLoadInner(){
-  CH.loaded=false;CH.msg='Loading your computer’s health…';chdRenderAll();
+  CH.loaded=false;CH.msg='Loading your computer’s health… the first load can take a minute, and it will finish.';chdRenderAll();
   // 1) the bridge on this computer, if it's running
   const dv=await chFetch(CH_BRIDGE+'/api/device');
   CH.bridge=!!(dv&&dv.deviceId);CH.devId=CH.bridge?dv.deviceId.toLowerCase():null;CH.devName=CH.bridge?dv.deviceName:null;
@@ -8610,7 +8618,8 @@ async function chLoadInner(){
   if(!CH.dev){CH.msg=currentUser?'No computer is connected to your account yet. Install Amit Live from the current dashboard and run it once.':'No demo computer found.';CH.loaded=true;chdRenderAll();return}
   const did=CH.dev.id;const isThis=CH.bridge&&CH.devId===did.toLowerCase();
   const [ev,specs,rel]=await Promise.all([
-    chdb.from('amit_device_events').select('id,event_type,severity,summary,created_at,event_detail').eq('device_id',did).order('created_at',{ascending:true}).limit(1000),
+    // v5.12: the Master Report rows (7.6 MB of saved report text, never shown on this page) are not downloaded here; every session and every other log still is. The History tab still lists them whole.
+    chdb.from('amit_device_events').select('id,event_type,severity,summary,created_at,event_detail').eq('device_id',did).neq('event_type','master_report').order('created_at',{ascending:true}).limit(1000),
     chdb.from('amit_hardware_specs').select('*'),
     chdb.from('amit_device_reliability_log').select('event_type,source,product,message,occurred_at,dump_file_name').eq('device_id',did).order('occurred_at',{ascending:true}).limit(2000)
   ]);
