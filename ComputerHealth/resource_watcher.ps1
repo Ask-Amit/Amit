@@ -1,4 +1,4 @@
-# Version v1.01 (2026-10-24) - baseline v1.00 = everything before. v1.01: memory fix - Process objects released, one reusable WMI connection (resource), full cleanup about once a minute. Each push of this file bumps this number by 0.01.
+# Version v1.02 (2026-11-14) - baseline v1.00 = everything before. v1.01: memory fix - Process objects released, one reusable WMI connection (resource), full cleanup about once a minute. v1.02: WATCH MODE (Ryan, 2026-11-14) - while the person has switched it on, every 30-second reading is also appended, slimmed, to a permanent daily file under data\watch (never overwritten, flushed to disk each time); nothing changes while it is off. Each push of this file bumps this number by 0.01.
 # Keeps Windows from sleeping while this tracker is actively running - a
 # real gap Ryan raised 2026-07-16: an all-day tracking session would
 # otherwise get silently interrupted the moment the machine sleeps. This
@@ -72,6 +72,64 @@ try {
         $cpRows = $cp.IndexOf('"rows":')
         if ($cpTime.Success -and $cpRows -gt 0) { Add-PendingSession 'tracker' $cpTime.Groups[1].Value ($cp.Substring($cpRows + 7).TrimEnd().TrimEnd('}')) $true }
         Remove-Item $checkpointFile -Force -ErrorAction SilentlyContinue
+    }
+} catch {}
+
+# --- WATCH MODE (v1.02, 2026-11-14, Ryan) ---
+# Normal mode: none of this runs and nothing above or below changes. Watch mode is the switch the person turns on when the
+# computer is having crashes: every reading is ALSO appended, slimmed, to a permanent daily file (data\watch\trace_YYYY-MM-DD.jsonl),
+# written straight to disk each time (WriteThrough + Flush) so a freeze loses as little as possible, and NEVER overwritten (the
+# Temp file below is still overwritten at every start, as before). The daily files stay on this computer; only after an unclean
+# shutdown is the trace packaged for the database (amit_crash_check.ps1, at the next sign-in). Old files are removed after
+# retentionDays (default 14). The settings file is written by the bridge (/api/watch-mode).
+$watchFile = "$env:LOCALAPPDATA\AmitComputerHealth\watch_mode.json"
+$watchDir = "$durableDir\watch"
+function Get-WatchSettings {
+    try { if (Test-Path $watchFile) { return ([System.IO.File]::ReadAllText($watchFile) | ConvertFrom-Json) } } catch {}
+    return $null
+}
+function Add-WatchLine($text) {
+    $fs = $null
+    try {
+        New-Item -ItemType Directory -Path $watchDir -Force -ErrorAction Stop | Out-Null
+        $path = "$watchDir\trace_$(Get-Date -Format 'yyyy-MM-dd').jsonl"
+        $fs = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Append, [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite, 4096, [System.IO.FileOptions]::WriteThrough)
+        $b = [System.Text.Encoding]::UTF8.GetBytes($text + "`n")
+        $fs.Write($b, 0, $b.Length)
+        $fs.Flush($true)
+    } catch {} finally { if ($fs) { $fs.Dispose() } }
+}
+# The part of one sensor sweep worth keeping for a crash: every temperature and fan, the power rails and package power,
+# the totals (not the per-core clutter). Key = "Category|Title|Metric", value = the number.
+function Get-WatchSlim($lines) {
+    $slim = [ordered]@{}
+    foreach ($line in $lines) {
+        $eq = $line.LastIndexOf('=')
+        if ($eq -lt 1) { continue }
+        $seg = $line.Substring(0, $eq) -split '>'
+        if ($seg.Count -lt 2) { continue }
+        $metric = $seg[-1]
+        $cat = if ($seg.Count -ge 3) { $seg[-2] } else { '' }
+        $keep = ($cat -eq 'Temperatures') -or ($cat -eq 'Fans') `
+            -or ($cat -eq 'Voltages' -and $metric -notmatch '^Core #\d+|VID$') `
+            -or ($cat -eq 'Powers' -and $metric -notmatch '\(SMU\)') `
+            -or ($cat -eq 'Load' -and $metric -match '^(CPU Total|CPU Core Max|GPU Core|GPU Memory|GPU Memory Controller|Memory|Virtual Memory|Total Activity)$') `
+            -or ($cat -eq 'Clocks' -and $metric -match '^(Cores \(Average\)|GPU Core|GPU Memory)$') `
+            -or ($cat -eq 'Data' -and $metric -match '^(Memory Used|Memory Available|GPU Memory Used)$')
+        if (-not $keep) { continue }
+        $m = [regex]::Match($line.Substring($eq + 1), '^-?[\d.]+')
+        if (-not $m.Success) { continue }
+        $title = if ($seg.Count -ge 3) { ($seg[0..($seg.Count - 3)]) -join ' - ' } else { $seg[0] }
+        $slim["$cat|$title|$metric"] = [double]$m.Value
+    }
+    return $slim
+}
+try {
+    $wsStart = Get-WatchSettings
+    if ($wsStart -and $wsStart.on) {
+        Add-WatchLine ('{"start":"' + (Get-Date).ToString('o') + '","pid":' + $PID + '}')
+        $keepDays = if ($wsStart.retentionDays) { [int]$wsStart.retentionDays } else { 14 }
+        Get-ChildItem $watchDir -Filter 'trace_*.jsonl' -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$keepDays) } | Remove-Item -Force -ErrorAction SilentlyContinue
     }
 } catch {}
 
@@ -304,6 +362,16 @@ while ((Get-Date) -lt $deadline -and -not (Test-Path $stopFlag)) {
     Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') RAM:${freeMB}MB-free/${totalMB}MB-total(${usedPct}%used) CPU:${cpu}% TOP5:[$topStr] TOPCPU:[$topCpuStr] SENSORS:[$sensorDump]" -Encoding utf8
     $lineCount++
 
+    # Watch mode (v1.02): the same reading, slimmed, to the permanent daily file. Read every pass, so the switch takes effect
+    # within 30 seconds. Never allowed to break tracking.
+    try {
+        $wsNow = Get-WatchSettings
+        if ($wsNow -and $wsNow.on) {
+            $slim = if ($trimmed) { Get-WatchSlim $trimmed } else { [ordered]@{} }
+            Add-WatchLine ([ordered]@{ t = (Get-Date).ToString('o'); ram = @($freeMB, $totalMB, $usedPct); cpu = $cpu; top = $topStr; topcpu = $topCpuStr; s = $slim } | ConvertTo-Json -Compress -Depth 4)
+        }
+    } catch {}
+
     # Same running-tally feed App Behavior does - every sensor reading
     # from this sample folded into the min/max/sum/sumSq accumulators,
     # plus RAM%/CPU% themselves since those are computed here rather than
@@ -369,6 +437,8 @@ while ((Get-Date) -lt $deadline -and -not (Test-Path $stopFlag)) {
 try { Remove-CimSession -CimSession $cimSession -ErrorAction SilentlyContinue } catch {}
 $exitReason = if (Test-Path $stopFlag) { "stop flag detected" } else { "8-hour deadline reached" }
 Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') Watch window ended - reason: $exitReason." -Encoding utf8
+# Watch mode (v1.02): a clean end is marked in the permanent trace, so a trace that just stops (no end line) is recognisable as a crash.
+try { $wsEnd = Get-WatchSettings; if ($wsEnd -and $wsEnd.on) { Add-WatchLine ('{"end":"clean","t":"' + (Get-Date).ToString('o') + '","reason":"' + $exitReason + '"}') } } catch {}
 
 # Written once, right here, whenever this script actually exits (Stop
 # button, or the 8-hour cap) - the dashboard's reconciliation check reads

@@ -1,4 +1,8 @@
-/* amit_ch_sync.js  v1.03  -  Computer Health: connect to the local helper and save anything not saved yet.
+/* amit_ch_sync.js  v1.04  -  Computer Health: connect to the local helper and save anything not saved yet.
+   v1.04 (2026-11-14, Ryan): WATCH MODE hard-crash dumps. A package the helper queued after an unclean shutdown (type 'crash', one file per crash) is saved
+   into amit_device_crash_dumps (migration 042) by AmitCH.saveCrashDumps(db, user, dev), which the Hub calls after the normal sessions and Computer
+   Health calls on its own. A missing table or any failure leaves the file queued (and never stops the normal sessions from saving); the database's
+   own "already saved" answer (23505) counts as done.
 
    WHAT IT DOES (Ryan's design, 2026-10-20): the helper program (amit_bridge_server.ps1, localhost:8710) and its watchers
    keep tracking in the background, with no page open. When a person opens the Hub (already signed in), this file:
@@ -18,7 +22,7 @@
    If the helper is not running, nothing breaks: the unsaved summary stays on the computer until the next time. */
 (function (w) {
   'use strict';
-  const AmitCH = { version: '1.03', BRIDGE: (w.__AMIT_CH_BRIDGE || 'http://localhost:8710'), last: { helper: 'unknown', tracking: null, disabledByUser: false, saved: 0, error: null } };
+  const AmitCH = { version: '1.04', BRIDGE: (w.__AMIT_CH_BRIDGE || 'http://localhost:8710'), last: { helper: 'unknown', tracking: null, disabledByUser: false, saved: 0, error: null, crashSaved: 0, crashError: null, crashNotice: null } };
   const listeners = [];
   const TYPES = [
     { endpoint: '/api/tracker-metrics',  eventType: 'tracking_session_ended', label: 'Tracker' },
@@ -108,6 +112,7 @@
     if (!q || !q.items || !q.items.length) return 0;
     let saved = 0;
     for (const it of q.items) {
+      if (it.type === 'crash') continue; // hard-crash packages are saved by saveCrashDumps below, into their own table
       const T = TYPES.find(x => (x.endpoint === '/api/tracker-metrics' ? 'tracker' : 'behavior') === it.type);
       if (!T || !it.sessionEndTime || !it.name) continue;
       const done = () => bridgeCall('/api/pending-session-done?name=' + encodeURIComponent(it.name), 'POST', 5000);
@@ -130,6 +135,46 @@
     }
     return saved;
   }
+
+  /* "We noticed a Windows crash" (v1.04): the helper notes every unclean shutdown (amit_crash_check.ps1 -> crash_notice.json), Watch mode or not.
+     AmitCH.crashNotice() -> { pending, watchOn, notice } or null; AmitCH.ackCrashNotice(id) marks it answered (not shown again);
+     AmitCH.watchState() / AmitCH.setWatch(true|false) read and switch Watch mode through the helper. The Hub shows the pop-up from AmitCH.last.crashNotice. */
+  AmitCH.crashNotice = function () { return bridgeCall('/api/crash-notice', 'GET', 4000); };
+  AmitCH.ackCrashNotice = function (id) { return bridgeCall('/api/crash-notice?ack=' + encodeURIComponent(id), 'POST', 4000); };
+  AmitCH.watchState = function () { return bridgeCall('/api/watch-mode', 'GET', 4000); };
+  AmitCH.setWatch = function (on) { return bridgeCall('/api/watch-mode?on=' + (on ? 1 : 0), 'POST', 20000); };
+
+  /* WATCH MODE hard-crash packages (v1.04): one queued file per crash, saved into amit_device_crash_dumps. Each is saved once (the unique
+     index on device + last-alive time says "already saved" as error 23505), then the helper is told to delete that one file. Any other failure
+     (the migration not run yet, no network) keeps the file queued for next time and is reported in AmitCH.last.crashError; it never throws. */
+  AmitCH.saveCrashDumps = async function (db, user, dev) {
+    if (!db || !user || !dev || !dev.up) return 0;
+    try {
+      const claim = await claimDevice(db, user, dev);
+      if (claim !== 'ok') return 0;
+      const q = await bridgeCall('/api/pending-sessions', 'GET', 20000);
+      if (!q || !q.items) return 0;
+      let saved = 0;
+      for (const it of q.items) {
+        if (it.type !== 'crash' || !it.name || !it.crash || !it.crash.payloadGz) continue;
+        const done = () => bridgeCall('/api/pending-session-done?name=' + encodeURIComponent(it.name), 'POST', 5000);
+        const c = it.crash;
+        const ins = await db.from('amit_device_crash_dumps').insert({
+          device_id: dev.deviceId, user_id: user.id, crash_id: c.id,
+          last_alive_at: it.sessionEndTime, boot_at: c.bootAt, detected_at: c.detectedAt,
+          summary: c.summary, readings: c.readings, raw_bytes: c.rawBytes, payload_gz: c.payloadGz
+        });
+        if (ins.error) {
+          if (ins.error.code === '23505') { await done(); continue; } // already saved
+          AmitCH.last.crashError = ins.error.message || String(ins.error.code);
+          continue; // stays queued
+        }
+        await done(); saved++;
+      }
+      if (saved) publish({ crashSaved: (AmitCH.last.crashSaved || 0) + saved, crashError: null });
+      return saved;
+    } catch (e) { AmitCH.last.crashError = String((e && e.message) || e); return 0; }
+  };
 
   /* save any finished session the helper holds that the database does not have yet; returns how many were saved */
   AmitCH.saveUnsavedSessions = async function (db, user, dev) {
@@ -155,6 +200,7 @@
         if (!dev.up) return;
         const n = await AmitCH.saveUnsavedSessions(db, user, dev);
         if (n) publish({ saved: (AmitCH.last.saved || 0) + n, error: null });
+        await AmitCH.saveCrashDumps(db, user, dev);
       } catch (e) {}
     }, 5 * 60 * 1000);
   }
@@ -168,10 +214,12 @@
         const dev = await AmitCH.helperStatus();
         if (!dev.up) { publish({ helper: 'down', tracking: null, error: null }); return AmitCH.last; }
         publish({ helper: 'up' });
+        try { const cn = await AmitCH.crashNotice(); if (cn && cn.pending) publish({ crashNotice: cn }); } catch (e) {}   // the Hub shows "we noticed a Windows crash"
         const t = await AmitCH.ensureTracking();
         if (t) publish({ tracking: !!t.running, disabledByUser: !!t.disabledByUser });
         const n = await AmitCH.saveUnsavedSessions(db, user, dev);
         publish({ saved: n, error: null });
+        await AmitCH.saveCrashDumps(db, user, dev);
         startQueueTimer(db, user);
       } catch (e) { publish({ error: String(e && e.message || e) }); }
       return AmitCH.last;

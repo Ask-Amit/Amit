@@ -32,7 +32,7 @@ $stageDir   = Join-Path $amitHome 'update_staging'
 $backupDir  = Join-Path $amitHome 'update_backup'
 
 # the only files this program may ever write, and only into the install folder (no paths, no other names)
-$allowed = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_dictate.html','amit_talk.html','AmitPreview.html','amit_update.ps1','amit_reload.ps1','AmitBar.cs')
+$allowed = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_dictate.html','amit_talk.html','AmitPreview.html','amit_update.ps1','amit_reload.ps1','amit_crash_check.ps1','AmitBar.cs')
 
 function Log([string]$m) { try { Add-Content -Path $logPath -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + ' ' + $m) } catch {} }
 function JsonEsc([string]$s) { if ($null -eq $s) { return '' }; return $s.Replace('\', '\\').Replace('"', '\"').Replace("`r", ' ').Replace("`n", ' ') }

@@ -1,4 +1,6 @@
 # Amit Computer Health - Local Bridge Server
+# Version v1.15 (2026-11-14, Ryan): new route /api/crash-notice (GET = "we noticed a Windows crash" for the Hub's pop-up, POST ?ack=<id> = answered); amit_crash_check.ps1 v1.01 writes the notice at every start after an unclean shutdown, Watch mode or not.
+# Version v1.14 (2026-11-14, Ryan): WATCH MODE. New route /api/watch-mode (GET = state, POST ?on=1|0 = switch). While it is on there is NO idle stop (the timer and /api/idle-stop both stand down), the recorder keeps a permanent daily trace (resource_watcher.ps1 v1.02), and at every start of this bridge amit_crash_check.ps1 runs: after an unclean shutdown it packages the trace + Windows events into data\pending\zcrash_*.json for the Hub / Computer Health page to save. /api/pending-session-done accepts those file names.
 # Version v1.13 (2026-10-31): new routes /amit-icon-whisper.ico and /amit-icon-read.ico (each part of Amit has its own icon; same circle and ring, only the symbol changes).
 # Version v1.10 (2026-10-30)
 # v1.10: new route /amit-icon.ico (the Amit icon for the offline Amit Live page).
@@ -106,6 +108,15 @@ try {
 # Idle/rotate markers only mean something inside ONE bridge run (the timers they belong to live in memory). Files in the
 # temp folder survive a restart of the computer, so a leftover marker from an earlier run is cleared here (v1.03).
 try { Remove-Item "$env:TEMP\amit_idle_stop.flag", "$env:TEMP\amit_rotate.flag" -ErrorAction SilentlyContinue } catch {}
+
+# WATCH MODE crash check (v1.14, 2026-11-14, Ryan): the first thing that happens at sign-in. A hidden script that does nothing unless
+# Watch mode is on AND Windows logged an unclean shutdown for this start; then it packages the recorded trace and opens Computer Health once.
+try {
+    $crashCheckPath = Join-Path $watcherDir "amit_crash_check.ps1"
+    if (Test-Path $crashCheckPath) {
+        Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", ('"' + $crashCheckPath + '"') -WindowStyle Hidden
+    }
+} catch {}
 
 # ── Amit Mobile listener — auto-start (2026-09-05) ──
 # Per root CLAUDE.md's SINGLE LOCAL CONNECTION STANDARD: Amit Mobile's
@@ -1970,7 +1981,7 @@ Register-ScheduledTask -TaskName '__TASK__' -Action $a -Principal $p -Settings $
                 # KEEP THE FILE LIST THE SAME AS make_helper_manifest.ps1.
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else {
-                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_dictate.html','amit_talk.html','AmitPreview.html','amit_update.ps1','amit_reload.ps1','AmitBar.cs')
+                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_dictate.html','amit_talk.html','AmitPreview.html','amit_update.ps1','amit_reload.ps1','amit_crash_check.ps1','AmitBar.cs')
                     $hsSha = [System.Security.Cryptography.SHA256]::Create()
                     $hsParts = @()
                     foreach ($hsN in $hsNames) {
@@ -2903,6 +2914,61 @@ secret key must never appear here, ever, under any circumstance.
                 $limitMin = $bridgeState.LimitMinutes
                 Send-JsonRaw $response ('{"secondsSincePageContact":' + $idleSec + ',"limitMinutes":' + $limitMin + ',"lastPage":' + (ConvertTo-JsonString $bridgeState.LastPage) + ',"lastRoute":' + (ConvertTo-JsonString $bridgeState.LastRoute) + ',"rotateHours":' + $bridgeState.RotateHours + ',"idleStopped":' + $(if (Test-Path "$env:TEMP\amit_idle_stop.flag") {'true'} else {'false'}) + ',"tracking":' + $(if ((Get-TrackerStatus).running) {'true'} else {'false'}) + '}')
             }
+            "/api/watch-mode" {
+                # WATCH MODE (v1.14, 2026-11-14, Ryan): the switch the person turns on while the computer is having crashes.
+                # GET = the state. POST ?on=1 / ?on=0 = switch it. While on: no idle stop, the recorder keeps a permanent daily trace
+                # (resource_watcher.ps1) and a hard crash is packaged at the next sign-in (amit_crash_check.ps1). Normal mode is unchanged.
+                $wmFile = "$env:LOCALAPPDATA\AmitComputerHealth\watch_mode.json"
+                $wmDir = "$env:LOCALAPPDATA\AmitComputerHealth\data\watch"
+                $wm = $null
+                try { if (Test-Path $wmFile) { $wm = [System.IO.File]::ReadAllText($wmFile) | ConvertFrom-Json } } catch {}
+                if ($request.HttpMethod -eq 'POST') {
+                    $want = $request.QueryString["on"]
+                    if ($want -eq '1' -or $want -eq '0') {
+                        $wmSince = if ($want -eq '1') { (Get-Date).ToString('o') } elseif ($wm -and $wm.since) { [string]$wm.since } else { '' }
+                        $wmKeep = if ($wm -and $wm.retentionDays) { [int]$wm.retentionDays } else { 14 }
+                        $newWm = '{"on":' + $(if ($want -eq '1') {'true'} else {'false'}) + ',"since":"' + $wmSince + '","retentionDays":' + $wmKeep + ',"crashWindowHours":24}'
+                        [System.IO.File]::WriteAllText($wmFile, $newWm)
+                        if ($want -eq '1') {
+                            # turning Watch on means "record" - clear a leftover stop so tracking really runs
+                            try { Remove-Item "$env:TEMP\amit_tracking_disabled.flag", "$env:TEMP\amit_idle_stop.flag" -ErrorAction SilentlyContinue } catch {}
+                            if (-not (Get-TrackerStatus).running) { [void](Start-TrackingOnce) }
+                        }
+                        try { $wm = $newWm | ConvertFrom-Json } catch {}
+                    }
+                }
+                $wmOnNow = [bool]($wm -and $wm.on)
+                $tFiles = @(Get-ChildItem $wmDir -Filter 'trace_*.jsonl' -File -ErrorAction SilentlyContinue)
+                $tBytes = ($tFiles | Measure-Object Length -Sum).Sum
+                if (-not $tBytes) { $tBytes = 0 }
+                $lastRead = ''
+                $newestT = $tFiles | Sort-Object Name -Descending | Select-Object -First 1
+                if ($newestT) { try { $ll = Get-Content $newestT.FullName -Tail 3 | Where-Object { $_ -match '"t":"' } | Select-Object -Last 1; if ($ll -match '"t":"([^"]+)"') { $lastRead = $Matches[1] } } catch {} }
+                $crashPending = @(Get-ChildItem "$env:LOCALAPPDATA\AmitComputerHealth\data\pending" -Filter 'zcrash_*.json' -File -ErrorAction SilentlyContinue).Count
+                $wmKeepOut = if ($wm -and $wm.retentionDays) { [int]$wm.retentionDays } else { 14 }
+                Send-JsonRaw $response ('{"on":' + $(if ($wmOnNow) {'true'} else {'false'}) + ',"since":' + (ConvertTo-JsonString ([string]$wm.since)) + ',"retentionDays":' + $wmKeepOut + ',"traceFiles":' + $tFiles.Count + ',"traceMB":' + [math]::Round($tBytes / 1MB, 1) + ',"lastReading":' + (ConvertTo-JsonString $lastRead) + ',"crashPending":' + $crashPending + ',"tracking":' + $(if ((Get-TrackerStatus).running) {'true'} else {'false'}) + '}')
+            }
+            "/api/crash-notice" {
+                # (v1.15, 2026-11-14, Ryan) "We noticed a Windows crash". The Hub asks at sign-in. amit_crash_check.ps1 writes crash_notice.json at every
+                # start that followed an unclean shutdown, Watch mode or not. GET = the notice (if the person has not answered it yet) plus the Watch state.
+                # POST ?ack=<id> = the person answered it; it is not shown again.
+                $cnFile = "$env:LOCALAPPDATA\AmitComputerHealth\crash_notice.json"
+                $cn = $null
+                try { if (Test-Path $cnFile) { $cn = [System.IO.File]::ReadAllText($cnFile) | ConvertFrom-Json } } catch {}
+                if ($request.HttpMethod -eq 'POST' -and $cn) {
+                    $ackId = $request.QueryString["ack"]
+                    if ($ackId -and $ackId -eq [string]$cn.id) {
+                        try { $cn.acked = $true; $cn.ackedAt = (Get-Date).ToString('o'); [System.IO.File]::WriteAllText($cnFile, ($cn | ConvertTo-Json -Compress)) } catch {}
+                    }
+                }
+                $cnWatchOn = $false
+                try { $cnWm = "$env:LOCALAPPDATA\AmitComputerHealth\watch_mode.json"; if (Test-Path $cnWm) { $cnWatchOn = [bool](([System.IO.File]::ReadAllText($cnWm) | ConvertFrom-Json).on) } } catch {}
+                if ($cn -and -not [bool]$cn.acked) {
+                    Send-JsonRaw $response ('{"pending":true,"watchOn":' + $(if ($cnWatchOn) {'true'} else {'false'}) + ',"notice":' + ($cn | ConvertTo-Json -Compress) + '}')
+                } else {
+                    Send-JsonRaw $response ('{"pending":false,"watchOn":' + $(if ($cnWatchOn) {'true'} else {'false'}) + '}')
+                }
+            }
             "/api/idle-stop" {
                 # Called ONLY by the bridge's own idle timer (v1.02), never by a page. Stops the three monitor
                 # watchers and leaves a marker so the tray program knows this is a quiet idle stop (no dashboard
@@ -2910,7 +2976,10 @@ secret key must never appear here, ever, under any circumstance.
                 # Does nothing while an App Behavior session is running: that was started on purpose.
                 $s = Get-TrackerStatus
                 $behaviorRunning = [bool](Test-WatcherScriptRunning "app_behavior_watcher.ps1" -NoRetry)
-                if ($s.running -and -not $behaviorRunning) {
+                # Watch mode (v1.14): never idle-stop while the person is watching for crashes
+                $wmOnIdle = $false
+                try { $wmfIdle = "$env:LOCALAPPDATA\AmitComputerHealth\watch_mode.json"; if (Test-Path $wmfIdle) { $wmOnIdle = [bool](([System.IO.File]::ReadAllText($wmfIdle) | ConvertFrom-Json).on) } } catch {}
+                if ($s.running -and -not $behaviorRunning -and -not $wmOnIdle) {
                     New-Item "$env:TEMP\amit_idle_stop.flag" -ItemType File -Force | Out-Null
                     [void](Stop-Tracking -KeepSensorReader)
                     Send-JsonRaw $response '{"idleStopped":true}'
@@ -3119,7 +3188,7 @@ secret key must never appear here, ever, under any circumstance.
                 # The Hub calls this after a pending session is safely in the database (or was deliberately dismissed).
                 # Only a file name in the exact pending-queue shape is accepted, so it can never delete anything else.
                 $pName = $request.QueryString["name"]
-                if ($request.HttpMethod -eq 'POST' -and $pName -match '^(tracker|behavior)_\d{14}\.json$') {
+                if ($request.HttpMethod -eq 'POST' -and $pName -match '^(tracker|behavior|zcrash)_\d{14}\.json$') {
                     $pTarget = "$env:LOCALAPPDATA\AmitComputerHealth\data\pending\$pName"
                     $pGone = $false
                     if (Test-Path $pTarget) { try { Remove-Item $pTarget -Force -ErrorAction Stop; $pGone = $true } catch {} }
@@ -3254,7 +3323,21 @@ function Test-Rotate {
     $script:rotateCallAt = Get-Date
     Invoke-BridgeSelf '/api/rotate-tracking'
 }
+# WATCH MODE (v1.14): while the person has it switched on (watch_mode.json, written by /api/watch-mode) the computer is being
+# watched for crashes, so the monitor must never idle-stop. Re-read at most every 10 seconds.
+$watchModeFile = "$env:LOCALAPPDATA\AmitComputerHealth\watch_mode.json"
+$watchCheckAt = [datetime]::MinValue
+$watchOnCached = $false
+function Test-WatchOn {
+    if (((Get-Date) - $script:watchCheckAt).TotalSeconds -lt 10) { return $script:watchOnCached }
+    $script:watchCheckAt = Get-Date
+    $v = $false
+    try { if (Test-Path $watchModeFile) { $v = [bool](([System.IO.File]::ReadAllText($watchModeFile) | ConvertFrom-Json).on) } } catch {}
+    $script:watchOnCached = $v
+    return $v
+}
 function Test-IdleStop {
+    if (Test-WatchOn) { return }
     $limit = $idleMinutes
     try { if (Test-Path $idleOverrideFile) { $v = [double]((Get-Content $idleOverrideFile -Raw).Trim()); if ($v -gt 0) { $limit = $v } } } catch {}
     $bridgeState.LimitMinutes = $limit

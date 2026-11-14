@@ -88,6 +88,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../Amit_Ask_Live.js?v=6.17"></script>
 <script src="../amit_appearance.js?v=1.06"></script>
+<script src="../amit_ch_sync.js?v=1.04"></script>
+<script src="ch_crash_analyzer.js?v=1.00"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -363,6 +365,42 @@ header{
 .chd-kv span:nth-child(even){font-family:var(--amit-font-mono,monospace);text-align:right;color:var(--text)}
 .chd-src{font-size:13.5px;color:var(--text2);word-break:break-word}
 .chd-msg{padding:28px;text-align:center;color:var(--muted);font-size:16px}
+/* WATCH MODE + HARD CRASHES (v5.13, 2026-11-14, Ryan) */
+.chw-card{display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:var(--card-head);border:1px solid var(--amit-card-border,rgba(201,168,76,.22));border-radius:var(--amit-radius,12px);padding:14px 18px;margin-bottom:6px}
+.chw-dot{width:12px;height:12px;border-radius:50%;background:#555;display:inline-block;margin-right:8px;vertical-align:middle}
+.chw-dot.on{background:#ff4d4d;animation:chwPulse 1.6s infinite}
+@keyframes chwPulse{0%{box-shadow:0 0 0 0 rgba(255,77,77,.6)}70%{box-shadow:0 0 0 9px rgba(255,77,77,0)}100%{box-shadow:0 0 0 0 rgba(255,77,77,0)}}
+.chw-t{font-size:18px}.chw-s{font-size:13px;color:var(--muted)}
+.chw-btn{background:transparent;border:1px solid var(--gold);color:var(--gold2);border-radius:8px;padding:7px 14px;font-size:14px;cursor:pointer;font-family:inherit}
+.chw-btn:hover{background:rgba(201,168,76,.14)}.chw-btn.pri{background:var(--gold);color:#1a1405;font-weight:700}
+.chw-note{font-size:13px;color:var(--muted);margin:0 4px 14px}
+.chw-pick{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 4px;align-items:center}
+.chw-pk{border:1px solid var(--amit-card-border,rgba(201,168,76,.22));background:var(--card-head);color:var(--text);border-radius:10px;padding:7px 12px;font-size:14px;cursor:pointer;font-family:inherit}
+.chw-pk.on{border-color:var(--gold);background:rgba(201,168,76,.14)}
+.chw-banner{border-left:5px solid #e5484d;background:linear-gradient(90deg,rgba(229,72,77,.16),var(--card-head) 60%);border-radius:12px;padding:16px 20px;margin-top:10px}
+.chw-banner .k{font-size:12px;letter-spacing:.14em;color:#ff9aa0;text-transform:uppercase}
+.chw-banner .big{font-size:24px;margin:4px 0 8px}
+.chw-facts{display:flex;gap:26px;flex-wrap:wrap;margin-top:6px}.chw-facts div{font-size:14px;color:var(--muted)}.chw-facts b{display:block;font-size:19px;color:var(--text);font-weight:600}
+.chw-verdict{margin-top:12px;border:1px solid var(--amit-card-border,rgba(201,168,76,.22));border-radius:12px;background:var(--card-head);padding:14px 20px}
+.chw-verdict .h{font-size:22px;margin:2px 0 4px}
+.chw-dim{font-size:13px;color:var(--muted)}
+.chw-chip{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;margin-right:8px;white-space:nowrap;align-self:flex-start;margin-top:3px;flex:none}
+.chw-chip.high{background:rgba(229,72,77,.2);color:#ff9aa0}.chw-chip.medium{background:rgba(224,167,46,.2);color:#f2c15d}.chw-chip.info{background:rgba(88,166,255,.16);color:#9cc8ff}.chw-chip.ok{background:rgba(46,160,67,.2);color:#6fd382}
+.chw-charts{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.chw-ch{background:rgba(0,0,0,.18);border:1px solid var(--amit-card-border,rgba(201,168,76,.22));border-radius:12px;padding:10px 14px 6px}
+.chw-ch .n{display:flex;justify-content:space-between;gap:8px;font-size:14px}.chw-ch .n span{color:var(--muted);font-family:var(--amit-font-mono,monospace);font-size:12px;text-align:right}
+.chw-ch svg{width:100%;height:80px;display:block;margin-top:4px}
+.chw-ch .ax{display:flex;justify-content:space-between;color:var(--muted);font-size:11px}
+.chw-f{display:flex;gap:10px;padding:10px 14px;border:1px solid var(--amit-card-border,rgba(201,168,76,.22));border-radius:10px;background:var(--card-head);margin-bottom:8px}
+.chw-f .b{flex:1}.chw-f .tt{font-size:16px}.chw-f .dd{color:var(--muted);font-size:14px;margin-top:2px}
+.chw-sg{counter-reset:s;padding:0;margin:0;list-style:none}
+.chw-sg li{counter-increment:s;display:flex;gap:12px;padding:9px 14px;border:1px solid var(--amit-card-border,rgba(201,168,76,.22));border-radius:10px;background:var(--card-head);margin-bottom:8px;font-size:15px}
+.chw-sg li:before{content:counter(s);flex:none;width:24px;height:24px;border-radius:50%;background:var(--gold);color:#1a1405;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:13px}
+.chw-lim{border:1px dashed var(--amit-card-border,rgba(201,168,76,.22));border-radius:10px;padding:10px 14px 10px 30px;color:var(--muted);font-size:14px;margin:0}
+.chw-strip{position:relative;height:70px;background:rgba(0,0,0,.18);border:1px solid var(--amit-card-border,rgba(201,168,76,.22));border-radius:12px;margin-top:6px}
+.chw-strip .m{position:absolute;width:11px;height:11px;border-radius:50%;transform:translate(-50%,0)}
+.chw-strip .lab{position:absolute;bottom:4px;font-size:11px;color:var(--muted);white-space:nowrap}
+.chw-legend{display:flex;gap:16px;font-size:13px;color:var(--muted);margin-top:6px;flex-wrap:wrap}.chw-legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
 .chd-tabgrid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);gap:24px}
 .chd-tabdot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px}
 table.chd-x{border-collapse:collapse;width:100%;font-size:13.5px}
@@ -558,7 +596,7 @@ table.chd-x tbody tr:hover td{background:var(--amit-row-hover,rgba(255,255,255,.
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Computer Health</div>
-      <div class="page-version" id="pageVersion">v5.12</div>
+      <div class="page-version" id="pageVersion">v5.13</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1357,7 +1395,7 @@ function renderAllPages(){
     [1,'🩺','Overview','How it’s doing today','<div class="chl chl-ctlwrap" id="chl-mount-ctl"></div><div id="chd-page-1" class="chd"><div class="chd-msg">Loading…</div></div>'],
     [2,'🧩','Parts','Each piece, explained','<div id="chd-page-2" style="display:flex;flex-direction:column;flex:1;min-height:0"><div class="chd-msg">Loading…</div></div>'],
     [3,'🕒','Timeline','Every run, history, charts',CH_TAB(3,[['🛰 Flight recorder','<div id="chd-page-3" class="chd" style="padding:0"></div>'],['📜 History &amp; reports','<div class="chl" id="chl-mount-history"></div>','history'],['📊 Charts','<div class="chl" id="chl-mount-charts"></div>','charts']])],
-    [4,'⚠️','Problems','Errors, crashes, shutdowns','<div id="chd-page-4" class="chd" style="padding-bottom:0"></div><div class="chl chl-pad" id="chl-mount-errors"></div>'],
+    [4,'⚠️','Problems','Errors, crashes, shutdowns','<div id="chd-crash" class="chd" style="padding-bottom:0"><div id="chw-card"></div><div id="chw-body"></div></div><div id="chd-page-4" class="chd" style="padding-bottom:0"></div><div class="chl chl-pad" id="chl-mount-errors"></div>'],
     [5,'🔄','Changes','Programs, installs, updates',CH_TAB(5,[['📦 Installed programs','<div class="chl" id="chl-mount-installedprograms"></div>','installedprograms'],['🔍 Install Watch','<div class="chl" id="chl-mount-install"></div>','install'],['⬆️ Updates &amp; drivers','<div class="chl" id="chl-mount-reliability"></div>','reliability']])],
     [6,'🛡️','Protection','Antivirus and backup','<div class="chl chl-pad" id="chl-mount-security"></div>'],
     [7,'🧰','Tools','Watchers and hands-on tools',CH_TAB(7,[['⚡ Live check','<div class="chl" id="chl-mount-overview"></div>'],['👁 App Behavior','<div class="chl" id="chl-mount-behavior"></div>','behavior'],['🌡 Hardware sensors','<div class="chl" id="chl-mount-hardware"></div>','hardware'],['🩻 Diagnostics','<div class="chl" id="chl-mount-diagnostics"></div>','diagnostics'],['🌐 Browser','<div class="chl" id="chl-mount-browser"></div>','browser'],['📃 Resources log','<div class="chl" id="chl-mount-resource"></div>','resource']])]
@@ -8645,6 +8683,122 @@ async function chLoadTrace(){
   const lines=(d&&d.lines)||[];CH.trace=[];
   lines.forEach(l=>{if(typeof l!=='string'||!/^\d\d:\d\d:\d\d/.test(l)||!l.includes('SENSORS:['))return;const map={};l.split('SENSORS:[')[1].replace(/\]\s*$/,'').split(' || ').forEach(p=>{const i=p.lastIndexOf('=');if(i>0){const v=parseFloat(p.slice(i+1));if(!isNaN(v))map[p.slice(0,i)]=v}});CH.trace.push({t:l.slice(0,8),map})});
 }
+
+// BEGIN CRASH PAGE (js)
+// ---------- WATCH MODE + HARD CRASHES (v5.13, 2026-11-14, Ryan) ----------
+// The Watch switch (the helper's /api/watch-mode) and the crash analysis, at the top of the Problems page. A crash package the helper recorded after an
+// unclean shutdown is saved into amit_device_crash_dumps (AmitCH.saveCrashDumps), listed here, unpacked in the browser and read by ChCrash.analyze
+// (ch_crash_analyzer.js). ?crash=<id> (from the Hub's "we noticed a crash" notice) selects that crash and opens this page. Nothing here touches the
+// Overview's loading: it runs on its own and a failure only shows a message in its own box.
+const CHW={watch:null,rows:null,selId:'',R:null,dump:null,busy:false,loadedFor:'',err:'',init:false,note:'',want:(function(){try{return new URLSearchParams(location.search).get('crash')||''}catch(e){return ''}})()};
+const chwE=s=>chEsc(s==null?'':s);
+async function chwPoll(){CHW.watch=await chFetch(CH_BRIDGE+'/api/watch-mode',2500);chwPaintCard()}
+async function chwSet(on){
+  if(!on&&!confirm('Turn Watch mode off? It stops keeping the detailed trace of what your computer is doing.'))return;
+  try{const c=new AbortController();const t=setTimeout(()=>c.abort(),20000);const r=await fetch(CH_BRIDGE+'/api/watch-mode?on='+(on?1:0),{method:'POST',signal:c.signal,cache:'no-store'});clearTimeout(t);if(r.ok)CHW.watch=await r.json()}catch(e){}
+  chwPaintCard();
+}
+function chwPaintCard(){
+  const el=document.getElementById('chw-card');if(!el)return;const W=CHW.watch;
+  if(!W){el.innerHTML='<div class="chw-card"><div><span class="chw-dot"></span><span class="chw-t">Watch mode</span><div class="chw-s">Amit’s helper is not running on this computer, so Watch mode can’t be switched from here. Start Amit Live first.</div></div></div>';return}
+  const last=W.lastReading?new Date(W.lastReading).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'}):'';
+  el.innerHTML='<div class="chw-card"><div><span class="chw-dot'+(W.on?' on':'')+'"></span><span class="chw-t">'+(W.on?'Watch mode is ON, recording every 30 seconds':'Watch mode is off')+'</span><div class="chw-s">'+
+    (W.on?'Since '+chwE(W.since?new Date(W.since).toLocaleString():'')+' · '+W.traceFiles+' daily file'+(W.traceFiles==1?'':'s')+', '+W.traceMB+' MB kept on this computer'+(last?' · last reading '+chwE(last):''):'Normal mode: snapshots only. Turn it on while the computer is having crashes.')+'</div></div>'+
+    '<div style="margin-left:auto"><button class="chw-btn'+(W.on?'':' pri')+'" onclick="chwSet('+(W.on?'false':'true')+')">'+(W.on?'Turn off':'Turn on')+'</button></div></div>'+
+    '<div class="chw-note">Watch mode records a reading every 30 seconds to a file on this computer (about 11 MB a day, kept '+(W.retentionDays||14)+' days). It never goes to the database unless the computer crashes, and it never turns itself off.</div>';
+}
+function chwBody(h){const el=document.getElementById('chw-body');if(el)el.innerHTML=h}
+function chwTick(){
+  if(!document.getElementById('chd-crash'))return;
+  if(!CHW.init){CHW.init=true;chwPoll();setInterval(chwPoll,5000)}
+  const did=typeof CH!=='undefined'&&CH.dev&&CH.dev.id;
+  if(did&&CHW.loadedFor!==did&&!CHW.busy)chwLoad(did);
+}
+setInterval(chwTick,1500);
+function chwRefresh(){CHW.loadedFor='';CHW.want='';chwTick()}
+async function chwLoad(did){
+  CHW.busy=true;CHW.err='';
+  try{
+    chwBody('<div class="chd-msg">Looking for crash reports…</div>');
+    // a crash the helper is still holding (it just happened) is saved first, so it is here the moment this page opens
+    try{if(window.AmitCH&&currentUser&&db){const dev=await AmitCH.helperStatus();if(dev.up)await AmitCH.saveCrashDumps(db,currentUser,dev)}}catch(e){}
+    if(!currentUser){CHW.rows=[];CHW.err='Sign in to see your crash reports.';CHW.loadedFor=did;return}
+    const r=await chdb.from('amit_device_crash_dumps').select('id,crash_id,last_alive_at,boot_at,summary,readings,raw_bytes,created_at').eq('device_id',did).order('last_alive_at',{ascending:false}).limit(50);
+    if(r.error){CHW.err=/crash_dumps/.test(r.error.message||'')?'The crash-report table has not been set up yet.':String(r.error.message||r.error);CHW.rows=[];CHW.loadedFor=did;return}
+    CHW.rows=r.data||[];CHW.loadedFor=did;
+    const pick=CHW.rows.find(x=>x.crash_id===CHW.want)||CHW.rows.find(x=>x.id===CHW.selId)||CHW.rows[0]||null;
+    await chwSelect(pick?pick.id:'');
+    if(CHW.want&&pick){try{openPage(4)}catch(e){}}
+  }catch(e){CHW.err=String((e&&e.message)||e)}finally{CHW.busy=false;chwPaintBody()}
+}
+async function chwSelect(id){
+  CHW.selId=id;CHW.R=null;CHW.dump=null;CHW.note='';
+  if(!id)return;
+  try{
+    const r=await chdb.from('amit_device_crash_dumps').select('payload_gz').eq('id',id);
+    if(r.error||!r.data||!r.data[0]||!r.data[0].payload_gz){CHW.note='This crash report could not be read ('+((r.error&&r.error.message)||'no data')+').';return}
+    CHW.dump=await ChCrash.decode(r.data[0].payload_gz);CHW.R=ChCrash.analyze(CHW.dump);
+  }catch(e){CHW.note='This crash report could not be unpacked ('+String((e&&e.message)||e)+').'}
+}
+async function chwPick(id){chwBody('<div class="chd-msg">Reading this crash…</div>');await chwSelect(id);chwPaintBody()}
+function chwSpark(pts,o){
+  o=o||{};if(!pts||pts.length<2)return '<div class="chw-dim" style="height:80px;display:flex;align-items:center;justify-content:center">No readings</div>';
+  const W=320,H=80,pad=4;let lo=Math.min.apply(null,pts.map(p=>p.v)),hi=Math.max.apply(null,pts.map(p=>p.v));
+  const span=Math.max(hi-lo,o.minSpan||1),c=(hi+lo)/2;lo=c-span/2*1.15;hi=c+span/2*1.15;
+  const t0=pts[0].ms,t1=pts[pts.length-1].ms,X=ms=>pad+(ms-t0)/Math.max(1,t1-t0)*(W-2*pad),Y=v=>H-pad-(v-lo)/(hi-lo)*(H-2*pad);
+  let d='';pts.forEach((p,i)=>{d+=(i?'L':'M')+X(p.ms).toFixed(1)+','+Y(p.v).toFixed(1)});
+  const area=d+'L'+X(t1).toFixed(1)+','+(H-pad)+'L'+X(t0).toFixed(1)+','+(H-pad)+'Z',col=o.color||'#e8c56a';
+  const lim=(o.limit!=null&&o.limit>lo&&o.limit<hi)?'<line x1="'+pad+'" x2="'+(W-pad)+'" y1="'+Y(o.limit)+'" y2="'+Y(o.limit)+'" stroke="#e5484d" stroke-dasharray="4 4" opacity=".7"/>':'';
+  return '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">'+lim+'<path d="'+area+'" fill="'+col+'" opacity=".12"/><path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="1.8"/><line x1="'+(W-pad)+'" x2="'+(W-pad)+'" y1="0" y2="'+H+'" stroke="#e5484d" stroke-width="2"/></svg>';
+}
+function chwChart(name,pts,unit,o){
+  o=o||{};const has=pts&&pts.length,last=has?pts[pts.length-1].v:null,mx=has?Math.max.apply(null,pts.map(p=>p.v)):null,dec=o.dec!=null?o.dec:0;
+  return '<div class="chw-ch"><div class="n"><b>'+chwE(name)+'</b><span>'+(last==null?'-':last.toFixed(dec)+unit)+' · peak '+(mx==null?'-':mx.toFixed(dec)+unit)+'</span></div>'+chwSpark(pts,o)+
+    '<div class="ax"><span>'+(has?new Date(pts[0].ms).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'')+'</span><span style="color:#ff9aa0">stopped</span></div></div>';
+}
+function chwStrip(prior,lastMs){
+  if(!prior.length)return '';const t1=lastMs+12*3600000,t0=t1-45*86400000;let h='<div class="chw-strip">';
+  prior.forEach(p=>{const x=(p.ms-t0)/(t1-t0)*100;if(x<0)return;h+='<span class="m" style="left:'+x+'%;top:'+(p.sleep?'14px':'38px')+';background:'+(p.sleep?'#e0a72e':'#e5484d')+'" title="'+chwE(new Date(p.ms).toLocaleString())+'"></span>'});
+  for(let i=0;i<=3;i++){const ms=t0+(t1-t0)*i/3;h+='<span class="lab" style="left:'+(i/3*100)+'%;transform:'+(i===3?'translateX(-100%)':i===0?'none':'translateX(-50%)')+'">'+chwE(new Date(ms).toLocaleDateString([], {month:'short',day:'numeric'}))+'</span>'}
+  return h+'</div><div class="chw-legend"><span><i style="background:#e0a72e"></i>during sleep or wake-up</span><span><i style="background:#e5484d"></i>while awake</span></div>';
+}
+function chwAnalysisHtml(R,dump){
+  const H=R.helpers,F=R.facts;
+  const gp=R.findings.filter(f=>f.sev==='high'||f.sev==='medium'),ok=R.findings.filter(f=>f.sev==='ok'),inf=R.findings.filter(f=>f.sev==='info');
+  const fnd=f=>'<div class="chw-f"><span class="chw-chip '+f.sev+'">'+({high:'serious',medium:'worth a look',info:'good to know',ok:'checked, fine'}[f.sev])+'</span><div class="b"><div class="tt">'+chwE(f.title)+'</div><div class="dd">'+chwE(f.detail)+'</div></div></div>';
+  const prior=(dump.priorCrashes||[]).map(p=>({ms:Date.parse(p.t),sleep:+p.sleepInProgress>0}));
+  const rails=R.charts.rails||{},railName=Object.keys(rails).filter(n=>/3\.3V/.test(n))[0]||Object.keys(rails)[0];
+  const fans=R.charts.fans||{},fanName=Object.keys(fans).filter(n=>/Fan #2/.test(n))[0]||Object.keys(fans)[0];
+  const realFlag=gp.filter(f=>!/pattern|No readings|stopped before|hard shutdowns in the last/i.test(f.title)).length;
+  let h='<div class="chw-banner"><div class="k">We registered a hard crash</div><div class="big">The computer stopped without warning</div>'+
+    '<div class="chw-dim" style="font-size:15px">Windows says it was last alive at <b style="color:var(--text)">'+chwE(H.fmtClock(F.lastAliveMs))+'</b> on '+chwE(new Date(F.lastAliveMs).toLocaleDateString([], {month:'long',day:'numeric'}))+' and started again at <b style="color:var(--text)">'+chwE(H.fmtClock(F.bootMs))+'</b>. The data recorded before it was saved and Computer Health has looked through it.</div>'+
+    '<div class="chw-facts"><div><b>'+chwE(H.dur(F.downMs))+'</b>computer was down</div><div><b>'+F.readings+'</b>readings recorded</div><div><b>'+(F.readings?chwE(H.dur(F.lastMs-F.firstMs)):'none')+'</b>covered before it</div><div><b>'+(F.priorCount||0)+'</b>hard shutdowns in 45 days</div></div></div>'+
+    '<div class="chw-verdict"><div class="chw-dim">What Computer Health found</div><div class="h">'+chwE(R.headline)+'</div><div class="chw-dim" style="font-size:15px">'+(realFlag?'See the items marked below.':(F.readings?'Nothing in the readings or in Windows’ log points to a cause. That is an honest answer, not a missing one: it rules out heat, memory use, drive errors, driver resets and power-rail dips that the sensors can see.':'Nothing was being recorded when this happened, so only Windows’ own log and the facts around it could be used. Keep Watch mode on and the next one will leave readings.'))+'</div></div>';
+  if(F.readings){
+    h+='<div class="chd-sec"><h4>The last '+chwE(H.dur(F.lastMs-F.firstMs))+' before it stopped</h4></div><div class="chw-charts">'+
+      chwChart('Processor temperature',R.charts.cpuTemp,'°C',{color:'#ff9f5a',limit:95,minSpan:12})+chwChart('Graphics card temperature',R.charts.gpuTemp,'°C',{color:'#ff9f5a',limit:88,minSpan:12})+
+      chwChart('Memory in use',R.charts.ramUsed,'%',{color:'#58a6ff',minSpan:10})+chwChart('Processor load',R.charts.cpuLoad,'%',{color:'#58a6ff',minSpan:20})+
+      chwChart(railName?railName+' rail':'Power rail',railName?rails[railName]:[],' V',{color:'#6fd382',dec:2,minSpan:.2,limit:3.14})+
+      chwChart(fanName?'Case '+((fanName.match(/Fan #\d+/)||['fan'])[0]).toLowerCase()+' speed':'Fan',fanName?fans[fanName]:[],' rpm',{color:'#6fd382',minSpan:300})+'</div>';
+  }
+  h+='<div class="chd-sec"><h4>Worth a look</h4></div>'+(gp.length?gp.map(fnd).join(''):'<div class="chw-dim">Nothing flagged.</div>')+
+    '<div class="chd-sec"><h4>What I’d try, in order</h4></div><ol class="chw-sg">'+R.suggestions.map(s=>'<li><div>'+chwE(s)+'</div></li>').join('')+'</ol><div class="chw-dim" style="margin-top:6px">These are suggestions, not a diagnosis.</div>'+
+    '<div class="chd-sec"><h4>Earlier hard shutdowns</h4></div>'+chwStrip(prior,F.lastAliveMs)+
+    '<div class="chd-sec"><h4>The rest</h4></div><details open><summary style="cursor:pointer;color:var(--gold2);margin:6px 0">Checked and fine ('+ok.length+')</summary>'+ok.map(fnd).join('')+'</details><details><summary style="cursor:pointer;color:var(--gold2);margin:6px 0">Good to know ('+inf.length+')</summary>'+inf.map(fnd).join('')+'</details>'+
+    '<div class="chd-sec"><h4>What this can’t tell you</h4></div><ul class="chw-lim">'+R.limits.map(l=>'<li>'+chwE(l)+'</li>').join('')+'</ul>';
+  return h;
+}
+function chwPaintBody(){
+  const rows=CHW.rows||[];
+  if(CHW.err&&!rows.length){chwBody('<div class="chd-sec"><h4>Hard crashes</h4><span>Crash reports</span></div><div class="chw-dim" style="padding:6px 4px 16px">'+chwE(CHW.err)+'</div>');return}
+  if(!rows.length){chwBody('<div class="chd-sec"><h4>Hard crashes</h4><span>None recorded yet</span></div><div class="chw-dim" style="padding:6px 4px 16px;font-size:15px">No hard crash has been recorded for this computer. If it freezes or restarts on its own, Computer Health will analyse it here. Turn Watch mode on while it is happening, so the next one leaves readings to look at.</div>');return}
+  let h='<div class="chd-sec"><h4>Hard crashes</h4><span>'+rows.length+' recorded</span></div><div class="chw-pick">'+rows.map(r=>'<button class="chw-pk'+(r.id===CHW.selId?' on':'')+'" onclick="chwPick(\''+chwE(r.id)+'\')">'+chwE(new Date(r.last_alive_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))+' · '+(r.readings||0)+' readings</button>').join('')+
+    '<button class="chw-btn" onclick="chwRefresh()" title="Look again for new crash reports">Check again</button></div>';
+  if(CHW.note)h+='<div class="chw-dim" style="padding:8px 4px">'+chwE(CHW.note)+'</div>';
+  else if(CHW.R&&CHW.dump){try{h+=chwAnalysisHtml(CHW.R,CHW.dump)}catch(e){h+='<div class="chw-dim" style="padding:8px 4px">This crash could not be shown ('+chwE((e&&e.message)||e)+').</div>'}}
+  chwBody(h);
+}
+// END CRASH PAGE (js)
 
 // ---------- parts, built from whatever this computer reports ----------
 const chRows=(comp,title)=>CH.rows.filter(r=>r.component===comp&&(title==null||(r.title||'').trim()===title.trim()));

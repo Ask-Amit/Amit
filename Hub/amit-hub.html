@@ -16,7 +16,7 @@
 <script src="../amit_appearance.js?v=1.06"></script>
 <script src="../amit_chat.js?v=0.26"></script>
 <script src="../amit_data_tools.js?v=1.01"></script>
-<script src="../amit_ch_sync.js?v=1.02"></script>
+<script src="../amit_ch_sync.js?v=1.04"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -662,6 +662,18 @@ body.bulk-mode .bulk-bar{display:flex}
 .modal::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:2px}
 .modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 .modal-title{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:12px;letter-spacing:.18em;color:var(--gold2);text-transform:uppercase}
+/* "We noticed a Windows crash" notice (v8.78, 2026-11-14; Ryan's Previewer answers: a pop-up in the middle) */
+.cn-modal{width:560px}
+.cn-head{display:flex;align-items:center;gap:14px}
+.cn-ic{width:42px;height:42px;border-radius:50%;background:rgba(224,167,46,.22);color:#f2c15d;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;flex:none}
+.cn-title{font-size:21px;font-weight:700;line-height:1.2}
+.cn-text{font-size:15px;line-height:1.55;opacity:.92;margin:14px 0 6px}
+.cn-count{font-size:14px;color:#f2c15d;margin:4px 0}
+.cn-btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.cn-btn{border-radius:9px;padding:9px 18px;font-size:14px;border:1.5px solid var(--gold);background:transparent;color:var(--gold2);cursor:pointer;font-family:inherit}
+.cn-btn.pri{background:var(--gold);color:#1a1405;font-weight:700}
+.cn-btn.later{border-color:rgba(255,255,255,.25);color:var(--dim)}
+.cn-btn:disabled{opacity:.6;cursor:default}
 .btn-mode-toggle{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:4px 11px;border-radius:20px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.4);background:rgba(var(--amit-accent-rgb,201,168,76),.08);color:rgba(var(--amit-accent-rgb,201,168,76),.7);cursor:pointer;transition:all .18s;white-space:nowrap}
 .btn-mode-toggle:hover{background:rgba(var(--amit-accent-rgb,201,168,76),.18);border-color:var(--gold);color:var(--gold)}
 .voice-bar{display:none;align-items:center;gap:10px;padding:8px 12px;margin-bottom:14px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.3);border-radius:7px}
@@ -1391,7 +1403,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.77</div>
+      <div class="page-version" id="hubVersionBadge">v8.78</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -3267,6 +3279,18 @@ header{
     <div id="futureToolsList" style="display:flex;flex-direction:column;gap:10px"></div>
   </div>
 </div>
+
+<!-- BEGIN CRASH NOTICE (html) -->
+<!-- ── "WE NOTICED A WINDOWS CRASH" — added 2026-11-14 (Ryan; wording and behavior are his Previewer answers: a pop-up in the middle, plain and explaining) ── -->
+<div class="overlay" id="crashNoticeOverlay" onclick="if(event.target===this)crashNoticeAnswer('later')">
+  <div class="modal cn-modal" onclick="event.stopPropagation()">
+    <div class="cn-head"><div class="cn-ic">!</div><div class="cn-title" id="cnTitle">Your computer had a Windows crash</div></div>
+    <p class="cn-text" id="cnText"></p>
+    <p class="cn-count" id="cnCount" style="display:none"></p>
+    <div class="cn-btns"><button class="cn-btn pri" id="cnB1"></button><button class="cn-btn" id="cnB2"></button><button class="cn-btn later" id="cnB3" onclick="crashNoticeAnswer('later')">Not now</button></div>
+  </div>
+</div>
+<!-- END CRASH NOTICE (html) -->
 
 <!-- ── RESET PIN MODAL — added 2026-09-17, Ryan's direct instruction ── -->
 <div class="overlay" id="amvResetPinOverlay" onclick="if(event.target===this)amvCloseResetPin()">
@@ -14071,6 +14095,73 @@ function _hubHelperPaint(){
 }
 if(window.AmitCH) AmitCH.onStatus(_hubHelperPaint);
 if(window.AmitCH) AmitCH.onStatus(function(){ try{ _amvRenderChainStatus(); }catch(e){} });
+// BEGIN CRASH NOTICE (js)
+// "We noticed a Windows crash" (v8.78, 2026-11-14, Ryan). The helper (amit_crash_check.ps1) notes every unclean shutdown, Watch mode or not, and
+// amit_ch_sync.js hands it over at sign-in as AmitCH.last.crashNotice. Wording and behavior are Ryan's Previewer answers: a pop-up in the middle, plain and
+// explaining, the count when there were 2 or more, the main button turns Watch mode on right here, "Not now" asks again only at the next crash (every
+// answer is remembered by the helper per crash), and the same kind of notice when Watch mode caught it. Most people do not know Watch mode exists.
+let _cnShownId=null,_cnCur=null;
+function _cnOrd(n){ const s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+function _cnWhen(iso){
+  try{ const d=new Date(iso),now=new Date(),t=d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+    if(d.toDateString()===now.toDateString()) return t+' today';
+    if(new Date(now.getTime()-864e5).toDateString()===d.toDateString()) return t+' yesterday';
+    return t+' on '+d.toLocaleDateString([],{month:'long',day:'numeric'}); }catch(e){ return 'earlier'; }
+}
+function crashNoticeCheck(){
+  if(!window.AmitCH||!currentUser) return;
+  const cn=AmitCH.last.crashNotice; if(!cn||!cn.pending||!cn.notice) return;
+  if(_cnShownId===cn.notice.id) return;            // once per page load; the helper remembers the answer
+  _cnShownId=cn.notice.id; _cnCur=cn; crashNoticeShow(cn);
+}
+function crashNoticeShow(cn){
+  const n=cn.notice,when=_cnWhen(n.lastAliveAt),caught=!!(cn.watchOn&&n.readings>0&&n.dumpId);
+  const t=document.getElementById('cnTitle'),x=document.getElementById('cnText'),c=document.getElementById('cnCount'),b1=document.getElementById('cnB1'),b2=document.getElementById('cnB2'),b3=document.getElementById('cnB3');
+  c.style.display='none'; b1.disabled=false; b3.style.display='';
+  if(caught){
+    t.textContent='Your computer crashed, and Watch mode caught it';
+    x.textContent='It shut down on its own '+when+'. Watch mode had been recording, so we saved the last 24 hours of readings and Computer Health has looked through them.';
+    b1.textContent='See what we found'; b1.onclick=function(){ crashNoticeAnswer('open-crash'); }; b2.style.display='none';
+  } else if(cn.watchOn){
+    t.textContent='Your computer had a Windows crash';
+    x.textContent='It shut down on its own (a freeze or a sudden restart) '+when+'. Watch mode was not recording at that moment, but it is on now, so if it happens again we will have the readings to find out why.';
+    b1.textContent='Open Computer Health'; b1.onclick=function(){ crashNoticeAnswer('open'); }; b2.style.display='none';
+  } else {
+    t.textContent='Your computer had a Windows crash';
+    x.textContent='It shut down on its own (a freeze or a sudden restart) '+when+'. One crash can happen. If it keeps happening, Computer Health can help find out why: Watch mode records what your computer is doing, so after the next one we can show you what was happening and suggest causes.';
+    b1.textContent='Turn on Watch mode'; b1.onclick=function(){ crashNoticeAnswer('turn-on'); };
+    b2.textContent='Open Computer Health'; b2.style.display=''; b2.onclick=function(){ crashNoticeAnswer('open'); };
+  }
+  if(!caught&&n.crashesLast30Days>=2){ c.textContent='This is the '+_cnOrd(n.crashesLast30Days)+' unexpected shutdown in the last 30 days.'; c.style.display=''; }
+  document.getElementById('crashNoticeOverlay').classList.add('open');
+}
+async function crashNoticeAnswer(kind){
+  const cn=_cnCur; if(!cn||!cn.notice) return; const id=cn.notice.id,ov=document.getElementById('crashNoticeOverlay');
+  const CH_URL='https://ask-amit.github.io/Amit/ComputerHealth/ComputerHealth_Dashboard.html';
+  if(kind==='turn-on'){
+    const t=document.getElementById('cnTitle'),x=document.getElementById('cnText'),c=document.getElementById('cnCount'),b1=document.getElementById('cnB1'),b2=document.getElementById('cnB2'),b3=document.getElementById('cnB3');
+    b1.disabled=true; b1.textContent='Turning it on...';
+    let r=null; try{ r=await AmitCH.setWatch(true); }catch(e){}
+    try{ await AmitCH.ackCrashNotice(id); }catch(e){}
+    c.style.display='none'; b2.style.display='none'; b3.style.display='none'; b1.disabled=false;
+    if(r&&r.on){
+      t.textContent='Watch mode is on';
+      x.textContent='Your computer is now recording a reading every 30 seconds to a file on this computer. Nothing is sent anywhere unless it crashes again, and you can turn Watch mode off any time in Computer Health.';
+      b1.textContent='OK'; b1.onclick=function(){ ov.classList.remove('open'); };
+    } else {
+      t.textContent='Watch mode could not be turned on';
+      x.textContent='Amit\'s helper did not answer. Open Computer Health and switch Watch mode on there.';
+      b1.textContent='Open Computer Health'; b1.onclick=function(){ ov.classList.remove('open'); window.open(CH_URL,'amit_computer_health'); };
+    }
+    return;
+  }
+  try{ await AmitCH.ackCrashNotice(id); }catch(e){}
+  ov.classList.remove('open');
+  if(kind==='open') window.open(CH_URL,'amit_computer_health');
+  if(kind==='open-crash') window.open(CH_URL+'?crash='+encodeURIComponent(cn.notice.dumpId),'amit_computer_health');
+}
+if(window.AmitCH) AmitCH.onStatus(crashNoticeCheck);
+// END CRASH NOTICE (js)
 // Keep the light honest if the helper stops or starts later (cheap local check, only while signed in and the tab is showing).
 setInterval(async function(){
   if(!window.AmitCH||!currentUser||document.visibilityState!=='visible') return;
