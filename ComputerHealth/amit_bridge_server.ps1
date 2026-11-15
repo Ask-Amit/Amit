@@ -1554,7 +1554,7 @@ function closeSoon(ms){setTimeout(function(){root.className='fade';setTimeout(fu
 var STEPS=[
  {t:"Your computer monitor",failName:"Your computer monitor did not initialize",to:18000,fix:"http://localhost:8710/",fixName:"Open your computer monitor"},
  {t:"Connecting your helper",failName:"Your helper did not initialize",to:10000,fix:"https://ask-amit.github.io/Amit/AmitFix/AmitFix.html",fixName:"Open Amit Fix"},
- {t:"Initializing Amit Live",failName:"Amit Live did not initialize",to:9000,fix:"https://ask-amit.github.io/Amit/AmitFix/AmitFix.html",fixName:"Open Amit Fix"}];
+ {t:"Initializing Amit Helper",failName:"Amit Helper did not initialize",to:9000,fix:"https://ask-amit.github.io/Amit/AmitFix/AmitFix.html",fixName:"Open Amit Fix"}];
 // the window opens only as big as what it shows: the page measures itself and asks the Helper to resize the window (its bottom-right corner stays put)
 var fitT=0,lastFit='';
 function fit(){
