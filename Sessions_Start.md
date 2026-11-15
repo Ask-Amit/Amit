@@ -17,26 +17,28 @@ How to read: short current-state page built from root CLAUDE.md (unchanged). Per
 |---|---|
 | Amit Hub | daily home screen; live, ongoing |
 | who_is_god | evidence foundation; live |
-| Computer Value | revenue engine; see its CLAUDE.md |
-| Computer Health | own CLAUDE.md holds status |
-| Amit Health | migrations and Stage 1 pending, not built |
+| ComputerValue | not built; design complete, Stage 1 ready; the one-time paid diagnostic report; see ComputerValue\Sessions_Start.md |
+| ComputerHealth | watches how a computer runs and holds the shared local helper (port 8710); Dashboard v5.12 live, Watch mode and crash dumps built locally; see ComputerHealth\Sessions_Start.md |
+| AmitHealth | landing page v1.02 and The Kitchen (food and drink composer) built; migrations and Stage 1 pending; see AmitHealth\Sessions_Start.md |
 | AmitAccounting / AmitBooks | partly built; current state unsure |
-| Ten Commandments (God Talk) | ongoing study |
+| TenCommandments | daily one-commandment discipleship study with a hymn alongside; earlier God talk work; see TenCommandments\Sessions_Start.md |
 | GodTalk | created 2026-11-14: God talk sessions, one topic folder each; see GodTalk\Sessions_Start.md |
-| The Council | renamed; file migration from Brainstorming pending |
+| TheCouncil | multi-AI brainstorming tool; Amit_Council.html v5.73 local, not pushed; see TheCouncil\Sessions_Start.md |
 | Database | shared Supabase; see Database\CLAUDE.md |
 | Templates | created 2026-07-22 |
 | AmitCoder | own CLAUDE.md holds status and open shortcut question |
 | Amit, Are You There | book plus cross-AI deployment; own CLAUDE.md |
 | Talk to Amit | write-in inbox; two next steps in its CLAUDE.md |
-| EMS Study Guide | personal tool, live |
+| EMS_StudyGuide | NREMT Paramedic prep tool, live; now linked from the Hub Contracted Work tile; see EMS_StudyGuide\Sessions_Start.md |
 | AmitWeather | scaffold only, 2026-08-06 (looks out of date) |
-| Voice Control - Ask Amit | open decision blocks work, 2026-09-05 (looks out of date) |
-| Amit Mobile | not built, 2026-09-05 (looks out of date) |
+| VoiceControl_AskAmit | speech and the "Write to Amit" live bridge; speech works, paid/fast path chosen 2026-09-05; see VoiceControl_AskAmit\Sessions_Start.md |
+| AmitMobile | phone-first voice, camera and chat gateway (AmitMobile.html v1.54); phone-as-computer-peripheral plan under way; see AmitMobile\Sessions_Start.md |
 | AmitChat | scaffold at creation 2026-10-11 (looks out of date: memory notes show much more built) |
 | AmitRoll | scaffold only at creation 2026-10-15 |
 | AmitCapacity | v1.00 local, not pushed, migration 028 waiting (2026-10-24) |
 | Devotions | song workflow; tab-view pairing not built |
-| Amit Assembly | designed, not built |
-| Amit Helper | design stage per table (looks out of date: releases exist per memory notes) |
+| AmitAssembly | estimating, change-order and bidding platform rebuilt from an old Access system; designed, not built; see AmitAssembly\Sessions_Start.md |
+| AmitFix | troubleshooting and removal site; v1.08 pushed; 17 open to-dos; see AmitFix\Sessions_Start.md |
+| Games | AmitGames page with AmitRoll and Dog Racing buttons, v1.00; see Games\Sessions_Start.md |
+| AmitHelper | the Windows bar and Helper pieces (Mouse, Keyboard, Aurora, installer); see AmitHelper\Sessions_Start.md |
 | Amit Live | created 2026-11-10, nothing built |

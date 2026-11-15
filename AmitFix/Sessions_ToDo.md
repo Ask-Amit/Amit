@@ -3,7 +3,6 @@ Items found in the old Sessions.md (now in Backups\AmitFix\Sessions_backup_2026-
 
 ## Release and testing
 - Real test on a second (sacrificial) computer, then push. [2026-10-26 Open block] (also: untested: stopping real running programs, registry changes, Remove-Amit.exe dialog, real removal, first download of Amit_Check.cmd)
-- v1.08 (local) is NOT pushed; waits for "push". [2026-10-27]
 
 ## Decisions awaiting the owner
 - Confirm the name AmitFix and the "director's chair" film-set wording. [2026-10-26]
@@ -26,7 +25,8 @@ Items found in the old Sessions.md (now in Backups\AmitFix\Sessions_backup_2026-
 - Install Amit tab added v1.03; wrong claim about Node.js/Claude Code corrected v1.04. [2026-10-26 later]
 - Hard-coded Windows user name in helper paths: fixed (helper v1.07, installer 4.62). [2026-10-26 evening]
 - Verify It page (v1.05) and Check It page (v1.06) built; v1.06 pushed as live. [2026-10-26]
-- Readable developer script shown on Verify It (v1.08, local). [2026-10-27] (unsure if pushed since; log says not pushed)
+- Readable developer script shown on Verify It (v1.08). [2026-10-27] Pushed 2026-10-27 as commit 4bb5e63; found on 2026-11-14 clean-up (the repo's AmitFix.html is v1.08). Not re-checked on the live site.
+- v1.08 pushed (commit 4bb5e63, 2026-10-27). The old to-do "v1.08 (local) is NOT pushed" was wrong. [resolved 2026-11-14]
 
 ## FROM CLAUDE.md (captured 2026-11-14)
 ### Phone and web apps page (half-built)

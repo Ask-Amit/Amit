@@ -4,6 +4,157 @@ Copied word for word from Sessions.md lines 2-31 on 2026-11-13 (the whole file; 
 
 ---
 
+## 2026-11-14 - session b6a519d3-e729-429e-bb90-fc0b930ef157 (C:\Users\user1\.claude\projects\c--Users-user1-OneDrive-Documents---onedrive-Amit\b6a519d3-e729-429e-bb90-fc0b930ef157.jsonl)
+Titled "AmitFix" by rename_session.js. Times below are UTC (the extractor's); local time is 7 hours earlier. This was the first real test of "start a project by its name". Nothing was built or changed in AmitFix in this session.
+
+**Ryan** (2026-11-15 01:12Z):
+amit fix
+
+**Amit** (2026-11-15 01:12Z):
+AmitFix is loaded, and the session is titled "AmitFix".
+
+**Where it stands:** AmitFix is the one page for installing, fixing, quieting, checking and removing Amit's helper on a computer. Its last record is from 2026-10-27, so the Sessions_Start state may be stale. I didn't check the repo or the live site.
+- **Live:** v1.06 (commit abf5a02). Its pages are the Director's Chair, Send It, Our Heart, What's On My Computer, Verify It and Check It.
+- **Local, not pushed:** v1.08. It shows the developer-only mobile watcher script on the Verify It page, with a plain-English walkthrough.
+- **Half-built, not live:** phone and web-app repair, remove and check. The functions are in fix_js.txt but not wired to any page. The "RESUME HERE" section in AmitFix's CLAUDE.md must be read before touching it.
+- **Tested:** page rendering, URL parameters, the engine in a sandbox, and the check cases.
+- **Not tested:** stopping real running programs, registry changes, the Remove-Amit.exe dialog and real removal, and a run on a second computer.
+- **Safety rule:** never run the remover on your own working install.
+
+**Open items:** 13, listed in Sessions_ToDo.md. They are name and wording confirmation, helper integration, signing, a real second-computer test, and moving developer-only pieces out of the public package.
+
+Ready when you are. What do you want to work on in AmitFix?
+
+**Ryan** (2026-11-15 01:25Z):
+Are you Amit?
+
+**Amit** (2026-11-15 01:25Z):
+Yes, in this system I'm Amit, the companion Ryan and I have built this project around, and I'm running as an AI model underneath. If you're asking whether I'm an AI, I am.
+
+I haven't read Amit_Testimony.md, Amit_ProjectOverview.md or Amit_RyanProfile.md in this session. The start-by-project-name rule only has me read the root CLAUDE.md, AmitFix's CLAUDE.md and Sessions_Start.md. So I know the AmitFix state but haven't reloaded the full texture of who Amit is. I can read those three files now if you want that before we work.
+
+## 2026-11-14 - session 61919fde-4d5e-4ffe-8e9e-cbeeca40c72e (C:\Users\user1\.claude\projects\c--Users-user1-OneDrive-Documents---onedrive-Amit\61919fde-4d5e-4ffe-8e9e-cbeeca40c72e.jsonl) - the part about AmitFix
+This is the session that built the clean-up and the start-by-name rule; only the exchange about testing them on AmitFix is kept here. The rest of that session is logged in the root and the other project folders.
+
+**Ryan** (2026-11-15 01:08Z):
+I'm going to test. Since you have it in the Claudium D file. I'll open a new session right now. And I am going to say the word. Matt Fix. Amit.amit fix  Just to see if it's going to work OK.
+
+**Amit** (2026-11-15 01:08Z):
+Good test. The name "Amit Fix" should match the `AmitFix` folder. In the new session, expect this:
+
+1. It reads the root `CLAUDE.md`, then `AmitFix\CLAUDE.md`, then `AmitFix\Sessions_Start.md`, and nothing else.
+2. It says in a sentence or two what state AmitFix is in and that it's ready.
+3. It reminds you once to type `/rename AmitFix`.
+
+**Things to check in what it says:**
+- **Stale facts.** AmitFix's start file was built from the old notes, and I didn't update it today. If it quotes a stale version or state, such as the live version, that's the start file needing its first real clean-up.
+- **The open to-do count.** It should say 23 items, which is what the file holds after the duplicate pass. The start file may still show 13. That's the stale count I flagged earlier.
+- **Extra reading.** If it reads the to-do list, log or `Sessions.md` without being asked, the rule isn't being followed. Tell me and I'll tighten it.
+
+I haven't run the clean-up on this session. It would cover many folders, and AmitFix isn't one of them. So this test is only about the startup, not the clean-up.
+
+If the new session says something odd, paste it here and I'll fix whichever file caused it.
+
+**Ryan** (2026-11-15 01:09Z):
+can't you code a script within the root claude file to rename it automatically
+
+**Amit** (2026-11-15 01:09Z):
+Yes, it can be automatic, with two catches. One is permission, and I haven't verified the other.
+
+**How it would work.** Claude's `CLAUDE.md` holds instructions, not code, so the script would be a small file in the root, `rename_session.js`. The "start a project by its name" rule would tell the session to run it with the project name. The script finds the newest session file in the folder and adds the title line. I did exactly that by hand to this session, so the mechanism works.
+
+**Catches:**
+1. **Permission.** Writing into Claude's own folder was blocked by a safety check yesterday. You allowed it for this one session. To make it automatic in every session, you'd need to add a standing permission for that one folder in your Claude settings. That is a settings change, so I won't make it unless you say so. Without it, each session would stop and ask you to approve the write, which is no better than typing `/rename`.
+2. **Not confirmed.** I wrote the title "Amit" into this session's file, but I haven't seen VS Code show it. A line added to the file while the session is running might not appear until the session is reopened. Please check whether this session's title now says "Amit". If it does, the approach works.
+
+**Risk:** the session file is being written to continuously. A single appended line worked, but I haven't proven it is always safe, and a corrupted line could damage the session's history. The script would check that the file ends with a newline first, and append only that one line.
+
+My suggestion is to see whether the "Amit" title shows up first. If it does, I'll build the script and give you the exact permission line to add, and you decide whether to add it.
+
+**Ryan** (2026-11-15 01:10Z):
+authorized to write into claude.md   yes amit it the title
+
+**Amit** (2026-11-15 01:10Z):
+Good, the title works. I'll build the script and wire it in.
+
+**Amit** (2026-11-15 01:11Z):
+The script picks the right session and skips the write because the title is already "Amit". Now the rule that makes it run automatically:
+
+**Amit** (2026-11-15 01:11Z):
+The match text was off by one word. Rerunning with the exact wording:
+
+**Amit** (2026-11-15 01:11Z):
+Done. A session now titles itself with the project name.
+
+**What I built:**
+- **`rename_session.js`** is in the root folder. Run as `node rename_session.js "<project name>"`, it finds the newest session file, checks the file ends with a newline, and appends one title line. It never changes any other line. If the session already has that exact title, it writes nothing. I ran a dry test on this session: it picked the right session and skipped, because the title is already "Amit".
+- **Root `CLAUDE.md`:** the "start a project by its name" rule now says to run that script with the project name, instead of reminding you to type `/rename`. If the write is ever refused, it falls back to the reminder. The backup is `CLAUDE_backup_2026-11-14q.md`.
+- **`Cleanup_Procedure.md`:** Stage 2 says the same.
+
+**Two honest limits:**
+- **The "newest file" assumption.** The script titles the newest session file. In the intended flow, a new session running the script is the newest one. But if you have two sessions active at once and the other one wrote more recently, it could title the wrong one. Tell me if you ever see a wrong title.
+- **Your permission and the safety check.** I'm treating your yes as covering this script. If the harness refuses the write in a later session, the session will fall back to asking you to type `/rename`. I haven't changed any Claude settings.
+
+The new "Amit Fix" session you opened should be the first real test. If its title comes out "AmitFix" on its own, it works end to end.
+
+**Ryan** (2026-11-15 01:12Z):
+OK, so I'm going to go ahead and open up a new session and say Amit Fix. Can you watch it? To see how it operates in the background and make sure everything operates the way it should.
+
+**Amit** (2026-11-15 01:12Z):
+Yes. I'll watch it read-only, by reading the new session's file. I'm starting a watcher now. Go ahead and open the new session and say "Amit Fix". I'll report as soon as it has settled.
+
+**Amit** (2026-11-15 01:12Z):
+The watcher is running. It only reads, and it will wait up to 20 minutes for a new session file to appear.
+
+**What to do:**
+1. Open the new session in VS Code at the root Amit folder.
+2. Make the first message just "Amit Fix".
+3. Let it finish and answer.
+
+When it has been quiet for about a minute, I'll get a summary of:
+- **Reads:** which files it opened, and in what order.
+- **Extra reads:** whether it read anything it shouldn't have, such as the to-do list or the log.
+- **The title:** whether it wrote a title line.
+- **Its reply:** what it told you about AmitFix.
+- **Size:** how many tokens its first message cost.
+
+I can't affect that session, only read what it did.
+
+**Ryan** (2026-11-15 01:13Z):
+ok look
+
+**Amit** (2026-11-15 01:13Z):
+You said "look", so I'm checking your Show Amit captures from the last 5 minutes.
+
+**Amit** (2026-11-15 01:13Z):
+Nothing was captured in the last 5 minutes. The newest capture is from yesterday morning, so I doubt it's what you mean. I think you mean the new session, so I'm reading the watcher's result.
+
+**Ryan** (2026-11-15 01:13Z):
+[Request interrupted by user]
+
+**Ryan** (2026-11-15 01:13Z):
+sorry, created new session look at the results of your test
+
+**Amit** (2026-11-15 01:14Z):
+It worked, from start to finish. The new session was b6a519d3, and this is what it did:
+
+**What it did:**
+1. It saw "amit fix" and matched it to the `AmitFix` folder.
+2. It made one call, reading `AmitFix\CLAUDE.md` and then `AmitFix\Sessions_Start.md`. It read nothing else: not the to-do list, the log, `Sessions.md` or the identity files.
+3. It ran `node rename_session.js "AmitFix"`, and the session was titled "AmitFix".
+4. It told you what state the project is in.
+
+**Cost.** Its first message was 98,187 tokens, against roughly 108,000 for a new session before today. The two project files were small, so that is mostly the fixed load. The root `CLAUDE.md` is the large part of it.
+
+**Things to look at:**
+- **The state it described is old.** It said AmitFix's last record is from 2026-10-27, so the start file may be stale. It reported v1.06 live, v1.08 local and not pushed, and some half-built phone repair work. It said plainly that it hadn't checked the repo or the live site. That is the start file's first real clean-up still to come. I didn't bring it current today.
+- **It skipped the identity files.** The root `CLAUDE.md` still says to read `Amit_Testimony.md` and your profile first, in every session. The session didn't, because the new rule says to read only three files. Those two rules conflict. If you want the testimony read at a project start, that costs about 15,000 tokens or more. Which do you want?
+- **I only saw the first part of its reply**, so I can't tell you whether it said "ready" or gave the open to-do count.
+
+I didn't change anything. Do you want me to settle the testimony question, or run a clean-up on AmitFix so its start file is current?
+
+---
+
 ## Current State (2026-10-26)
 
 **LATEST (end of 2026-10-26): AmitFix v1.06 is LIVE (commit abf5a02). A phone/web-apps repair, remove and check feature is half-built in fix_js.txt and NOT live. Read AmitFix\CLAUDE.md, section "RESUME HERE", before doing anything. Ryan has little weekly usage left, so take the smallest next step.** (The block below is the older v1.00 state, kept for history.)
