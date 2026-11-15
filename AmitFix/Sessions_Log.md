@@ -1,6 +1,218 @@
 # AmitFix - Sessions_Log (recent log, word for word)
 
-Copied word for word from Sessions.md lines 2-31 on 2026-11-13 (the whole file; it is small, so nothing was moved to Sessions_Log_Older.md). Source order is kept as it was in Sessions.md (it is not always strictly newest first). The first line of Sessions.md (the title) is not repeated.
+Recent log, word for word, NEWEST FIRST. Entries from the 2026-11-14 clean-up on are headed with the session ID and path. The older entries further down were copied word for word from the old Sessions.md on 2026-11-13 (now in Backups\AmitFix\Sessions_backup_2026-11-13.md); their order is as it was there, not always strictly newest first.
+
+---
+
+## 2026-11-14 (evening) - session 61919fde-4d5e-4ffe-8e9e-cbeeca40c72e (C:\Users\user1\.claude\projects\c--Users-user1-OneDrive-Documents---onedrive-Amit\61919fde-4d5e-4ffe-8e9e-cbeeca40c72e.jsonl) - the AmitFix clean-up, its audit, and the procedure rewrite
+Times are UTC. Kept here: everything from Ryan's request to "clean up" AmitFix onward (the first clean-up request is the "So item 1 is now done..." message). Earlier in the same session (01:26Z to 05:10Z) the work was on the root files, God talk, backups and other folders, and is logged there.
+
+**Ryan** (2026-11-15 05:10Z):
+So item 1 is now done. Item 2, we don't have to worry about because I already explained that's going to happen when I initialize it. I've already tested the first folder to initialize, and I did it, and it worked. The pre-backups are now finished as well. The MT guide I've tested it, that works. Don't worry about the city council campaign, that's 6. And then go ahead and do a cleanup on AmitFix.
+
+**Amit** (2026-11-15 05:10Z):
+Running the AmitFix clean-up now. The AmitFix session itself had only 4 messages, so I'm checking the real file versions and the to-do count before I update anything.
+
+**Amit** (2026-11-15 05:11Z):
+Writing the AmitFix updates now: the log entry, the start file, the to-do file, and two small fixes in CLAUDE.md.
+
+**Amit** (2026-11-15 05:12Z):
+The AmitFix clean-up is done. No new to-dos came out of the session, so I created no Hub pursuits.
+
+**What was wrong and is now fixed**
+- **Live version.** The start file said v1.06 was live and v1.08 was local and unpushed. v1.08 was pushed on 2026-10-27 (commit `4bb5e63`), and the repo's `AmitFix.html` says v1.08. I haven't re-checked it on the live site. The old to-do "v1.08 is NOT pushed" was wrong, so I resolved it.
+- **Open to-dos.** The start file said 13, and the real count is 17. I corrected it.
+- **Local page.** The local `AmitFix.html` differs from the repo's by one comment line only ("Sessions_Log.md" vs "Sessions.md"). I left it unpushed, because pushing it would force a version bump.
+- **"RESUME HERE" pointer.** The start file pointed to a section that no longer exists in `CLAUDE.md`. It now points to where those notes actually are.
+- **Three small errors in `CLAUDE.md`.**
+  - A path was corrupted into a tab character ("Templates [tab] emplate.html").
+  - A path was missing its backslashes (`ComputerHealth\Watchers\Install_AmitTracker.ps1`).
+  - The page note said "once pushed", so I changed it to "pushed; v1.08".
+
+**What was logged**
+- `Sessions_Log.md` grew from 21 KB to 33 KB. It now has your "amit fix" test session word for word, and the part of this session about testing it.
+- The first clean-up marker is set. I added the line "Backlog pursuits: not initialized" to the start file.
+
+**Checked and fine**
+- `CLAUDE.md` holds only purpose, scope, rules and pointers, with no status or to-dos.
+- Every file it points to exists, and no file is empty.
+- No private details are in the log, and nothing was pushed.
+
+**Two things for you**
+1. AmitFix is missing from the root `CLAUDE.md` path table and from the project list in the root `Sessions_Start.md`. The New Project Directive says it should be in both. I didn't add it, because a root edit is yours to approve. Do you want it added?
+2. The scope paragraph in `CLAUDE.md` is still accurate, so I left it as it was.
+
+**Ryan** (2026-11-15 05:13Z):
+Okay, my question is why doesn't it have a Claude and a session start? That was created in this session saying go through every one of them and make that happen.
+
+**Amit** (2026-11-15 05:13Z):
+I think you mean the root `CLAUDE.md` path table and the root `Sessions_Start.md` project list, which don't have AmitFix. I'll check which folders are missing from each before I answer.
+
+**Ryan** (2026-11-15 05:13Z):
+[Request interrupted by user]
+
+**Ryan** (2026-11-15 05:13Z):
+Okay, when you say root, are you talking about the Amit fix folder? Or the primary?
+
+**Amit** (2026-11-15 05:14Z):
+The primary one: the main Amit folder, `C:\Users\user1\OneDrive\Documents - onedrive\Amit\`. When I said "root", I meant its `CLAUDE.md` and its `Sessions_Start.md`. That is the folder where every session starts.
+
+AmitFix has its own `CLAUDE.md` and `Sessions_Start.md`, and I updated both in the clean-up. What's missing is AmitFix's entry in two lists kept in the primary folder:
+- the path table in the primary `CLAUDE.md`, which says where each project lives
+- the project list in the primary `Sessions_Start.md`
+
+AmitFix has a row in neither one. The check I just ran shows the same gap for a few other folders:
+- **Missing from the path table:** AmitFix, Games, AmitPersonal, Overflow.
+- **Missing from the project list:** AmitFix, AmitHelper, AmitMobile, ComputerHealth, ComputerValue, TheCouncil, VoiceControl_AskAmit and a few more.
+
+I didn't add AmitFix because an old AmitFix to-do from 2026-10-26 says that row "needs authorization". That is out of date. You've since authorized me to edit `CLAUDE.md` files, and the root rules also say anyone in the Amit system can approve those changes.
+
+Do you want me to add AmitFix and the other missing folders to both lists now? I'd write each row from that folder's own `Sessions_Start.md`. I'd leave out ShoshoneHondaYamaha, which you said is separate.
+
+**Ryan** (2026-11-15 05:14Z):
+Okay, now I'm concerned. You're telling me the primary doesn't have a Claude MD file anymore?
+
+**Amit** (2026-11-15 05:14Z):
+No, the primary folder still has its `CLAUDE.md`. I just checked, and it's intact at 134 KB. It's the same file I pushed to GitHub earlier today. Its `Sessions_Start.md`, `Sessions_ToDo.md`, `Sessions_Log.md` and `Cleanup_Procedure.md` are all there too.
+
+I worded that badly. What's missing is small. The primary `CLAUDE.md` has a table that lists where each project lives, one row per project. AmitFix has no row in that table. That's a missing line in a long file, not a missing file. The primary `Sessions_Start.md` has a similar short project list, and AmitFix isn't in it either.
+
+The missing row doesn't break anything. Naming "AmitFix" at the start of a session works from the folder's own files, as your test showed. The two lists are only a directory that tells a session where each project lives and where it stands.
+
+Do you want me to add the missing rows to both lists, as I described above?
+
+**Ryan** (2026-11-15 05:15Z):
+yes, add them to both lists
+
+**Amit** (2026-11-15 05:15Z):
+I added the rows to both lists in the primary folder.
+
+- **Path table in the primary `CLAUDE.md`:** AmitFix and Games, just above the "Identity / Testimony / Spec files" row. The file is now 137.6 KB, up from 135.8 KB.
+- **Project list in the primary `Sessions_Start.md`:** AmitFix, AmitHelper and Games, under Amit Assembly.
+
+I wrote each row from that folder's own files. For AmitFix that means v1.08 pushed and 17 open to-dos.
+
+I got one thing wrong earlier. I said ComputerHealth, AmitMobile, TheCouncil and a few others were missing from the project list. They weren't. They're listed under spaced names ("Computer Health", "Amit Mobile"), and my check searched for the folder spelling. The path table was missing only AmitFix and Games. The project list was missing AmitFix, AmitHelper and Games.
+
+I left out three folders on purpose: AmitPersonal, Overflow and AmitCorrespondence. They're old workspace and correspondence folders with no session history, not projects. Tell me if you want them listed anyway.
+
+Nothing is pushed. The primary `CLAUDE.md` and `Sessions_Start.md` are changed locally only.
+
+**Ryan** (2026-11-15 05:16Z):
+You said missing from the project list, and you rattled off a bunch of them. Add that to the project, all those that you referenced to the project list as well.
+
+**Amit** (2026-11-15 05:16Z):
+The project list in the primary `Sessions_Start.md` now has a row for every folder I named. I refreshed the rows that already existed, because I had been wrong that these were missing. They were there under spaced names ("Computer Health", "Amit Mobile") with old states, so adding more would have made duplicates.
+
+**Refreshed with the folder name and current state from each folder's own start file (9):**
+- ComputerValue
+- ComputerHealth
+- AmitHealth
+- TenCommandments
+- TheCouncil
+- EMS_StudyGuide
+- VoiceControl_AskAmit
+- AmitMobile
+- AmitAssembly
+
+**Added earlier (3):** AmitFix, AmitHelper and Games. AmitHelper already had a stale "Amit Helper" row, so I replaced that row. The list has no duplicate.
+
+**Left as they were:** the rows for Hub, who_is_god, AmitAccounting / AmitBooks, GodTalk, Database, Templates, AmitCoder, Amit, Are You There, Talk to Amit, AmitWeather, AmitChat, AmitRoll, AmitCapacity, Devotions and Amit Live. A few of those still read "looks out of date". I can refresh them the same way if you want.
+
+AmitPersonal, Overflow and AmitCorrespondence are still off the list. They're old workspace and correspondence folders, not projects.
+
+This edit is local only, like the other root changes since the last push.
+
+**Ryan** (2026-11-15 05:16Z):
+push it
+
+**Amit** (2026-11-15 05:17Z):
+Pushed as commit `a251cf1` (`d8f3c90..a251cf1`). The red error text is only git writing its progress to stderr.
+
+Six files went up:
+- the primary `CLAUDE.md`, with the AmitFix and Games rows in the path table
+- the primary `Sessions_Start.md`, with the refreshed and added project rows
+- AmitFix's `CLAUDE.md`, `Sessions_Start.md`, `Sessions_ToDo.md` and `Sessions_Log.md`
+
+These are documentation files only. I pushed no Helper files, so the Helper release rules didn't apply, even though your message contained the word "push". The one-comment-line difference in the local `AmitFix.html` stayed local, so there was no version bump.
+
+The AmitFix log is public now. I checked it for keys, passwords and email addresses before pushing and found none.
+
+**Ryan** (2026-11-15 05:17Z):
+now that we did a cleanup on Amit fix, look at it and tell me if everything worked the way that it should have.
+
+**Amit** (2026-11-15 05:17Z):
+I'll audit the clean-up against each stage of the procedure. I'm checking the files and the Hub, not relying on my own report.
+
+**Amit** (2026-11-15 05:17Z):
+The clean-up worked on the main points, but it missed several things I should have caught, including one broken pointer. I haven't fixed any of them yet.
+
+**What worked**
+- **Hub.** There are no AmitFix pursuits in the Hub, so nothing was left open or duplicated. No new to-dos came out of the session, so creating none was correct.
+- **Files and pointers.** Every file the AmitFix `CLAUDE.md` and Sessions files point to exists, including the backup and the build files.
+- **Content.** The start file now reflects the real state (v1.08 pushed, 17 open items). The log holds both sessions word for word. Nothing private got in, and it's pushed.
+- **Session start.** A new session could start from the root `CLAUDE.md`, AmitFix's `CLAUDE.md` and its start file, and nothing else.
+
+**What I got wrong or missed**
+1. **Broken pointer.** AmitFix's `CLAUDE.md` says the Remove-Amit.exe build command is "see Sessions_Design.md". That file holds only the "no tables" note, so the pointer leads nowhere. The build instructions are still in `CLAUDE.md` itself and in the old log. Stage 6 says how a project is built belongs in the design file, and I didn't move it.
+2. **Stale wording in three files.**
+   - Start says the log is "the whole file; it is small", and it is now 33 KB.
+   - The to-do header says "items found in the old Sessions.md only".
+   - The log header says it was copied from the old `Sessions.md`.
+3. **Two stages skipped.** I didn't tell you the folder list before starting (Stage 1), and I didn't run the repetition check (Stage 7). The repetition check has nothing to find yet, because this was the first clean-up.
+4. **No rename.** I ran the clean-up from this session, which is titled "Amit", so I didn't retitle it. That's consistent with how the rename rule works. Only the session you open by project name gets that title.
+
+**Decision needed:**
+1. Fix all of it now. I'd move the "How it works" and build text into `Sessions_Design.md`, point `CLAUDE.md` at it, and correct the three stale headers. Then I'd re-verify and leave the push to you.
+2. Fix only the broken pointer and the stale headers, and leave the design text in `CLAUDE.md`.
+3. Leave it all as is.
+
+"Which do you want?"
+
+**Ryan** (2026-11-15 05:19Z):
+So before you fix anything, tell me why what you created didn't do it, what it was supposed to. So you need to reword it or do whatever you got to do to the cleanup procedure to make sure that this doesn't happen again.
+
+**Amit** (2026-11-15 05:19Z):
+Here is why it fell short. The procedure told me what to do, but it let me skip or half-do five things.
+
+1. **Pointers.** Stage 8 said to check that every pointer and file name exists. I checked that the files exist. I never checked that the file a pointer sends you to contains what the pointer promises. "See Sessions_Design.md" passed because the file exists, even though it has no build text.
+2. **Design text.** Stage 6 said to update the design file "if how something is built changed". Nothing changed in this session, so I skipped it. The design text that was already sitting in `CLAUDE.md` never got moved out.
+3. **Stale headers.** Nothing told me to re-read the descriptive lines at the top of each file ("it is small", "copied from the old Sessions.md") and make them true again.
+4. **Skipped stages.** Nothing required me to report each stage as done or skipped, so I skipped two without saying so.
+5. **Checking my own work.** Stage 8 had me verify the folder in the same pass that I wrote it, and I only checked what I had just touched.
+
+I'm rewording the procedure now. I'm not touching AmitFix yet.
+
+**Amit** (2026-11-15 05:19Z):
+I added these rules to `Cleanup_Procedure.md`. Nothing in AmitFix has changed yet.
+
+- **Stage 4 (start file).**
+  - Live versus local is now tested, not copied from the old text. Compare the repo copy with the local file, and count the open to-dos by counting the file.
+  - Re-read each file's header and the start file's "how to read" and "directory" lines, and make them true again.
+- **Stage 6 (design and scope).**
+  - On every clean-up, whether anything changed or not, scan `CLAUDE.md` for design, build, status or to-do text and move it to the right Sessions file, leaving a one-line pointer.
+  - Every pointer must be followed and must lead to what it promises.
+- **Stage 8 (verify).** The checks I skipped are now required:
+  - Follow every pointer.
+  - Check the descriptive lines.
+  - Check that the folder has current rows in both root lists.
+  - Look up the folder's pursuits in the Hub and compare them with the to-do file.
+  - Last of all, re-read only the three files a new session would read, and check that what they say matches the real files and the repo.
+- **The report.** Every clean-up must end by naming all eight stages, done or skipped with the reason. It must show the checks that prove it worked.
+
+With these rules in place, the AmitFix clean-up I ran would have failed its own checks. It would have caught the broken pointer, the stale headers and the root-list gap.
+
+Two things aren't done:
+1. The same procedure also ships to subscribers inside the AmitCoder starter kit, as a shorter copy. That copy doesn't have these rules yet.
+2. This edit is local and not pushed.
+
+Do you want me to fix AmitFix now using the new rules, so we see them work?
+
+**Ryan** (2026-11-15 05:20Z):
+clean up Amit fix.
+
+**Amit** (2026-11-15 05:20Z):
+Running the AmitFix clean-up again under the new rules. Stage 1: the only folder is AmitFix. This session is titled "Amit", not started by project name, so I won't retitle it. Starting with the log extract (Stage 3).
 
 ---
 

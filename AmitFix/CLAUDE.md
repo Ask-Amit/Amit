@@ -36,7 +36,6 @@ This project's database tables and table rules live in Sessions_Design.md in thi
 
 ---
 
-
 ## Pursuit Attribution — Permanent
 
 This project's canonical name, for any pursuit created from within it, is: **AmitFix**
@@ -53,27 +52,20 @@ AmitFix is the troubleshooting site for Amit: one page (built from `Templates\te
 
 **Public page:** https://ask-amit.github.io/Amit/AmitFix/AmitFix.html (pushed; v1.08). Pages: Director's Chair (tabs Start here, Make it right, Quiet on set, Browser & phone, Wrap), Send It (copy link, email, text, share, QR, PDF handout), Our Heart (welcome, farewell, come-back), What's On My Computer (everything installed, how to check, read the program).
 
-**Install Amit tab (added 2026-10-26, Ryan):** the sixth tab, after Wrap, so someone who just removed Amit can reinstall in one click without finding it in the Hub (it downloads the same install-Amit.exe from ../ComputerHealth/, which updates an existing install).
-
 **DIRECTION — the single hub for local connections (Ryan, 2026-10-26, NOT BUILT):** anything new that needs a connection on a person's computer gets its own tab here, so installing, fixing and removing all live in one place and every Amit chat can point people to it (it is in the Living Testimony list for that reason). Amit's view, to respect when this is built: the Single Local Connection Standard (root CLAUDE.md) still holds, so most new capabilities are new routes on the ONE helper, not new installers. A new tab should therefore show that capability's status (live check against the helper) and a switch or a prerequisite, and only real separate prerequisites (Node.js, Claude Code, a scanner driver) get their own installer. Whatever is added must also be added to Amit_Fix.ps1, the What's On My Computer table and the handout in the same pass, or removal stops being complete.
 
-**Accuracy note (2026-10-26):** the installer (step 1b) also installs Node.js and the Claude Code CLI when they are missing, for AmitBooks receipts. The page first said Amit never installed those; corrected in v1.04. Removal deliberately leaves them in place (general-purpose programs); the page tells the person how to remove them in Windows Settings.
+## Rules and procedures for this folder
 
-**Director's chair idea:** each fix is a card with a film-set name (Take two = restart, Quiet on set = voice off, That's a wrap = remove). Cards go on a "call sheet"; one button downloads a tiny `Amit_Fix.cmd` built in the browser from `Amit_Fix.ps1` with the chosen actions. Wrap tab also offers the one-click `Remove-Amit.exe`. Nothing runs unless the person calls it.
-
-**Knows where they came from:** URL parameters. `?from=helper|voice|email|qr|phone|share|leave` changes the welcome; `?problem=voice|slow|popup|update|broken|look|leave` opens the right tab with the fixes already ticked; `?page=1-4` opens a page. The page also checks the device (phone, not Windows) and whether Amit's helper answers on `localhost:8710`.
-
-## How It Works
-
-- `Amit_Fix.ps1` (v1.00) is the whole engine. `-Actions` is a comma list: check, restart, voice-off, voice-on, voice-reset, startup-off, startup-on, tidy, forget-data, shortcuts-remove, remove, reinstall. It touches only what Amit created (see its header and the What's On My Computer page), reports each step OK or not, and verifies removal. Plain PowerShell 5.1, ASCII only, no admin rights. Test switches: AMIT_FIX_HOME, AMIT_FIX_DESKTOP, AMIT_FIX_NOREG, AMIT_FIX_NOSTOP.
-- `RemoveAmit.cs` + `AssemblyInfo.cs` build `Remove-Amit.exe` (Amit_Fix.ps1 embedded; asks once, then runs remove; `--fresh` runs remove then reinstall). Build: csc /target:winexe /win32icon:amit_icon.ico /resource:Amit_Fix.ps1 (see Sessions_Design.md). Rebuild it every time Amit_Fix.ps1 changes.
-- `AmitFix.html` is built by `build.js` from the template plus `fix_css.txt` and `fix_js.txt` (check syntax with `node check.js`; `serve.js` is a tiny local test server). `handout.html` prints to `How_to_Fix_or_Remove_Amit.pdf` (one page, with a QR code).
-- If the installer (`ComputerHealth\Watchers\Install_AmitTracker.ps1`) ever adds a new file, shortcut, registry entry or process, Amit_Fix.ps1, the What's On My Computer table and the handout must be updated in the same pass, or removal stops being complete.
+- When the installer (`ComputerHealth\Watchers\Install_AmitTracker.ps1`) or any new capability adds a file, shortcut, registry entry, process or tab, update `Amit_Fix.ps1`, the What's On My Computer table and the handout in the same pass, or removal stops being complete.
+- Rebuild `Remove-Amit.exe` every time `Amit_Fix.ps1` changes.
+- After changing ANY helper program or installer: rebuild the installer, copy to the repo's canonical places, run `node make_verify.js`, push, then check the hashes against a real raw.githubusercontent download.
+- Never run the remover on the owner's own working install without telling him. `Amit_Check` overwrites the clipboard in tests.
+- Never clear all site storage on a phone or browser: the home-screen web apps on ask-amit.github.io share one origin with other pages (NREMT). AmitScan's IndexedDB "amitscan" may hold unsent scans, so warn before removing it.
+- How the site, engine and remover are built, with the build commands: `Sessions_Design.md`, section "How it is built".
 
 ## Purpose Within the Amit System
 
 Trust. Anyone can leave Amit completely, and any broken install can be repaired by the person themselves. This is also the update path (remove, then reinstall the newest version).
-
 
 ## Connection to Other Apps
 

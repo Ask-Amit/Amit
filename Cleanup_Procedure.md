@@ -22,6 +22,8 @@ A project's CLAUDE.md says what the project is. Everything that changes (state, 
 ## Stage 4 - The start file (update from the old version)
 - FIRST read the old `F\Sessions_Start.md`: it records where things stood when the last clean-up ended. Update it forward from there to where the session ended: do not rewrite it from scratch and do not drop what is still true.
 - Keep it short (aim under 3,000 tokens): current state, live versus local, blocked, newest decision, files in play with their REAL current version numbers (read them from the files, never guess), the open to-do count, and `Last clean-up: <UTC timestamp of the last message just logged>, session <ID>`.
+- LIVE versus LOCAL is checked, never copied from the old text: compare the folder's published file with the repo copy (`git log -- <folder>` and a hash or version check). An old "not pushed" or "live is vX" line is a claim to test, not a fact to keep. Count the open to-dos by counting the file, never by trusting the old number.
+- REFRESH THE DESCRIPTIVE LINES. Every file's own header and the Start file's "HOW TO READ" and "DIRECTORY" lines describe the files (where they came from, how big, what they hold). Re-read each one after your edits and make it true now ("copied from the old Sessions.md", "it is small", "built from the old notes" go stale the moment the file changes). Remove "(looks out of date)" notes you have now resolved.
 
 ## Stage 5 - To-dos and pursuits
 - In `F\Sessions_ToDo.md`: add new to-dos from the session; move finished ones to Resolved with the date; delete nothing unfinished; one entry per real to-do.
@@ -38,6 +40,8 @@ Trigger: Ryan says "initialize pursuits" while working in a project folder (or n
 
 ## Stage 6 - Design and scope
 - If tables or how something is built changed, update `F\Sessions_Design.md` (Tables section first).
+- EVERY clean-up, changed or not, scan `F\CLAUDE.md` for text that is really design, status, to-dos, history or tables: how the thing is built, build and test commands, file lists with versions, "Resume here", "not built / pushed" lines, table definitions. Move it to the right Sessions file (design and build text to `Sessions_Design.md`, below the Tables section; status to Start; open items to ToDo) and leave a one-line pointer in CLAUDE.md. A project's CLAUDE.md that still holds its own build recipe has not been cleaned, even if nothing changed this session.
+- Any pointer you leave or find ("see X", "described in X") must be TRUE: open X and confirm it contains what the pointer promises. A pointer to a file that exists but lacks the content is an error to fix now.
 - If the work grew the project beyond its CLAUDE.md "CURRENT SCOPE" (for example the Helper began as dictation and grew into the Aurora), update that paragraph (and the purpose sentence if it understates the project) and tell Ryan exactly what changed. Remove from CLAUDE.md anything no longer true. CLAUDE.md never receives status, to-dos, history, tables or design.
 
 ## Stage 7 - Repetition check
@@ -49,7 +53,15 @@ Before reporting, review F's `CLAUDE.md` and Sessions files together and check t
 - `Sessions_Start.md`: consistent with the to-do file (count matches), with the log (its marker matches the newest heading), and with the real files (versions); no stale "unsure" claims left; every pointer and file name in CLAUDE.md and the Sessions files exists.
 - No duplicate to-dos, no broken `[hub:...]` links, no private details, no empty or truncated file, sizes sane.
 - A new session that is told the project name must be able to work from: root CLAUDE.md, F\CLAUDE.md, then F\Sessions_Start.md, and nothing else.
-Fix what is plainly an error; list anything uncertain for Ryan. Then give Ryan a plain-words report: folders cleaned, messages logged per folder, what changed in Start / to-do / pursuits / scope, what was verified, anything unsure, and the `/rename` reminder.
+- POINTERS: every "see X" / "described in X" in F's CLAUDE.md and Sessions files is followed: X exists AND contains what is promised (Stage 6). Report each one checked.
+- DESCRIPTIVE LINES: the header of every Sessions file and the Start file's HOW TO READ and DIRECTORY are true now (Stage 4).
+- ROOT LISTS: F has a current row in BOTH root lists: the path table in the root `CLAUDE.md` and the Projects table in the root `Sessions_Start.md` (rows use the folder's own name). A missing row is added; a stale row is refreshed from F's Start file. (Root CLAUDE.md edits are authorized by Ryan for this purpose, 2026-11-14; say what you changed.)
+- HUB: look up the Hub for pursuits with program = F's name (read only) and compare with the to-do file: none stray, none completed in the Hub but open in the file, no `[hub:...]` link broken.
+- CHECK IT AS A NEW SESSION WOULD, not as the writer: after all edits, re-read ONLY root CLAUDE.md's start rule, F\CLAUDE.md and F\Sessions_Start.md, and answer in two lines what state the project is in and what is next. If any claim does not match the real files or the repo, fix it. Do this check last, after every edit, because it is the one that catches what the writing pass missed.
+Fix what is plainly an error; list anything uncertain for Ryan.
+
+## The report (every clean-up ends with it, Ryan 2026-11-14)
+Give Ryan a plain-words report that names EVERY stage, done or skipped with the reason (a stage is never silently dropped): 1 folders (listed before starting), 2 session name (or "not retitled: this session was not started by name"), 3 log (messages logged), 4 start file (what changed, live-versus-local result, to-do count), 5 to-dos and pursuits (new, resolved, Hub lookup result), 6 design and scope (what moved out of CLAUDE.md, pointers checked), 7 repetition check (the real count, or "first clean-up, nothing to compare"), 8 verification (each check above and its result), then what is unsure, and the `/rename` reminder when it applies. Never say it worked without showing the checks that prove it.
 
 ## "Clean up the cleanup"
 When Ryan asks, or when a `Sessions_Log.md` passes about 150 KB: entries older than about 30 days are folded into short dated summaries kept at the END of `F\Sessions_Log.md` under a heading `## Older entries (summarized)` (decisions, version numbers and still-open items kept; the word-for-word text of the folded entries is dropped from the main log). No backup unless Ryan asks. Never remove an open to-do or a decision.

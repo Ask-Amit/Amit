@@ -1,12 +1,11 @@
 # AmitFix - Sessions_ToDo
-Items found in the old Sessions.md (now in Backups\AmitFix\Sessions_backup_2026-11-13.md) only. Source entry date in [brackets].
+Open items by theme, each with its source date in [brackets]. The first set came from the old Sessions.md (now in Backups\AmitFix\Sessions_backup_2026-11-13.md); items added by later clean-ups carry their own date. Items that get a Hub pursuit carry its id on the line in a hub tag; none do yet (backlog pursuits are not initialized).
 
 ## Release and testing
 - Real test on a second (sacrificial) computer, then push. [2026-10-26 Open block] (also: untested: stopping real running programs, registry changes, Remove-Amit.exe dialog, real removal, first download of Amit_Check.cmd)
 
 ## Decisions awaiting the owner
 - Confirm the name AmitFix and the "director's chair" film-set wording. [2026-10-26]
-- Root CLAUDE.md path-table row for AmitFix (needs authorization; proposed text was in the 2026-10-26 reply). [2026-10-26]
 
 ## Features not built
 - Let Amit's helper open this page itself (tray menu "Troubleshoot" with ?from=helper&v=version). [2026-10-26]
@@ -18,7 +17,6 @@ Items found in the old Sessions.md (now in Backups\AmitFix\Sessions_backup_2026-
 - Move developer-only pieces out of the public package: the mobile watcher embedded in install-Amit.exe, the bridge launch code, /api/coder-token, the Ask Amit answering launch. [2026-10-27]
 - Helper still includes a credentials-writing route and the Ask Amit and Amit Mobile watchers that should leave the public package. [2026-10-26 evening]
 - Stale older copies under ComputerHealth/Watchers/ still hold old user-name paths (also in git history). [2026-10-26 evening] (also: decide whether to delete or refresh them)
-- After any change to a program or the installer: run "node make_verify.js", then check the hashes against a real download. [2026-10-26 evening] (standing routine)
 
 ## Resolved (kept so the judgment can be checked)
 - Helper wording "Amit's helper" and "Remove Amit" label: v1.01/v1.02. [2026-10-26 later]
@@ -26,6 +24,7 @@ Items found in the old Sessions.md (now in Backups\AmitFix\Sessions_backup_2026-
 - Hard-coded Windows user name in helper paths: fixed (helper v1.07, installer 4.62). [2026-10-26 evening]
 - Verify It page (v1.05) and Check It page (v1.06) built; v1.06 pushed as live. [2026-10-26]
 - Readable developer script shown on Verify It (v1.08). [2026-10-27] Pushed 2026-10-27 as commit 4bb5e63; found on 2026-11-14 clean-up (the repo's AmitFix.html is v1.08). Not re-checked on the live site.
+- Root CLAUDE.md path-table row for AmitFix: added 2026-11-14 (also the root Sessions_Start project list). [resolved 2026-11-14]
 - v1.08 pushed (commit 4bb5e63, 2026-10-27). The old to-do "v1.08 (local) is NOT pushed" was wrong. [resolved 2026-11-14]
 
 ## FROM CLAUDE.md (captured 2026-11-14)
@@ -36,6 +35,3 @@ Items found in the old Sessions.md (now in Backups\AmitFix\Sessions_backup_2026-
 - AmitScan removal must warn about unsent scans in IndexedDB "amitscan" and ideally offer to send or export them first. Not built.
 ### Decisions waiting on Ryan
 - MASTER TEMPLATE + SUB TEMPLATE direction (in Templates\CLAUDE.md, not built).
-### Testing and cleanup
-- Caution: Amit_Check overwrites the clipboard in tests; never run removal on Ryan's own working install without telling him.
-
