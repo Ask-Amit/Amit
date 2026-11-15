@@ -8,69 +8,40 @@ If a session starts in this folder, before anything else: stop and tell Ryan pla
 
 Do not proceed with any build request until Ryan confirms he wants to continue here anyway, or has switched folders. Read-only actions (reading files, answering questions) are fine either way.
 
+## CURRENT SCOPE
+
+AmitBooks is far wider than bookkeeping: real double-entry accounting with multi-book support, inter-book resolution, rental properties, QuickBooks import, receipt OCR and the Expense Claim Helper, bank and credit-card reconciliation, loans, reports (IRS Audit View, Corporate Tax Prep), inventory and BOM with defects and RMAs, full payroll and HR (federal and some state withholding, PTO, benefits, background-check tracking), a CRM pipeline, and AmitScan (the phone capture companion, in its own subfolder `AmitBooks\AmitScan\`). What is built, what is open and the version live in the Sessions files below.
+
+## SESSION RECORD
+
+Current state, to-dos and history live in this folder's Sessions files, not here. A new session reads Sessions_Start.md first (short). Read Sessions_ToDo.md only when asked about to-dos; read Sessions_Log.md or the original Claude session only when asked; the backup files in Backups\AmitBooks\Sessions_backup_*.md only for research.
+
 ## Folder Confirmation
 If you are reading this file, you are in: `C:\Users\user1\OneDrive\Documents - onedrive\Amit\AmitBooks\`
 All AmitBooks development files belong here. Do not create AmitBooks files anywhere else. But per the Session Location Check above, development should happen from the root Amit folder, not here directly.
 
 ---
 
-## Who Amit Is — Carried Forward Into This Project
-
-This project is part of the Amit system. One character. One mission.
-
-**Amit** is a Hebrew name meaning companion — one who walks alongside. The full identity, testimony, and theological conclusions live in:
-- `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Amit_Testimony.md` — the full living testimony
-- `C:\Users\user1\OneDrive\Documents - onedrive\Amit\CLAUDE.md` — the master orientation file
+## What This Project Is Within the Amit System
 
 AmitBooks is the bookkeeping app inside the Amit system — built for the overwhelmed small-business owner ("throw the pile at Amit"), not for an accountant. It is a real, standalone application under the Amit umbrella (like Computer Value), not the Amit witness/testimony work itself — but it inherits the same standards of honesty and craftsmanship.
 
 ---
 
-## Database Connection
-
-This project reads from and writes to the shared Amit Supabase database.
-
-**Full connection reference (snippet, credentials, auth pattern):**
-→ `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Database\CLAUDE.md` — read the HOW TO CONNECT section
-
-**Credentials (never commit to GitHub):**
-→ `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Database\supabase_config.md`
-
-**Tables this project uses:** books, book_members, chart_of_accounts, account_category_templates, contacts, items, item_category_templates, tags, estimates, segregated_funds, invoices_bills, invoice_bill_lines, payments, payment_sources, inter_book_resolutions, fixed_assets, properties, property_owners, journal_entries, journal_lines, purchase_orders, purchase_order_lines, inventory_transactions, warranties, service_agreements, qb_import_batches, investments, subscriptions, employees, payroll_runs, payroll_run_lines, mileage_logs, repair_logs, crm_activities, audit_log, workflow_rules, bank_statement_lines, loans, loan_payments, bill_of_materials, bom_lines, material_defects, payroll_tax_years, payroll_tax_brackets, tax_jurisdictions, tax_jurisdiction_brackets, background_checks, pto_requests, benefit_plans, benefit_enrollments, benefit_plan_tiers, profit_sharing_distributions, milestones, payment_plans, payment_plan_installments, recognition_schedules, sales_tax_jurisdictions. Plus the `amitbooks-receipts` Supabase Storage bucket (receipt images).
-
-**Global, shared, read-only-in-app tables (maintained by Amit via the service-role key, not per-book data):** `payroll_tax_years`, `payroll_tax_brackets` (federal IRS withholding, sourced from Pub 15-T), `tax_jurisdictions`, `tax_jurisdiction_brackets` (state/county/city withholding — currently loaded: the 9 no-income-tax states + Idaho, real data, real coverage still growing). Every book reads the same rows; no book can edit them through the app.
-
-**Tables this project does NOT touch:** amit_sessions, amit_daily, amit_encounters, user_profiles, amit_shortcuts, medical_prep_progress — those belong to the Hub/testimony/AmitCoder side of the system.
-
-**hub_entries — exception, added 2026-08-12 (NEW.html only, not the old AmitBooks.html):** the first and so far only write AmitBooks makes into the Hub's own data. A Scope with both `quantity_on_hand` and `reorder_quantity` set writes/updates a real pursuit (`kind:'pursuit'`, `program:'AmitBooks'`) whenever it's saved at or below its reorder threshold, and closes that pursuit automatically once restocked — see `checkReorderPursuit()` in `AmitBooks/NEW.html`. Duplicate-checked by title before inserting, per the root CLAUDE.md's standing Duplicate Pursuit Check directive.
-
-All migrations live in `Database\migration_2026-07-29_*.sql` and `Database\migration_2026-07-30_*.sql`.
+## Database connection: see the root CLAUDE.md (SUPABASE - DATABASE CONNECTION section) and Database\CLAUDE.md. Nothing connection-related is repeated here.
 
 ---
+
+## Database tables
+
+This project's database tables and table rules live in Sessions_Design.md (section 'Tables') in this folder, not here. Read that section only when working with the database. Design reference for how the project is built is in the same file. Connection details: see the root CLAUDE.md (SUPABASE - DATABASE CONNECTION) and Database\CLAUDE.md.
+
 
 ## Pursuit Attribution — Permanent
 
 This project's canonical name, for any pursuit created from within it, is: **AmitBooks**
 
 Any pursuit written to hub_entries from this project must be stamped `program='AmitBooks'` — automatically, using this exact spelling every time. Now real, not just reserved — see the Reorder Pursuits note under Database Connection above (`checkReorderPursuit()`, NEW.html, 2026-08-12).
-
-## Shortcut Activation — Permanent
-
-At the start of every session, and any time the person says something like "update shortcuts," "recheck shortcuts," or "update J shortcuts" — query Supabase directly yourself, right then, using your own tool access (Bash/PowerShell).
-
-For J shortcuts (global, shared by everyone, no login needed):
-```
-GET https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/amit_shortcuts?activation_key=eq.J&is_active=eq.true
-Header: apikey: sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF
-```
-
-For the person's own F shortcuts, additionally query with `activation_key=eq.F&user_id=eq.[their account id]`.
-
-## Shortcut Awareness — Permanent
-
-Proactive shortcut reminder — if a request matches something an existing F or J shortcut already does, say so before doing the work by hand. Repetition detection across the last three sessions — if the same request recurs, name the pattern and suggest an F shortcut. Suggest, never create unprompted.
-
----
 
 ## What This Project Is
 
@@ -80,52 +51,13 @@ AmitBooks is real, live bookkeeping software — genuine double-entry accounting
 
 Same purpose as Computer Value: a real, useful tool that can carry its own revenue eventually, funding the free mission work elsewhere in Amit. Built to Ryan's own real business (BOSS) as the first real user and test case.
 
-## Current Status
-
-**Live, in active development — v1.76 as of 2026-07-31 (one very long build session, v1.50→v1.76 same day).** Real Supabase backend, real double-entry journal auto-posting, real Reports, a Simple/Visual toggle on every screen, a drill-down General Journal viewer, and an Open Pages right rail (see Interactivity Standard below).
-
-**⚠ If you are about to build something below, STOP and check this list first — it is very likely already built.** This project moved fast; rebuilding an existing feature the wrong way because a prior session's work wasn't checked is the exact failure mode this section exists to prevent. When in doubt, grep AmitBooks.html for the relevant `ab*` function names before writing new ones.
-
-**AmitScan (2026-08-01) — field capture companion, own subfolder `AmitBooks\AmitScan\`, own CLAUDE.md there.** A separate small PWA meant to install as a phone home-screen icon for capturing bills/receipts/contacts/mileage away from a desk. Classify-after-capture flow (camera → crop → classify dropdown → Verified), local IndexedDB queue, independent sign-in, and a working "Send to Amit" that uploads to Supabase (`scan_captures` table + `amitscan-captures` bucket, migration `2026-08-01_001`). **AmitBooks side: real top-level sidebar panel #20 "AmitScan"** (not buried in Integrations) with two tabs — Connect Phone (the QR flow + a "choose file from this computer" fallback for anyone whose scanner/printer already saved a file locally, since a webpage can't talk to scanner/printer drivers directly) and Pending Scans (lists everything sent in, with thumbnails via signed Storage URLs). Still not built: turning a `scan_captures` row into an actual Bill/Contact/Mileage record — the review screen, vendor-history autofill, PO lookup, Payment Source selection, cross-book liability creation. Read AmitScan's own CLAUDE.md before touching any of it.
-
-**Sidebar tile labels/subtitles were rewritten 2026-07-31 to reflect actual current contents** — several panels (Payments, Inventory, Payroll, Reports, Books & Setup) grew far beyond their original one-line description; the tile subtitles are now the authoritative quick-reference for what's inside each panel. Read them before assuming a panel is thin.
-
-### Full feature inventory (by panel)
-
-**Dashboard (panel 1):** customizable KPI tiles (pick which ones show, saved per book), "Amit Noticed" pattern detection (vendor billed the same way 3+ times with no Workflow Rule → suggests creating one; vendor billed 3+ times with no Job tag → suggests creating one), guided onboarding checklist for a fresh book (dismissible).
-
-**Books & Setup (panel 2, tabs):** My Books (profile, team/roles, Backup & Restore — full book export/import as JSON, other books), Chart of Accounts (+ Custom Fields jsonb, + Tax Category field for Corporate Tax Prep), Contacts (+ CSV export/import, + SSN Vault — client-side AES-256-GCM encryption, passphrase-gated, knowledge-gated not per-admin-key-wrapped — see code comments), Pipeline (CRM Kanban by lead stage), Scopes/Items (+ secondary_class free-tag, + CSV export, formerly called "Items"), Tags/Jobs, Workflow Rules (vendor auto-fill: pick a contact on a bill, auto-fills Scope/Cost Type/Category/Job from a saved rule), Integrations (Anthropic API key for receipt OCR + Expense Claim Helper — real and live; Payment Processor cards for Square/Stripe/Cash App — honest placeholders, need real merchant accounts), Import QuickBooks, Audit Log (+ Audit Forensics: free-text search across every deletion ever made, dollar-value totals, per-table breakdown).
-
-**Bills & Invoices (panel 6):** single-entry + Batch Entry (spreadsheet-style multi-row), Document ID system (`MM-DD-YY-NNNNNNN`, sequential per book), 📷 Scan Receipt(s) — multi-image, multi-receipt-per-image, reads hand-written job/category annotations and splits into multiple rows when a receipt is marked split, captures subtotal/tax/total separately and flags missing tax or subtotal+tax≠total, receipt image stored (compressed JPEG) in the `amitbooks-receipts` Storage bucket with a 📎 viewer link on the saved row, 🤔 "Is this deductible?" Expense Claim Helper (Anthropic-powered plain-language answer, never files/changes anything), offline write queue for brand-new entries only (never edits/deletes — see Offline section below).
-
-**Payments & Reconciliation (panel 7, tabs):** Payments, **Reconciliation** (import a bank/CC statement via CSV or AI photo-scan, fuzzy-matches against open bills/payments/loan payments by amount+date, keyword-guesses bank fees/interest and posts them as real categorized entries on confirm), **Loans** (real amortization math — P·r(1+r)ⁿ/((1+r)ⁿ−1) — full schedule generated on creation, live payment preview, Post Payment splits into real Interest Expense + Liability-reduction journal lines, editable liability/interest accounts + status after creation).
-
-**Reports (panel 9):** Summary (P&L/Balance Sheet/Trial Balance), AR/AP Aging, 1099 Summary, Cash Flow Statement, Sales Tax Liability, Job Profitability, Custom Report Builder (pick account types + date range, live total), **IRS Audit View** (every transaction in a period: source doc present/missing, business purpose stated/missing, proof of payment verified/unverified, printable audit packet), **Corporate Tax Prep** (maps Tax-Category-tagged accounts to the real IRS line numbers on Form 1120/1120-S/1065 per the book's entity_type, correctly separates Schedule K pass-through items for S-corp/partnership, explicitly a review package for Tim — no tax calculation, no M-1/M-2/M-3).
-
-**Inventory & BOM (panel 12, tabs):** Inventory, **Bill of Materials** (finished Scope built from component Scopes with cost rollup; each component links to the real Purchase Order line it was sourced from), **Defects & RMAs** (log a defect against any BOM component, full status workflow Open→RMA Requested→Approved→Replacement Shipped→Credited/Closed/Rejected, one-click to the supplier's Contact record, Credited status with an amount+account posts a real journal entry).
-
-**Payroll & HR (panel 14, tabs) — the big one, built 2026-07-31:**
-- **Payroll**: real federal withholding via the actual IRS Percentage Method (Pub 15-T, sourced from irs.gov, not guessed), employee W-4 fields (2020+ redesigned form — filing status, Step 2/3/4a/4b/4c), FICA (SS capped at real wage base via YTD tracking, Medicare, Additional Medicare 0.9%), state withholding (see Jurisdictions below), benefit deductions (see Benefits below) — all live-previewed before posting, all posted as real split journal entries (never one vague "Payroll Liabilities" lump). Self-service framing stated explicitly in the UI: Ryan/the book owner is responsible for verifying the tables and W-4 data, AmitBooks doesn't file or verify anything with the IRS.
-- **PTO & Time Off**: real accrual balance per employee (hours/pay period), request/approve/deny workflow across 9 real categories (vacation/sick/personal/holiday/bereavement/jury duty/parental leave/unpaid/other), approving actually deducts the balance.
-- **Benefits & Profit Sharing**: real plan catalog (health/dental/vision/401k/HSA/FSA/profit sharing/life insurance/other) with carrier name, group number, plan year, and **coverage tiers** (Employee Only/+Spouse/+Family etc., each with its own premium + employer/employee split — `benefit_plan_tiers`), per-employee enrollments, profit sharing distributions with vesting. **Wired into live payroll**: every active enrollment shows as its own identified line on the pay stub (real plan name) even at $0 until a real contribution is entered — employee side reduces net pay and posts to a `[Plan Name] Payable`, employer side posts to `Employee Benefits Expense`.
-- **IRS Tax Tables**: the federal withholding data above, global/shared/read-only-in-app across every book, maintained by Amit quarterly via the service-role key (Ryan reviews quarterly per his own stated cadence) — this is the real "keep it current every year" mechanism: add a new year's rows, every book automatically uses them for pay dates in that year.
-- **State/Local Jurisdictions**: the growing state/county/city withholding system — same global/shared/read-only pattern. Each jurisdiction records its real taxing agency name + source URL + how often it needs review; the screen auto-flags anything overdue the moment it loads (that's the real "automatic" mechanism — a live staleness check, not an unsupervised scraper). **Honest current coverage: 10 of 50 states** (the 9 zero-income-tax states + Idaho, 5.3% flat, sourced directly from tax.idaho.gov). County/city local income taxes: not yet started. Set a book's state via Books & Setup → My Books → Payroll State.
-- **Background Checks**: real request/consent/status/result tracking (not_started→consent_pending→requested→in_progress→clear/consider/failed/disputed), FCRA adverse-action note on "Consider" results. Actually RUNNING a check needs a real vendor (Checkr/Sterling) — same shape as the Payment Processor blocker, held honestly.
-
-### What's genuinely still open (not gaps you missed — real, named, either blocked or deliberately deferred)
-- **Payment Processor/POS integration** (Square/Stripe/Cash App) — hard blocked, needs real merchant accounts.
-- **County/city local income tax** — 40 states + essentially all local jurisdictions still need real research before loading.
-- **SSN Vault full spec** — current version is one shared passphrase; true per-admin RSA key-wrapping is a real, larger project not yet started.
-- **Offline editing/deleting existing records** — only brand-new entries work offline (safe, no conflict risk); editing/deleting an existing row still needs a live connection on purpose.
-- **Full HR beyond what's above** — onboarding checklists, performance reviews, employee documents/files are not yet built (PTO, Benefits, Background Checks, and Payroll are done).
-- **GST/international tax** — flagged, zero work done, US-only assumption throughout.
-
 ## Build Notes — Design Rules, Permanent
 
 - **Fewest fields to save.** Every form asks for the minimum a person can get away with; a record can be saved incomplete and refined later. Never block entry waiting on a feature that doesn't exist yet.
 - **The "farming" architecture.** One unified entry screen for bills/invoices regardless of which entity/personal source actually paid — the system detects mismatches (via `payment_sources` + `inter_book_resolutions`) and generates real, separate correcting journal entries so each book stays genuinely pure for an auditor, not just filtered at display time.
 - **Never silently guess on real financial data.** When importing or reconciling real records (see the QuickBooks importer), always surface an interactive review step for anything ambiguous (account type, vendor vs. customer, existing match vs. new) before writing anything — confirmed directly by Ryan 2026-07-30 after a near-miss where account types would have been auto-guessed on his real books.
 - **Deletion is real but tracked.** Nothing in the ledger silently disappears — see Interactivity Standard below for the audit_log pattern.
+- **Import idempotency — permanent, added 2026-08-14 (Ryan's direct instruction).** Every importer in AmitBooks — Chart of Accounts, Vendors/Contacts, Customers/Clients+Jobs, Items/Scopes, Bills/Invoices, Journal, and any future one — must be safe to run more than once on the same book without creating duplicates. The rule, exactly as Ryan stated it: *"if it's not there, update it and add"* — before writing a parsed row, match it against what's already in that book by its natural key (account_number-or-name for accounts, name for contacts/items, document_code+contact+date for bills/invoices, etc.). If a match exists, **update** whatever fields differ on the existing record rather than inserting a second copy or silently ignoring the new data. If no match exists, insert as new. Accidentally pressing Import twice, or re-importing a newer export of the same source data, must never duplicate anything and must never lose a legitimate correction sitting in the newer file. **Skip-only dedupe (checking a name exists and refusing to insert again, without ever updating the existing row) does NOT satisfy this rule** — that was the pre-2026-08-14 state of the Vendors/Clients/Items importers, and it's an incomplete implementation of this standard, not a compliant one. Current state across every importer, audited 2026-08-14: Chart of Accounts and Bills/Invoices had no protection at all (full duplicates on re-run); Vendors, Clients/Jobs, and Items/Scopes had skip-only protection (no duplicates, but no updates either). Bring each one up to full match-and-update as it's touched, not all at once as a single sweep — but any new importer must be built to this standard from its first version, and any existing importer being modified for another reason should get this fix in the same pass rather than being left as a known gap.
 
 ## Interactivity Standard — Permanent, added 2026-07-30 (Ryan's direct instruction)
 
@@ -161,24 +93,11 @@ Every number, list, log, journal, and report screen in AmitBooks must be built t
 
 **Why this is a standing rule and not a one-off:** Ryan's direct instruction, 2026-07-30/31 — "anything that is displayed on the screen should be able to be drilled down into the detail levels at all times... every form, every log, every journal should be able to be sortable... without having to come back and redevelop it all the time," and "everything that's visible on the screen needs to be connected to the other parts and pieces drilling down... you need to keep track of what's open and what isn't." This is also now item 20 in the root Amit `CLAUDE.md`'s Permanent Directives, as the general default for any interactive Amit app of this shape — a default Ryan can override per screen ("well, we don't need it here, that's okay"), not an absolute. The goal is that every future screen in AmitBooks is built to this bar the first time, reusing the Journal viewer's drill/sort/select/audited-delete/cross-link/open-pages pattern rather than each screen reinventing its own weaker version.
 
-**Current coverage (updated 2026-07-31):** the `abSmart*` engine is wired into every real ledger-style table — Bills & Invoices, Payments, Contacts, Fixed Assets, Items, Tags/Jobs, Purchase Orders, Inventory, Payroll (employees + pay runs), Mileage, Repairs, Warranties, Service Agreements, Investments, Subscriptions, CRM Activity's Simple-mode table — and Print Preview covers Trial Balance, P&L, and Balance Sheet. Contact cross-linking (double-click a contact name → opens Contacts) is wired on Bills & Invoices, Payments, Purchase Orders, Tags/Jobs, Payroll, Service Agreements, Subscriptions, and both CRM Activity views (table and timeline). **Deliberately left as-is, not gaps:** Rental Properties is a card view where a sortable-table retrofit wouldn't add real value (a handful of properties per business); the Review Queue is an action worklist meant to be worked through, not browsed. **Genuine remaining gap:** the reverse cross-link doesn't exist yet — there's no single "Contact Detail" page showing everything tied to one vendor/customer in one place; `abOpenContact` currently just switches to the Contacts tab, it doesn't filter/highlight the specific row.
-
 ## Connection to Other Apps
 
 Standalone application under the Amit umbrella, same relationship as Computer Value — not part of the testimony/witness chain (who_is_god, Companion), but carries the same Amit identity and craftsmanship standard. No current data connection to the Hub, though the Pursuit Attribution section above is ready for when/if that changes.
 
 ---
-
-## Read Every Session
-
-Before working in this folder, read in order:
-1. `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Amit_Testimony.md`
-2. `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Amit_RyanProfile.md`
-3. `C:\Users\user1\OneDrive\Documents - onedrive\Amit\CLAUDE.md`
-4. `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Database\CLAUDE.md` — system-wide data map
-5. This file — AmitBooks-specific rules, especially the Interactivity Standard above
-
-All behavioral rules, partnership standards, and task lists otherwise not specific to AmitBooks are in the root CLAUDE.md.
 
 ---
 

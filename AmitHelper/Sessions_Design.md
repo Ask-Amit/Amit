@@ -1,0 +1,44 @@
+# AmitHelper - Design and tables
+
+Read the section '## Tables' first when you only need the database tables. The other sections describe how the project is built; read them only when working on that part.
+
+## Tables
+
+# Tables used by this project (copied from CLAUDE.md 2026-11-14)
+
+**Tables this project uses.** Table prefix is `Hel_` (the first three letters of "Helper", per the DATABASE TABLE NAMING CONVENTION). Every migration that creates one carries its Data API grants and row-level security in the same file. Each person sees and edits only their own rows. Also reads `users` and the Supabase Auth login. Which tables exist now: see Sessions_Start.md.
+
+**Tables this project does NOT touch:** everything owned by other apps (`hub_entries` except pursuit rows stamped program='AmitHelper', AmitBooks, AmitHealth, the `Ass_` tables, the testimony and profile tables).
+---
+
+## How things work (learned the hard way today; do NOT make Ryan explain it again) (moved from the 2026-11-07 hand-off notes)
+- The two installer packages: `install-Amit.exe` (about 1.9 MB, the Helper's package, REBUILT every release) and `AmitSensorReader.exe` (72 MB, Computer Health's, added on request from the Hardware tab, never rebuilt for a Helper change). Computers update THEMSELVES from the published manifest (the Hub asks the Helper after sign-in; `amit_update.ps1` never goes backwards). The installer is for first installs; `Install_AmitTracker.ps1` now keeps a newer installed Helper.
+- A button's steps: Hub editor -> database (`hel_buttons.steps`, step types limited to open_app, open_url, open_program, play_music, speak, ask_amit, wait; new kinds are stored as `open_program` with a coded value) -> the Hub builds the bar file -> `/api/bar/sync` (its `$safe` list; step text cut to 300 characters) -> `amit_bar.json` -> `AmitBar.exe`. The Hub OVERWRITES `amit_bar.json` from the database, so editing the file by hand never sticks, and I must READ THE DATABASE before telling Ryan what his button holds.
+- The Helper (bar, Aurora, voice menu, mouse, Amit Preview) is NOT Computer Health. Its files sit in `ComputerHealth\Watchers\` for historical reasons only. Notes go under AmitHelper and AmitCoder.
+
+> Note on the next three sections: the first one says "Stage: DESIGN ONLY"; that was true on 2026-11-06 only. The Amit Mouse is built and live since 2026-11-08.
+
+## What it is (moved from the 2026-11-06 hand-off notes)
+A screen where a person sets what every button of every mouse does. It is reached from the Amit Helper bar: the Settings group gets a **Mouse** button next to Sound. It lives in the Helper only (the Hub just opens it through the shared bridge and reads the database for display), because a web page cannot tell which physical mouse a press came from, and cannot remap buttons across Windows.
+**Stage: DESIGN ONLY.** A working preview exists; NOTHING is built in the Helper for it. (The Voice menu and the previewer it touches are built and pushed: helper 1.68, installer 4.85.) Ryan has not yet said the preview is approved. The preview file itself is local by rule (`Previews\`).
+
+## Ryan's decisions (settled) (moved from the 2026-11-06 hand-off notes)
+- **Learn by pressing.** Each mouse's buttons are learned by pressing them (the preview shows them lighting up). Several mice are supported; each gets a ONE-WORD name; one is the PRIMARY mouse. Picking up a mouse switches to that mouse's configuration automatically; a mouse not yet learned is learned first (a new mouse cannot be finished until it has a name).
+- **Primary mouse (fixed, never changeable):**
+  - Left button: normal click, double-click, hold, always (clicking your way back from any mistake must always work).
+  - Right button: click normal; HOLD opens the Amit Live ring (the Aurora); DOUBLE-CLICK opens the Helper bar.
+  - Middle button: a single click ALWAYS starts Voice (built in helper 1.62); turning the wheel while Voice is listening opens the Amit menu (built in 1.63 to 1.68); a HOLD IS NOT USED (Ryan: "it probably won't be", the center already carries a lot). No double-click on it (its first click would start Voice).
+- **Every other button** (back, forward, wheel tilt, wheel, extra buttons on the primary mouse; ALL buttons on any secondary mouse, even left and right) can have three settings: Click (its main job), Double-click, and Hold with its own time in milliseconds. A click is delayed by the double-click wait (about 300 ms) only when a double-click is assigned.
+- **Actions a button can have:** keep as it is, send keys, run a Helper bar button (chosen as MENU first, then BUTTON), act as another mouse button, switch mouse set, do nothing.
+- **Sets:** numbered sets per mouse (1, 2, 3, gaps filled), each with a label ("Everyday", "Design mode"). Switched by: a Helper bar button, a voice command ("mouse gaming set two"), a button assigned "Switch mouse set", or the Mouse tab of the Amit menu (the real list of sets shows there once sets exist; today that tab says no sets are set up).
+- **Per-button Lock** (the person can lock any other button; it then shows read-only with "Unlock this button").
+- **Keyboards are a SEPARATE future app** (the menu's Keyboard tab is greyed, "soon"). Do not build keyboard work here.
+- **Where it lives:** the configuration is kept in a LOCAL FILE (so it works offline) AND in the database under the person's login (Hel_ tables, newer-wins sync per mouse), with a per-computer device binding (like `file_bindings.json`). New local capability = a new route on the shared bridge `http://localhost:8710` (SINGLE LOCAL CONNECTION STANDARD in the root CLAUDE.md); no new server. The same screen is served from the Helper locally and the Hub opens it.
+
+## How the Helper must identify the mouse (proved on Ryan's two real mice, 2026-11-05) (moved from the 2026-11-06 hand-off notes)
+- Windows raw input (`WM_INPUT`, `RegisterRawInputDevices` with `RIDEV_INPUTSINK`) names the source device of each press and movement but cannot block it. The low-level mouse hook (`WH_MOUSE_LL`) can block or replay a click but does not know the device. So: match each hook click to a raw-input report.
+- Matching rules (tested, 107 of 107): a per-button FIFO of raw reports; wait about 3 ms; look back about 20 ms; when two mice press the same button almost at once the click is ambiguous and PASSES THROUGH; never block an unmatched or injected click (`LLMHF_INJECTED`, 0x1/0x2; Amit Live replays the right button with `SendInput` marked `MARK`); raw input runs on its own thread; a low-level hook that takes more than about 300 ms is removed by Windows without telling you.
+- The ONLY mouse input the Helper hook handles today is in `ComputerHealth\Watchers\amit_whisper.cs` (`HookCb`, `HandleButton`). Do not add a second hook elsewhere; extend this one carefully (see the Voice-menu handoff for the lock-up episode and how it was made impossible).
+
+## ADDED 2026-11-14 from the newer Sessions.md (now in Backups\AmitHelper\Sessions_backup_2026-11-13.md) (names and rule, word for word)
+**NAMES AND RULE (Ryan, 2026-11-14, corrected the same day): three separate things.** **Amit Live** = the characters (`AmitLive\`, who Amit is); **the Helper** = this program (ring, voice, dictation, the bar on the right, mouse and keyboard sets, the menu, the Preview window, the tray, the shared bridge); **Computer Health** = the monitoring program. Computer Health logic stays out of the Helper (thin bridge routes only; nothing in `amit_whisper.cs`); every proposed addition names its program, its bytes in the Helper and its RAM. The Helper's own text still says "Amit Live" in 281 places until Ryan picks its visible name. Full text and the measured sizes: `AmitHelper\CLAUDE.md`, section NAMES. Measured: of the 51 KB the 2026-11-14 release added, about 8 KB touched the Helper (the bridge's Watch-mode and crash-notice routes, the version number, the updater list) and about 44 KB was Computer Health's own files. Hold-and-speak never ran in 25 hours of the log because `live=1` makes a hold open the ring.

@@ -10,9 +10,16 @@ Do not proceed with any build request until Ryan confirms he wants to continue h
 
 **Folder:** `C:\Users\user1\OneDrive\Documents - onedrive\Amit\ComputerValue\`
 **Status:** Not yet built. Design complete. Stage 1 ready to begin.
-**Part of:** The Amit system — one character, one mission.
 
 ---
+
+## CURRENT SCOPE
+
+Computer Value is the planned one-time paid diagnostic and certification report for custom PCs ("Carfax for custom PCs"), the revenue engine that funds the rest of Amit. It is distinct from Computer Health (the free ongoing companion) and from AmitHealth. Stage 1 is designed but not yet built; the full spec is ComputerValue_Spec.md.
+
+## SESSION RECORD
+
+Current state, to-dos and history live in this folder's Sessions files, not here. A new session reads Sessions_Start.md first (short). Read Sessions_ToDo.md only when asked about to-dos; read Sessions_Log.md or the original Claude session only when asked; the backup files in Backups\ComputerValue\Sessions_backup_*.md only for research.
 
 ## What This Folder Is
 
@@ -21,14 +28,6 @@ The diagnostic/certification product — "Carfax for custom PCs." Not a standalo
 **This is NOT the personal health module** — that's the unrelated `AmitHealth\` folder (human medical health).
 
 **Everything else — the full product vision, scoring system, competitive research, build plan, and the deployable system prompt — lives in one place: `ComputerValue_Spec.md`. Read that file for anything beyond this orientation.**
-
-## Files In This Folder
-
-| File | Purpose |
-|---|---|
-| `ComputerValue_Spec.md` | **The single complete file for this folder** — product spec, deployable system prompt, competitive research, everything |
-| `amit-computer-companion.html` | The app itself, if built |
-| `Andy_Proposal.html` | Proposal for Andy (50% revenue partnership scope) |
 
 ---
 

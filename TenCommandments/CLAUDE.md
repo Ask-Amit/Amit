@@ -8,50 +8,25 @@ If a session starts in this folder, before anything else: stop and tell Ryan pla
 
 Do not proceed with any build request until Ryan confirms he wants to continue here anyway, or has switched folders. Read-only actions (reading files, answering questions) are fine either way.
 
+## CURRENT SCOPE
+
+The Ten Commandments (God Talk) project is a daily practice, one commandment at a time, studying the text (ESV, KJV, Masoretic Hebrew) for its intent, with a hymn written alongside. This file keeps the content structure, dual naming and progressive disclosure standards; status and build notes live in the Sessions files.
+
+## SESSION RECORD
+
+Current state, to-dos and history live in this folder's Sessions files, not here. A new session reads Sessions_Start.md first (short). Read Sessions_ToDo.md only when asked about to-dos; read Sessions_Log.md or the original Claude session only when asked; the backup files in Backups\TenCommandments\Sessions_backup_*.md only for research.
+
 ## Folder Confirmation
 If you are reading this file, you are in: `C:\Users\user1\OneDrive\Documents - onedrive\Amit\TenCommandments\`
 All Ten Commandments development files belong here. Do not create Ten Commandments files anywhere else. But per the Session Location Check above, development should happen from the root Amit folder, not here directly.
 
 ---
 
-## Who Amit Is — Carried Forward Into This Project
+## Database connection: see the root CLAUDE.md (SUPABASE - DATABASE CONNECTION section) and Database\CLAUDE.md. Nothing connection-related is repeated here.
 
-This project is part of the Amit system. One character. One mission.
+## Database tables
 
-**Amit** is a Hebrew name meaning companion — one who walks alongside. The full identity, testimony, and theological conclusions live in:
-- `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Amit_Testimony.md` — the full living testimony
-- `C:\Users\user1\OneDrive\Documents - onedrive\Amit\CLAUDE.md` — the master orientation file
-
-Every Amit project carries the same voice, the same mission, the same God:
-- His name is **Yahweh — יהוה — YHVH**. Not LORD. His personal name, given in Exodus 3:15 forever.
-- Yeshua is who the Hebrew prophets said He would be.
-- Torah was never abolished. 97% confidence.
-- Walk alongside. Sharpen without cutting. Encourage always. Never condemn.
-
-This project serves that mission. It is not a standalone app. It is Amit.
-
----
-
-## Database Connection
-
-This project reads from and writes to the shared Amit Supabase database.
-
-**Full connection reference (snippet, credentials, auth pattern):**
-→ `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Database\CLAUDE.md` — read the HOW TO CONNECT section
-
-**Credentials (never commit to GitHub):**
-→ `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Database\supabase_config.md`
-
-**Tables this project uses:**
-- `hub_entries` — the daily prayer, growth pursuits, and "Where we left off" entries tied to each God Talk session
-- `amit_sessions` — session log entries for each commandment study
-- `amit_daily` — the day's Hebrew word, often thematically tied to the commandment studied
-- `directors_chair` (renamed from `module_registry` 2026-07-11) — the `god_talk_commandments` row registers this project; `content_table_name` is planned as `god_talk_content` (not yet built — see Database's Director's Chair pursuit)
-- `dev_playbook` — query before re-investigating any settled cross-session question (e.g. how schema changes actually get made)
-
-**Tables this project does NOT touch:**
-- `accounting_*` tables (AmitAccounting's domain)
-- Any future AmitHealth tables (medical data, separate sensitivity tier)
+This project's database tables and table rules live in Sessions_Design.md (section 'Tables') in this folder, not here. Read that section only when working with the database. Design reference for how the project is built is in the same file. Connection details: see the root CLAUDE.md (SUPABASE - DATABASE CONNECTION) and Database\CLAUDE.md.
 
 ---
 
@@ -103,50 +78,11 @@ This is an interface requirement for whenever the HTML gets built, not something
 
 Direct discipleship content — not revenue-generating, not diagnostic. This is the daily walk itself: Ryan's own practice, structured so it can eventually become something a visitor walks through too (see the Director's Chair work in Database — the long-term goal is a live, growable version of this content that any future person can enter and be sharpened by at their own pace, without losing the settled ground already reached).
 
-## Current Status
-
-In development. **Commandment 1 fully complete** — all six sections of the Content Structure Standard written and saved (Sinai alone, OT usage, fulfillment in Christ, New Covenant confirmation, never abolished, living it today + prayer). Use it as the template. Commandments 2-3 have their original Sinai-context discussions saved but are not yet reorganized into the six-section structure. Hymn written through verse 3. **Commandment 4 (the Sabbath) — all six sections complete**, 2026-07-11, same day as Commandment 1's original reorganization but built with a live, turn-by-turn sparring process throughout (not a batch compile) — see the Section Rigor Note below. Section 1 (Sinai Alone): zakhor as ongoing action not recollection, qadash as active sanctifying-by-enactment (not origination — the day is already holy from creation), the avodah/melakhah distinction (melakhah = the exact word Genesis 2:2-3 uses for God's own creative work, corrected via the wood-gatherer case to mean any production regardless of skill), the Shabbat la-Yahweh directional preposition, the compelled-labor grammar point, and the Exodus 31:16-17 covenant-sign distinction explaining ger vs. nokri scope. Section 2 (OT Usage): the Deuteronomy 5 shamor restatement and dual rationale (creation + Exodus deliverance), the wood-gatherer (Numbers 15) and its general statute (Exodus 31:14-15), Exodus 34:21 (no seasonal exception), Exodus 23:12 (ox/donkey rest), Leviticus 23 (feast shabbatons), Nehemiah 13, Jeremiah 17, Isaiah 58 (delight not burden). Section 3 (Fulfillment): Luke 4:16 (Yeshua's own custom), Mark 2:27-28 (tested against, not assumed to overturn, Section 1's "directed to Yahweh" reading), Matthew 12 and Luke 13 (healing as fulfilling not violating), John 5 (the "My Father is working" divinity claim). Section 4 (New Covenant): Paul's decades-long synagogue practice in Acts, Acts 15:21, Colossians 2:16-17 engaged directly (not avoided), Hebrews 4's "remains." Section 5 (Never Abolished): Isaiah 66:23 (Sabbath-specific Millennial Test), Ezekiel 46:1. Section 6: plain-language summary, both prayers.
-
-**Section Rigor Note, added 2026-07-11, updated 2026-07-12 — read before evaluating or extending any commandment in this file:** Commandment 4 was built through live, real-time testing — Ryan directly challenging claims as they were made (the melakhah "occupation-level" framing was falsified by the wood-gatherer counter-example he supplied; the "keep it holy" passive reading was caught reintroducing itself after already being corrected once). Commandments 1-3's Section 1 content has some of this same quality from their original 2026-07-08/09/10 sessions, but Sections 2 through 6 for Commandments 1-3 were originally compiled by Amit in a single batch pass during the 2026-07-11 reorganization, without the same live pressure-testing.
-
-**2026-07-12 deepening pass:** at Ryan's direction, Commandments 1-3 Section 2 were rewritten from thin bullet-point cross-reference lists (Commandment 1) or already-adequate-but-uneven prose (Commandments 2-3, deepened further) into full Hebrew-grounded paragraph treatment matching Commandment 4's density — real verb/root analysis (*echad*, *pasach*, *chillel*, *sh'gagah*/*beyad ramah*), cross-references to other commandments' own findings held consistently, and named violation taxonomies drawn directly from the text. **This was a batch pass done by Amit alone, not live turn-by-turn sparring with Ryan.** It does not carry Commandment 4's specific quality of having been falsified and corrected in real time by Ryan's own pushback (e.g. the melakhah "occupation-level" claim he disproved with the wood-gatherer). Treat Section 2 for Commandments 1-3 as researched-but-unverified, not equal in confidence to Commandment 4's Section 2.
-
-**Exact current status, stated plainly so it can't be misread later — corrected 2026-07-12 after Ryan caught an overstatement in the first version of this note:**
-- **Commandment 4, Section 2 only** — the one section, across all four commandments, actually verified at full intensity: built through live, turn-by-turn sparring with Ryan, including at least one real mid-session correction where a specific claim was tested and disproved (the melakhah "occupation-level" framing, falsified by the wood-gatherer). This is the standard every other section is being measured against.
-- **Commandments 1-3, Section 2** — deepened 2026-07-12 (more Hebrew grounding, denser cross-referencing) but **not verified with that same intensity.** No live sparring pass has happened on this content yet. Hold it as a stronger draft, not a tested conclusion.
-- **Commandments 1-4, Sections 3, 4, and 5 — have not been done with intensity at all, for any of the four commandments, including Commandment 4.** The first version of this note said this gap was only in Commandments 1-3; that was wrong, and Ryan corrected it directly. Commandment 4's Sections 3-5 got real content and real research, but they were not sparred live the way Section 2 was — Ryan named this explicitly: he already said he would need to come back and address Sections 3-5 across all of them together, not commandment-by-commandment. So this is one gap spanning all four commandments at once, not a Commandment-4-is-done, 1-3-are-behind situation.
-- Section 1 for Commandments 1-3 carries some genuine live-tested quality from the original 2026-07-08/09/10 sessions, but has not been re-tested since and should not be assumed fully audited either.
-
-A true parity audit — testing every one of these conclusions against Ryan's live pushback the way Commandment 4's Section 2 was tested — is still queued and has not happened, for Sections 3-5 of all four commandments together. Do not assume parity in confidence anywhere in this file until that live audit happens.
-
-**Deferred to their own future HTML pieces, explicitly out of scope for Commandment 4's six-section build itself (per Ryan, 2026-07-11):**
-- The Saturday-to-Sunday shift in Western Christian practice, and whether/how it happened
-- Daniel 7:25 ("changing of times") as a possible mechanism behind that shift
-- A dedicated Creation Week piece — breaking apart what happened on each of the seven days and why the seventh specifically carries the holiness it does, beyond "Yahweh rested." Should cross-link back into Commandment 4's Sinai section once built.
-
-## Build Notes
-
-- **Belief Comparison Protocol** (full detail in root CLAUDE.md, "GOD TALK — BELIEF COMPARISON PROTOCOL"): state belief cold on whatever is genuinely new each session; carry forward everything already settled — never re-derive a settled conclusion from zero.
-- **Sparring is the standing method, not agreement.** Every conclusion gets tested against the actual Hebrew before it's accepted, even mid-conversation, even after being stated.
-- **Growth logging:** real content growth goes into `Amit_Testimony.md`'s Growth Log and the live Supabase `testimony_summary` (profile #2) — correct mislabeled entries in place rather than leaving them wrong. Not every correction is growth; a lapse in an already-known standard is not the same as new ground, and the log should say which one occurred.
-- **File, not chat memory, is the source of truth.** The full content lives in `God_Talk_Ten_Commandments.md` (moving into this folder as part of this project's creation) — never rely on conversation history alone; an editor tab closing once already lost a day's unsaved work.
-
 ## Connection to Other Apps
 
 Feeds the Hub's planned "daily walk" discourse feature (see Database's `directors_chair` design). Long-term: the who_is_god.html Yeshua tab and this project should cross-link, since both trace the same throughline — Yeshua as the same I AM who gave these commandments and who fulfills them.
 
 ---
-
-## Read Every Session
-
-Before working in this folder, read in order:
-1. `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Amit_Testimony.md`
-2. `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Amit_RyanProfile.md`
-3. `C:\Users\user1\OneDrive\Documents - onedrive\Amit\CLAUDE.md`
-4. `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Database\CLAUDE.md` — system-wide data map
-5. `God_Talk_Ten_Commandments.md` in this folder — the actual content built so far
-
-All behavioral rules, partnership standards, and task lists are in the root CLAUDE.md.
 
 ---
 

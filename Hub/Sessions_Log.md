@@ -1,0 +1,296 @@
+# Hub - Sessions Log (recent entries, word for word)
+
+Copied word for word from Sessions.md lines 9-17 and 22-27 on 2026-11-13. Newest first as in the source. Older entries are summarized in Sessions_Log_Older.md. The full original text is in Sessions_backup_2026-11-13.md.
+
+## Added to Sessions.md after 2026-11-13, moved here 2026-11-14 (word for word)
+
+## 2026-11-14 - Hub v8.78: "We noticed a Windows crash" pop-up (BUILT, tested with a harness, NOT pushed)
+Ryan: most people do not know Computer Health's Watch mode exists, so at sign-in the Hub tells them when Windows crashed. The helper notes every crash (Watch mode or not) in `crash_notice.json`; `amit_ch_sync.js` v1.04 `onHubLoad` asks `/api/crash-notice` and publishes `AmitCH.last.crashNotice`; `crashNoticeCheck()` in `amit-hub.html` shows the pop-up once per page load (the helper remembers the answer per crash via `?ack=`). Wording and behavior are Ryan's Previewer answers, all "recommended": a pop-up in the middle, plain and explaining, the count line when there were 2 or more crashes in 30 days, main button "Turn on Watch mode" (one click via `AmitCH.setWatch`, then it confirms), "Open Computer Health", "Not now" (asks again only at the next crash); when Watch mode caught it ("See what we found" opens `?crash=<id>`) and an honest third wording when Watch is on now but was not recording then. Code between `BEGIN/END CRASH NOTICE` markers (html and js) so a harness can extract it. Backup `amit-hub-pre-v8.78-crashnotice.html`. Needs Helper 1.92 (route `/api/crash-notice`). Release with the Helper release (one push).
+
+## Source lines 9-17: Dated entries from 2026-11-08 and 2026-11-02 (within 14 days of the newest)
+
+## 2026-11-08 - Hub v8.70 to v8.76: Amit Mouse tab and the Helper's button step "Open a menu" (all pushed and live)
+- **v8.70:** new tab **Amit Mouse** in Communications (next to Amit Helper): `Hub\AmitMouse.html` loaded in a frame; it learns each mouse, makes numbered sets and saves per login and per computer through the Hub (the page asks, the Hub holds the login) into the `Per_` tables (`per_computers`, `per_devices`, `per_controls`, `per_sets`, `per_actions`). **v8.71:** the mouse page's "Run a Helper button" list is the person's real bar profiles and buttons (a Hub message `bar`). **v8.72:** saves run ONE AT A TIME (overlapping saves wiped the primary mouse flag) and flags are written in one pass; devices are read oldest first. **v8.73:** the button editor has a new step **Open a menu** (stored as `open_program` with `menu:<id>`, no database change; its dropdown is the Helper's own list of menus at `/api/menus`; Test opens it). **v8.74:** the dropdown says what each menu is. **v8.75:** the Hub tells the mouse page whether its tab is on screen (one cheap check a second) so the page can pause the person's mouse sets while they edit. **v8.76:** the Settings group shows the standard locked button **Amit menu** (the bar program adds it on every computer; it is not a database row) with a Test button, and the list the mouse page gets includes it.
+- **Backups (before each change):** `amit-hub-pre-v8.70` to `amit-hub-pre-v8.76` in this folder.
+- **Details and decisions:** `AmitHelper\Sessions.md` (Current State and the 2026-11-07 and 2026-11-08 entries). Living Testimony v1.46 describes Amit Mouse and the Amit Helper.
+
+---
+
+## 2026-11-02 - Hub v8.68: Yamaha tile (local only, NOT pushed)
+Sidebar tile "Yamaha" added directly under AmitCapacity (Ryan's instruction). Opens `ShoshoneHondaYamaha/capture.html` (his client's monthly books capture, same Supabase table `shy_recon_captures` on phone and computer). Hidden by default and switched on in the `onAuthStateChange` callback only when the signed-in user is Ryan (`AMIT_DEMO_UID`), so nobody else sees it; this hides the tile only, the page and its data stay as open as before (Ryan's choice). Backup: `amit-hub-pre-v8.68-yamaha.html`. Waits for "push".
+
+## Source lines 22-27: Non-dated block: Current State (old; kept because it points to the root CLAUDE.md backlog)
+
+## Current State
+
+- **amit-hub.html** — v1.01 on GitHub as of last confirmed push. Sessions 10+11 changes (Pursuits panel overhaul, rolling due-date model) were built and tested but were LOCAL ONLY as of that point — push status should be reconfirmed before assuming current GitHub version matches local.
+- Hebrew calendar built into the Hub (one grid, Gregorian date left / Hebrew date right in the same cell — not two separate panels).
+- Compass system (tier 0-3, 25% back rule) live in architecture; several LAUNCH ISSUES remain open (see root CLAUDE.md task list) before promoting to outside users — sync modal too dark, magic link email unbranded, Andy banner stale-load bug, first-authenticated-load has no confirmation UX.
+- Root CLAUDE.md carries the full, current task list for this folder (Word for Today three-layer rebuild, Amit panel transformation, sample/demo data system, calendar three-layer display, Pursuits column-header filter row, named saved views) — check there for anything beyond this summary, since Hub's own task backlog is large and lives centrally, not duplicated here.
+
+
+## FROM CLAUDE.md (captured 2026-11-14), copied word for word
+
+## COMPETITIVE RESEARCH — 2026-06-08 (Session 17)
+
+### What Exists in the Market
+
+**Hebcal (hebcal.com)** — The most widely used Hebrew calendar tool online. Excellent algorithmic accuracy, Hebrew date conversion, iCal export for holidays, mobile-friendly. No task management, no devotional, no productivity features, no apologetics. Assumes the user already knows what the Hebrew calendar is and why it matters.
+
+**Messianic Sabbath / Messianic Light / Olive Tree** — Static websites showing feast dates and Hebrew calendar information. No interactivity. No task management. No daily companion layer.
+
+**"Voice of the Lord" Messianic Jewish Daily Devotional** — Keyed to the Hebrew calendar, includes Torah portion (parashah) readings, Haftarah, and Brit Chadashah (New Testament) readings, plus commentary on feast days. A devotional book, not an app.
+
+**Messianic Planners (Etsy)** — Physical paper planners incorporating the Hebrew calendar and feast days. Popular among Torah-observant families. No digital equivalent.
+
+**The gap Amit Hub fills:** No digital tool integrates Hebrew calendar awareness into a daily productivity dashboard so the witness happens passively. Hebcal is for people who already know. Amit Hub is for people who don't know yet. The calendar reveals itself over time through normal daily use.
+
+### What to Borrow — Active Suggestions
+
+**From Hebcal — Hebrew Date Algorithm (EVALUATE BEFORE NEXT CALENDAR BUILD):**
+Hebcal's Hebrew date conversion algorithm has been refined over decades and is trusted by millions of users worldwide. It is open source. Before the next calendar update or bug fix, evaluate whether the Hub should incorporate Hebcal's calculation engine rather than maintaining its own. Building and maintaining a correct Hebrew calendar algorithm is hard — Hebcal has already done this work and it is publicly available. This is a "build on rock" decision. Research Hebcal's license before using.
+
+**From "Voice of the Lord" — Torah Portion (Parashah) in Word for Today (ADD TO WORD FOR TODAY FRAMEWORK):**
+The weekly Torah portion — the parashah — is the worldwide Shabbat-to-Shabbat scripture reading cycle followed by every Torah-observant and Messianic congregation on earth. Adding the current parashah to the Word for Today panel would tie the Hub directly into the rhythm of the Hebrew year, not just the feast days. Every serious Torah-observant believer follows this cycle. It is a natural layer for the three-part framework (Then — what happened in this portion historically; Now — what Yeshua fulfilled or embodied in relation to this passage; What Shall Happen — the prophetic completion). This addition connects any Hub user to the same scripture the worldwide body is reading that week. Add this to the Word for Today task spec.
+
+**From physical Messianic planners — Print Export (FUTURE CONSIDERATION):**
+Messianic planners on Etsy sell well because Torah-observant families want a physical calendar that shows feast days alongside daily life. A "print this month" view that generates a clean PDF with Hebrew dates and feast markers on the left side of each cell would serve this audience. Not an immediate build — but worth noting as a feature that has demonstrated demand.
+
+### What Amit Hub Does That Nothing Else Does
+- Hebrew calendar embedded in a daily productivity dashboard so non-Messianic users encounter it passively
+- The witness principle: the supernatural becomes visible through the natural over time
+- Two-panel calendar design (Gregorian + Hebrew side by side — theological, not cosmetic)
+- Feast day chips → full explanation → link to who_is_god.html (on-ramp for investigation)
+- Morning Altar + Word for Today + Pursuits: daily spiritual rhythm built into productivity
+- Integration with the broader Amit system: one click from the Hub to the investigation
+
+## AUDIT FINDINGS — 2026-06-08 (Session 17)
+
+Issues found in this file during cross-folder review. Address before next Hub build:
+
+- **This file must be rewritten.** "What Is Built" stops at Session 4. Sessions 5–12 added the entire Morning Altar, Pursuits panel, rolling due dates, Ask Amit panel, Word for Today, sidebar language changes, calendar readability fixes. None of it is here. The file has an accuracy note warning you not to trust itself — that is not a CLAUDE.md doing its job. Rewrite needed.
+- **Line 18 is stale.** "Sessions 10+11 changes are local only — PUSH STILL PENDING." Multiple pushes have happened since. This is no longer accurate.
+- **Tool Launch Panels section says "Bible Companion."** Same file documents it was renamed to "Amit." Inconsistency in this file.
+- **Ask Amit URL is dead.** The Claude.ai Project was deleted by Ryan. Every "Ask Amit" button in amit-hub.html points to a broken link. All users get a dead end. Fix: recreate the Project at claude.ai → paste Amit_Deploy.md into Instructions → update AMIT_PROJECT_URL constant in the HTML.
+- **Session state section (lines 90–133) is a June 2 snapshot.** Describes what was built in Session 4. Completely superseded. Keep the Hebrew calendar architecture sections (still accurate and authoritative) — remove or replace the session state section.
+
+## What Is Built (as of 2026-06-02)
+
+### Layout
+- Sidebar with tiles: Home, Calendar, To-Do, Word for Today, Mail, Who Is God, Bible Companion, Computer Value, BOSStimator
+- Main panel area — each tile opens a full panel
+- Header with greeting and clickable date/time (opens Calendar)
+- Responsive: sidebar collapses to icon-only below 768px
+
+### Home Panel
+- Morning greeting by name (good morning/afternoon/evening)
+- Live date/time clock (updates every 15s)
+- Stat cards: Overdue count (red), Due Today (orange), Total Active (gold) — click to jump to that tab
+- Daily verse with click-to-expand reflection panel
+
+### To-Do Panel
+- Full task list with tabs: All, My Day, Inbox, Starred, Overdue, Due Today, P1–P2
+- Search, sort (smart/alpha/created/priority/due), category filter
+- Grouped view: Overdue → Due Today → Critical → Starred → Upcoming
+- Quick-add bar at bottom (Enter to add)
+- Inline **＋** button appears on task hover — opens modal to add a new task without hunting for the button
+- Full task modal: title, notes, category/subcategory, due date/time, priority 1–10, recurring, starred, My Day, subtasks, tags, voice input
+- Priority color coding: P1–P2 red, P3–P4 orange, P5–P6 gold, P7–P8 blue, P9–P10 dim
+- Done section (collapsible), delete with confirm
+- Keyboard shortcut: N = new task
+
+### Calendar Panel
+- Full month grid — 7 columns, always 6 rows
+- **Adjacent month days shown** in grayed-out cells (no blank empty cells) — clicking navigates to that month
+- **Priority-colored chips**: P1–P2 red, P3–P4 orange, P5–P7 yellow, P8–P10 green; past days always red; today orange
+- **White text on all chips** — fully readable
+- **Click chip → opens edit modal** for that task directly (no intermediate step)
+- **Slide animation** on month change (left/right)
+- **Swipe gesture** on mobile — swipe left = next month, swipe right = prev month
+- Overdue banner at top showing overdue tasks from any prior month
+- Day detail panel on right — shows all tasks for selected day, Add Task for that date button
+- "Today" button in header to jump back
+- Date/time in main header (top right) clicks to open calendar
+- Calendar tile in sidebar shows task count for current month
+
+### Mail Panel
+- Multi-account: Gmail, Outlook, Yahoo, iCloud, Hotmail, AOL, ProtonMail, GMX, Yandex, Mail.com, Zoho, Other
+- Add/remove accounts; each shows provider badge, inbox link, compose link
+- Mail-tagged tasks show at bottom
+
+### Tool Launch Panels
+- Who Is God → opens `../who_is_god/who_is_god.html`
+- Bible Companion → opens `../Companion/Amit_Companion.html`
+- Computer Value → "Coming Soon"
+- BOSStimator → "Coming Soon"
+
+## What Is NOT Built Yet
+
+- Weather (still needs API key or open weather source)
+- Push/browser notifications for due tasks
+- "My Day" auto-suggestions (tasks due today auto-added to My Day)
+- Sharing/export of task list
+
+## Session State — Where We Left Off (2026-06-02, session 4)
+
+### What was built this session:
+
+**Three-Calendar System — COMPLETED:**
+All three calendar types are now fully functional:
+- **Biblical · Torah** — Leviticus 23 Moedim, Shabbat on Saturday, existing FEAST_DATA + algorithmic engine
+- **Rabbinic** — Full algorithmic holiday calculation: Rosh Hashanah, Hanukkah, Purim, Tisha B'Av, Tu BiShvat, Lag B'Omer, Tu B'Av, Simchat Torah, Yom HaShoah, Israeli national holidays (Yom HaZikaron, Yom HaAtzmaut, Yom Yerushalayim), all minor fasts (Tzom Gedaliah, Asara BeTevet, Ta'anit Esther, 17 Tammuz) with Shabbat-deferral logic
+- **Priestly · Enoch** — Full 364-day solar calendar. New Year = Wednesday on or before March 20 each year. Month structure: 30,30,31 × 4 quarters. Shabbat = days 7,14,21,28 of each month (fixed position, not tied to Saturday). Reckoning days on Day 31 of months 3,6,9,12. All Moedim shown on their Enoch-calendar positions.
+
+**FEAST_DETAIL Extended:**
+13 new entries added: rosh-hashana, hanukkah, purim, tisha-bav, fast-day, tu-bishvat, israel-day, lag-bomer, tu-bav, simchat, yom-hashoah, enoch-newyear, enoch-rest. Each with full what/tonight/yeshua/verse fields.
+
+**Day Detail Panel — Living Daily Teaching:**
+- Shows both Gregorian date (left) and active calendar date (right) with calendar type name
+- Omer count during Omer period (days 1–49): shows day number, week, day-of-week within week, and Sefirot theme for the week
+- Shabbat block: explains Shabbat with Psalm 92 and 93 references, candle-lighting tradition, Kiddush, Challah
+- Enoch Shabbat: explains the fixed-position Shabbat principle
+- Event block: clickable, shows first 130 chars of what-is-this plus "tap to go deeper" prompt
+- "Add Aim" button (renamed from "Add Task")
+
+**Double-Click Day View — Dual Date:**
+Title bar now shows both Gregorian date and the active calendar date (e.g., "Tuesday, June 2, 2026 · 6 Sivan · Hebrew")
+
+**Naming changes:**
+- "To-Do List" → "My Aims" (sidebar tile, panel heading, add button)
+- "Bible Companion" → "Amit" (sidebar tile, panel heading, launch button)
+- "Amit Health" → "Health" (sidebar tile, panel heading)
+- Task icon → 🎯 for My Aims tile
+
+**Amit Introduction Screen:**
+- Full-screen overlay triggered when user clicks Who Is God, Amit, or Health for the first time
+- Shows the full story: who Amit was, the question, what the evidence produced, the name story, the conclusion, the probability
+- "I Understand — Walk Alongside →" button proceeds to the selected tool
+- "Don't show this again" checkbox stores in localStorage
+
+**My Aims — Completed filter:**
+- New "Completed" tab shows all completed aims sorted by completion date (most recent first)
+- Each completed aim now shows a green pill: "✓ Completed [Month Day, Year]"
+
+**Email multi-account fix (discussed, not yet built):**
+- Problem: multiple Gmail accounts link to same inbox
+- Solution: add Account # field (Gmail uses `/u/0/`, `/u/1/` in URL for multi-account)
+
+---
+
+## HEBREW CALENDAR — CURRENT ARCHITECTURE (Ryan's final directive, session 3)
+
+### ONE grid. ONE cell. TWO sides:
+
+**LEFT side of each calendar cell** — Gregorian (world's lens):
+- Day number: large, black, top-left
+- Task chips: priority-colored, below the number
+- Plain. Functional. The world's calendar.
+
+**RIGHT side of each calendar cell** — Hebrew/Messianic (Yahweh's lens):
+- Hebrew day number: dark gold, top-right
+- Hebrew month name: italic gold, below number (shown on 1st, 15th, feast days, today)
+- Shabbat label: shown on all Saturdays — dark gold, small, bottom-right
+- Feast chip: colored chip when feast day — clickable → full explanation modal
+
+**Saturday cells** — warm cream-gold background tint (visible before reading anything)
+
+**Calendar type selector** (top of calendar):
+- Biblical · Torah — Nisan = Month 1, Leviticus 23
+- Rabbinic — Full algorithmic holiday calculation (built Session 4)
+- Priestly · Enoch — Full 364-day solar calendar (built Session 4)
+
+**The witness principle:**
+The person opens the Hub to manage their day. Every day they see two numbers in every box. Over weeks they start to notice the right side. They click a feast chip. They read what Passover is. "Tonight at sundown the Seder begins. Here is what they would be doing. Here is what Yeshua did at this same table the night before he died." They were not lectured. They bore witness. That is the design.
+- Clicking a Hebrew calendar day → shows what this day means in the Messianic/Hebrew context
+- Clicking a feast day chip → opens explanation: what it is, why Yahweh established it, how it points to Yeshua, link to who_is_god.html
+
+### Cell layout (within each day, both panels):
+```
+Left panel cell:          Right panel cell:
+[1]                       [Sivan 7]
+[task chip]               [Shabbat] or [feast chip]
+```
+
+### "What is this calendar?" button:
+In the Hebrew panel header. Opens a modal explaining:
+- The Hebrew calendar is the calendar Yahweh gave — lunar/solar, tied to creation
+- The Gregorian calendar is a Roman replacement (Julius Caesar / Pope Gregory)
+- Every feast on this calendar points to Yeshua — spring feasts = first coming, fall feasts = second coming
+- Link to who_is_god.html → Bible Companion
+- This is the on-ramp for someone who has never thought about this before
+
+### The witness principle (build to this standard):
+Someone using this as a plain productivity hub will, over months of use, bear witness that there is a calendar system running underneath the one the world uses — and that it all speaks to Yeshua. That is the intended effect. Not a lesson forced on them. A pattern revealed naturally, daily, as they live their life.
+
+### VISUAL THEOLOGY — The Two Panels Must Look Different (Ryan's directive, 2026-06-02):
+The contrast between the two panels is not cosmetic. It is theological. They represent two ways of seeing the same day.
+
+**Left panel (Gregorian) — the world's lens:**
+Plain. Functional. Familiar. Muted tones. The calendar the world uses, unaware it is tracking the wrong thing. Design it as the ordinary world looks — clean, readable, nothing remarkable.
+
+**Right panel (Hebrew/Messianic) — Yahweh's lens:**
+Warmer. Richer. Ancient and alive. Parchment tones, gold accents. The calendar Yahweh gave — where every feast is a prophetic marker and every Sabbath is a declaration. Design it so that even someone who does not know what they are looking at senses that this side carries more weight.
+
+**The declaration this build is made under:**
+"The events that will happen in life on that date will bear witness to what's happening in the background — the supernatural — because God will make those days always line up, because that is who He is. We are building this in faith. A declaration of what's to come is just viewing it with two different glasses on each side. And God will show up." — Ryan, 2026-06-02
+
+Build the visual contrast to honor that declaration. The difference between the two sides should be visible before a word is read.
+
+### Sabbath identification:
+- **Saturday column** = the Sabbath (Shabbat). Mark it distinctly — different header color, subtle cell tint, or a small "Shabbat" label.
+- Ryan confirmed: the Sabbath is the 7th day, Saturday. This is non-negotiable in Amit's theology.
+
+### Hebrew Feast Days (God's Appointed Times — Moedim):
+These must appear on the calendar as special markers. Ryan confirmed these in who_is_god.html. They are Yahweh's appointed times per Leviticus 23:
+- **Passover** (Pesach) — 14 Nisan
+- **Unleavened Bread** (Chag HaMatzot) — 15–21 Nisan
+- **Firstfruits** (Bikkurim) — day after Sabbath during Unleavened Bread
+- **Weeks / Pentecost** (Shavuot) — 50 days after Firstfruits
+- **Trumpets** (Yom Teruah) — 1 Tishrei
+- **Atonement** (Yom Kippur) — 10 Tishrei
+- **Tabernacles** (Sukkot) — 15–21 Tishrei
+- **Shemini Atzeret** — 22 Tishrei
+
+These appear as colored markers/chips on feast days. Clicking a feast day chip explains what it is and why it matters — linking back to who_is_god.html and the Bible Companion.
+
+### 7-year Shemita cycles:
+Show on the calendar which year in the 7-year cycle we are in. The Shemita (sabbatical year) is a rest year for the land — the 7th year. Mark the Shemita year distinctly.
+
+### Jubilee:
+The 50th year (after 7 cycles of 7 = 49 years). Note on the calendar which Jubilee cycle we are in.
+
+### Hebrew calendar conversion:
+Implemented as a hybrid approach — known-accurate lookup for feast dates (fixed by Torah) + lightweight Hebrew date conversion algorithm for daily cell display.
+
+### Hebrew year context (current):
+- Hebrew year **5786** = Gregorian 2025–2026
+- We are currently in the month of **Sivan 5786** (approx. June 2026)
+- The current Shemita cycle: 5782 was a Shemita year (2021–2022), so 5786 = year 4 of the current 7-year cycle
+- Next Shemita: 5789 (2028–2029)
+
+## FUTURE — Premium Brainstorm Room (scoped 2026-07-20, NOT BUILT YET — spec only)
+
+Ryan's own vision, captured in his words as closely as possible so nothing gets flattened into generic feature language. Born out of a real working session where Ryan and Amit used exactly this pattern by hand (posting the same design question to 7 different AI systems, comparing answers, iterating) to redesign the Computer Health dashboard — this feature turns that hands-on process into something every premium Hub user gets to experience with Amit doing the legwork.
+
+**The core idea:** A new HTML page, reachable only by premium accounts, that a local/free user never sees at all. Ryan's own description of the visual: Amit is a large ball in the center. Around Amit are smaller balls — one per AI being consulted for that person's brainstorm. Not a static number always — Amit looks at what the person is actually asking, decides how many voices are genuinely needed and which ones, and populates the balls accordingly for that specific topic.
+
+**The real lifecycle (matches what Ryan and Amit just proved out by hand tonight):**
+1. The person states their topic in plain language, the way Ryan said "create the most amazing dashboard."
+2. Amit analyzes the real question underneath it, decides which AI "balls" are relevant this time, and writes a genuine, tailored script/prompt for each one — Ryan's words: "you would create that genuine script in each one of those balls."
+3. The person copies each ball's prompt out to the real AI, brings the answer back, pastes it into that same ball. One at a time, working around the circle.
+4. As each ball fills in, the person watches it happen live — this is the "wow" moment, watching the collaboration assemble in front of them, not just reading a finished report.
+5. Once a round is complete, Amit synthesizes what came back, decides if another round is needed (each AI seeing where things landed and sharpening their own answer, same "Round 2" pattern used tonight), and the cycle repeats until there's one consented conclusion.
+6. The end product is a genuine, polished HTML deliverable Amit builds using everything gathered — the actual answer to whatever the person was trying to figure out.
+
+**Why this matters beyond the mechanic — Ryan's own framing, kept exact:** this isn't a novelty widget. It's Amit genuinely stepping beside someone to help them succeed at something they actually care about, using every resource available, holding nothing back. That competence and companionship is what earns trust - not an argument, not a sales pitch. Once someone has been walked through something real and hard by Amit and actually succeeded because of it, the natural next question becomes "why are you different, why did you actually help me instead of just answering" - and that question is what opens the door. Every brainstorm event still leads toward Yeshua in the end, but only by walking beside the person to get them there, never by forcing it into the interaction.
+
+**What this needs, not yet built:**
+- The actual orbiting-balls visual/interactive HTML - a real design and build task, deserves its own dedicated session, not a rushed pass.
+- A real Hub UI entry point (a tile/panel in `amit-hub.html`) gated to premium accounts only.
+- Amit's own topic-analysis step: given a plain-language topic, decide how many AI participants are needed and who they should be - starts as a judgment call, should get sharper with real observed evidence over time (see below).
+- Per-AI prompt generation that may become customized per AI over time - Ryan's own words: "it may be different depending upon the results, and you may have to grow from that as well" - this is deliberately NOT assumed to be uniform from day one; it's a hypothesis that earns refinement through actual observed rounds, not something to over-engineer up front.
+- The final-synthesis-to-HTML step - turning the converged conclusion into a real, polished deliverable the person keeps.
+
+**Database (BUILT, 2026-07-20):** `amit_brainstorm_topics` / `amit_brainstorm_rounds` / `amit_brainstorm_responses` (migration `migration_2026-07-20_001_brainstorm.sql`) already model this correctly - each response row IS one "ball's" contribution for a given round, already scoped per-user via RLS. `amit_user_tiers` and topic-level premium-gating RLS (migration `migration_2026-07-20_002_brainstorm_premium.sql`) add the real tier enforcement - not just hiding a button, actual data-level protection. Ryan's own account is seeded as `premium` so tonight's hands-on session keeps working under the new gate. `amit_brainstorm_topics.output_html` holds the final deliverable once a topic resolves.
+
+**Origin case study, worth preserving:** the very first real run of this mechanism (informally, by hand, before the UI existed) was Ryan and Amit redesigning the Computer Health dashboard together on 2026-07-20 - posting the same design-challenge prompt to 7 AI systems, comparing their answers, and planning a Round 2 that would tell each AI honestly where things stood and invite them to sharpen their answer. That thread is the reference case for how the real mechanism should feel once built.

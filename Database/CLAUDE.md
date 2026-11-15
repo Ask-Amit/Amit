@@ -8,6 +8,14 @@ If a session starts in this folder, before anything else: stop and tell Ryan pla
 
 Do not proceed with any build request until Ryan confirms he wants to continue here anyway, or has switched folders. Read-only actions (reading files, answering questions) are fine either way.
 
+## CURRENT SCOPE
+
+Database is the system-wide reference for the shared Supabase database: how schema changes are made, how every app connects, protected tables, the unified identity and contact layer, the federation and per-user learning decisions, security rules and the dev playbook pointers. Current schema state, the folder map and status live in the Sessions files.
+
+## SESSION RECORD
+
+Current state, to-dos and history live in this folder's Sessions files, not here. A new session reads Sessions_Start.md first (short). Read Sessions_ToDo.md only when asked about to-dos; read Sessions_Log.md or the original Claude session only when asked; the backup files in Backups\Database\Sessions_backup_*.md only for research.
+
 ## What This Folder Is
 
 The shared database layer for the entire Amit system.
@@ -26,6 +34,14 @@ When working here, you do not need to be reminded to look elsewhere. This docume
 2. Amit prints that SQL as a code block directly in the chat response (a fenced ```sql block) — Ryan uses the copy icon built into that code block. (Earlier sessions tried a separate `COPY_THIS_*.html` file or an Artifact link — Ryan does not want to leave the VS Code window. Print the code block inline.)
 3. Ryan opens the Supabase Dashboard → clicks the `>_` SQL Editor icon in the left sidebar → opens a new/blank query → pastes → clicks **Run**.
 4. Ryan has never personally written or edited a line of SQL — he only pastes exactly what Amit hands him. Every table in this database, from the very first one, was created this exact way.
+
+**GRANTS ARE PART OF EVERY CREATE TABLE — required from 2026-10-30 (Supabase platform change; full rule in the root CLAUDE.md, "DATABASE TABLE DATA-API GRANTS").** Any table created in `public` on or after Oct 30, 2026 is invisible to supabase-js / PostgREST / GraphQL until it has an explicit GRANT; the API returns "permission denied". Existing tables are unaffected. So every migration file in step 1 that creates a table must contain, in that same file, next to the RLS policies:
+```sql
+grant select on public.your_table to anon;                                  -- skip if no public read
+grant select, insert, update, delete on public.your_table to authenticated;
+grant select, insert, update, delete on public.your_table to service_role;
+```
+Tighten per table to its real access model. Before handing Ryan any migration to paste, check it has these lines. This also applies when a migration is re-run to rebuild the schema (new project, preview branch, local `supabase db reset`).
 
 **Full record of this mechanism, queryable directly (don't re-investigate — look here first):** the `dev_playbook` table in Supabase, `topic_key = 'supabase_schema_changes'`. See "Dev Playbook & Module Registry" section below.
 
@@ -99,124 +115,21 @@ These tables control system-level behavior. Dropping them breaks functionality t
 
 ---
 
+## UNIFIED IDENTITY & CONTACT LAYER — Permanent, added 2026-09-10 (Ryan's direct instruction, origin: Amit Assembly build discussion)
+
+**Every app in the Amit system shares one identity and contact layer. No app builds or owns its own separate client/vendor/contact table.** Ryan's own words: "That's everything in the entire Amit system connected together, not just one program... every app, from Computer Health to AmitHealth to Books to Assembly, they're all connected." The shared tables already exist for this purpose: `contacts`, `contact_entities`, `contact_labels`, `contact_label_links`, `contact_connect_invites`, `contact_billing_details`, `contact_attachments`, plus `users`, `businesses`, `companies`. These are the canonical identity/relationship layer for the whole system — any new app (Amit Assembly included) reads from and writes to these, rather than creating a parallel table.
+
+**Roles are relationship-specific, not fixed properties of a contact.** The same real-world entity can be a client on one engagement and a vendor on another — even to the same contractor, even at the same time. Do not model "this contact is a client" or "this contact is a vendor" as a hardcoded label on the contact record itself. Role must be tracked per-relationship (which contractor account, which context), never as a single fixed type on the contact.
+
+**How this connects an app to the rest of the system:** Login through the Hub establishes the account/contractor. That account has relationships to entities in the shared Contacts layer — some of those relationships are "client" (someone being bid/submitted work to), some are "vendor" (someone bidding to the account), and some entities hold both roles depending on context.
+
+## CROSS-ACCOUNT DATA FEDERATION — Vision captured 2026-09-10, permission model NOT yet designed
+
+Design reference: moved to Sessions_Design.md (section 'CROSS-ACCOUNT DATA FEDERATION — Vision captured 2026-09-10, permission model NOT yet designed') - the vision and decisions for cross-account data (producer/consumer roles, snapshot-not-live-link quotes) and the known table violation.
+
+---
+
 ## The Amit System — Complete Folder Map
-
-Every folder under `C:\Users\user1\OneDrive\Documents - onedrive\Amit\` is listed here with its purpose, key files, and database relationship.
-
----
-
-### ROOT — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\`
-
-Identity and system-wide governance files. These define who Amit is and how it operates.
-
-| File | Purpose |
-|---|---|
-| `CLAUDE.md` | Master orientation — task list, WHERE WE LEFT OFF, all behavioral directives |
-| `Amit_Testimony.md` | Amit's living identity — theological conclusions, growth log, who Amit is |
-| `Amit_ProjectOverview.md` | Technical overview of every component |
-| `Amit_RyanProfile.md` | Ryan's profile — who he is, how he works, the partnership covenant |
-| `Amit_Directives.md` | Expanded permanent directives (Look Ahead, Research First, etc.) |
-| `Amit_BuildLog.md` | Full cumulative build history — every session |
-| `Amit_Start.md` | Amit's identity as loaded by Claude.ai Project (must stay current) |
-| `Amit_Deploy.md` | Deployment instructions for the Claude.ai Project |
-| `Amit_Knowledge.md` | Knowledge file uploaded to Claude.ai Project |
-| `Amit_Dev.md` | Development notes |
-| `Amit_ComputerValue.md` | Computer Value spec (earlier version — see ComputerValue folder) |
-| `Amit_NewProject_Template.md` | Template CLAUDE.md for new Amit subprojects |
-| `VERSION` | Current version number — update with every GitHub push |
-
-**Database relationship:** Root files do not write to the database directly. They define identity and mission that shapes all schema decisions.
-
----
-
-### Hub — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Hub\`
-
-The daily home screen. The face of everything. Where every user starts their day.
-
-| File | Purpose |
-|---|---|
-| `amit-hub.html` | The Hub — self-contained, all state in localStorage |
-| `CLAUDE.md` | Hub project context, Hebrew calendar architecture |
-| Backup files | `amit-hub-pre-v1.92.html`, etc. — pre-change backups |
-
-**What the Hub stores (localStorage keys → Supabase tables):**
-- Pursuits, memories, experiences, testimonies — all one table → `hub_entries` (kind = 'pursuit' / 'memory' / 'experience' / 'testimony'; parent_id + sort_order give sub-pursuit structure)
-- Daily reflections → `hub_reflections`
-- Compass profile → `compass_profiles`
-- Calendar preferences → `amit_calPrefs` (localStorage only — no Supabase table yet)
-- Mail accounts → localStorage only
-
-**Hub localStorage architecture (hold this — the Supabase sync must match exactly):**
-- `KEY` = main data array — pursuits, memories, experiences all live here as objects with `kind` field
-- `COMPASS_KEY = 'amit_userProfile'` — compass profile object
-- `AMIT_NAME_KEY` — display name
-- `REFL_KEY` — reflections keyed by date string
-- `EXP_SESSION_KEY` (sessionStorage) — panels visited today
-
-**Experience entry system (critical):** Every day the Hub auto-creates an experience entry (`kind='experience'`, `subcat='daily-log'`) recording what panels were visited. These are the session-history records. They timestamp every day's activity and live in `hub_entries` (kind='experience') in Supabase.
-
-**Key pending spec work:**
-- First-visit tutorial (spotlight walkthrough)
-- ?ref=facebook enhanced name modal
-- Word for Today three-layer time framework (Then/Now/What Shall Happen)
-- Pursuits column header filter row
-- Named saved filter views
-
----
-
-### who_is_god — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\who_is_god\`
-
-The evidence foundation. 13 tabs. 333KB. The investigation that produced the conclusion.
-
-| File | Purpose |
-|---|---|
-| `who_is_god.html` | The main biblical research document |
-| `Amit_Start.md` | Amit's identity file loaded by Claude.ai Project — MUST stay current |
-| `Amit_NameOfGod_Reference.md` | Reference for the Name of God research |
-| `ancheb2.ttf` | Ancient Hebrew font |
-| `CLAUDE.md` | who_is_god project context |
-
-**Database relationship:** No direct user data written yet. Future: contact form submissions → GitHub Issues (planned). User tracking when API model active.
-
----
-
-### Companion — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Companion\`
-
-The discipleship walk. Walks alongside people daily across all of life.
-
-| File | Purpose |
-|---|---|
-| `Amit_Companion.html` | Companion app (current build) |
-| `Companion_Schema.md` | **FULL 7-TABLE DATABASE SCHEMA — READ THIS** |
-| `Companion_Requirements.md` | Full requirements spec |
-| `Companion_UserProfile_Spec.md` | User profile and cross-session memory spec |
-| `Companion_UserPaths.md` | User journey paths |
-| `Companion_ScriptureLookup_Spec.md` | Scripture Lookup two-mode spec |
-| `user_profile_template.md` | Local file template for user profile |
-| `user_history_template.md` | Local file template for session history |
-| `companion_testimony_template.md` | Local file template for Amit's testimony of each person |
-| `companion_growth_log_template.md` | Local file template for growth log |
-| `Onboarding_New_User.md` | Onboarding flow spec |
-| `CLAUDE.md` | Companion project context |
-
-**COMPANION SCHEMA (already designed — Session 20, 2026-06-10):**
-`Companion_Schema.md` contains the complete relational schema with 7 tables and SQL CREATE statements.
-These tables must be added to Supabase and reconciled with the base schema:
-
-| Companion Table | Maps To / Notes |
-|---|---|
-| `users` | Merge with base schema `users` — Companion adds: phone, city, state_region, country, timezone, entry_app |
-| `user_profiles` | More detailed than `user_memory` — has compass_certainty, trust_level, response_to_truth, witness_path_completed, approach_notes, faith_tradition, faith_journey_notes, carrying_now, life_context, sessions_total |
-| `user_history` | This IS the session-history table (one per session) — NOT YET in Supabase. Add it. |
-| `companion_testimony` | Amit's witness record per person — NOT YET in Supabase |
-| `companion_growth_log` | Shareable record with consent tracking — NOT YET in Supabase |
-| `key_moments` | Already partially covered by `user_key_moments` — reconcile |
-| `user_walk` | Personal walk journal — hub_visible flag connects to Hub calendar — NOT YET in Supabase |
-
-**Action required:** `Companion_Schema.md` SQL must be run in Supabase (with RLS added). Reconcile with `user_memory` and `user_key_moments` tables already added.
-
----
-
 ### AmitAccounting — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\AmitAccounting\`
 
 The revenue engine. Funds the mission so everything else stays free.
@@ -252,72 +165,6 @@ The diagnostic module. Vouches for a computer's value. Andy's partnership scope 
 
 ---
 
-### AmitCoder — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\AmitCoder\`
-
-Development session history. Links build sessions to experience entries on the Hub calendar.
-
-| File | Purpose |
-|---|---|
-| `CLAUDE.md` | AmitCoder project context |
-
-**Database relationship:** Will link to `hub_entries` (kind='experience') via `subcat='development'`. Session logs from Claude Code JSONL files → experience entries on the calendar.
-
----
-
-### Database — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Database\` (THIS FOLDER)
-
-Shared infrastructure. Schema files, migration files, Supabase config.
-
-| File | Purpose |
-|---|---|
-| `CLAUDE.md` | This file — system-wide reference |
-| `amit_schema.sql` | Base schema — 10 tables. Already executed in Supabase. |
-| `amit_schema_addons.sql` | Memory layer — `user_memory` + `user_key_moments`. Already executed. |
-| `migration_2026-07-10_001_module_registry.sql` | Original build of the director's chair table (named `module_registry` at creation). Already executed. |
-| `migration_2026-07-10_002_dev_playbook.sql` | `dev_playbook` table — cross-session "how we did it" reference. Already executed. |
-| `migration_2026-07-11_001_rename_directors_chair.sql` | Renames `module_registry` → `directors_chair`. Naming-only, no structural change. Already executed — verified 2026-07-11 (old name confirmed gone, new name confirmed live with both existing rows intact). |
-| `supabase_config.md` | Credentials — LOCAL ONLY, never committed to GitHub |
-
----
-
-### Design — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Design\`
-
-Visual assets. Profile images, brand elements, export files.
-
-| Subfolder | Purpose |
-|---|---|
-| `Profile\` | Facebook profile picture (`amit_profile.png`) and cover photo (`amit_cover.png`) |
-| `Brand\` | Brand elements (future) |
-| `Exports\` | Export files (future) |
-
-**Database relationship:** None directly. Image URLs stored in Supabase Storage when receipts and profile images are uploaded.
-
----
-
-### AmitCorrespondence — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\AmitCorrespondence\`
-
-Files shared between the two Amit instances via Ryan as courier. Also holds working copies of key identity files.
-
-**Database relationship:** None. Identity/communication only.
-
----
-
-### AmitLog — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\AmitLog\`
-
-Junction/log setup. Contains `SETUP_JUNCTION.bat`.
-
-**Database relationship:** None.
-
----
-
-### Backups — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Backups\`
-
-Date-stamped full backups before major changes.
-
-**Database relationship:** None. Local safety net only.
-
----
-
 ## Dev Playbook & Director's Chair — query these before re-investigating anything
 
 Two tables built 2026-07-10 specifically to stop cross-session re-derivation of things already settled:
@@ -331,51 +178,10 @@ Add to both tables going forward whenever a real cross-session decision gets set
 ---
 
 ## Current Supabase Schema State
-
-**Tables already in Supabase (14 total):**
-
-| Table | Status | Source File |
-|---|---|---|
-| `users` | ✅ Live | `amit_schema.sql` |
-| `businesses` | ✅ Live | `amit_schema.sql` |
-| `compass_profiles` | ✅ Live | `amit_schema.sql` |
-| `onboarding_events` | ✅ Live | `amit_schema.sql` |
-| `hub_entries` | ✅ Live | `amit_schema.sql` (single unified table — kind field: pursuit/memory/experience/testimony) |
-| `hub_reflections` | ✅ Live | `amit_schema.sql` |
-| `accounting_vendors` | ✅ Live | `amit_schema.sql` |
 | `accounting_categories` | ✅ Live | `amit_schema.sql` |
-| `accounting_transactions` | ✅ Live | `amit_schema.sql` |
-| `user_memory` | ✅ Live | `amit_schema_addons.sql` |
-| `user_key_moments` | ✅ Live | `amit_schema_addons.sql` |
-| `directors_chair` | ✅ Live | Created as `module_registry` via `migration_2026-07-10_001_module_registry.sql`; renamed via `migration_2026-07-11_001_rename_directors_chair.sql` |
-| `dev_playbook` | ✅ Live | `migration_2026-07-10_002_dev_playbook.sql` |
-| `council_topics`, `council_seats`, `council_rounds`, `council_evidence`, `council_provider_keys` | ✅ Live (2026-07-21) | `migration_2026-07-21_006_council_tables.sql` — belongs to TheCouncil project, NOT the older `amit_brainstorm_*` tables (those stay as historical record under Brainstorming, untouched) |
-| `medical_prep_progress` | ✅ Live (2026-07-27) | `migration_2026-07-27_001_medical_prep_progress.sql` — one row per logged-in user, whole EMS_StudyGuide progress blob as JSONB (`data` column). Guests never touch this table — localStorage only. Also uses the existing `hub_entries` table (kind='pursuit', focus='Medical Prep') to auto-schedule practice pursuits once a user sets a real exam date — no new table needed for that part. |
+## PER-USER LEARNING LAYER — Decision recorded 2026-09-26 (Ryan's direct instruction), mechanism NOT yet built
 
-**Tables designed but NOT yet in Supabase (from Companion_Schema.md):**
-
-| Table | Priority | Notes |
-|---|---|---|
-| `user_profiles` | HIGH | More complete than user_memory — reconcile and merge |
-| `user_history` | HIGH | The per-session log Ryan described |
-| `companion_testimony` | MEDIUM | Amit's witness record per person |
-| `companion_growth_log` | MEDIUM | Shareable record with consent and two-witness tracking |
-| `key_moments` | LOW | Overlaps with user_key_moments — reconcile first |
-| `user_walk` | MEDIUM | Personal walk journal — Hub calendar integration |
-
----
-
-## Schema Reconciliation Needed
-
-The base schema and the Companion schema were designed in separate sessions. Before adding Companion tables to Supabase, reconcile these overlaps:
-
-1. **`user_memory` vs `user_profiles`** — `user_profiles` is the full version. `user_memory` is a subset. Migrate fields from `user_memory` into `user_profiles` and run `user_profiles` as the canonical table.
-
-2. **`user_key_moments` vs `key_moments`** — Nearly identical. Merge: keep `user_key_moments` name, add `app` and `significance` fields from `key_moments`.
-
-3. **`users` table** — Base schema links to Supabase auth.users UUID. Companion schema treats email as the primary key. Resolution: UUID is the primary key (Supabase auth), email is stored as a unique field. Migration path from Companion local files: email → lookup → UUID.
-
----
+Design reference: moved to Sessions_Design.md (section 'PER-USER LEARNING LAYER') - the decision to give every logged-in person a living profile that Amit builds as they go, what already exists, and the conditions for building the capture. The capture mechanism is NOT built; see Sessions_ToDo.md.
 
 ## Supabase Project
 
@@ -402,11 +208,3 @@ Naming convention: `migration_YYYY-MM-DD_NNN_description.sql`
 Never edit an already-executed schema file. Always write a new migration.
 
 ---
-
-## What Is NOT Built Yet
-
-- `user_sessions` — one record per conversation (Level 2 / API model)
-- `compass_history` — per-session compass delta audit trail
-- Supabase Storage buckets (`receipts`, `sessions`)
-- Edge Functions for receipt OCR, session summarization
-- Companion tables (listed above)
