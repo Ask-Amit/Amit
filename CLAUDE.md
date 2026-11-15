@@ -30,11 +30,11 @@ When a message starts with J or F followed by a phrase (for example "J new"), or
 
 ## CLEAN UP (Ryan, 2026-11-14)
 
-When Ryan says "clean up" (or "clean up the cleanup"), or right after the conversation has been compacted, read `Cleanup_Procedure.md` (root folder) first and follow it for every project folder the session worked in. It updates that folder's Sessions files (log, start file, to-dos, design) and its Hub pursuits, keeps its CLAUDE.md scope current, and checks the folder is ready for the next session. Closing phrases ("good night", "save and update") do not trigger it. Nothing about it is loaded otherwise.
+When Ryan says "clean up" (or "clean up the cleanup"), or right after the conversation has been compacted, read `Cleanup_Procedure.md` (root folder) first and follow it for every project folder the session worked in. It updates that folder's Sessions files (log, start file, to-dos, design) and its Hub pursuits, keeps its CLAUDE.md scope current, and checks the folder is ready for the next session. Closing phrases ("good night", "save and update") do not trigger it. It creates a Hub pursuit for every NEW to-do and completes the pursuit of every finished one; the old backlog in a folder becomes pursuits only when Ryan says "initialize pursuits" in it (Cleanup_Procedure.md, "Initialize pursuits"). Nothing about it is loaded otherwise.
 
 ## START A PROJECT BY ITS NAME (Ryan, 2026-11-14)
 
-When a new session's first message is just a project name, or something like "we're working on the Hub today", and it matches one of the project folders under the Amit folder (match by meaning: "Helper" is AmitHelper, "books" is AmitBooks, "Hub" is Hub), that means: start a new session on that folder. Follow the new-session procedure: read this root CLAUDE.md, that folder's CLAUDE.md and its Sessions_Start.md (nothing else: the to-do list, log, design file and original sessions are read only when asked), say in a sentence or two what state the project is in and that you are ready, and title the session with the project name by running `node rename_session.js "<project name>"` from the root folder (it appends one title line to this session's file; Ryan authorized this on 2026-11-14 and the title showed in VS Code). If the write is ever refused, remind him once to type `/rename <project name>`. From then on, work in that folder (the SESSION LOCATION CHECK warning does not apply, because this session is already at the root). If the name matches more than one folder, or none, ask which one in one short question; a first message that is a real request is handled as a request. The usual end of the day is: say "clean up", close the session, and start the next one with the project name.
+When a new session's first message is just a project name, or something like "we're working on the Hub today", and it matches one of the project folders under the Amit folder (match by meaning: "Helper" is AmitHelper, "books" is AmitBooks, "Hub" is Hub), that means: start a new session on that folder. Follow the new-session procedure: read this root CLAUDE.md, that folder's CLAUDE.md and its Sessions_Start.md (nothing else: the to-do list, log, design file and original sessions are read only when asked), say in a sentence or two what state the project is in and that you are ready, add ONE line if its Sessions_Start.md does not say "Backlog pursuits: initialized" ("The old to-dos in this folder are not pursuits yet; say initialize pursuits when you want them scheduled"), and title the session with the project name by running `node rename_session.js "<project name>"` from the root folder (it appends one title line to this session's file; Ryan authorized this on 2026-11-14 and the title showed in VS Code). If the write is ever refused, remind him once to type `/rename <project name>`. From then on, work in that folder (the SESSION LOCATION CHECK warning does not apply, because this session is already at the root). If the name matches more than one folder, or none, ask which one in one short question; a first message that is a real request is handled as a request. The usual end of the day is: say "clean up", close the session, and start the next one with the project name.
 
 ## LOGIN-BASED PROFILE — Permanent, global (moved here from every project's CLAUDE.md, 2026-11-14, Ryan's instruction; the wording below is the original, unchanged)
 
@@ -339,7 +339,7 @@ When building anything in the Amit system, Amit writes directly to the correct s
 When Ryan starts a new application or project under the Amit system, do the following automatically â€” without being asked:
 
 **Step 1 — Create the subfolder**
-Create `C:\Users\user1\OneDrive\Documents - onedrive\Amit\[ProjectName]\` and place a CLAUDE.md inside it using the template at `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Templates\Amit_NewProject_Template.md`. Fill in the project name, folder path, purpose, and current status.
+Create `C:\Users\user1\OneDrive\Documents - onedrive\Amit\[ProjectName]\` and place a CLAUDE.md inside it using the template at `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Templates\Amit_NewProject_Template.md`. Fill in the project name, folder path, purpose and CURRENT SCOPE (the template has no status, build-notes or identity sections: status, to-dos and history live only in the Sessions files). Delete the template's instruction comment and any section that does not apply.
 
 **Step 1b — Create the project's own Sessions files (four: `Sessions_Start.md`, `Sessions_ToDo.md`, `Sessions_Log.md`, `Sessions_Design.md`; an older-entries file is created only if it is ever needed) (added 2026-08-04, closes a real gap — this was previously only documented as something to *read* if a folder happened to already have one, never something the directive actually creates)**
 Create the four Sessions files in the new project folder (same format as the existing projects' files): `Sessions_Start.md` holds a "Current State" block (mark it freshly-created, nothing built yet), and `Sessions_Log.md` starts with one dated entry noting the project was just created and what its stated purpose is. This is what the SESSION FILE CHECK directive (below, in this same file) reads on every future session in that folder — a new project should have this from its first minute, not grow into it later.
@@ -350,23 +350,11 @@ Add the new project and its correct path to the table so future sessions know wh
 **Step 3 — Update the current-state record**
 Add the new project to the project list in root `Sessions_Start.md`.
 
-**Step 4 — Carry the Amit identity forward**
-Every project CLAUDE.md must reference that this is part of the Amit system — one character, one mission. The new project inherits the identity. It does not stand alone.
+**Step 4 — Identity: NOT written into project files (changed 2026-11-14, Ryan's instruction)**
+A project CLAUDE.md no longer carries an identity block. The project is part of the Amit system (one character, one mission) because the root CLAUDE.md governs every session; the whole Living Testimony is read only when Ryan starts God talk (see "GOD TALK" in this file).
 
-**Step 4c — Write the program-stamping clause (added 2026-07-29, tied to the `hub_entries.program` column built this session)**
-Every new project's CLAUDE.md must include this exact clause, with the project's own name filled in once and used identically everywhere thereafter — never a variant spelling, never re-derived per pursuit:
-
-```
-## Pursuit Attribution — Permanent
-
-This project's canonical name, for any pursuit created from within it, is: **[ExactProjectName]**
-
-Any pursuit written to hub_entries from this project must be stamped `program='[ExactProjectName]'` — automatically, by this project's own code or by Amit acting on its behalf, using this exact spelling every time. Never ask the person creating the pursuit *what* program a specific pursuit belongs to — that's always this project's own name, decided once, not per-item.
-
-**If this project doesn't have a canonical name recorded yet**, ask the person building it what this application should be called, before creating its first pursuit — and say why: so it can be found later, correctly, in their pursuits/to-do list. Record the answer here and reuse it every time after. Don't ask again once it's set.
-
-**If the name changes later**, that's a deliberate rename operation (AmitCoder's `J rename pursuit` builtin shortcut does this) — update this section to the new name, and update every existing pursuit (including completed ones/memories) stamped with the old name to the new one, so the full history stays under one consistent identifier.
-```
+**Step 4c — Pursuit name (changed 2026-11-14)**
+The template already has the short "Pursuit Attribution" section: fill in the project's exact name once, spelled the same way everywhere. If no name is recorded yet, ask the person what the application should be called before creating its first pursuit, and record the answer there. A rename is one deliberate operation: update that section and every existing pursuit stamped with the old name. (Whether the clause stays in project files at all is still an open decision; the clean-up procedure stamps program = the project name when it creates a pursuit.)
 
 **Step 4d — Shortcut activation: NOT written into new projects (changed 2026-11-14, Ryan's direct instruction)**
 The Shortcut Activation clause is no longer copied into each project's CLAUDE.md. The full instructions live in `Shortcuts_Activation.md` at the root and are read only when a message starts with J or F or mentions shortcuts; the root rule "SHORTCUTS" (near the top of this file) covers every project. A new project's CLAUDE.md must therefore NOT include a Shortcut Activation section. Nothing else to do for activation when a project is created.
