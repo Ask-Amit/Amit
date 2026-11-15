@@ -11,7 +11,7 @@ This is the short entry point. Read it first, then open only the file you need. 
 |---|---|
 | Sessions_Start.md | This file: directory, current state, files in play |
 | Sessions_ToDo.md | Every open, pending, next or blocked item, plus a Resolved list |
-| Sessions_Log.md | Dated build history, decisions with reasons, narratives |
+| Daily Sessions\ | One text file per session (history; the old Sessions_Log.md was split into it on 2026-11-15) |
 
 Sessions_Design.md: design reference (how AmitScan is built); read only when working on that part.
 

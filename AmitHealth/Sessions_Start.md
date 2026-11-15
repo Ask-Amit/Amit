@@ -1,12 +1,12 @@
 # AmitHealth - Sessions_Start
 
 ## HOW TO READ
-Read this file first; it is all a new session needs. Read Sessions_ToDo.md only when asked about to-dos. Read Sessions_Log.md (word-for-word recent log) or the original Claude session only when asked. the backup files in Backups\AmitHealth\Sessions_backup_2026-11-13.md are for research only.
+Read this file first; it is all a new session needs. Read Sessions_ToDo.md only when asked about to-dos. Read the Daily Sessions folder (one text file per session) or the original Claude session only when asked. the backup files in Backups\AmitHealth\Sessions_backup_2026-11-13.md are for research only.
 
 ## DIRECTORY
 - Sessions_Start.md - this file.
 - Sessions_ToDo.md - open items found in the old Sessions.md (now in Backups\AmitHealth\Sessions_backup_2026-11-13.md), with source dates.
-- Sessions_Log.md - the log copied word for word (whole file; small).
+- Daily Sessions\ - one text file per session (the history; never pushed; the old Sessions_Log.md was split into it on 2026-11-15).
 - Backups\AmitHealth\Sessions_backup_2026-11-13.md - byte-for-byte copy of the old Sessions.md.
 
 ## CURRENT STATE

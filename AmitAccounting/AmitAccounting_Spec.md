@@ -85,32 +85,27 @@ The financial reports, the year-end package for Tim, the P&L — those are the o
 
 ---
 
-## THE DECISION: Web Only — No Access, No Desktop Installer
+## THE DECISION: One Web Codebase — Not Access, Not a Separate Desktop Build — Full Offline Parity on Desktop
 
-**Decided:** AmitAccounting is a web application. Not Access. Not a desktop installer. Not a hybrid. One codebase. One front end. Everything in HTML/CSS/JavaScript.
+**Decided:** AmitBooks is a web application, one codebase, HTML/CSS/JavaScript — not Access, not a native desktop installer, not a hybrid requiring two things to be built and maintained. **This is a decision about not forking the codebase, not a decision that the app requires an internet connection.** Corrected 2026-07-29, Ryan's direct instruction: desktop use must be just as fully offline-capable as it is online — not a lesser, cached-only experience compared to the browser-online case. A user sitting at a desktop with no internet gets the full application, not a stripped-down fallback view.
 
-**Why:** Technology has moved online. BOSStimator taught this lesson 12 years ago — Ryan was told to move it online then. AmitAccounting starts online from day one. Accessible from any browser, any device, anywhere.
+**Why one codebase, not Access:** Technology has moved online. BOSStimator taught this lesson 12 years ago — Ryan was told to move it online then. Forms and reports built in Access cannot run in a browser, so a hybrid means building and maintaining everything twice for no real advantage. HTML reports are fully templateable — same layout every time, any client, any data, printable as PDF.
 
-**Why Access was eliminated during brainstorming:**
-- Forms built in Access cannot run in a browser — double maintenance required
-- Reports built in Access cannot run in a browser — same problem
-- A hybrid (Access desktop + HTML web) means building and maintaining everything twice
-- HTML reports are fully templateable — same layout every time, any client, any data, printable as PDF
-- No advantage Access provides that HTML cannot match for this use case
+**What Ryan already knows that applies here:** HTML, CSS, JavaScript — the same stack as the rest of the Amit system. AmitBooks is built on the same foundation, not a separate technology.
 
-**What Ryan already knows that applies here:** HTML, CSS, JavaScript — the same stack as the rest of the Amit system. AmitAccounting is built on the same foundation, not a separate technology.
+## TWO REAL MODES, NOT ONE WITH A CACHE — Shared-Amit Mode vs. Own-Supabase Mode
 
-## OFFLINE CAPABILITY — Progressive Web App (PWA)
+*Corrected twice 2026-07-29, Ryan's direct instruction — this is a sharper distinction than the PWA-cache-and-sync model first written above, and supersedes it.* AmitBooks is either/or, not a single mode with a temporary offline fallback. Both modes are still Supabase-backed and still connected — the either/or is *whose* Supabase project holds the data, not cloud-vs-no-cloud. This is the same pattern already established for AmitCoder (see its own CLAUDE.md's "authorization Supabase" shortcut — a person's own app gets its own separate Supabase project, distinct from the shared Amit account project).
 
-AmitAccounting works without internet. A contractor in the field with no signal can:
-- Open the app from their browser
-- View reports from cached data
-- Enter new transactions
-- When reconnected — everything syncs back to the database automatically
+**Shared-Amit Mode** — the user is signed in through the shared Amit Supabase project, same login as the Hub and AmitCoder. Their book lives alongside their Hub account. Full multi-device access, sync, the audit-log/immutable-document integrity model, everything discussed for Amit Connect. This is the mode that lets AmitBooks data actually surface in the Hub (bills as calendar chips, sessions as experience entries) — that integration depends on being in the same shared project.
 
-This is a standard PWA pattern. Data is cached locally in the browser. Sync happens on reconnect. No special install required — the browser handles it.
+**Own-Supabase Mode** — the same HTML application, but pointed at a Supabase project the user creates and owns themselves — their own URL, their own key, their own database, entirely separate from Amit's shared project and from Ryan's infrastructure. Their data is genuinely theirs: their own account, their own bill, no dependency on Amit's system staying online or Ryan's project surviving. It is still "connected" (Supabase, not a local-only file), just connected to infrastructure the user controls instead of the shared one. This mode does not get Hub integration, since it isn't part of the shared project the Hub reads from — that's the real tradeoff, not a feature gap to fix later.
 
-**Tim's workflow:** Tim opens a browser. Same reports as every other user. No Access license. No special software. Just a browser.
+**The user picks one, deliberately** — this is the actual either/or: shared account, deeper Hub integration; or their own Supabase project, full independence. Not a hybrid that quietly does both. Someone on their own project who later wants Hub integration would need an explicit, deliberate migration into a shared-Amit account — not an automatic background sync.
+
+**Why this matters for the base/paid split already decided in the Pricing Model below:** Own-Supabase Mode is a natural home for the free/one-time-purchase Base tier — no ongoing Supabase cost to Ryan, since the user's own project bears that cost. Shared-Amit Mode, with vendor memory, Hub integration, and Ask Amit chat, is a natural home for Amit Connect. This needs to be confirmed as the actual tier split, not assumed — flag for the next pricing discussion.
+
+**Tim's workflow:** Tim opens a browser, in either mode, and sees the same reports. No Access license. No special software. Just a browser.
 
 ---
 

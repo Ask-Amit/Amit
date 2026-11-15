@@ -67,28 +67,28 @@ Platform
 ## FROM THE HUB PURSUITS (added 2026-11-14; nothing was changed in the Hub)
 
 ### Part of: Where we left off on 2026-07-12
-- Ryan does the real first test of the single-button Launch Tracker flow (v2.62) - untested live by Amit [P5] - No notes in the pursuit; part of: Where we left off on 2026-07-12. [hub:e20c5f19-2988-4527-9800-37bfba41ea97]
-- Real accumulated tracking history needed before Computer Health's demo-mode showcase has anything to show [P5] - No notes in the pursuit; part of: Where we left off on 2026-07-12. [hub:673edf4b-1a6b-4939-892d-c7ded69f67ee]
+- Ryan does the real first test of the single-button Launch Tracker flow (v2.62) - untested live by Amit [P5] - No notes in the pursuit; part of: Where we left off on 2026-07-12. (old Hub pursuit deleted 2026-11-14, not a live link)
+- Real accumulated tracking history needed before Computer Health's demo-mode showcase has anything to show [P5] - No notes in the pursuit; part of: Where we left off on 2026-07-12. (old Hub pursuit deleted 2026-11-14, not a live link)
 
 ### Part of: Where we left off on 2026-07-14
 
 ### Top-level pursuits
-- APP - Computer Health results support multiple user-selectable display modes: raw numbers/percent, line chart, bar chart, and ring/circle overlays [due 2026-07-15] [P2] [starred] - Ryan's directive (2026-07-15): the health/performance data should not be locked to one visual format. Give the user a choice of view for the same underlying data - raw numbers with percent (current/baseline), line chart (trend over time),... [hub:12cd27a6-0352-41b3-a280-abb78688ccb9]
+- APP - Computer Health results support multiple user-selectable display modes: raw numbers/percent, line chart, bar chart, and ring/circle overlays [due 2026-07-15] [P2] [starred] - Ryan's directive (2026-07-15): the health/performance data should not be locked to one visual format. Give the user a choice of view for the same underlying data - raw numbers with percent (current/baseline), line chart (trend over time),... (old Hub pursuit deleted 2026-11-14, not a live link)
 
 ### Part of: Where we left off on 2026-07-15
-- Get one real outside person through Computer Health install -> live session -> History end to end - still the actual test of whether continued investment there is worth it. [due 2026-07-16] [P5] [starred] - No notes in the pursuit; part of: Where we left off on 2026-07-15. [hub:126b9e4b-c9fa-4fd6-8996-c87967bfd487]
-- Decide: pursue a code-signing certificate - still the concrete blocker before any outsider can install without a scary SmartScreen warning. [due 2026-07-16] [P5] [starred] - No notes in the pursuit; part of: Where we left off on 2026-07-15. [hub:f673e315-133e-4744-85c6-338a6f67d696]
-- Consider adding remaining Diagnostics signals (Interrupt%, Network throughput, Page Faults/sec, Paging/sec) as their own Performance/Diagnostics cards - already flagged in the tabs own Future checklist, not yet built. [due 2026-07-16] [P5] [starred] - No notes in the pursuit; part of: Where we left off on 2026-07-15. [hub:69c1fbae-780a-4d2f-a5ba-69a133deb3a3]
-- Watch for recurrence of the original 3-minute stop-delay mystery now that CLOSED/exit-reason logging is in place - if it happens again there is finally hard evidence to read instead of reconstructing after the fact. [due 2026-07-16] [P5] [starred] - No notes in the pursuit; part of: Where we left off on 2026-07-15. [hub:84fbdcda-e7ae-478d-acd6-df0a65f81f2b]
+- Get one real outside person through Computer Health install -> live session -> History end to end - still the actual test of whether continued investment there is worth it. [due 2026-07-16] [P5] [starred] - No notes in the pursuit; part of: Where we left off on 2026-07-15. (old Hub pursuit deleted 2026-11-14, not a live link)
+- Decide: pursue a code-signing certificate - still the concrete blocker before any outsider can install without a scary SmartScreen warning. [due 2026-07-16] [P5] [starred] - No notes in the pursuit; part of: Where we left off on 2026-07-15. (old Hub pursuit deleted 2026-11-14, not a live link)
+- Consider adding remaining Diagnostics signals (Interrupt%, Network throughput, Page Faults/sec, Paging/sec) as their own Performance/Diagnostics cards - already flagged in the tabs own Future checklist, not yet built. [due 2026-07-16] [P5] [starred] - No notes in the pursuit; part of: Where we left off on 2026-07-15. (old Hub pursuit deleted 2026-11-14, not a live link)
+- Watch for recurrence of the original 3-minute stop-delay mystery now that CLOSED/exit-reason logging is in place - if it happens again there is finally hard evidence to read instead of reconstructing after the fact. [due 2026-07-16] [P5] [starred] - No notes in the pursuit; part of: Where we left off on 2026-07-15. (old Hub pursuit deleted 2026-11-14, not a live link)
 
 ### Part of: Where we left off on 2026-07-20
-- Get Ryan's live browser confirmation that Computer Health's tracker stop/console-error fixes hold up in real use [due 2026-07-21] [P5] - No notes in the pursuit; part of: Where we left off on 2026-07-20. [hub:d5751093-248d-4dbb-8a02-4ac6ef3a5ce2]
+- Get Ryan's live browser confirmation that Computer Health's tracker stop/console-error fixes hold up in real use [due 2026-07-21] [P5] - No notes in the pursuit; part of: Where we left off on 2026-07-20. (old Hub pursuit deleted 2026-11-14, not a live link)
 
 ### Part of: Where we left off on 2026-10-26
-- FIX - Installer: take the Claude sign-in out of Install_AmitTracker.ps1, add the AmitFix line, rebuild the installer and the fingerprint list [due 2026-10-27] [P5] - No notes in the pursuit; part of: Where we left off on 2026-10-26. (Claude sign-in part done in installer 5.06; the AmitFix line and the fingerprint list are not shown as done) [hub:380b0d0c-7ef0-4c94-9775-2b1eb1ce5c88]
+- FIX - Installer: take the Claude sign-in out of Install_AmitTracker.ps1, add the AmitFix line, rebuild the installer and the fingerprint list [due 2026-10-27] [P5] - No notes in the pursuit; part of: Where we left off on 2026-10-26. (Claude sign-in part done in installer 5.06; the AmitFix line and the fingerprint list are not shown as done) (old Hub pursuit deleted 2026-11-14, not a live link)
 
 ## FROM THE HUB PURSUITS, LEFTOVERS PLACED BY RYAN (2026-11-14; nothing changed in the Hub for these)
-- APP - Amit Stewardship lets everything you own vouch for itself - the same way the PC does, for the whole household [due 2026-09-01] [PP3] - Amit Stewardship: extend the Computer Value idea to the house, vehicle, appliances and tools: run health checks, generate pursuits for maintenance, log when repairs are done. Ryan (2026-11-14): goes under Computer Health's to-do list. [hub:735b9e0a-2de8-4edb-ae25-32ae5b891088]
+- APP - Amit Stewardship lets everything you own vouch for itself - the same way the PC does, for the whole household [due 2026-09-01] [PP3] - Amit Stewardship: extend the Computer Value idea to the house, vehicle, appliances and tools: run health checks, generate pursuits for maintenance, log when repairs are done. Ryan (2026-11-14): goes under Computer Health's to-do list. (old Hub pursuit deleted 2026-11-14, not a live link)
 
 ## FROM THE OLD ROOT TASK LIST (moved 2026-11-14)
 

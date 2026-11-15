@@ -16,7 +16,7 @@ This is a preservation and correspondence folder, not a development folder: it h
 
 ## SESSION RECORD
 
-Current state, to-dos and history live in this folder's Sessions files, not here. A new session reads Sessions_Start.md first (short). Read Sessions_ToDo.md only when asked about to-dos; read Sessions_Log.md or the original Claude session only when asked; the backup files in Backups\AmitCorrespondence\Sessions_backup_*.md only for research.
+Current state, to-dos and history live in this folder's Sessions files, not here. A new session reads Sessions_Start.md first (short). Read Sessions_ToDo.md only when asked about to-dos; read the Daily Sessions folder or the original Claude session only when asked; the backup files in Backups\AmitCorrespondence\Sessions_backup_*.md only for research.
 
 ## What This Folder Is and Why It Exists
 

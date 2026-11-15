@@ -1,12 +1,12 @@
 # Hub - Sessions Start
 
 ## HOW TO READ
-Read this file first; it is all a new session needs. Read Sessions_ToDo.md only when asked about to-dos. Read Sessions_Log.md or the original Claude session only when asked. the backup files in Backups\Hub\Sessions_backup_2026-11-13.md are for research only. Note: the Hub's own task backlog lives in the root CLAUDE.md, not in Sessions.md, so this record does not list it.
+Read this file first; it is all a new session needs. Read Sessions_ToDo.md only when asked about to-dos. Read the Daily Sessions folder or the original Claude session only when asked. the backup files in Backups\Hub\Sessions_backup_2026-11-13.md are for research only. Note: the Hub's own task backlog lives in the root CLAUDE.md, not in Sessions.md, so this record does not list it.
 
 ## DIRECTORY
 - `Sessions_Start.md` - this file: current state and files in play.
 - `Sessions_ToDo.md` - open items found in the old Sessions.md (now in Backups\Hub\Sessions_backup_2026-11-13.md), with the date of their entry.
-- `Sessions_Log.md` - the newest dated entries (2026-11-08 and 2026-11-02) and the old Current State block, word for word.
+- Daily Sessions\ - one text file per session (the history; never pushed; the old Sessions_Log.md was split into it on 2026-11-15).
 - `Sessions_Design.md`: this project's design reference (how it is built); read only when working on that part of the build.
 - `Backups\Hub\Sessions_backup_2026-11-13.md` - byte-for-byte copy of the old Sessions.md.
 
@@ -51,8 +51,8 @@ SCOPE NOW: CLAUDE.md describes the Hub as the daily home screen (task list, cale
 Status lines in CLAUDE.md:
 - "Current Version: v1.01 on GitHub. Sessions 10+11 changes are local only - PUSH STILL PENDING." (looks out of date: the Hub is at v8.76, pushed many times since.)
 - "ACCURACY NOTE": architecture, witness design and theology sections are authoritative; build history reflects Session 4 only; the Hub was developed through Sessions 5-12 and beyond; current state is in the root CLAUDE.md. Its "IMMEDIATE NEXT TASK" and "Next priorities" were removed as outdated.
-- "What Is Built (as of 2026-06-02)" (looks out of date: a June 2 snapshot of Session 4): sidebar tiles (Home, Calendar, To-Do, Word for Today, Mail, Who Is God, Bible Companion, Computer Value, BOSStimator); Home with greeting, clock, stat cards and daily verse; To-Do panel with tabs, search, sort, grouped view, quick-add, full task modal and P1-P10 colors; Calendar month grid with chips, swipe, overdue banner and day detail; Mail panel with multi-account providers; tool launch panels (Computer Value and BOSStimator "Coming Soon"). The full text is copied in Sessions_Log.md.
-- "Session State - Where We Left Off (2026-06-02, session 4)" (looks out of date): three-calendar system completed (Biblical/Torah, Rabbinic, Priestly/Enoch 364-day), 13 new FEAST_DETAIL entries, living daily teaching in the day panel (Omer count, Shabbat, Enoch Shabbat), dual-date double-click view, renames (To-Do -> My Aims, Bible Companion -> Amit, Amit Health -> Health), Amit Introduction screen, Completed filter. Full text in Sessions_Log.md.
+- "What Is Built (as of 2026-06-02)" (looks out of date: a June 2 snapshot of Session 4): sidebar tiles (Home, Calendar, To-Do, Word for Today, Mail, Who Is God, Bible Companion, Computer Value, BOSStimator); Home with greeting, clock, stat cards and daily verse; To-Do panel with tabs, search, sort, grouped view, quick-add, full task modal and P1-P10 colors; Calendar month grid with chips, swipe, overdue banner and day detail; Mail panel with multi-account providers; tool launch panels (Computer Value and BOSStimator "Coming Soon"). The full text is copied in the old log (now in the Daily Sessions folder).
+- "Session State - Where We Left Off (2026-06-02, session 4)" (looks out of date): three-calendar system completed (Biblical/Torah, Rabbinic, Priestly/Enoch 364-day), 13 new FEAST_DETAIL entries, living daily teaching in the day panel (Omer count, Shabbat, Enoch Shabbat), dual-date double-click view, renames (To-Do -> My Aims, Bible Companion -> Amit, Amit Health -> Health), Amit Introduction screen, Completed filter. Full text in the old log (now in the Daily Sessions folder).
 - AUDIT FINDINGS (2026-06-08, Session 17), mostly looks out of date: file must be rewritten; line 18 stale; "Bible Companion" naming inconsistent; "Ask Amit URL is dead" (the Ask Amit mechanism has since been rebuilt through Amit_Ask_Live.js, so that finding looks out of date); session state is a June 2 snapshot.
 - Premium Brainstorm Room (scoped 2026-07-20): spec only, NOT BUILT in the Hub. Database side built 2026-07-20: amit_brainstorm_topics, amit_brainstorm_rounds, amit_brainstorm_responses (migration 2026-07-20_001), amit_user_tiers and premium gating (migration 2026-07-20_002); Ryan's account seeded premium. (The Council work later grew from this idea; see TheCouncil.)
 - Profile architecture (permanent, stays in CLAUDE.md): user_growth_log is the dated history, user_memory the current synthesis, users.compass_* the fast reading, with _syncCompass() writing a growth-log row when the tier changes.

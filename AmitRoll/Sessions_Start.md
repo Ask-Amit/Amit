@@ -1,12 +1,12 @@
 # AmitRoll - Sessions Start
 
 ## HOW TO READ
-Read this file first; it is all a new session needs. Read Sessions_ToDo.md only when asked about to-dos. Read Sessions_Log.md or the original Claude session only when asked. the backup files in Backups\AmitRoll\Sessions_backup_2026-11-13.md are for research only. Never edit Sessions.md or any CLAUDE.md from this record without Ryan's say-so.
+Read this file first; it is all a new session needs. Read Sessions_ToDo.md only when asked about to-dos. Read the Daily Sessions folder or the original Claude session only when asked. the backup files in Backups\AmitRoll\Sessions_backup_2026-11-13.md are for research only. Never edit Sessions.md or any CLAUDE.md from this record without Ryan's say-so.
 
 ## DIRECTORY
 - `Sessions_Start.md` - this file: current state and files in play.
 - `Sessions_ToDo.md` - every open item found in the old Sessions.md (now in Backups\AmitRoll\Sessions_backup_2026-11-13.md), grouped by theme, with the date of the entry it came from.
-- `Sessions_Log.md` - the whole old Sessions.md log, word for word (2026-10-15 to 2026-10-17).
+- Daily Sessions\ - one text file per session (the history; never pushed; the old Sessions_Log.md was split into it on 2026-11-15).
 - `Backups\AmitRoll\Sessions_backup_2026-11-13.md` - byte-for-byte copy of the old Sessions.md.
 - `Sessions_Design.md` - this project's database tables (first section) and design reference (how it is built); read only when working with the database or on that part of the build.
 

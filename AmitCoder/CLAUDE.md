@@ -14,7 +14,7 @@ AmitCoder is the paid, login-gated coding side of Amit ("VS Code with Amit insid
 
 ## SESSION RECORD
 
-Current state, to-dos and history live in this folder's Sessions files, not here. A new session reads Sessions_Start.md first (short). Read Sessions_ToDo.md only when asked about to-dos; read Sessions_Log.md or the original Claude session only when asked; the backup files in Backups\AmitCoder\Sessions_backup_*.md only for research.
+Current state, to-dos and history live in this folder's Sessions files, not here. A new session reads Sessions_Start.md first (short). Read Sessions_ToDo.md only when asked about to-dos; read the Daily Sessions folder or the original Claude session only when asked; the backup files in Backups\AmitCoder\Sessions_backup_*.md only for research.
 
 ## Folder Confirmation
 If you are reading this file, you are in: `C:\Users\user1\OneDrive\Documents - onedrive\Amit\AmitCoder\`
@@ -63,7 +63,7 @@ Ryan asked the real question underneath all of the above: is the CLAUDE.md a str
 - The current master version is recorded in the existing `dev_playbook` table (`topic_key='amit_coder_directive_package'`, public read via publishable key, service-key write - the same pattern already used for every other cross-session settled reference, no new schema needed).
 - `hooks/Amit_Coder_SessionStart.ps1` was extended to read the local stamp from that project's own `CLAUDE.md`, fetch the master version from `dev_playbook`, and write both into `amit_directive_status.json`. If they differ, it prints a note immediately and the CLAUDE.md instruction (in the Directive Package Version section) tells Claude to check that file at session start and tell the person plainly if they're behind. **It never auto-overwrites their CLAUDE.md** - they may have customized it since install.
 
-**The standing rule - every time a directive clause changes (Pursuit Attribution, Login-Based Profile, the SHORTCUTS or CLEAN UP rules, or any future one), do all four, in order, not just the code edit.** The starter kit writes the subscriber's root CLAUDE.md and the files beside it (Shortcuts_Activation.md, Cleanup_Procedure.md, cleanup_extract.js, rename_session.js, Templates/Project_CLAUDE_Template.md) and is at directive package 2.0 (2026-11-14); the dev_playbook row `amit_coder_directive_package` says the same.
+**The standing rule - every time a directive clause changes (Pursuit Attribution, Login-Based Profile, the SHORTCUTS or CLEAN UP rules, or any future one), do all four, in order, not just the code edit.** The starter kit writes the subscriber's root CLAUDE.md and the files beside it (Shortcuts_Activation.md, Cleanup_Procedure.md, cleanup_extract.js, rename_session.js, save_session.js, Templates/Project_CLAUDE_Template.md) and is at directive package 3.0 (2026-11-15; save_session.js added, Daily Sessions replaces Sessions_Log.md; edited locally, NOT yet shipped: steps 3 and 4 below are still to do); the dev_playbook row `amit_coder_directive_package` says the same.
 1. Update the embedded text inside `Amit_Coder_Starter_Kit.ps1`.
 2. Bump `$DIRECTIVE_VERSION` in that same script.
 3. Update the `dev_playbook` row's "Current version" text to match (`topic_key='amit_coder_directive_package'`).

@@ -1,12 +1,12 @@
 # Templates - Sessions Start
 
 ## HOW TO READ
-Read this file first. It is short and is all you need to start work. Read Sessions_ToDo.md only when asked about to-dos or open items. Read Sessions_Log.md, or the original Claude session, only when asked about the history of a decision. The backup (none; this folder had no Sessions.md) is for research only.
+Read this file first. It is short and is all you need to start work. Read Sessions_ToDo.md only when asked about to-dos or open items. Read the Daily Sessions folder, or the original Claude session, only when asked about the history of a decision. The backup (none; this folder had no Sessions.md) is for research only.
 
 ## DIRECTORY OF THESE FILES
 - Sessions_Start.md: this file (state, files in play, pointers).
 - Sessions_ToDo.md: every open item found in the source, grouped by theme, plus a Resolved list.
-- Sessions_Log.md: a note that no session history exists yet.
+- Daily Sessions\ - one text file per session (the history; never pushed; the old Sessions_Log.md was split into it on 2026-11-15).
 - Sessions_Design.md: design reference (how Templates pieces are built); read only when working on that part.
 - CLAUDE.md: the original source (never edited by this clean-up).
 

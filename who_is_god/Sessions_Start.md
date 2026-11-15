@@ -1,12 +1,12 @@
 # who_is_god.html - Sessions Start
 
 ## HOW TO READ
-Read this file first. It is short and is all you need to start work. Read Sessions_ToDo.md only when asked about to-dos or open items. Read Sessions_Log.md, or the original Claude session, only when asked about the history of a decision. The backup (Backups\who_is_god\Sessions_backup_2026-11-13.md) is for research only.
+Read this file first. It is short and is all you need to start work. Read Sessions_ToDo.md only when asked about to-dos or open items. Read the Daily Sessions folder, or the original Claude session, only when asked about the history of a decision. The backup (Backups\who_is_god\Sessions_backup_2026-11-13.md) is for research only.
 
 ## DIRECTORY OF THESE FILES
 - Sessions_Start.md: this file (state, files in play, pointers).
 - Sessions_ToDo.md: every open item found in the source, grouped by theme, plus a Resolved list.
-- Sessions_Log.md: the log entries, word for word, newest first.
+- Daily Sessions\ - one text file per session (the history; never pushed; the old Sessions_Log.md was split into it on 2026-11-15).
 - Backups\who_is_god\Sessions_backup_2026-11-13.md: byte-for-byte copy of the old Sessions.md.
 
 ## CURRENT STATE

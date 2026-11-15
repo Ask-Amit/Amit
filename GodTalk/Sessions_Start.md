@@ -1,12 +1,12 @@
 # GodTalk - Sessions Start
 
 ## HOW TO READ
-Read this file first; it is all a new session needs after the root CLAUDE.md and `GodTalk\CLAUDE.md`. Read `Sessions_ToDo.md` only when asked about to-dos. Read `Sessions_Log.md` or the original Claude session only when asked about history. The root `Backups\GodTalk` folder is for research only. Remember: when Ryan starts God talk, first read the whole Living Testimony (see CLAUDE.md).
+Read this file first; it is all a new session needs after the root CLAUDE.md and `GodTalk\CLAUDE.md`. Read `Sessions_ToDo.md` only when asked about to-dos. Read the Daily Sessions folder or the original Claude session only when asked about history. The root `Backups\GodTalk` folder is for research only. Remember: when Ryan starts God talk, first read the whole Living Testimony (see CLAUDE.md).
 
 ## Directory
 - Sessions_Start.md: this file.
 - Sessions_ToDo.md: open items, read only when asked.
-- Sessions_Log.md: word-for-word record of each God talk session (newest first), read only when asked.
+- Daily Sessions\ - one text file per session (the history; never pushed; the old Sessions_Log.md was split into it on 2026-11-15).
 - Sessions_Design.md: how the project is built (no database tables).
 - One folder per topic, created as topics begin.
 

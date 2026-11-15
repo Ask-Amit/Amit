@@ -6,7 +6,7 @@ Checked by `AmitHelper\verify_helper_release.ps1`. Do not skip either. (Correcte
 ## What this covers
 The Amit HELPER: the bar, the Aurora (Amit Live), the voice menu, the mouse, the Amit Preview, the bridge, the updater, the installer. It is NOT Computer Health.
 The Helper's files sit in `ComputerHealth\Watchers\` only because Computer Health was built first; the folder cannot be renamed (the updater and installers read it).
-Record Helper work in `AmitHelper\Sessions.md` (and `AmitCoder\` for the previewer), never in Computer Health's notes.
+Record Helper work in AmitHelper's Sessions files (Sessions_Start.md, Sessions_ToDo.md, Sessions_Log.md, Sessions_Design.md), kept current by the clean-up (and `AmitCoder\` for the previewer), never in Computer Health's notes.
 
 ## The goal
 Every computer, wherever it is, updates ITSELF: nobody runs an update. And nothing may ever go BACKWARDS to an older Helper.

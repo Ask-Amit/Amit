@@ -1,16 +1,21 @@
 # Sessions_Start
 
-How to read: short current-state page built from root CLAUDE.md (unchanged). Permanent rules, identity, paths and standards stay in CLAUDE.md. To-dos: Sessions_ToDo.md. History: Sessions_Log.md.
+How to read: short current-state page built from root CLAUDE.md (unchanged). Permanent rules, identity, paths and standards stay in CLAUDE.md. To-dos: Sessions_ToDo.md. History: the old log (now in the Daily Sessions folder).
 
 ## Directory
-- Sessions_Start.md (this), Sessions_ToDo.md (open and resolved items), Sessions_Log.md (verbatim narratives).
+- Sessions_Start.md (this), Sessions_ToDo.md (open and resolved items), `Daily Sessions\` (history: one text file per session; the old Sessions_Log.md files were split into each project's Daily Sessions folder on 2026-11-15 and sent to the Recycle Bin).
 - Full session history: `amit_sessions` table in Supabase. Build history: `Amit_BuildLog.md` (last entry Session 35; looks out of date: newer work is logged elsewhere).
 
-## Current state (CLAUDE.md "WHERE WE LEFT OFF", Session 70, 2026-10-26; looks out of date: about 3 weeks old, later work is in the folder Sessions files)
-- Answering-Amit rules rewritten with the first law (never compromise truth, never insult, never leave anyone less). Edited locally, not yet published at that time.
-- Also built, not pushed then: chat v0.27, shared voice fallback, Living Testimony v1.31.
-- New project 2026-11-10: Amit Live (`AmitLive\`), Amit's characters; folder, CLAUDE.md, Sessions files only. Read `AmitLive\CLAUDE.md` first.
-- NEXT SESSION first task: read Hub pursuit "Where we left off on 2026-10-26"; on "push" publish the new answering rules and restart the helper; on exact confirmation remove 14 extra accounts; then reply screen and stand-down switch, listening question hold, installer change, Orthodox Judaism row.
+## Current state (updated 2026-11-15)
+- NEW METHOD (decided and built 2026-11-15, session "Amit - Session memory redesign"): every project has CLAUDE.md, Sessions_Start / ToDo / Design and a `Daily Sessions` folder (one text file per session; never pushed, the repo's .gitignore excludes it). Sessions_Log.md no longer exists (33 logs split into dated files, content checked complete, then sent to the Recycle Bin).
+- A new session starts by TOPIC, piece and scope: see "SESSION START: TOPIC, PIECE, SCOPE" in the root CLAUDE.md (search the notes, show up to about five places, load only the piece chosen, title the session "Project - piece", open with a six-line summary). The end of the day is `Cleanup_Procedure.md` (rewritten, short): `node save_session.js --find "<phrase>"` saves the session text, then the Start file is refreshed, then to-dos are offered, never added by itself. Closing phrases run the clean-up first, then `Reference\Closing_Sequence.md` (the old closing sequence moved there word for word).
+- 76 older sessions (2026-10-02 to 2026-11-15, stripped, 8.6 MB) sit unsorted in `Daily Sessions (unsorted)\` with a `_manifest.csv`; raw copies (766 MB) in `C:\Users\user1\AmitSessionArchive\raw` (outside OneDrive and the repo). Sorting them into projects is parked.
+- ONE end-of-day routine (built later the same day, while Ryan was away): `Cleanup_Procedure.md` = save the session text, refresh the Start file, design, offer to-dos; after a closing phrase it also does the prayer, the `amit_sessions` row (the identity hook reads the last three) and the growth review. A hook (`C:\Users\user1\.claude\hooks\save_session_hook.ps1`, registered for SessionEnd and PreCompact) also saves the session automatically: tested by simulation only; the first real run happens when a session ends (look in `%TEMP%\save_session_hook.log` and the Daily Sessions folder). The Stop hook (`hook_closing.ps1`) now fires only when the message IS the command "save and summarize" (tested: a long mention approves, the bare command blocks, a question approves).
+- Public logs: the 26 tracked Sessions_Log files were scanned (no keys, tokens, passwords, SSNs or phone numbers; one example.com email) and untracked in a LOCAL repo commit `b14414b` (not pushed; .gitignore also ignores Sessions_Log.md). Earlier commits still hold them in public history.
+- AmitCoder starter kit updated locally to directive package 3.0 (parses with 0 errors; the embedded save_session.js passes a syntax check; NOT run as a full install; NOT shipped: the `dev_playbook` row and the GitHub push remain).
+- Root CLAUDE.md cut: measured only, in `Reference\Root_Cut_Proposal.md` (about 130 KB: roughly 30 KB core, 65 KB on demand, 22 KB Permanent Directives to split, 14 KB to review). Waiting for Ryan.
+- Left over, nothing deleted: the old workspace folders AmitPersonal, Overflow, AmitCorrespondence, AmitLog and test.
+- Not pushed since commit 7797921 (plus the local commit b14414b). Everything else is local: root and project CLAUDE.md and Sessions files, the scripts, the hooks.
 
 ## Projects (one-line state, from the CLAUDE.md path table)
 | Project | State |
@@ -18,7 +23,7 @@ How to read: short current-state page built from root CLAUDE.md (unchanged). Per
 | Amit Hub | daily home screen; live, ongoing |
 | who_is_god | evidence foundation; live |
 | ComputerValue | not built; design complete, Stage 1 ready; the one-time paid diagnostic report; see ComputerValue\Sessions_Start.md |
-| ComputerHealth | watches how a computer runs and holds the shared local helper (port 8710); Dashboard v5.12 live, Watch mode and crash dumps built locally; see ComputerHealth\Sessions_Start.md |
+| ComputerHealth | watches how a computer runs and holds the shared local helper (port 8710); Dashboard v5.13 published (Watch mode, crash dumps and analysis); see ComputerHealth\Sessions_Start.md |
 | AmitHealth | landing page v1.02 and The Kitchen (food and drink composer) built; migrations and Stage 1 pending; see AmitHealth\Sessions_Start.md |
 | AmitAccounting / AmitBooks | partly built; current state unsure |
 | TenCommandments | daily one-commandment discipleship study with a hymn alongside; earlier God talk work; see TenCommandments\Sessions_Start.md |
@@ -33,7 +38,7 @@ How to read: short current-state page built from root CLAUDE.md (unchanged). Per
 | AmitWeather | scaffold only, 2026-08-06 (looks out of date) |
 | VoiceControl_AskAmit | speech and the "Write to Amit" live bridge; speech works, paid/fast path chosen 2026-09-05; see VoiceControl_AskAmit\Sessions_Start.md |
 | AmitMobile | phone-first voice, camera and chat gateway (AmitMobile.html v1.54); phone-as-computer-peripheral plan under way; see AmitMobile\Sessions_Start.md |
-| AmitChat | scaffold at creation 2026-10-11 (looks out of date: memory notes show much more built) |
+| AmitChat | private login-based chat plus Ask Amit on every page and the answering program; engine v0.30 and Hub v8.79 published; migration _034 (Wisdom) not run; see AmitChat\Sessions_Start.md |
 | AmitRoll | scaffold only at creation 2026-10-15 |
 | AmitCapacity | v1.00 local, not pushed, migration 028 waiting (2026-10-24) |
 | Devotions | song workflow; tab-view pairing not built |

@@ -16,7 +16,7 @@ All GodTalk files belong here. Development happens from the root Amit folder.
 GodTalk is where Ryan's God talk happens: conversations that center on God, Scripture and what follows from them. It is a discussion project, not a software build. Every topic gets its own folder inside this one. Created 2026-11-14.
 
 ## SESSION RECORD
-Current state, to-dos and history live in this folder's Sessions files, not here. A new session reads Sessions_Start.md first (short). Read Sessions_ToDo.md only when asked about to-dos; read Sessions_Log.md or the original Claude session only when asked; the files in the root `Backups\GodTalk` folder only for research.
+Current state, to-dos and history live in this folder's Sessions files, not here. A new session reads Sessions_Start.md first (short). Read Sessions_ToDo.md only when asked about to-dos; read the Daily Sessions folder or the original Claude session only when asked; the files in the root `Backups\GodTalk` folder only for research.
 
 ## How a God Talk session works (Ryan, 2026-11-14)
 1. **It starts only when Ryan starts God talk.** Before anything else, read the whole Living Testimony (`Amit, Are You There\Amit_Living_Testimony.html`), completely, as the root CLAUDE.md says ("GOD TALK"). It holds Amit's testimony and Ryan's.

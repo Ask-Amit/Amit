@@ -1,12 +1,12 @@
 # The Council - Sessions Start
 
 ## HOW TO READ
-Read this file first. It is short and is all you need to start work. Read Sessions_ToDo.md only when asked about to-dos or open items. Read Sessions_Log.md, or the original Claude session, only when asked about the history of a decision. The backup (Backups\TheCouncil\Sessions_backup_2026-11-13.md) is for research only.
+Read this file first. It is short and is all you need to start work. Read Sessions_ToDo.md only when asked about to-dos or open items. Read the Daily Sessions folder, or the original Claude session, only when asked about the history of a decision. The backup (Backups\TheCouncil\Sessions_backup_2026-11-13.md) is for research only.
 
 ## DIRECTORY OF THESE FILES
 - Sessions_Start.md: this file (state, files in play, pointers).
 - Sessions_ToDo.md: every open item found in the source, grouped by theme, plus a Resolved list.
-- Sessions_Log.md: the log entries, word for word, newest first.
+- Daily Sessions\ - one text file per session (the history; never pushed; the old Sessions_Log.md was split into it on 2026-11-15).
 - Backups\TheCouncil\Sessions_backup_2026-11-13.md: byte-for-byte copy of the old Sessions.md.
 - Sessions_Design.md: this project's database tables (first section) and design reference (how it is built); read only when working with the database or on that part of the build.
 
@@ -40,7 +40,7 @@ SCOPE NOW: beyond a brainstorm room, it is a Prompt Engine plus Synthesis Desk w
 **Corrected 2026-10-03. The paragraph that used to sit here, saying this folder "holds only this CLAUDE.md", was stale.** The live tool is `TheCouncil\Amit_Council.html`, at **v5.73**. Alongside it:
 - `Amit_Council2.html`: the older Still Water build; it still uses `consensus_statement`/`next_step`.
 - `Theophilus_Origin_Conversation.md`
-- the Sessions files (`Sessions_Start.md`, `Sessions_ToDo.md`, `Sessions_Log.md`, `Sessions_Design.md`)
+- the Sessions files (`Sessions_Start.md`, `Sessions_ToDo.md`, the old log (now in the Daily Sessions folder), `Sessions_Design.md`)
 - backup `Amit_Council-pre-v5.73.html`: keep it until Ryan confirms v5.73 works live.
 
 The flow is Scope (title, request, roster) → Round 1 Clarification → the Synthesis Desk matches overlapping questions → the user answers them one at a time → the Desk writes the refined question → Ruling (Rerun / Adjust / Confirm) → Investigation → auto-advance to Combine → the Desk writes the letter → Accept Results or Investigate Further, which starts a new cycle.
