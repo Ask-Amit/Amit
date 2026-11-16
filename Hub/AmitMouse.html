@@ -139,7 +139,7 @@ tr.selrow td{background:rgba(230,184,74,.08)}tr.selrow td:first-child{border-lef
       <b>Mouse:</b><select id="mousePick" title="Which mouse"></select>
       <span class="pill" id="activePill"></span>
       <span class="n2" id="pretendTxt" style="margin-left:6px">Which mouse I just used is not reported by the Helper yet, so choose it here:</span><select id="pretend" title="The Helper does not yet tell this page which mouse you touched. Once it does, this happens by itself."></select>
-      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.20</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
+      <span class="pill" id="pageVer" title="Version of this Amit Mouse page" style="margin-left:8px">v1.21</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser only.</span><div class="sw"><span>Mouse sets are</span><div class="tog on" id="master" title="Turn all mouse sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
           </header>
     <div class="tabs"><div class="tab on" id="tabLearn">1. Learn mouse</div><div class="tab" id="tabSets">2. Mouse sets</div></div>
     <div class="tip2" id="safetyBar" style="margin:0;padding:6px 12px;border-bottom:1px solid var(--line);background:rgba(47,196,178,.08)"><b>Stuck, or a mouse acts strangely?</b> On the keyboard press <b>Ctrl + Alt + Shift + M</b>: every mouse set is switched off at once and all your buttons work as normal (press it again to switch them back on). To fix one button, use <b>Reset a button...</b> on the Mouse sets tab, with your main mouse if you have to.</div>
@@ -258,8 +258,10 @@ var HMENUS=[];/* the person's real bar buttons (profile, buttons), sent by the H
 var HELPER=[]; HMENUS.forEach(function(m){m[1].forEach(function(b){HELPER.push(b)})});
 var USERMENUS=[];/* the bar's buttons (from the Hub), including the standard button Settings > Amit menu */
 function hasStd(){return HELPER.indexOf('Amit menu')>=0}
+/* v1.21 (Ryan, 2026-11-15): the built-in group "Menus": every menu the Helper itself can open from a button, the same on every computer (names match the Helper's own list, /api/menus). Run as "Menus|<name>". */
+var BUILTIN_MENUS=['Amit Helper bar','Amit menu','Dictate window','Amit Preview window'];
 function rebuildMenus(){
-  HMENUS=USERMENUS.slice();HELPER=[];HMENUS.forEach(function(m){m[1].forEach(function(b){HELPER.push(b)})});
+  HMENUS=USERMENUS.slice();HMENUS.push(['Menus',BUILTIN_MENUS.slice()]);HELPER=[];HMENUS.forEach(function(m){m[1].forEach(function(b){HELPER.push(b)})});
   if(busySelect())pendingDraw=true;else drawAll();
 }
 function setBarMenus(menus){USERMENUS=(menus||[]).filter(function(m){return m&&m[1]&&m[1].length});rebuildMenus()}
@@ -344,7 +346,7 @@ function actCell(b,slot,m){
   if(m.t==='helper'){
     var hm=m.hm||hMenuOf(m.v), flt=m.menu||'';
     c+='<select '+A+'data-k="hmenu" title="Which menu">'+'<option value="">All menus</option>'+HMENUS.map(function(x){return '<option value="'+esc(x[0])+'"'+(flt===x[0]?' selected':'')+'>'+esc(x[0])+'</option>'}).join('')+'</select> ';
-    var hopts='';
+    var hopts=m.v?'':'<option value="" selected>— Choose a button —</option>';   /* v1.21: nothing is chosen for the person; a blank choice is never saved as a rule */
     HMENUS.forEach(function(x){if(flt&&flt!==x[0])return;x[1].forEach(function(bn){hopts+='<option value="'+esc(x[0]+'|'+bn)+'"'+(hm===x[0]&&m.v===bn?' selected':'')+'>'+(flt?'':esc(x[0])+' \u203A ')+esc(bn)+'</option>'})});
     c+='<select '+A+'data-k="hbtn" title="Which button">'+hopts+'</select>';
     if(m.isDefault)c+=' <span class="n2">(this is the default for the middle button; choose something else to change it)</span>';
@@ -417,8 +419,8 @@ function bindCtl(root,s){
     e.onchange=function(){
       var prevMap=JSON.stringify(s.map||{}),prevGest=JSON.stringify(s.gest||{});
       var o=slotObj(s,b,slot)||{t:'keep'};
-      if(k==='t'){var t=e.value;if(t==='helper'){setSlot(s,b,slot,{t:t,v:HELPER[0]||'',hm:hMenuOf(HELPER[0]||''),menu:'',ms:o.ms})}else setSlot(s,b,slot,{t:t,v:(t==='helper'?HELPER[0]:t==='mouse'?'Left button':t==='set'?String(sets[0].id):''),ms:o.ms})}
-      else if(k==='hmenu'){o.menu=e.value;var hmn2=o.hm||hMenuOf(o.v);if(o.menu&&hmn2!==o.menu){var hf=HMENUS.filter(function(x){return x[0]===o.menu})[0];if(hf){o.hm=hf[0];o.v=hf[1][0]}}setSlot(s,b,slot,o)}
+      if(k==='t'){var t=e.value;if(t==='helper'){setSlot(s,b,slot,{t:t,v:'',hm:'',menu:'',ms:o.ms})}else setSlot(s,b,slot,{t:t,v:(t==='helper'?HELPER[0]:t==='mouse'?'Left button':t==='set'?String(sets[0].id):''),ms:o.ms})}
+      else if(k==='hmenu'){o.menu=e.value;var hmn2=o.hm||hMenuOf(o.v);if(o.menu&&hmn2!==o.menu){var hf=HMENUS.filter(function(x){return x[0]===o.menu})[0];if(hf){o.hm=hf[0];if(o.v)o.v=hf[1][0]}}setSlot(s,b,slot,o)}
       else if(k==='hbtn'){var pv=e.value.split('|');o.hm=pv[0];o.v=pv.slice(1).join('|');setSlot(s,b,slot,o)}
       else if(k==='ms'){var n=Math.max(200,Math.min(3000,+e.value||500));o.ms=n;setSlot(s,b,slot,o)}
       else{o.v=e.value;setSlot(s,b,slot,o)}
@@ -589,6 +591,7 @@ function toRows(){
       var acts=[];
       function add(cid,slot,o,locked){
         if(!o&&!locked)return; o=o||{t:'keep'};
+        if(o.t==='helper'&&!o.v){if(!locked)return;o={t:'keep'}}   /* v1.21: "Run a Helper button" with no button chosen is not a rule yet: it is not saved and not sent to the Helper */
         var v=o.v==null?'':String(o.v);
         if(o.t==='helper')v=(o.hm||hMenuOf(o.v)||'')+'|'+(o.v||'');
         if(o.t==='set')v=setUid[o.v]||'';
