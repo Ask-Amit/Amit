@@ -1,4 +1,4 @@
-# Version v1.02 (2026-11-14) - baseline v1.00 = everything before. v1.01: memory fix - Process objects released, one reusable WMI connection (resource), full cleanup about once a minute. v1.02: WATCH MODE (Ryan, 2026-11-14) - while the person has switched it on, every 30-second reading is also appended, slimmed, to a permanent daily file under data\watch (never overwritten, flushed to disk each time); nothing changes while it is off. Each push of this file bumps this number by 0.01.
+# Version v1.03 (2026-11-15) - APP CRASH CAPTURE (Ryan): while Watch mode is on, about once a minute this also loads amit_appcrash.ps1, which keeps a process map and writes an evidence package to data\appcrash for any program that crashes or hangs (and when the Amit Helper stops answering). Nothing changes while Watch mode is off. v1.02 (2026-11-14) - baseline v1.00 = everything before. v1.01: memory fix - Process objects released, one reusable WMI connection (resource), full cleanup about once a minute. v1.02: WATCH MODE (Ryan, 2026-11-14) - while the person has switched it on, every 30-second reading is also appended, slimmed, to a permanent daily file under data\watch (never overwritten, flushed to disk each time); nothing changes while it is off. Each push of this file bumps this number by 0.01.
 # Keeps Windows from sleeping while this tracker is actively running - a
 # real gap Ryan raised 2026-07-16: an all-day tracking session would
 # otherwise get silently interrupted the moment the machine sleeps. This
@@ -124,6 +124,10 @@ function Get-WatchSlim($lines) {
     }
     return $slim
 }
+# App crash capture (v1.03): the functions live in amit_appcrash.ps1 next to this file. If it is missing nothing else is affected.
+$acReady = $false
+try { . (Join-Path $PSScriptRoot 'amit_appcrash.ps1'); $acReady = $true } catch {}
+$acNext = Get-Date
 try {
     $wsStart = Get-WatchSettings
     if ($wsStart -and $wsStart.on) {
@@ -369,6 +373,11 @@ while ((Get-Date) -lt $deadline -and -not (Test-Path $stopFlag)) {
         if ($wsNow -and $wsNow.on) {
             $slim = if ($trimmed) { Get-WatchSlim $trimmed } else { [ordered]@{} }
             Add-WatchLine ([ordered]@{ t = (Get-Date).ToString('o'); ram = @($freeMB, $totalMB, $usedPct); cpu = $cpu; top = $topStr; topcpu = $topCpuStr; s = $slim } | ConvertTo-Json -Compress -Depth 4)
+            # App crash capture (v1.03): about once a minute, never allowed to break tracking.
+            if ($acReady -and (Get-Date) -ge $acNext) {
+                $acNext = (Get-Date).AddSeconds(60)
+                try { Update-AcProcMap; [void](Invoke-AcCheck) } catch {}
+            }
         }
     } catch {}
 

@@ -1,4 +1,6 @@
 # Amit Computer Health - Local Bridge Server
+# Version v1.17 (2026-11-15, Ryan): THE HANDLER IS PARSED ONCE. Every request used to re-parse the whole 3000-line handler (it was passed to the worker as text), so a page calling 8 times a second made this program churn hundreds of MB a second and its memory pauses froze the mouse hook inside the same process (a jerky pointer, "Mouse hook stopped answering"). The handler now lives as one function (Invoke-AmitBridgeHandler) in the pool's runspaces and each request calls it by name. Also a request counter: more than 240 calls in a minute writes the busiest routes and the calling page to bridge_requests.log.
+# Version v1.16 (2026-11-15, Ryan): APP CRASH CAPTURE. At every start the bridge makes sure the small Windows task "Amit crash catcher" exists (no administrator rights: it only reads logs): every 5 minutes, hidden, it runs amit_appcrash.ps1 -AcTask, which writes an evidence package (data\appcrash\) for any program that crashed or hung and notes when this Helper stops answering. It runs whether or not Watch mode is on; Watch mode only adds the detailed trace to the package. The one-time sensor permission also switches on Windows crash dumps for the Amit programs (a Windows setting that needs the administrator OK given there once). Card wording updated to say so.
 # Version v1.15 (2026-11-14, Ryan): new route /api/crash-notice (GET = "we noticed a Windows crash" for the Hub's pop-up, POST ?ack=<id> = answered); amit_crash_check.ps1 v1.01 writes the notice at every start after an unclean shutdown, Watch mode or not.
 # Version v1.14 (2026-11-14, Ryan): WATCH MODE. New route /api/watch-mode (GET = state, POST ?on=1|0 = switch). While it is on there is NO idle stop (the timer and /api/idle-stop both stand down), the recorder keeps a permanent daily trace (resource_watcher.ps1 v1.02), and at every start of this bridge amit_crash_check.ps1 runs: after an unclean shutdown it packages the trace + Windows events into data\pending\zcrash_*.json for the Hub / Computer Health page to save. /api/pending-session-done accepts those file names.
 # Version v1.13 (2026-10-31): new routes /amit-icon-whisper.ico and /amit-icon-read.ico (each part of Amit has its own icon; same circle and ring, only the symbol changes).
@@ -115,6 +117,36 @@ try {
     $crashCheckPath = Join-Path $watcherDir "amit_crash_check.ps1"
     if (Test-Path $crashCheckPath) {
         Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", ('"' + $crashCheckPath + '"') -WindowStyle Hidden
+    }
+} catch {}
+
+# APP CRASH CAPTURE (v1.16, 2026-11-15, Ryan): make sure the "Amit crash catcher" task exists. It is a plain per-user Windows task (no administrator rights,
+# it only reads logs) that runs amit_appcrash.ps1 -AcTask every 5 minutes through conhost --headless (no window), independent of this bridge, so a crash of
+# THIS program is still noticed. Done by a separate hidden PowerShell so starting the bridge never waits. Safe to repeat: nothing changes if the task is right.
+try {
+    $acCatchPath = Join-Path $watcherDir "amit_appcrash.ps1"
+    if ((Test-Path $acCatchPath) -and -not $env:AMIT_BRIDGE_PORT) {   # a test bridge on a test port never touches the real Windows task
+        $acCatchScript = @'
+$ErrorActionPreference = 'Stop'
+try {
+    $name = 'Amit crash catcher'
+    $script = '__PATH__'
+    $arg = '--headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File "' + $script + '" -AcTask'
+    $t = Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
+    if ($t -and $t.Actions[0].Arguments -eq $arg -and $t.Actions[0].Execute -like '*conhost.exe') { exit 0 }
+    $a = New-ScheduledTaskAction -Execute (Join-Path $env:SystemRoot 'System32\conhost.exe') -Argument $arg
+    $who = $env:USERDOMAIN + '\' + $env:USERNAME
+    $tr = New-ScheduledTaskTrigger -AtLogOn -User $who
+    $tr.Repetition = (New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 3650)).Repetition
+    $p = New-ScheduledTaskPrincipal -UserId $who -LogonType Interactive -RunLevel Limited
+    $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 3) -MultipleInstances IgnoreNew
+    Register-ScheduledTask -TaskName $name -Action $a -Trigger $tr -Principal $p -Settings $s -Description 'Notes when an Amit program or any other program crashes or hangs, and keeps the evidence to find out why. Reads Windows logs and Amit logs on this computer only; nothing is sent anywhere.' -Force | Out-Null
+    Start-ScheduledTask -TaskName $name
+} catch {}
+'@
+        $acCatchScript = $acCatchScript.Replace('__PATH__', $acCatchPath.Replace("'", "''"))
+        $acCatchEnc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($acCatchScript))
+        Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-EncodedCommand", $acCatchEnc -WindowStyle Hidden
     }
 } catch {}
 
@@ -1613,7 +1645,7 @@ function ask(){
  root.innerHTML=hd('pulse',"Let Amit watch over your computer's health")+
  '<p>Amit can keep an eye on how hard your computer is working and how hot it is running, so you hear about a problem <b>before it becomes one</b>.</p>'+
  '<ul><li class="d">Catches overheating before it slows or freezes your computer</li><li class="d">Helps find the real reason when something runs slow or crashes</li><li class="d">Helps your computer last longer</li></ul>'+
- '<p>Windows needs your OK for this <b>one time</b>. Its box may say <i>PowerShell</i>; that is just how Windows asks. Amit only reads, it never changes anything, and it all stays on your computer.</p>'+
+ '<p>Windows needs your OK for this <b>one time</b>. Its box may say <i>PowerShell</i>; that is just how Windows asks. Amit only reads, and it all stays on your computer. The same OK also lets Windows keep a small record if one of Amit\'s programs ever crashes, so the reason can be found.</p>'+
  '<div class="btns"><button id="no">Not now</button><button class="go" id="yes">Yes, watch over my computer</button></div>';
  var watch=setInterval(function(){fetch('/api/sensors/welcome').then(function(r){return r.json()}).then(function(s){if(s.taskExists&&document.getElementById('yes')){clearInterval(watch);sequence()}}).catch(function(){})},2000);
  document.getElementById('no').onclick=function(){clearInterval(watch);fetch('/api/sensors/decline?k='+TOK,{method:'POST'}).catch(function(){});sequence()};
@@ -1754,6 +1786,18 @@ $a=New-ScheduledTaskAction -Execute (Join-Path $env:SystemRoot 'System32\conhost
 $p=New-ScheduledTaskPrincipal -UserId '__USER__' -LogonType Interactive -RunLevel Highest
 $s=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
 Register-ScheduledTask -TaskName '__TASK__' -Action $a -Principal $p -Settings $s -Description 'Starts the Amit hardware sensor reader (temperatures, fans, voltages) with the permission given once. It only reads.' -Force | Out-Null
+# Crash dumps (v1.16): the same one OK also asks Windows to keep a small crash record when one of the Amit programs crashes, so the reason can be found.
+# Windows' own "LocalDumps" setting (administrator only); it writes into this person's own AmitComputerHealth\data\appcrash\dumps folder, 3 files per program. Never blocks the sensors.
+try {
+    $ld='HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps'
+    foreach ($pn in 'powershell.exe','node.exe','AmitBar.exe','AmitTracker.exe') {
+        $k = Join-Path $ld $pn
+        New-Item -Path $k -Force | Out-Null
+        New-ItemProperty -Path $k -Name 'DumpFolder' -PropertyType ExpandString -Value '%LOCALAPPDATA%\AmitComputerHealth\data\appcrash\dumps' -Force | Out-Null
+        New-ItemProperty -Path $k -Name 'DumpCount' -PropertyType DWord -Value 3 -Force | Out-Null
+        New-ItemProperty -Path $k -Name 'DumpType' -PropertyType DWord -Value 1 -Force | Out-Null
+    }
+} catch {}
 '@
                     $regScript = $regScript.Replace('__SRC__', (& $q $sensorReaderPath)).Replace('__DATA__', (& $q $sensorDataPath)).Replace('__FLAG__', (& $q $lhmStopFlag)).Replace('__USER__', (& $q ([Environment]::UserDomainName + '\' + [Environment]::UserName))).Replace('__TASK__', $sensorTaskName)
                     $regEnc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($regScript))
@@ -1981,7 +2025,7 @@ Register-ScheduledTask -TaskName '__TASK__' -Action $a -Principal $p -Settings $
                 # KEEP THE FILE LIST THE SAME AS make_helper_manifest.ps1.
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else {
-                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_dictate.html','amit_talk.html','AmitPreview.html','amit_update.ps1','amit_reload.ps1','amit_crash_check.ps1','AmitBar.cs')
+                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_dictate.html','amit_talk.html','AmitPreview.html','amit_update.ps1','amit_reload.ps1','amit_crash_check.ps1','amit_appcrash.ps1','amit_pad.html','amit_pad_pair.html','AmitBar.cs')
                     $hsSha = [System.Security.Cryptography.SHA256]::Create()
                     $hsParts = @()
                     foreach ($hsN in $hsNames) {
@@ -3240,7 +3284,13 @@ secret key must never appear here, ever, under any circumstance.
     }
 }
 
-$pool = [runspacefactory]::CreateRunspacePool(1, 8)
+# v1.17 (2026-11-15, Ryan: the mouse was jerky while a Computer Health page was open): the handler used to be handed to every request as TEXT
+# ($ps.AddScript($handlerScript)), so PowerShell re-parsed the whole ~3000-line handler (about 250 KB) for EVERY call. A page calling 8 times a second
+# made the bridge build and throw away hundreds of MB a second, and the collector's pauses froze the mouse hook that lives in this same process.
+# Now the handler is defined ONCE as a function inside the pool's runspaces and each request just calls it by name. Nothing about what it does changes.
+$handlerIss = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
+$handlerIss.Commands.Add((New-Object System.Management.Automation.Runspaces.SessionStateFunctionEntry('Invoke-AmitBridgeHandler', $handlerScript.ToString())))
+$pool = [runspacefactory]::CreateRunspacePool(1, 8, $handlerIss, $Host)
 # WMI/CIM cmdlets are COM-based underneath and need an STA apartment to
 # marshal correctly. A runspace pool defaults to MTA, so the first WMI call
 # made inside one of this pool's worker runspaces deadlocks waiting on COM
@@ -3365,6 +3415,7 @@ function Remove-FinishedOrStuckHandlers {
     }
 }
 
+$script:reqCounts = @{}; $script:reqPages = @{}; $script:reqTotal = 0; $script:reqWindowStart = Get-Date
 while ($listener.IsListening) {
     $ctxTask = $listener.GetContextAsync()
     $gotContext = $false
@@ -3374,6 +3425,23 @@ while ($listener.IsListening) {
         }
     } catch { break }
     $context = $ctxTask.Result
+
+    # Request counter (v1.17): when more than 240 calls arrive in one minute (4 a second, far more than any page needs) the busiest routes and the page that
+    # calls them most are written to bridge_requests.log, so a flood names itself. Costs one hashtable update per call.
+    try {
+        $rcPath = $context.Request.Url.AbsolutePath
+        $script:reqCounts[$rcPath] = 1 + [int]$script:reqCounts[$rcPath]
+        $script:reqTotal++
+        $rcRef = [string]$context.Request.Headers['Referer']
+        if ($rcRef) { $script:reqPages[$rcPath] = $rcRef }
+        if (((Get-Date) - $script:reqWindowStart).TotalSeconds -ge 60) {
+            if ($script:reqTotal -gt 240) {
+                $rcTop = ($script:reqCounts.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 6 | ForEach-Object { $_.Key + '=' + $_.Value + $(if ($script:reqPages[$_.Key]) { ' (from ' + $script:reqPages[$_.Key] + ')' } else { '' }) }) -join '; '
+                Add-Content -Path "$env:LOCALAPPDATA\AmitComputerHealth\bridge_requests.log" -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + ' ' + $script:reqTotal + ' calls in the last minute: ' + $rcTop)
+            }
+            $script:reqCounts = @{}; $script:reqPages = @{}; $script:reqTotal = 0; $script:reqWindowStart = Get-Date
+        }
+    } catch {}
 
     $origin = $null
     try { $origin = $context.Request.Headers['Origin'] } catch {}
@@ -3406,7 +3474,7 @@ while ($listener.IsListening) {
 
     $ps = [powershell]::Create()
     $ps.RunspacePool = $pool
-    [void]$ps.AddScript($handlerScript).AddArgument($context).AddArgument($watcherDir).AddArgument($dashboardPath).AddArgument($deviceId).AddArgument($deviceName).AddArgument($bridgeState)
+    [void]$ps.AddCommand('Invoke-AmitBridgeHandler').AddArgument($context).AddArgument($watcherDir).AddArgument($dashboardPath).AddArgument($deviceId).AddArgument($deviceName).AddArgument($bridgeState)
     $handle = $ps.BeginInvoke()
     [void]$running.Add(@{ PS = $ps; Handle = $handle; Ctx = $context; Started = (Get-Date) })
 }

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Amit Pad">
+<title>Amit Pad</title>
+<style>
+/* Amit Pad v1.01 (2026-11-15): no double-tap zoom, buttons flash and the info line counts clicks. v1.00: Served by the Amit Helper on the home network. Ported from the Stage 0 test page that worked on the iPhone. */
+html,body,.b{touch-action:manipulation;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
+.b:active{filter:brightness(1.6);transform:scale(.97);}
+.b.flash{background:#e0bd6a !important;color:#111;}
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:-apple-system,Arial,sans-serif;color:#eee;-webkit-user-select:none;user-select:none;}
+body{display:flex;flex-direction:column;}
+#bar{flex:none;display:flex;gap:5px;padding:5px 6px;padding-top:max(5px,env(safe-area-inset-top));background:#16202b;}
+.b{flex:1;border:0;border-radius:8px;font-size:13px;font-weight:600;color:#fff;background:#3b4f66;padding:10px 2px;}
+.b.off{background:#5a3a3a;}
+.b.on{background:#2f7d4f;}
+.b.gold{background:#8a6d1f;}
+#stage{position:relative;flex:1;min-height:0;background-color:#0b1118;background-image:linear-gradient(rgba(255,255,255,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.08) 1px,transparent 1px);background-size:12.5% 25%;}
+#dot{position:absolute;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;background:rgba(255,80,80,.85);display:none;pointer-events:none;}
+#hint{position:absolute;left:0;right:0;top:26%;text-align:center;color:#7f9bb3;font-size:16px;padding:0 24px;pointer-events:none;}
+#touch{position:absolute;left:0;top:0;right:0;bottom:0;touch-action:none;}
+#info{position:absolute;left:6px;bottom:4px;right:6px;font-size:12px;color:#cfe0f0;background:rgba(0,0,0,.55);padding:3px 8px;border-radius:6px;}
+</style></head><body>
+<div id="bar">
+  <button class="b off" id="bm">Mouse: OFF</button>
+  <button class="b" id="bmode">Touchpad</button>
+  <button class="b" id="bl">Left</button>
+  <button class="b" id="br">Right</button>
+  <button class="b gold" id="bp">Photo</button>
+</div>
+<div id="bar2" style="flex:none;display:flex;gap:5px;padding:0 6px 5px;background:#16202b;">
+  <button class="b" id="hbar" style="background:#1f6f78">Helper bar</button>
+  <button class="b" id="hmenu" style="background:#1f6f78">Amit menu</button>
+  <button class="b gold" id="hask">Ask Amit</button>
+</div>
+<div id="fs" style="display:none;flex:none;background:#3a3216;color:#f0e2a8;font-size:12px;padding:5px 8px;">For full screen (no Safari tabs): tap Share, then Add to Home Screen, and open the pad from that icon. <b id="fsx" style="float:right;padding:0 6px">X</b></div>
+<div id="ask" style="display:none;position:fixed;left:0;top:0;right:0;bottom:0;z-index:10;background:#0b1118;flex-direction:column;padding:10px;gap:8px;-webkit-user-select:text;user-select:text;">
+  <div style="font-size:14px;color:#e0bd6a;padding-top:env(safe-area-inset-top)">Ask Amit. Tap the box, then tap the microphone on your keyboard and speak, or type.</div>
+  <textarea id="aq" rows="3" style="font-size:18px;border-radius:8px;border:1px solid #2c3a4a;background:#16202b;color:#eee;padding:8px;"></textarea>
+  <div style="display:flex;gap:6px">
+    <button class="b gold" id="asend">Ask</button>
+    <button class="b" id="aspeak">Speak it</button>
+    <button class="b" id="astop">Stop</button>
+    <button class="b off" id="aclose">Close</button>
+  </div>
+  <div id="areply" style="flex:1;overflow-y:auto;font-size:18px;line-height:1.35;color:#eee;background:#10181f;border-radius:8px;padding:10px;"></div>
+</div>
+<div id="stage">
+  <div id="hint">1. Tap <b>Mouse</b> (it turns green).<br>2. Slide one finger on this screen to move the pointer.<br>Tap = left click. Two fingers tap = right click. Two fingers slide = scroll. Pinch = zoom.<br>Tap <b>Touchpad</b> to change it to <b>Direct</b>: touch a spot and the pointer goes to the same spot on the computer screen.<br><br>Photo sends a picture to the computer.</div>
+  <div id="touch"></div>
+  <div id="dot"></div>
+  <div id="info">starting...</div>
+</div>
+<input id="cam" type="file" accept="image/*" capture="environment" style="display:none">
+<script>
+var KEY = "__KEY__", NAME = "__NAME__";
+var mouseOn = false, mode = "pad", rtt = 0, lastNote = "";
+var accDx = 0, accDy = 0, accSc = 0, accZ = 0, lastDist = 0, pendAbs = null, busy = false, seq = 0;
+var SID = Math.random().toString(36).slice(2, 8);
+var GAIN = 1.7, SGAIN = 3, ZGAIN = 5;
+var hint = document.getElementById("hint"), info = document.getElementById("info");
+
+function say(t) { lastNote = t; info.textContent = NAME + "  |  " + t + "  |  " + rtt + " ms"; }
+function nid() { seq++; return SID + seq; }
+function send(lines, cb) {
+  var x = new XMLHttpRequest(), t0 = Date.now();
+  x.open("POST", "/m?k=" + KEY, true);
+  x.setRequestHeader("Content-Type", "text/plain");
+  x.onload = function () {
+    rtt = Math.round(0.8 * rtt + 0.2 * (Date.now() - t0));
+    if (x.status === 401) say("this phone is not paired (ask the computer for a new code)");
+    else if (x.responseText.indexOf('"off":true') >= 0) say("the computer has the pad switched off (Ctrl+Alt+Shift+M)");
+    if (cb) cb();
+  };
+  x.onerror = function () { say("cannot reach the computer (same Wi-Fi? computer awake?)"); if (cb) cb(); };
+  x.send(lines.join("\n"));
+}
+function setBtn(id, cls, text) { var b = document.getElementById(id); b.className = "b " + cls; if (text) b.textContent = text; }
+
+document.getElementById("bm").onclick = function () {
+  mouseOn = !mouseOn; setBtn("bm", mouseOn ? "on" : "off", "Mouse: " + (mouseOn ? "ON" : "OFF"));
+  say(mouseOn ? "mouse on" : "mouse off"); hint.style.display = "none";
+};
+document.getElementById("bmode").onclick = function () {
+  mode = (mode === "pad") ? "direct" : "pad";
+  document.getElementById("bmode").textContent = (mode === "pad") ? "Touchpad" : "Direct";
+};
+var nClicks = 0;
+function flash(id) { var b = document.getElementById(id); if (!b) return; b.classList.add("flash"); setTimeout(function () { b.classList.remove("flash"); }, 220); }
+function click(a, btnId) {
+  if (!mouseOn) { say("turn Mouse on first"); return; }
+  nClicks++; if (btnId) flash(btnId);
+  say((a === "rc" ? "right" : "left") + " click sent (" + nClicks + ")");
+  send(["i=" + nid() + "&t=" + a]);
+}
+document.getElementById("bl").onclick = function () { click("lc", "bl"); };
+document.getElementById("br").onclick = function () { click("rc", "br"); };
+function helperMenu(id, btn, label) { flash(btn); say(label + " opened on the computer"); send(["i=" + nid() + "&t=menu&id=" + id]); }
+document.getElementById("hbar").onclick = function () { helperMenu("amit-bar", "hbar", "Helper bar"); };
+document.getElementById("hmenu").onclick = function () { helperMenu("amit-menu", "hmenu", "Amit menu"); };
+// ASK AMIT: the words go to the computer, which asks Amit the way the Amit Mobile chat does; the reply is shown here and spoken
+var lastReply = "";
+function speakText(t) {
+  try { speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(String(t).replace(/Amit/g, "uh-MEET")); speechSynthesis.speak(u); } catch (e) {}
+}
+function askOut(t) { document.getElementById("areply").textContent = t; }
+function pollReply(id, n) {
+  if (n > 50) { askOut("Amit has not answered yet. Your question was saved and the answer will wait in the Amit Mobile chat."); return; }
+  setTimeout(function () {
+    var x = new XMLHttpRequest();
+    x.open("GET", "/askreply?k=" + KEY + "&id=" + id + "&t=" + Date.now(), true);
+    x.onload = function () {
+      var r = {}; try { r = JSON.parse(x.responseText); } catch (e) {}
+      var rep = r.rows && r.rows[0] && r.rows[0].reply;
+      if (rep) { lastReply = rep; askOut(rep); speakText(rep); } else { pollReply(id, n + 1); }
+    };
+    x.onerror = function () { pollReply(id, n + 1); };
+    x.send();
+  }, 2500);
+}
+document.getElementById("hask").onclick = function () { document.getElementById("ask").style.display = "flex"; document.getElementById("aq").focus(); };
+document.getElementById("aclose").onclick = function () { try { speechSynthesis.cancel(); } catch (e) {} document.getElementById("ask").style.display = "none"; };
+document.getElementById("astop").onclick = function () { try { speechSynthesis.cancel(); } catch (e) {} };
+document.getElementById("aspeak").onclick = function () { if (lastReply) speakText(lastReply); };
+document.getElementById("asend").onclick = function () {
+  var q = document.getElementById("aq").value.trim(); if (!q) return;
+  try { speechSynthesis.speak(new SpeechSynthesisUtterance(" ")); } catch (e) {}   // this tap lets the phone speak the answer when it arrives
+  askOut("Amit is thinking...");
+  var x = new XMLHttpRequest();
+  x.open("POST", "/ask?k=" + KEY, true); x.setRequestHeader("Content-Type", "text/plain");
+  x.onload = function () {
+    var r = {}; try { r = JSON.parse(x.responseText); } catch (e) {}
+    if (!r.ok) { askOut(r.off ? "The computer has the pad switched off (Ctrl+Alt+Shift+M)." : (r.error || "Amit could not be asked.")); return; }
+    document.getElementById("aq").value = ""; pollReply(r.id, 0);
+  };
+  x.onerror = function () { askOut("Could not reach the computer. Same Wi-Fi? Computer awake?"); };
+  x.send(q);
+};
+if (!window.navigator.standalone) { document.getElementById("fs").style.display = "block"; document.getElementById("fsx").onclick = function () { document.getElementById("fs").style.display = "none"; }; }
+// iPhone Safari zooms the page on a double tap and ignores user-scalable=no: stop that everywhere on this page
+var lastEnd = 0;
+document.addEventListener("touchend", function (e) { var n = Date.now(); if (n - lastEnd < 350) e.preventDefault(); lastEnd = n; }, { passive: false });
+document.addEventListener("dblclick", function (e) { e.preventDefault(); }, false);
+
+function pump() {
+  if (busy || !mouseOn) return;
+  var l = null;
+  if (pendAbs) { l = "i=" + nid() + "&t=ab&x=" + Math.round(pendAbs.fx * 65535) + "&y=" + Math.round(pendAbs.fy * 65535); pendAbs = null; }
+  else if (Math.round(accDx) || Math.round(accDy)) { l = "i=" + nid() + "&t=mv&dx=" + Math.round(accDx) + "&dy=" + Math.round(accDy); accDx = accDy = 0; }
+  else if (Math.round(accSc)) { l = "i=" + nid() + "&t=wh&n=" + Math.round(accSc); accSc = 0; }
+  else if (Math.round(accZ)) { l = "i=" + nid() + "&t=zm&n=" + Math.round(accZ); accZ = 0; }
+  if (!l) return;
+  busy = true; send([l], function () { busy = false; pump(); });
+}
+setInterval(pump, 15);
+
+var touch = document.getElementById("touch"), lx = 0, ly = 0, t0 = 0, moved = 0, fingers = 0;
+function dist2(e) { var a = e.touches[0], b = e.touches[1]; return Math.sqrt((a.clientX - b.clientX) * (a.clientX - b.clientX) + (a.clientY - b.clientY) * (a.clientY - b.clientY)); }
+document.addEventListener("gesturestart", function (e) { e.preventDefault(); }, false);
+document.addEventListener("gesturechange", function (e) { e.preventDefault(); }, false);
+function avg(e, k) { var s = 0, i; for (i = 0; i < e.touches.length; i++) s += e.touches[i][k]; return s / e.touches.length; }
+function frac(x, y) {
+  var r = document.getElementById("stage").getBoundingClientRect();
+  return { fx: Math.min(1, Math.max(0, (x - r.left) / r.width)), fy: Math.min(1, Math.max(0, (y - r.top) / r.height)) };
+}
+var dot = document.getElementById("dot");
+function showDot(x, y) { var r = document.getElementById("stage").getBoundingClientRect(); dot.style.left = (x - r.left) + "px"; dot.style.top = (y - r.top) + "px"; dot.style.display = "block"; }
+
+touch.addEventListener("touchstart", function (e) {
+  e.preventDefault();
+  if (e.touches.length === 1) { t0 = Date.now(); moved = 0; fingers = 1; } else fingers = Math.max(fingers, e.touches.length);
+  if (e.touches.length === 2) lastDist = dist2(e);
+  lx = avg(e, "clientX"); ly = avg(e, "clientY");
+  if (mode === "direct" && e.touches.length === 1) { pendAbs = frac(lx, ly); showDot(lx, ly); pump(); }
+}, false);
+touch.addEventListener("touchmove", function (e) {
+  e.preventDefault();
+  var x = avg(e, "clientX"), y = avg(e, "clientY"), dx = x - lx, dy = y - ly;
+  lx = x; ly = y; moved += Math.abs(dx) + Math.abs(dy);
+  if (e.touches.length >= 2) {
+    var dd = dist2(e) - lastDist; lastDist = dist2(e);
+    if (Math.abs(dd) > Math.abs(dy) * 1.2) {
+      accZ += dd * ZGAIN;                                         // fingers moving apart or together = zoom
+      if (mode === "direct") { pendAbs = frac(x, y); showDot(x, y); }
+    } else { accSc += dy * SGAIN; }                               // fingers moving together in one direction = scroll
+  }
+  else if (mode === "direct") { pendAbs = frac(x, y); showDot(x, y); }
+  else { accDx += dx * GAIN; accDy += dy * GAIN; }
+  pump();
+}, false);
+touch.addEventListener("touchend", function (e) {
+  e.preventDefault();
+  setTimeout(function () { dot.style.display = "none"; }, 350);
+  if (e.touches.length === 0) {
+    if (Date.now() - t0 < 250 && moved < 8) click(fingers >= 2 ? "rc" : "lc", null);
+    fingers = 0;
+  }
+}, false);
+
+// PHOTO: shrink to 2000 px on the long side, turn it upright, send the JPEG; it opens in Show Amit on the computer
+async function toJpeg(file) {
+  var bmp;
+  try { bmp = await createImageBitmap(file, { imageOrientation: "from-image" }); }
+  catch (e) { bmp = await new Promise(function (res, rej) { var im = new Image(); im.onload = function () { res(im); }; im.onerror = rej; im.src = URL.createObjectURL(file); }); }
+  var w = bmp.width || bmp.naturalWidth, h = bmp.height || bmp.naturalHeight, k = Math.min(1, 2000 / Math.max(w, h));
+  var c = document.createElement("canvas"); c.width = Math.round(w * k); c.height = Math.round(h * k);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  return await new Promise(function (res) { c.toBlob(res, "image/jpeg", 0.88); });
+}
+document.getElementById("bp").onclick = function () { document.getElementById("cam").click(); };
+document.getElementById("cam").onchange = async function () {
+  var f = this.files && this.files[0]; this.value = "";
+  if (!f) return;
+  say("sending the photo...");
+  try {
+    var blob = await toJpeg(f);
+    var x = new XMLHttpRequest();
+    x.open("POST", "/photo?k=" + KEY, true);
+    x.setRequestHeader("Content-Type", "image/jpeg");
+    x.onload = function () { say(x.status === 200 && x.responseText.indexOf('"ok":true') >= 0 ? "photo sent: it is open on the computer" : "the photo did not send (" + x.status + ")"); };
+    x.onerror = function () { say("the photo did not send (cannot reach the computer)"); };
+    x.send(blob);
+  } catch (e) { say("the photo did not send: " + (e && e.message ? e.message : "unknown")); }
+};
+
+say("ready");
+</script>
+</body></html>

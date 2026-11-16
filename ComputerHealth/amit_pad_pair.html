@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Amit Pad - pair a phone</title>
+<style>
+body{margin:0;background:#14171c;color:#e8e8ea;font-family:Segoe UI,Arial,sans-serif;padding:24px;}
+h1{font-size:20px;color:#e0bd6a;margin:0 0 6px}
+.sub{color:#9aa3ad;font-size:14px;margin-bottom:16px;max-width:640px}
+input{font-size:16px;padding:9px 12px;border-radius:8px;border:1px solid #2c313a;background:#1c2027;color:#e8e8ea;width:240px}
+button{font-size:15px;padding:9px 16px;border-radius:8px;border:0;background:#8a6d1f;color:#fff;cursor:pointer;margin-left:6px}
+.card{background:#1c2027;border:1px solid #2c313a;border-radius:12px;padding:16px;margin:14px 0;max-width:560px}
+.qr{background:#fff;display:inline-block;padding:14px;border-radius:10px}
+.url{font-size:12px;color:#8b909a;word-break:break-all;margin-top:8px}
+.rv{background:#5a3a3a;margin-left:0;margin-top:8px;font-size:13px;padding:6px 12px}
+#err{color:#ff9a9a;font-size:14px;margin:8px 0}
+</style></head><body>
+<h1>Amit Pad: pair a phone</h1>
+<div class="sub">Type a name for the phone, press Pair, then scan the code with that phone's camera. It opens the pad. On an iPhone, then Share, Add to Home Screen. The phone must be on this same home Wi-Fi. Pair only phones that are yours. Revoke one and it stops working at once. Ctrl+Alt+Shift+M switches the pad off, along with the mouse sets.</div>
+<div><input id="nm" placeholder="Name, for example Ryan's iPhone" maxlength="40"><button id="go">Pair</button></div>
+<div id="err"></div>
+<div id="list"></div>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script>
+var LAN = "__LAN__";
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+function call(path, post) {
+  return fetch(path, { method: post ? "POST" : "GET", headers: post ? { "X-Amit-Pair": "1" } : {} }).then(function (r) { return r.json(); });
+}
+function draw(d) {
+  var box = document.getElementById("list");
+  if (!d.devices.length) { box.innerHTML = '<div class="sub">No phones are paired yet.</div>'; return; }
+  box.innerHTML = "";
+  d.devices.forEach(function (v) {
+    var url = LAN ? "http://" + LAN + "/pad?k=" + v.token : "";
+    var c = document.createElement("div"); c.className = "card";
+    var qrHtml = "";
+    if (url && window.qrcode) { var q = qrcode(0, "M"); q.addData(url); q.make(); qrHtml = '<div class="qr">' + q.createImgTag(6, 4) + '</div>'; }
+    c.innerHTML = "<b>" + esc(v.name) + "</b> <span class='sub'>paired " + esc(v.created) + "</span><br>" +
+      (url ? qrHtml + '<div class="url">' + esc(url) + '</div>' : '<div class="sub">This computer has no home network address right now.</div>') +
+      '<br><button class="rv" data-t="' + v.token + '">Revoke this phone</button>';
+    box.appendChild(c);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(".rv"), function (b) {
+    b.onclick = function () { if (confirm("Revoke this phone? It will stop working at once.")) call("/pair/revoke?token=" + b.getAttribute("data-t"), true).then(draw); };
+  });
+}
+document.getElementById("go").onclick = function () {
+  var n = document.getElementById("nm").value.trim();
+  if (!n) { document.getElementById("err").textContent = "Type a name first."; return; }
+  document.getElementById("err").textContent = "";
+  call("/pair/add?name=" + encodeURIComponent(n), true).then(function (d) { document.getElementById("nm").value = ""; draw(d); });
+};
+call("/pair/list", false).then(draw);
+</script>
+</body></html>
