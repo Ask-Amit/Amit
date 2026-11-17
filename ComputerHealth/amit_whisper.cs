@@ -29,7 +29,7 @@ using System.Windows.Automation.Text;
 
 public static class AmitWhisper
 {
-    public const string Version = "1.99";   // 1.99: THE PAD HAS ITS OWN SWITCH (Ryan, 2026-11-16): the Amit Pad no longer follows the mouse sets master (Ctrl+Alt+Shift+M); it is ON unless switched off on its pairing page (http://localhost:8722/pair, remembered in pad_enabled.txt), and a phone told "off" is told where to switch it on. New route /pair/switch; amit_pad.html and amit_pad_pair.html changed. 1.98: THE MENUS GROUP FOR MOUSE ACTIONS (Ryan, 2026-11-15): a mouse set action "Run a Helper button" on the built-in group "Menus" opens any menu in the Helper own list by name (Amit Helper bar, Amit menu, Dictate window, Amit Preview window), no bar button needed; only MsRunHelper changes. 1.97: APP CRASH CAPTURE (Ryan, 2026-11-15): Computer Health now notes when ANY program crashes or hangs and keeps an evidence package (amit_appcrash.ps1, run every 5 minutes by a small Windows task the bridge sets up, v1.16; this file only carries the version number). 1.96: THE PAD ASKS AMIT (Ryan, 2026-11-15): a question typed or dictated on the pad goes to Amit the way the Amit Mobile chat does (a row in amit_mobile_captures under this computer's owner; the Mobile watcher answers) and the pad page shows and speaks the reply; new pad routes /ask and /askreply. 1.95: THE PAD OPENS THE BAR AND THE AMIT MENU (Ryan, 2026-11-15): two pad buttons call the Helper's own menu list (amit-bar, amit-menu); nothing else can be opened from the pad. 1.94: AMIT PAD (Ryan and Robin, 2026-11-15): a paired phone on the home network is a pad for this computer: a small listener on port 8722 (home addresses only, every request needs the device key made at /pair on this computer) serves amit_pad.html and takes touchpad, Direct, left and right click, scroll, zoom and photo messages; photos open in Show Amit; Ctrl+Alt+Shift+M switches the pad off too. New files amit_pad.html and amit_pad_pair.html. 1.93: DICTATION NEVER FIGHTS ITSELF (Ryan, 2026-11-15): the listening page (amit_whisper.html) had two separate things that each restarted the speech recognizer (its "ended" handler and the 4.5 s no-words watchdog); when one hiccup tripped both in the same moment, two recognizers existed, aborted each other and restarted each other about once a second, so nothing was typed until the idle stop closed the page. Now there is ONE restart function (the recognizer is always closed first, other restart requests are ignored while one is happening and for 1 s after, waits grow 0.5/1/2/4 s only if restarts keep failing at once); also the network-retry counter resets when words arrive. Also carries the words-only rename "Amit Live" -> "Amit Helper" in the Helper's own messages, the bridge and the Computer Health dashboard. This file only carries the version number and the words. 1.92: CRASH NOTICE (Ryan, 2026-11-14): the helper notes every Windows crash (amit_crash_check.ps1 v1.01, Watch mode or not) and the Hub asks for it at sign-in through the new bridge route /api/crash-notice (bridge v1.15); this file only carries the version number. 1.91: WATCH MODE (Ryan, 2026-11-14): a switch for when the computer is having crashes; while on there is no idle stop, the recorder keeps a permanent daily trace, and after an unclean shutdown the trace and Windows events are packaged at sign-in for the database (bridge v1.14, resource_watcher.ps1 v1.02, new amit_crash_check.ps1; this file only carries the version number). 1.88: AMIT KEYBOARD (Ryan and Robin, 2026-11-09): the same idea as Amit Mouse, with keys. Windows raw input names the keyboard behind every key; each keyboard has numbered sets; a key, a pair of keys held together, or a key held with Ctrl/Shift/Alt/Windows can send other keys, run a bar button, switch set (or send keys then switch), or do nothing, on a press, a double press or a hold; hold Space then press 1 to 9 switches to that set. Safety: Ctrl, Alt, Shift, Windows and Esc alone never change; Ctrl+Alt+Shift+M switches every mouse AND keyboard set off and puts every keyboard back on Set 1; the main keyboard keeps its typing keys in Set 1; sets pause while the Amit Keyboard page is open. What is typed is never logged; which key on which keyboard is only reported to the page while it is learning. New routes /api/keyboard/sync and /api/keyboard/status; the Amit menu Keyboard tab lists the sets of the keyboard last used. 1.87: THE MOUSE TAB HAS REAL CONTROLS (Ryan, 2026-11-08, design A in the preview): "Mouse sets" is a visible ON/OFF switch (choosing it flips it and the menu stays open so the change shows) and the Hub row is a visible "Open >" button; before they were plain text. 1.86: THE MOUSE TAB OF THE AMIT MENU (Ryan, 2026-11-08): the Mouse tab recognizes WHICH MOUSE opened the menu (Windows raw input names it with every press; a press older than 2.5 s is not trusted and the tab asks "which mouse?") and lists that mouse's sets with the one in use marked; the wheel scrolls, a click or the middle button chooses and that mouse switches to the set; also Sets ON/OFF and Open Amit Mouse in the Hub; a mouse the Helper does not know shows one clear line. 1.85: THE WHEEL OPENS THE MENU WHILE VOICE IS LISTENING (Ryan, 2026-11-08): turn the wheel with Voice on and the menu opens so a command can be chosen as well as spoken; if the wheel is never turned Voice works as before; with nothing listening the middle click opens the menu (1.74). 1.84: THE MOUSE IS INDEPENDENT OF DICTATION (Ryan, 2026-11-08): the middle button opens the Amit menu, and the menu opens, while dictation (not Voice) is listening, finishing or stopping; dictation keeps listening underneath. Double right-click still waits for nothing to be dictating (right press stops latched dictation, by design). 1.83: 1.77: AN OPEN DICTATE WINDOW MOVES ITS WORDS INTO THE NEXT TEXT BOX (opened by itself because the person left the text box while speaking, or opened from the ring): when the focus has been in a text box of another program for about a second, the window stops listening, everything in its message is typed into that box, the window closes and typing dictation starts there; Place (pick the exact spot) still works and switches the automatic move off for that window. 1.76: DICTATION FOLLOWS THE FOCUS (Ryan 2026-11-08): while words are typed into a text box the helper watches where the keyboard focus is; focus moves to another text box (any program) = typing carries on there; focus clearly NOT in a text box = the words are held, and if they keep coming for a second the typing dictation ends and the Dictate window opens with those words already in it; "cannot tell" never counts as no text box. FIX: after Enter or a change of box the phrase typed so far is never rewritten (the self-correcting typing used to retype half of an earlier phrase into the emptied box). 1.75: BAR ICONS ARE CENTERED - the icon in each bar button is drawn once to a scratch picture, where the visible pixels really are is measured, and THAT is centered (before, the glyph box was centered and the font padding pushed icons off-center). 1.74: MIDDLE CLICK OPENS THE MENU, VOICE STAYS OFF - a single middle click opens the Amit menu at the pointer and nothing listens; the Voice tab lists Voice first (choosing it turns listening on), Dictate second, then everything else; Esc or a click away closes it; the wheel only moves inside an open menu and no longer opens it. 1.73: SHOW AMIT SAVES EVERY CAPTURE AT ONCE - a fresh capture is saved to Pictures\Show Amit the moment it is taken (as well as going on the clipboard), so "look" always finds it without pressing Save. 1.68: VOICE LIVES INSIDE THE MENU - once the wheel has opened the menu, closing the menu in any way (a click away, Esc, choosing something) turns Voice off too; nothing runs and no box shows. A single click with no wheel works as before. 1.67: LEFT BUTTON CAN NEVER BE LOCKED BY THE MENU - a left click is only taken when the pointer is really over the menu's own window; anywhere else the menu closes and the click goes through, whatever state the Helper is in. 1.66: THE MENU HAS THREE TABS - Voice (everything Voice understands, as before), Mouse and Keyboard. The mouse picks the tab by a click; the wheel scrolls inside the tab; speaking still works on every tab. Mouse shows a note until the Mouse screen creates sets; Keyboard is greyed until the keyboard app. 1.65: PREVIEWS CAN BE TRIED WITH THE REAL MOUSE - over an Amit preview window (title starts "Amit " and ends " Preview") the Voice button is left alone, so the middle button reaches the preview page instead of starting Voice. 1.64: VOICE MENU SAFETY - Esc closes the Voice menu (Voice keeps listening); the menu can never keep eating clicks after Voice has ended (it is cleared on the next click, and never appears if Voice ended while it was being built); the release of a click the menu took is only swallowed if it comes straight after (1.5 s), never left waiting. Fixes the left mouse button going dead after using the menu. 1.63: THE VOICE MENU - while Voice is listening (started by the middle click, Aurora, a key or by saying it), turning the wheel opens a menu of everything Voice understands: the built-in commands, your Helper bar buttons and your own commands. The wheel moves, a middle click or a left click chooses, a click elsewhere closes it, and speaking still works at the same time. If the wheel is never turned, Voice works as before. 1.62: VOICE ON RELEASE - the Voice button (middle by default) now acts when it is let go, and only if it was a click (shorter than 500 ms); a longer hold does nothing yet and is reserved for the mouse set picker. Before, Voice started the instant the button went down, so a hold could not be told from a click. 1.61: THE PHONE CAPTION COMES ALONG - a note typed on the phone with the photo is put in the note box when the photo opens (new "note" in the /api/mobile/pull answer). 1.60: PHONE NOTE NOT LOST - Ask Amit on a phone photo first lets the last dictated words in, then sends the note; Amit answers a question note right away. 1.59: HARDWARE SENSORS ON REQUEST - the 72 MB sensor reader is no longer in the installer; the Hardware tab adds it (/api/sensors/install, size and SHA-256 checked); dashboard 5.11. 1.58: ASK AMIT ABOUT A PHONE PHOTO - the editor button starts a new numbered Mobile chat in the Amit Live window with the photo and the note, and Amit greets out loud. 1.57: MOBILE RING SLICE - a phone photo (Amit Mobile > Send to computer) is fetched by the helper, saved in PicturesShow Amit, opened in the Show Amit editor on the clipboard with a note box and dictation on; the note goes back to the photo row. 1.56: DICTATE WINDOW (page amit_dictate.html, served at /dictate): choosing Dictate on the ring (or saying it, or a bar button) while NOT in a text box opens one window in the top right of the screen (in a text box it still types there as before, one plain press of the trigger button stops it), always in front, that hears the person (its own speech recognition, in its own Edge profile dictate_profile), shows the words in a Subject and a Message that can be split into numbered sections, remembers each dictation on this computer (Recent, Settings, Help), and nothing is typed anywhere until the person presses Place and left-clicks a text box (new routes /api/dictate/place and /api/dictate/cancel; the click is checked with the same text-box test as before and the message is typed there, a new line being Shift+Enter so a chat box does not send). The window hears through the original listening page (its words are handed to the window instead of typed); hold-to-talk is unchanged. 1.55: VOICE RUNS ANY BAR BUTTON BY ITS TITLE: no shortcut per button; the title list comes from the bar (bar_buttons.txt) when someone speaks. 1.54: SHOW AMIT QUICK SNAP: a fresh capture from the ring goes straight onto the clipboard and the editor waits minimized in the taskbar without taking focus; opened from the taskbar it is the normal editor; left alone for 60 seconds it closes itself (nothing saved, clipboard untouched). 1.53: DOUBLE-RIGHT-CLICK brings up the Amit Helper bar: two short right taps close together at the same spot (while nothing else is going on with the button) show the bar (an event it listens on) or start AmitBar.exe from this folder; the first tap is replayed as a normal click as always, a menu it opened is closed with Esc, and the second press and its release are swallowed. The ring (hold) and dictation are untouched. 1.52: a preview opened as a plain browser TAB (file double-clicked, a link) also splits the screen: the whole browser window goes on the right, the window the person was in on the left, both put back when they leave that tab; only a tab titled "Amit ... Preview" counts. 1.51: the window that goes on the LEFT of a preview is the WINDOW THE PERSON WAS IN (the Hub in a browser, VS Code, anything), taken from a short history of the windows they used; VS Code is only the fallback; the same window is put back when the preview closes. 1.50: PREVIEW SPLIT: whenever a window whose title ends with " Preview" appears (however it was opened: the opener script, the "preview" voice command, a button in a page), the person's VS Code goes on the LEFT half of its screen and the preview on the RIGHT half, and the focus goes back to VS Code; when the last preview has been closed for 4 seconds VS Code is put back the way it was (unless the person moved it). 1.49: the voice command "preview" opens the Amit Preview window. 1.48: an image layer is a WINDOW onto its image: the corner handles change the window to any shape (the image inside keeps its size and place, only what shows changes); the wheel over the window zooms the image inside, like the main picture (the size % box does the same); Ctrl + drag moves the image inside the window; dragging the body moves the window. Saved in the same .amitshot format. 1.47: a placed image layer has four corner handles (drag one to make it larger or smaller, the opposite corner stays), shows move/resize cursors, drags to move, and the mouse wheel over it resizes it (the wheel anywhere else zooms the whole picture). 1.46: Capture now places the new image layer at once (no click needed) and logs the placing. 1.45: a Capture button (camera) in the Show Amit editor: the editor steps aside, a bar waits while the person shows the screen they want ("Capture now"), they drag an area, click where it goes, and it becomes a new image layer (Capture 1, 2...) that can be switched on/off, resized with the size % box and dragged to move. 1.44: the Show Amit editor has a Clear & Recapture button: it drops the picture (asking first if there are unsaved changes) and lets the person choose a new area of the screen. 1.43: each part of Amit has its own icon: the same dark circle and gold ring, only the gold symbol changes (Whisper = microphone, Read = speaker, Show Amit = camera; Ask Amit keeps the aleph). The dictation "Amit is listening" box, the Whisper window, the Read window and the Show Amit editor each show their own, in the taskbar and the title bar. The Read windows are now named "Amit Read". The dictation box says "Amit is listening" until words come through, then "Amit is dictating", and the words always show beside the icon. The icons are bigger and bolder, with real 48/32/24/16 px images (256 first) so the taskbar is not blurry. Icons live in Templates; a missing icon falls back to the Amit one. 1.42: while Read is paused for dictation, the gold highlight over the screen is hidden (it cluttered the screen the person is dictating into) and comes back, in the same place, when the reading resumes. 1.41: FIX (dictation after Read paused it): (1) the speaking/voice windows of Read are now recognised as the helper's own windows, so dictation never "types" into the hidden Edge page and gives the focus back to the window the person was using (first failure: words heard, typed nowhere); (2) the "Read is speaking" mute can no longer be left on by a late message: it is set only when Read STARTS speaking while dictation is already listening, and cleared when Read pauses, ends or stops or the listening ends (second failure: a late heartbeat after "paused" made dictation throw the words away). 1.40: (1) a live voice change carries on from the word being spoken instead of starting the sentence over (amit_talk.html v1.04); (2) when dictation or Voice starts while Read is speaking, Read pauses by itself (the speaker shows the pause bars) and carries on where it was when the listening ends; a press of the speaker by the person cancels the automatic resume. 1.39: FIX: dictation could stay blocked after Read (the "Read is speaking" signal depended on a "finished" message that can get lost after live voice changes). Now the speaking page sends a heartbeat every 1.5 s while sound really plays, dictation is only quieted for 4 seconds after the last one, and a watchdog returns the speaker to waiting if the sound stops without a "finished"; the page also waits a moment between cancelling a sentence and saying it again with new settings (Edge sometimes dropped it). 1.38: while Read is speaking, dictation and Voice ignore what the microphone hears (it is Amit's own voice, which used to be typed into the person's text box) and dictation's "Amit is listening" box is taken off the screen; they work normally again when Read is not speaking, including while it is paused. 1.37: the voice window is INTERACTIVE (moving a slider or choosing another voice while Amit is reading changes the sound within about a third of a second; the current sentence is said again with the new settings; amit_talk.html v1.02); the hidden Edge speaking window is slimmed (extra switches) and now closes 30 seconds after the last reading instead of 3 minutes, never while the voice window is open. 1.36: a DOUBLE CLICK on the reading speaker opens a small voice window beside it (voice, speed, pause between sentences, pitch, volume, Test, Save); Save keeps the new voice on this computer at once and hands it to the person's login (their saved voice, their default) the next time an Amit page loads, without the old copy from the database overwriting it (new bridge routes /api/talk/voice-save and /api/talk/voice-ack). A single click is acted on after a very short wait (the double-click time, at most 400 ms) so a double click is no longer two presses. The note "Your saved voice is not on this computer" no longer pops up on the screen (it is only logged). 1.35: the ring choice is now called READ (it reads aloud what the person points at) and works ONE SHOT: press the speaker, and the very next click or selection is what is read, then it goes back to waiting so the person can use the computer freely; to read somewhere else, press it again. A click reads from the clicked word to the end of its paragraph; a highlight reads exactly the highlight (one word if one word, the whole page after Select All). Pressing while reading pauses it and the next click or selection is read instead (pressing again with none resumes). A soft gold highlight shows the words being read (where Windows accessibility gives their place). When the words cannot be read, Amit says so out loud in the person's voice ("Sorry, I'm not able to read this") and on screen, never silently; a plain click on a button or menu only shows a note. 1.33: TALK, a fourth choice in the Amit Live ring: a small see-through speaker stays on top of everything; the person selects words (or clicks where to start) in any program and presses it, and Amit reads aloud from there in the person's own saved Amit voice (copied here from their login; with none, Talk asks them to open Amit and sign in). Press again to pause or resume; Esc or a right click on the speaker removes it. The speaking is done by a hidden Edge window (page /talk, new bridge routes /api/talk/*) because the natural voices exist only in Edge. 1.32: a SHOW AMIT button in the Show Amit editor: saves the shot, hands it to the Amit Live window, which posts it into the person's own Ask Amit chat for today (under their own sign-in; the helper holds no login) and asks Amit to look at it (new bridge routes /api/showamit/pending and /api/showamit/pending.png, offered for 5 minutes, only to the Amit site). 1.31: the Amit Live window closes itself after 60 seconds without the focus (never while music plays; the no-internet page too). ONE Amit Live window only: choosing Ask Amit when its window is already open brings that window to the front instead of opening another (and a second press while the first is still opening starts nothing). 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
+    public const string Version = "2.00";   // 2.00: SHOW AMIT NEW LOOK (Ryan, 2026-11-16): the editor has a slim header (this shot's name, the other open shots as tabs, Retake, a File menu), an "Add to your picture" row of small tools, colors, line width, undo and Add capture, an "On this picture" list where every mark is its own item (eye to hide it, bring forward, send back, rename, remove), a "Send to an app" panel (apps not built yet show as coming soon) and an Ask Amit bar under the picture; soft rounded buttons everywhere. The drawing engine, the save and open code, the .amitshot format and the send-to-Amit path are unchanged. 1.99: THE PAD HAS ITS OWN SWITCH (Ryan, 2026-11-16): the Amit Pad no longer follows the mouse sets master (Ctrl+Alt+Shift+M); it is ON unless switched off on its pairing page (http://localhost:8722/pair, remembered in pad_enabled.txt), and a phone told "off" is told where to switch it on. New route /pair/switch; amit_pad.html and amit_pad_pair.html changed. 1.98: THE MENUS GROUP FOR MOUSE ACTIONS (Ryan, 2026-11-15): a mouse set action "Run a Helper button" on the built-in group "Menus" opens any menu in the Helper own list by name (Amit Helper bar, Amit menu, Dictate window, Amit Preview window), no bar button needed; only MsRunHelper changes. 1.97: APP CRASH CAPTURE (Ryan, 2026-11-15): Computer Health now notes when ANY program crashes or hangs and keeps an evidence package (amit_appcrash.ps1, run every 5 minutes by a small Windows task the bridge sets up, v1.16; this file only carries the version number). 1.96: THE PAD ASKS AMIT (Ryan, 2026-11-15): a question typed or dictated on the pad goes to Amit the way the Amit Mobile chat does (a row in amit_mobile_captures under this computer's owner; the Mobile watcher answers) and the pad page shows and speaks the reply; new pad routes /ask and /askreply. 1.95: THE PAD OPENS THE BAR AND THE AMIT MENU (Ryan, 2026-11-15): two pad buttons call the Helper's own menu list (amit-bar, amit-menu); nothing else can be opened from the pad. 1.94: AMIT PAD (Ryan and Robin, 2026-11-15): a paired phone on the home network is a pad for this computer: a small listener on port 8722 (home addresses only, every request needs the device key made at /pair on this computer) serves amit_pad.html and takes touchpad, Direct, left and right click, scroll, zoom and photo messages; photos open in Show Amit; Ctrl+Alt+Shift+M switches the pad off too. New files amit_pad.html and amit_pad_pair.html. 1.93: DICTATION NEVER FIGHTS ITSELF (Ryan, 2026-11-15): the listening page (amit_whisper.html) had two separate things that each restarted the speech recognizer (its "ended" handler and the 4.5 s no-words watchdog); when one hiccup tripped both in the same moment, two recognizers existed, aborted each other and restarted each other about once a second, so nothing was typed until the idle stop closed the page. Now there is ONE restart function (the recognizer is always closed first, other restart requests are ignored while one is happening and for 1 s after, waits grow 0.5/1/2/4 s only if restarts keep failing at once); also the network-retry counter resets when words arrive. Also carries the words-only rename "Amit Live" -> "Amit Helper" in the Helper's own messages, the bridge and the Computer Health dashboard. This file only carries the version number and the words. 1.92: CRASH NOTICE (Ryan, 2026-11-14): the helper notes every Windows crash (amit_crash_check.ps1 v1.01, Watch mode or not) and the Hub asks for it at sign-in through the new bridge route /api/crash-notice (bridge v1.15); this file only carries the version number. 1.91: WATCH MODE (Ryan, 2026-11-14): a switch for when the computer is having crashes; while on there is no idle stop, the recorder keeps a permanent daily trace, and after an unclean shutdown the trace and Windows events are packaged at sign-in for the database (bridge v1.14, resource_watcher.ps1 v1.02, new amit_crash_check.ps1; this file only carries the version number). 1.88: AMIT KEYBOARD (Ryan and Robin, 2026-11-09): the same idea as Amit Mouse, with keys. Windows raw input names the keyboard behind every key; each keyboard has numbered sets; a key, a pair of keys held together, or a key held with Ctrl/Shift/Alt/Windows can send other keys, run a bar button, switch set (or send keys then switch), or do nothing, on a press, a double press or a hold; hold Space then press 1 to 9 switches to that set. Safety: Ctrl, Alt, Shift, Windows and Esc alone never change; Ctrl+Alt+Shift+M switches every mouse AND keyboard set off and puts every keyboard back on Set 1; the main keyboard keeps its typing keys in Set 1; sets pause while the Amit Keyboard page is open. What is typed is never logged; which key on which keyboard is only reported to the page while it is learning. New routes /api/keyboard/sync and /api/keyboard/status; the Amit menu Keyboard tab lists the sets of the keyboard last used. 1.87: THE MOUSE TAB HAS REAL CONTROLS (Ryan, 2026-11-08, design A in the preview): "Mouse sets" is a visible ON/OFF switch (choosing it flips it and the menu stays open so the change shows) and the Hub row is a visible "Open >" button; before they were plain text. 1.86: THE MOUSE TAB OF THE AMIT MENU (Ryan, 2026-11-08): the Mouse tab recognizes WHICH MOUSE opened the menu (Windows raw input names it with every press; a press older than 2.5 s is not trusted and the tab asks "which mouse?") and lists that mouse's sets with the one in use marked; the wheel scrolls, a click or the middle button chooses and that mouse switches to the set; also Sets ON/OFF and Open Amit Mouse in the Hub; a mouse the Helper does not know shows one clear line. 1.85: THE WHEEL OPENS THE MENU WHILE VOICE IS LISTENING (Ryan, 2026-11-08): turn the wheel with Voice on and the menu opens so a command can be chosen as well as spoken; if the wheel is never turned Voice works as before; with nothing listening the middle click opens the menu (1.74). 1.84: THE MOUSE IS INDEPENDENT OF DICTATION (Ryan, 2026-11-08): the middle button opens the Amit menu, and the menu opens, while dictation (not Voice) is listening, finishing or stopping; dictation keeps listening underneath. Double right-click still waits for nothing to be dictating (right press stops latched dictation, by design). 1.83: 1.77: AN OPEN DICTATE WINDOW MOVES ITS WORDS INTO THE NEXT TEXT BOX (opened by itself because the person left the text box while speaking, or opened from the ring): when the focus has been in a text box of another program for about a second, the window stops listening, everything in its message is typed into that box, the window closes and typing dictation starts there; Place (pick the exact spot) still works and switches the automatic move off for that window. 1.76: DICTATION FOLLOWS THE FOCUS (Ryan 2026-11-08): while words are typed into a text box the helper watches where the keyboard focus is; focus moves to another text box (any program) = typing carries on there; focus clearly NOT in a text box = the words are held, and if they keep coming for a second the typing dictation ends and the Dictate window opens with those words already in it; "cannot tell" never counts as no text box. FIX: after Enter or a change of box the phrase typed so far is never rewritten (the self-correcting typing used to retype half of an earlier phrase into the emptied box). 1.75: BAR ICONS ARE CENTERED - the icon in each bar button is drawn once to a scratch picture, where the visible pixels really are is measured, and THAT is centered (before, the glyph box was centered and the font padding pushed icons off-center). 1.74: MIDDLE CLICK OPENS THE MENU, VOICE STAYS OFF - a single middle click opens the Amit menu at the pointer and nothing listens; the Voice tab lists Voice first (choosing it turns listening on), Dictate second, then everything else; Esc or a click away closes it; the wheel only moves inside an open menu and no longer opens it. 1.73: SHOW AMIT SAVES EVERY CAPTURE AT ONCE - a fresh capture is saved to Pictures\Show Amit the moment it is taken (as well as going on the clipboard), so "look" always finds it without pressing Save. 1.68: VOICE LIVES INSIDE THE MENU - once the wheel has opened the menu, closing the menu in any way (a click away, Esc, choosing something) turns Voice off too; nothing runs and no box shows. A single click with no wheel works as before. 1.67: LEFT BUTTON CAN NEVER BE LOCKED BY THE MENU - a left click is only taken when the pointer is really over the menu's own window; anywhere else the menu closes and the click goes through, whatever state the Helper is in. 1.66: THE MENU HAS THREE TABS - Voice (everything Voice understands, as before), Mouse and Keyboard. The mouse picks the tab by a click; the wheel scrolls inside the tab; speaking still works on every tab. Mouse shows a note until the Mouse screen creates sets; Keyboard is greyed until the keyboard app. 1.65: PREVIEWS CAN BE TRIED WITH THE REAL MOUSE - over an Amit preview window (title starts "Amit " and ends " Preview") the Voice button is left alone, so the middle button reaches the preview page instead of starting Voice. 1.64: VOICE MENU SAFETY - Esc closes the Voice menu (Voice keeps listening); the menu can never keep eating clicks after Voice has ended (it is cleared on the next click, and never appears if Voice ended while it was being built); the release of a click the menu took is only swallowed if it comes straight after (1.5 s), never left waiting. Fixes the left mouse button going dead after using the menu. 1.63: THE VOICE MENU - while Voice is listening (started by the middle click, Aurora, a key or by saying it), turning the wheel opens a menu of everything Voice understands: the built-in commands, your Helper bar buttons and your own commands. The wheel moves, a middle click or a left click chooses, a click elsewhere closes it, and speaking still works at the same time. If the wheel is never turned, Voice works as before. 1.62: VOICE ON RELEASE - the Voice button (middle by default) now acts when it is let go, and only if it was a click (shorter than 500 ms); a longer hold does nothing yet and is reserved for the mouse set picker. Before, Voice started the instant the button went down, so a hold could not be told from a click. 1.61: THE PHONE CAPTION COMES ALONG - a note typed on the phone with the photo is put in the note box when the photo opens (new "note" in the /api/mobile/pull answer). 1.60: PHONE NOTE NOT LOST - Ask Amit on a phone photo first lets the last dictated words in, then sends the note; Amit answers a question note right away. 1.59: HARDWARE SENSORS ON REQUEST - the 72 MB sensor reader is no longer in the installer; the Hardware tab adds it (/api/sensors/install, size and SHA-256 checked); dashboard 5.11. 1.58: ASK AMIT ABOUT A PHONE PHOTO - the editor button starts a new numbered Mobile chat in the Amit Live window with the photo and the note, and Amit greets out loud. 1.57: MOBILE RING SLICE - a phone photo (Amit Mobile > Send to computer) is fetched by the helper, saved in PicturesShow Amit, opened in the Show Amit editor on the clipboard with a note box and dictation on; the note goes back to the photo row. 1.56: DICTATE WINDOW (page amit_dictate.html, served at /dictate): choosing Dictate on the ring (or saying it, or a bar button) while NOT in a text box opens one window in the top right of the screen (in a text box it still types there as before, one plain press of the trigger button stops it), always in front, that hears the person (its own speech recognition, in its own Edge profile dictate_profile), shows the words in a Subject and a Message that can be split into numbered sections, remembers each dictation on this computer (Recent, Settings, Help), and nothing is typed anywhere until the person presses Place and left-clicks a text box (new routes /api/dictate/place and /api/dictate/cancel; the click is checked with the same text-box test as before and the message is typed there, a new line being Shift+Enter so a chat box does not send). The window hears through the original listening page (its words are handed to the window instead of typed); hold-to-talk is unchanged. 1.55: VOICE RUNS ANY BAR BUTTON BY ITS TITLE: no shortcut per button; the title list comes from the bar (bar_buttons.txt) when someone speaks. 1.54: SHOW AMIT QUICK SNAP: a fresh capture from the ring goes straight onto the clipboard and the editor waits minimized in the taskbar without taking focus; opened from the taskbar it is the normal editor; left alone for 60 seconds it closes itself (nothing saved, clipboard untouched). 1.53: DOUBLE-RIGHT-CLICK brings up the Amit Helper bar: two short right taps close together at the same spot (while nothing else is going on with the button) show the bar (an event it listens on) or start AmitBar.exe from this folder; the first tap is replayed as a normal click as always, a menu it opened is closed with Esc, and the second press and its release are swallowed. The ring (hold) and dictation are untouched. 1.52: a preview opened as a plain browser TAB (file double-clicked, a link) also splits the screen: the whole browser window goes on the right, the window the person was in on the left, both put back when they leave that tab; only a tab titled "Amit ... Preview" counts. 1.51: the window that goes on the LEFT of a preview is the WINDOW THE PERSON WAS IN (the Hub in a browser, VS Code, anything), taken from a short history of the windows they used; VS Code is only the fallback; the same window is put back when the preview closes. 1.50: PREVIEW SPLIT: whenever a window whose title ends with " Preview" appears (however it was opened: the opener script, the "preview" voice command, a button in a page), the person's VS Code goes on the LEFT half of its screen and the preview on the RIGHT half, and the focus goes back to VS Code; when the last preview has been closed for 4 seconds VS Code is put back the way it was (unless the person moved it). 1.49: the voice command "preview" opens the Amit Preview window. 1.48: an image layer is a WINDOW onto its image: the corner handles change the window to any shape (the image inside keeps its size and place, only what shows changes); the wheel over the window zooms the image inside, like the main picture (the size % box does the same); Ctrl + drag moves the image inside the window; dragging the body moves the window. Saved in the same .amitshot format. 1.47: a placed image layer has four corner handles (drag one to make it larger or smaller, the opposite corner stays), shows move/resize cursors, drags to move, and the mouse wheel over it resizes it (the wheel anywhere else zooms the whole picture). 1.46: Capture now places the new image layer at once (no click needed) and logs the placing. 1.45: a Capture button (camera) in the Show Amit editor: the editor steps aside, a bar waits while the person shows the screen they want ("Capture now"), they drag an area, click where it goes, and it becomes a new image layer (Capture 1, 2...) that can be switched on/off, resized with the size % box and dragged to move. 1.44: the Show Amit editor has a Clear & Recapture button: it drops the picture (asking first if there are unsaved changes) and lets the person choose a new area of the screen. 1.43: each part of Amit has its own icon: the same dark circle and gold ring, only the gold symbol changes (Whisper = microphone, Read = speaker, Show Amit = camera; Ask Amit keeps the aleph). The dictation "Amit is listening" box, the Whisper window, the Read window and the Show Amit editor each show their own, in the taskbar and the title bar. The Read windows are now named "Amit Read". The dictation box says "Amit is listening" until words come through, then "Amit is dictating", and the words always show beside the icon. The icons are bigger and bolder, with real 48/32/24/16 px images (256 first) so the taskbar is not blurry. Icons live in Templates; a missing icon falls back to the Amit one. 1.42: while Read is paused for dictation, the gold highlight over the screen is hidden (it cluttered the screen the person is dictating into) and comes back, in the same place, when the reading resumes. 1.41: FIX (dictation after Read paused it): (1) the speaking/voice windows of Read are now recognised as the helper's own windows, so dictation never "types" into the hidden Edge page and gives the focus back to the window the person was using (first failure: words heard, typed nowhere); (2) the "Read is speaking" mute can no longer be left on by a late message: it is set only when Read STARTS speaking while dictation is already listening, and cleared when Read pauses, ends or stops or the listening ends (second failure: a late heartbeat after "paused" made dictation throw the words away). 1.40: (1) a live voice change carries on from the word being spoken instead of starting the sentence over (amit_talk.html v1.04); (2) when dictation or Voice starts while Read is speaking, Read pauses by itself (the speaker shows the pause bars) and carries on where it was when the listening ends; a press of the speaker by the person cancels the automatic resume. 1.39: FIX: dictation could stay blocked after Read (the "Read is speaking" signal depended on a "finished" message that can get lost after live voice changes). Now the speaking page sends a heartbeat every 1.5 s while sound really plays, dictation is only quieted for 4 seconds after the last one, and a watchdog returns the speaker to waiting if the sound stops without a "finished"; the page also waits a moment between cancelling a sentence and saying it again with new settings (Edge sometimes dropped it). 1.38: while Read is speaking, dictation and Voice ignore what the microphone hears (it is Amit's own voice, which used to be typed into the person's text box) and dictation's "Amit is listening" box is taken off the screen; they work normally again when Read is not speaking, including while it is paused. 1.37: the voice window is INTERACTIVE (moving a slider or choosing another voice while Amit is reading changes the sound within about a third of a second; the current sentence is said again with the new settings; amit_talk.html v1.02); the hidden Edge speaking window is slimmed (extra switches) and now closes 30 seconds after the last reading instead of 3 minutes, never while the voice window is open. 1.36: a DOUBLE CLICK on the reading speaker opens a small voice window beside it (voice, speed, pause between sentences, pitch, volume, Test, Save); Save keeps the new voice on this computer at once and hands it to the person's login (their saved voice, their default) the next time an Amit page loads, without the old copy from the database overwriting it (new bridge routes /api/talk/voice-save and /api/talk/voice-ack). A single click is acted on after a very short wait (the double-click time, at most 400 ms) so a double click is no longer two presses. The note "Your saved voice is not on this computer" no longer pops up on the screen (it is only logged). 1.35: the ring choice is now called READ (it reads aloud what the person points at) and works ONE SHOT: press the speaker, and the very next click or selection is what is read, then it goes back to waiting so the person can use the computer freely; to read somewhere else, press it again. A click reads from the clicked word to the end of its paragraph; a highlight reads exactly the highlight (one word if one word, the whole page after Select All). Pressing while reading pauses it and the next click or selection is read instead (pressing again with none resumes). A soft gold highlight shows the words being read (where Windows accessibility gives their place). When the words cannot be read, Amit says so out loud in the person's voice ("Sorry, I'm not able to read this") and on screen, never silently; a plain click on a button or menu only shows a note. 1.33: TALK, a fourth choice in the Amit Live ring: a small see-through speaker stays on top of everything; the person selects words (or clicks where to start) in any program and presses it, and Amit reads aloud from there in the person's own saved Amit voice (copied here from their login; with none, Talk asks them to open Amit and sign in). Press again to pause or resume; Esc or a right click on the speaker removes it. The speaking is done by a hidden Edge window (page /talk, new bridge routes /api/talk/*) because the natural voices exist only in Edge. 1.32: a SHOW AMIT button in the Show Amit editor: saves the shot, hands it to the Amit Live window, which posts it into the person's own Ask Amit chat for today (under their own sign-in; the helper holds no login) and asks Amit to look at it (new bridge routes /api/showamit/pending and /api/showamit/pending.png, offered for 5 minutes, only to the Amit site). 1.31: the Amit Live window closes itself after 60 seconds without the focus (never while music plays; the no-internet page too). ONE Amit Live window only: choosing Ask Amit when its window is already open brings that window to the front instead of opening another (and a second press while the first is still opening starts nothing). 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
 
     // v1.03 (2026-10-29, Ryan): LATCH MODE. Hold the button to start; let go and dictation keeps going, so long dictations do not need the
     // button held. Hold the button again (same hold time) to stop; a quick tap during dictation is still a normal click. Dictation also
@@ -6462,6 +6462,216 @@ public static class AmitWhisper
 
     // Sends the mouse wheel to the picture whenever the pointer is over it, whichever box has the keyboard (so the wheel works
     // even while the cursor is in the Title box).
+    // ---- the new Show Amit look (2026-11-16): soft rounded buttons, the "On this picture" cards, the strip of the other open shots ----
+    class PillButton : Button
+    {
+        public int Radius = 15;
+        bool hot, down;
+        public PillButton()
+        {
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+        }
+        protected override void OnMouseEnter(EventArgs e) { hot = true; Invalidate(); base.OnMouseEnter(e); }
+        protected override void OnMouseLeave(EventArgs e) { hot = false; down = false; Invalidate(); base.OnMouseLeave(e); }
+        protected override void OnMouseDown(MouseEventArgs e) { down = true; Invalidate(); base.OnMouseDown(e); }
+        protected override void OnMouseUp(MouseEventArgs e) { down = false; Invalidate(); base.OnMouseUp(e); }
+        public static GraphicsPath RoundRect(RectangleF r, float rad)
+        {
+            float d = Math.Max(1f, rad * 2f);
+            d = Math.Min(d, Math.Min(r.Width, r.Height));
+            GraphicsPath gp = new GraphicsPath();
+            gp.AddArc(r.X, r.Y, d, d, 180, 90);
+            gp.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+            gp.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
+            gp.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+            gp.CloseFigure();
+            return gp;
+        }
+        static Color Shift(Color c, int d)
+        {
+            return Color.FromArgb(c.A, Math.Max(0, Math.Min(255, c.R + d)), Math.Max(0, Math.Min(255, c.G + d)), Math.Max(0, Math.Min(255, c.B + d)));
+        }
+        protected override void OnPaint(PaintEventArgs pe)
+        {
+            Graphics g = pe.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.Clear(Parent != null ? Parent.BackColor : Color.Black);
+            RectangleF r = new RectangleF(0.5f, 0.5f, Width - 2f, Height - 2f);
+            Color fill = BackColor;
+            if (!Enabled) fill = Shift(fill, -10); else if (down) fill = Shift(fill, -14); else if (hot) fill = Shift(fill, 20);
+            bool gold = BackColor.R > 190 && BackColor.G > 150 && BackColor.B < 110;
+            using (GraphicsPath gp = RoundRect(r, Math.Min(Radius, Height / 2f)))
+            {
+                using (SolidBrush b = new SolidBrush(fill)) g.FillPath(b, gp);
+                Color edge = FlatAppearance.BorderColor.IsEmpty ? Color.FromArgb(150, 154, 168) : FlatAppearance.BorderColor;
+                Color bc = gold ? fill : Color.FromArgb(hot ? 200 : 70, edge);
+                using (Pen p = new Pen(bc, 1f)) g.DrawPath(p, gp);
+            }
+            Rectangle tr = new Rectangle(0, 0, Width, Height);
+            if (Image != null)
+            {
+                int ix = Padding.Left > 0 ? Padding.Left + 4 : 10;
+                g.DrawImage(Image, ix, (Height - Image.Height) / 2);
+                tr = new Rectangle(ix + Image.Width, 0, Width - ix - Image.Width - 6, Height);
+            }
+            Color fc = Enabled ? ForeColor : Color.FromArgb(120, 124, 134);
+            TextRenderer.DrawText(g, Text, Font, tr, fc, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+        }
+    }
+
+    // the list "On this picture": one soft card per layer, front first, the original picture last
+    class LayerCards : Control
+    {
+        public List<ShotLayer> Layers = new List<ShotLayer>();
+        public ShotLayer Active;
+        public event Action<ShotLayer> Picked;
+        public event Action<ShotLayer> EyeClicked;
+        int scroll;
+        const int CardH = 46, Gap = 6;
+        Font fName = new Font("Segoe UI", 10f), fSmall = new Font("Segoe UI", 8f), fGlyph = new Font("Segoe UI Symbol", 11f);
+        public LayerCards()
+        {
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+            BackColor = Color.FromArgb(23, 26, 34);
+        }
+        int TotalHeight() { return (Layers.Count + 1) * (CardH + Gap); }
+        void ClampScroll()
+        {
+            int max = Math.Max(0, TotalHeight() - Height);
+            if (scroll > max) scroll = max;
+            if (scroll < 0) scroll = 0;
+        }
+        public void Rebuild() { ClampScroll(); Invalidate(); }
+        Rectangle CardRect(int i) { return new Rectangle(0, i * (CardH + Gap) - scroll, Width - 2, CardH); }
+        protected override void OnMouseWheel(MouseEventArgs e)
+        {
+            scroll -= Math.Sign(e.Delta) * 40; ClampScroll(); Invalidate();
+            base.OnMouseWheel(e);
+        }
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e);
+            for (int i = 0; i < Layers.Count; i++)
+            {
+                Rectangle r = CardRect(i);
+                if (!r.Contains(e.Location)) continue;
+                ShotLayer L = Layers[Layers.Count - 1 - i];
+                if (e.X >= r.Right - 40) { if (EyeClicked != null) EyeClicked(L); }
+                else { if (Picked != null) Picked(L); }
+                return;
+            }
+        }
+        static void DrawEye(Graphics g, Rectangle r, bool vis)
+        {
+            Color c = vis ? Color.FromArgb(230, 232, 240) : Color.FromArgb(110, 114, 126);
+            float cx = r.X + r.Width / 2f, cy = r.Y + r.Height / 2f;
+            using (Pen p = new Pen(c, 1.6f))
+            {
+                g.DrawEllipse(p, cx - 10f, cy - 6f, 20f, 12f);
+                if (!vis) g.DrawLine(p, cx - 9f, cy + 8f, cx + 9f, cy - 8f);
+            }
+            if (vis) using (SolidBrush b = new SolidBrush(c)) g.FillEllipse(b, cx - 3f, cy - 3f, 6f, 6f);
+        }
+        protected override void OnPaint(PaintEventArgs pe)
+        {
+            Graphics g = pe.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.Clear(BackColor);
+            for (int i = 0; i <= Layers.Count; i++)
+            {
+                Rectangle r = CardRect(i);
+                if (r.Bottom < 0 || r.Top > Height) continue;
+                bool orig = i == Layers.Count;
+                ShotLayer L = orig ? null : Layers[Layers.Count - 1 - i];
+                bool sel = L != null && L == Active;
+                bool vis = L == null || L.Visible;
+                using (GraphicsPath gp = PillButton.RoundRect(new RectangleF(r.X + 0.5f, r.Y + 0.5f, r.Width - 1f, r.Height - 1f), 13f))
+                {
+                    using (SolidBrush b = new SolidBrush(sel ? Color.FromArgb(48, 43, 26) : Color.FromArgb(32, 36, 45))) g.FillPath(b, gp);
+                    using (Pen p = new Pen(sel ? Color.FromArgb(212, 175, 55) : Color.FromArgb(56, 60, 72), sel ? 1.6f : 1f)) g.DrawPath(p, gp);
+                }
+                Rectangle tile = new Rectangle(r.X + 8, r.Y + 8, 30, 30);
+                using (GraphicsPath tg = PillButton.RoundRect(tile, 10f))
+                using (SolidBrush tb = new SolidBrush(Color.FromArgb(60, 65, 80))) g.FillPath(tb, tg);
+                string glyph = orig ? "\u25A3" : (L.Type == "text" ? "T" : L.Type == "draw" ? "\u270E" : "\u25A3");
+                Color tc = vis ? Color.White : Color.FromArgb(120, 124, 134);
+                TextRenderer.DrawText(g, glyph, fGlyph, tile, tc, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+                string name = orig ? "Original picture" : L.Name;
+                string kind = orig ? "never changed" : ((L.Type == "text" ? "words" : L.Type == "draw" ? "drawing" : "picture") + (vis ? "" : "  (hidden)"));
+                TextRenderer.DrawText(g, name, fName, new Rectangle(r.X + 46, r.Y + 5, r.Width - 46 - 44, 20), vis ? Color.White : Color.FromArgb(130, 134, 144), TextFormatFlags.Left | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+                TextRenderer.DrawText(g, kind, fSmall, new Rectangle(r.X + 46, r.Y + 25, r.Width - 46 - 44, 16), Color.FromArgb(150, 154, 168), TextFormatFlags.Left | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+                if (!orig) DrawEye(g, new Rectangle(r.Right - 38, r.Y + 11, 28, 24), vis);
+            }
+        }
+    }
+
+    // the other Show Amit windows open right now, as soft tabs: a click brings that window to the front
+    class ShotTabs : Control
+    {
+        List<string> names = new List<string>();
+        List<object> tags = new List<object>();
+        List<Rectangle> rects = new List<Rectangle>();
+        public event Action<object> Clicked;
+        Font f = new Font("Segoe UI", 9.5f);
+        public ShotTabs()
+        {
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+            BackColor = Color.FromArgb(18, 20, 26);
+        }
+        public void SetItems(List<string> n, List<object> t) { names = n; tags = t; Invalidate(); }
+        protected override void OnPaint(PaintEventArgs pe)
+        {
+            Graphics g = pe.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.Clear(BackColor);
+            rects.Clear();
+            int x = 0;
+            for (int i = 0; i < names.Count; i++)
+            {
+                Size sz = TextRenderer.MeasureText(names[i], f);
+                int w = Math.Min(190, sz.Width + 28);
+                Rectangle r = new Rectangle(x, 4, w, Height - 8);
+                if (r.Right > Width) break;
+                rects.Add(r);
+                using (GraphicsPath gp = PillButton.RoundRect(new RectangleF(r.X + 0.5f, r.Y + 0.5f, r.Width - 1f, r.Height - 1f), 14f))
+                {
+                    using (SolidBrush b = new SolidBrush(Color.FromArgb(34, 38, 48))) g.FillPath(b, gp);
+                    using (Pen p = new Pen(Color.FromArgb(64, 68, 82))) g.DrawPath(p, gp);
+                }
+                TextRenderer.DrawText(g, names[i], f, r, Color.FromArgb(214, 216, 224), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+                x += w + 6;
+            }
+        }
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+            bool over = false;
+            foreach (Rectangle r in rects) if (r.Contains(e.Location)) { over = true; break; }
+            Cursor = over ? Cursors.Hand : Cursors.Default;
+        }
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            base.OnMouseUp(e);
+            for (int i = 0; i < rects.Count && i < tags.Count; i++)
+                if (rects[i].Contains(e.Location)) { if (Clicked != null) Clicked(tags[i]); return; }
+        }
+    }
+
+    class DarkMenuColors : ProfessionalColorTable
+    {
+        public override Color ToolStripDropDownBackground { get { return Color.FromArgb(30, 33, 42); } }
+        public override Color MenuItemSelected { get { return Color.FromArgb(74, 66, 32); } }
+        public override Color MenuItemSelectedGradientBegin { get { return Color.FromArgb(74, 66, 32); } }
+        public override Color MenuItemSelectedGradientEnd { get { return Color.FromArgb(74, 66, 32); } }
+        public override Color MenuItemBorder { get { return Color.FromArgb(212, 175, 55); } }
+        public override Color MenuBorder { get { return Color.FromArgb(70, 74, 86); } }
+        public override Color ImageMarginGradientBegin { get { return Color.FromArgb(30, 33, 42); } }
+        public override Color ImageMarginGradientMiddle { get { return Color.FromArgb(30, 33, 42); } }
+        public override Color ImageMarginGradientEnd { get { return Color.FromArgb(30, 33, 42); } }
+        public override Color SeparatorDark { get { return Color.FromArgb(70, 74, 86); } }
+        public override Color SeparatorLight { get { return Color.FromArgb(30, 33, 42); } }
+    }
+
     class WheelFilter : IMessageFilter
     {
         readonly ZoomCanvas canvas;
@@ -6532,11 +6742,10 @@ public static class AmitWhisper
         string creator = WhoAmI();             // who made this shot, and when
         DateTime createdAt = DateTime.Now;
         Panel lpanel;
-        ListView llist;
         Label layerInfo;
-        Button bCapture, bRecap, bLayers, bOpenShot, bAmit, bAddText, bAddDraw, bAddImage, bDelLayer, bUp, bDown, bUndo, bColor;
+        Button bCapture, bRecap, bLayers, bOpenShot, bAmit, bUndo, bColor;
         Dictionary<string, Button> toolBtns = new Dictionary<string, Button>();
-        bool lopen, suppressLayerUi;
+        bool lopen;
         int lwidened;
         Panel side;
         ListView list;
@@ -6599,13 +6808,15 @@ public static class AmitWhisper
             BuildSidePanel();
             BuildLayerPanel();
             BuildFormatBar();
-            Controls.Add(canvas); Controls.Add(side); Controls.Add(lpanel); Controls.Add(status); Controls.Add(top);   // the one that fills is added first
+            BuildShellPanels();
+            Controls.Add(canvas); Controls.Add(side); Controls.Add(lpanel); Controls.Add(askpanel); Controls.Add(status); Controls.Add(addbar); Controls.Add(top);   // the one that fills is added first
             canvas.Controls.Add(fbar);     // the format bar floats over the top (or bottom) of the picture only while a mark is selected, so nothing shifts
 
             Rectangle wa = Screen.FromPoint(Cursor.Position).WorkingArea;
-            int w = Math.Max(1660, Math.Min(img.Width + 4, wa.Width * 85 / 100));
-            int h = Math.Max(320, Math.Min(img.Height + 4 + 48 + 28, wa.Height * 85 / 100));
+            int w = Math.Max(1180, Math.Min(img.Width + 4 + 300, wa.Width * 90 / 100)); if (w > wa.Width - 20) w = wa.Width - 20;
+            int h = Math.Max(700, Math.Min(img.Height + 4 + 48 + 50 + 56 + 28, wa.Height * 90 / 100)); if (h > wa.Height - 20) h = wa.Height - 20;
             ClientSize = new Size(w, h);
+            MinimumSize = new Size(Math.Min(1160, w), 560);
 
             // zoom controls at the right end of the bar: the same zoom the wheel does, for anyone without a wheel or who prefers buttons
             bZoomOut = MakeButton("-", w - 262, 34, false);
@@ -6622,6 +6833,7 @@ public static class AmitWhisper
             bZoomOut.Click += delegate { canvas.ZoomAt(new Point(canvas.Width / 2, canvas.Height / 2), -120); };
             bZoomIn.Click += delegate { canvas.ZoomAt(new Point(canvas.Width / 2, canvas.Height / 2), 120); };
             bZoom100.Click += delegate { canvas.ResetView(); };
+            BuildShell(w);
 
             bText.Click += delegate { SetTool(curTool == "text" ? "move" : "text"); };
             bLayers.Click += delegate { ToggleLayers(); };
@@ -6645,7 +6857,7 @@ public static class AmitWhisper
             {
                 if (e.Control && e.KeyCode == Keys.S) { e.SuppressKeyPress = true; DoSave(); }
                 else if (e.Control && (e.KeyCode == Keys.D0 || e.KeyCode == Keys.NumPad0)) { e.SuppressKeyPress = true; canvas.ResetView(); }
-                else if (e.KeyCode == Keys.Delete && selItem != null && !(ActiveControl is TextBox) && ActiveControl != llist) { e.SuppressKeyPress = true; DeleteSelected(); }
+                else if (e.KeyCode == Keys.Delete && selItem != null && !(ActiveControl is TextBox)) { e.SuppressKeyPress = true; DeleteSelected(); }
                 else if (e.KeyCode == Keys.Escape && selItem != null && !(ActiveControl is TextBox)) { e.SuppressKeyPress = true; ClearSelection(); }
                 else if (e.Control && e.KeyCode == Keys.Z && !(ActiveControl is TextBox)) { e.SuppressKeyPress = true; UndoLast(); }
                 else if (e.Control && e.KeyCode == Keys.V && !(ActiveControl is TextBox)) { e.SuppressKeyPress = true; PasteImageLayer(); }
@@ -6668,7 +6880,7 @@ public static class AmitWhisper
             title.Text = Path.GetFileNameWithoutExtension(pngPath);
             lastPath = pngPath; lastBase = BaseName(); dirty = false;
             RefreshLayerList(); UpdateThumb(); RaiseEditorsChanged();
-            status.Text = "Opened with " + layers.Count + " layer(s). Shot made by " + creator + " on " + createdAt.ToString("g") + ". Press Layers to see them.";
+            status.Text = "Opened with " + layers.Count + " layer(s). Shot made by " + creator + " on " + createdAt.ToString("g") + ".";
         }
 
         protected override void Dispose(bool disposing)
@@ -6709,7 +6921,7 @@ public static class AmitWhisper
         // another window opened or closed: the list of open windows in this one's panel is rebuilt
         void OnEditorsChanged()
         {
-            try { if (IsHandleCreated && !IsDisposed) BeginInvoke(new Action(RefreshList)); } catch { }
+            try { if (IsHandleCreated && !IsDisposed) BeginInvoke(new Action(delegate { RefreshList(); RefreshTabs(); })); } catch { }
         }
 
         // brings this window to the front (called from another window's thread)
@@ -6779,6 +6991,7 @@ public static class AmitWhisper
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
+            RefreshTabs();
             if (QuickMode) { StartQuick(); return; }
             // it must come up IN FRONT of the program the person was in (measured: it opened behind VS Code). Being topmost for a
             // moment puts it above every other window; then it is let down to a normal window that stays in front because it is active.
@@ -6838,6 +7051,8 @@ public static class AmitWhisper
             notePanel.Controls.Add(nl); notePanel.Controls.Add(noteStatus); notePanel.Controls.Add(noteBox); notePanel.Controls.Add(bn);
             Controls.Add(notePanel);
             bAmit.Text = "Ask Amit";      // for a phone photo this button starts a new Mobile chat with Amit about it
+            if (askBox != null) askBox.Visible = false;
+            if (askIcon != null) { askIcon.AutoSize = true; askIcon.Font = new Font("Segoe UI", 10f); askIcon.Text = "Your note about this photo is in the box below. Press Ask Amit when it is ready."; askIcon.Location = new Point(14, 18); }
             ClientSize = new Size(ClientSize.Width, ClientSize.Height + notePanel.Height);
             status.Text = "A photo from your phone, saved in the Show Amit folder. Mouse wheel zooms. Anything you draw or write on it is saved as a new picture; the original stays.";
         }
@@ -7090,9 +7305,9 @@ public static class AmitWhisper
 
         Button MakeButton(string text, int x, int w, bool main)
         {
-            Button b = new Button();
+            Button b = new PillButton();
             b.Text = text; b.Location = new Point(x, 9); b.Size = new Size(w, 30);
-            b.FlatStyle = FlatStyle.Flat; b.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold); b.Cursor = Cursors.Hand;
+            b.FlatStyle = FlatStyle.Flat; b.Font = new Font("Segoe UI Semibold", 9.5f); b.Cursor = Cursors.Hand;
             b.FlatAppearance.BorderColor = Gold;
             b.BackColor = main ? Gold : Color.FromArgb(40, 43, 52);
             b.ForeColor = main ? Dark : Color.White;
@@ -7254,6 +7469,8 @@ public static class AmitWhisper
             ShotLayer L = selLayer;
             delItem = selItem; delLayer = L; delIndex = L.Items.IndexOf(selItem);
             L.Items.Remove(selItem);
+            delLayerGone = false;
+            if (L.Items.Count == 0) { delLayerIdx = layers.IndexOf(L); layers.Remove(L); delLayerGone = true; if (active == L) active = layers.Count > 0 ? layers[layers.Count - 1] : null; }
             selItem = null; selLayer = null;
             Touch(L);
             canvas.Invalidate(); ShowLayerInfo();
@@ -7358,7 +7575,7 @@ public static class AmitWhisper
         // words typed on the picture go on the active TEXT layer (a new text layer is made if there is none), not into the picture itself
         public void DrawText(string t, float x, float y)
         {
-            EnsureActive("text");
+            NewMarkLayer("text", "text");
             LayerItem it = new LayerItem();
             it.Kind = "text"; it.Text = t; it.A = new PointF(x, y); it.Col = penColor; it.Size = defSize; it.FontName = defFont; it.Bold = defBold; it.Italic = defItalic; it.Underline = defUnderline;
             AddItem(it);
@@ -7454,7 +7671,11 @@ public static class AmitWhisper
                     else status.Text = "Could not send to Amit: " + r2;
                     return;
                 }
-                string res = SendShotToAmit(lastViewPath, title.Text, tx.ToString());
+                string asked = AskQuestion();
+                string words = tx.ToString();
+                if (asked.Length > 0) words = "Question: " + asked + (words.Length > 0 ? " | " + words : "");
+                string res = SendShotToAmit(lastViewPath, title.Text, words);
+                if (asked.Length > 0 && res.IndexOf("\"ok\":true") >= 0) { if (askBox.Focused) { askBox.Text = ""; askHintShown = false; } else ShowAskHint(); }
                 status.Text = res.IndexOf("\"ok\":true") >= 0 ? "Sent to Amit. The Amit Helper window is opening on your Ask Amit chat for today. It goes to Amit's team in your own chat." : "Could not send to Amit: " + res;
             }
             catch (Exception ex) { status.Text = "Could not send to Amit: " + ex.Message; Log("Show Amit send: " + ex.Message); }
@@ -7661,14 +7882,15 @@ public static class AmitWhisper
             UpdateThumb(); RaiseEditorsChanged();   // the other windows' lists show the picture as it is now
         }
 
-        float PenWidth() { return Math.Max(3f, Math.Max(img.Width, img.Height) / 350f); }
+        float PenWidth() { return Math.Max(3f, Math.Max(img.Width, img.Height) / 350f) * widthMul; }
 
         void UndoLast()
         {
             // a mark that was just deleted comes back first
-            if (delItem != null && delLayer != null && layers.Contains(delLayer))
+            if (delItem != null && delLayer != null && (layers.Contains(delLayer) || delLayerGone))
             {
                 ShotLayer L0 = delLayer;
+                if (!layers.Contains(L0)) { layers.Insert(Math.Max(0, Math.Min(delLayerIdx, layers.Count)), L0); active = L0; delLayerGone = false; }
                 L0.Items.Insert(Math.Max(0, Math.Min(delIndex, L0.Items.Count)), delItem);
                 delItem = null; delLayer = null;
                 Touch(L0);
@@ -7684,6 +7906,7 @@ public static class AmitWhisper
             if (selItem == last) { selItem = null; selLayer = null; }
             L.Items.RemoveAt(L.Items.Count - 1);
             if (last.Img != null) last.Img.Dispose();
+            if (L.Items.Count == 0) { layers.Remove(L); if (active == L) active = layers.Count > 0 ? layers[layers.Count - 1] : null; }
             Touch(L);
             canvas.Invalidate(); ShowLayerInfo();
             UpdateThumb(); RaiseEditorsChanged();
@@ -7720,34 +7943,20 @@ public static class AmitWhisper
         void ShowLayerInfo()
         {
             if (layerInfo == null) return;
-            if (active == null) { layerInfo.Text = "No layer yet. Press + Text, + Drawing or + Image, or pick a tool."; return; }
-            layerInfo.Text = "\"" + active.Name + "\": " + active.Items.Count + " mark(s). Made by " + active.Author + " on " + active.Created.ToString("g")
-                + ". Last changed by " + active.LastBy + " on " + active.LastAt.ToString("g") + ".";
+            if (cards != null) { cards.Active = active; cards.Rebuild(); }
+            if (inspector != null)
+            {
+                bool has = active != null;
+                if (inspector.Visible != has) { inspector.Visible = has; LayoutRight(); }
+                if (has && !renameBox.Focused && renameBox.Text != active.Name) renameBox.Text = active.Name;
+            }
+            if (active == null) { layerInfo.Text = ""; return; }
+            layerInfo.Text = active.Items.Count + " mark(s). Made by " + active.Author + " on " + active.Created.ToString("g") + ".";
         }
 
-        // the list shows the top layer first; each row has a tick (shown / hidden)
+        // the list on the right is drawn from the layers themselves
         void RefreshLayerList()
         {
-            if (llist == null) return;
-            suppressLayerUi = true;
-            try
-            {
-                llist.BeginUpdate();
-                llist.Items.Clear();
-                for (int i = layers.Count - 1; i >= 0; i--)
-                {
-                    ShotLayer L = layers[i];
-                    ListViewItem it = new ListViewItem(L.Name);
-                    it.SubItems.Add(L.Type == "text" ? "Text" : L.Type == "draw" ? "Drawing" : "Image");
-                    it.SubItems.Add(L.Author);
-                    it.Checked = L.Visible;
-                    it.Tag = L;
-                    llist.Items.Add(it);
-                    if (L == active) it.Selected = true;
-                }
-                llist.EndUpdate();
-            }
-            finally { suppressLayerUi = false; }
             ShowLayerInfo();
         }
 
@@ -7758,86 +7967,284 @@ public static class AmitWhisper
             return b;
         }
 
-        void BuildLayerPanel()
+        // ================= the 2026-11-16 look: header with the other open shots, the "add to your picture" row, the "On this picture" list,
+        // "Send to an app", and the Ask Amit bar. The drawing engine, the save and open code and the send-to-Amit path are not touched. =================
+        Panel addbar, askpanel, inspector, appsPanel;
+        LayerCards cards;
+        ShotTabs tabs;
+        TextBox renameBox, askBox;
+        Label askIcon;
+        Button bFile, bFwd, bBack, bRemove, bFine, bMedium, bBold;
+        ContextMenuStrip fileMenu;
+        float widthMul = 1f;
+        bool askHintShown;
+        const string AskHint = "Ask Amit about this picture...";
+        static readonly Font BrandFont = new Font("Segoe UI", 11f, FontStyle.Bold);
+        static readonly Font BrandSmall = new Font("Segoe UI", 8f);
+        static readonly Font BrandA = new Font("Segoe UI", 15f, FontStyle.Bold);
+        int delLayerIdx = -1;
+        bool delLayerGone;
+
+        // the two bars are made before the window's controls are put together (so the docking order is right) and filled in later by BuildShell
+        void BuildShellPanels()
         {
-            lpanel = new Panel(); lpanel.Dock = DockStyle.Left; lpanel.Width = 300; lpanel.BackColor = Dark; lpanel.Visible = false;
-            Label lh = new Label(); lh.Text = "Layers"; lh.Location = new Point(10, 6); lh.AutoSize = true; lh.ForeColor = Gold; lh.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
-            llist = new ListView(); llist.Location = new Point(8, 32); llist.Size = new Size(284, 200); llist.View = View.Details;
-            llist.CheckBoxes = true; llist.FullRowSelect = true; llist.HideSelection = false; llist.MultiSelect = false; llist.LabelEdit = true;
-            llist.HeaderStyle = ColumnHeaderStyle.Nonclickable;
-            llist.BackColor = Color.FromArgb(24, 26, 32); llist.ForeColor = Color.White; llist.BorderStyle = BorderStyle.None; llist.Font = new Font("Segoe UI", 9f);
-            llist.Columns.Add("Layer (tick = shown)", 146); llist.Columns.Add("Kind", 58); llist.Columns.Add("By", 66);
-            layerInfo = new Label(); layerInfo.Location = new Point(8, 236); layerInfo.Size = new Size(284, 58); layerInfo.ForeColor = Color.FromArgb(190, 190, 200); layerInfo.Font = new Font("Segoe UI", 8.5f);
+            addbar = new Panel(); addbar.Dock = DockStyle.Top; addbar.Height = 50; addbar.BackColor = Color.FromArgb(23, 26, 34);
+            addbar.Paint += delegate (object s, PaintEventArgs pe) { using (Pen p = new Pen(Color.FromArgb(44, 48, 60))) pe.Graphics.DrawLine(p, 0, addbar.Height - 1, addbar.Width, addbar.Height - 1); };
+            askpanel = new Panel(); askpanel.Dock = DockStyle.Bottom; askpanel.Height = 56; askpanel.BackColor = Dark;
+            askpanel.Paint += delegate (object s, PaintEventArgs pe) { using (Pen p = new Pen(Color.FromArgb(44, 48, 60))) pe.Graphics.DrawLine(p, 0, 0, askpanel.Width, 0); };
+        }
 
-            bAddText = SmallButton("+ Text", 8, 298, 90); bAddDraw = SmallButton("+ Drawing", 102, 298, 96); bAddImage = SmallButton("+ Image", 202, 298, 90);
-            bDelLayer = SmallButton("Delete", 8, 332, 90); bUp = SmallButton("Up", 102, 332, 46); bDown = SmallButton("Down", 152, 332, 60); bUndo = SmallButton("Undo", 216, 332, 76);
+        void AddMenu(ContextMenuStrip m, string text, Action a)
+        {
+            ToolStripMenuItem mi = new ToolStripMenuItem(text);
+            mi.ForeColor = Color.White;
+            mi.Click += delegate { a(); };
+            m.Items.Add(mi);
+        }
 
-            Label tl = new Label(); tl.Text = "Tools"; tl.Location = new Point(10, 372); tl.AutoSize = true; tl.ForeColor = Gold; tl.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
-            string[] ids = new string[] { "move", "pen", "marker", "line", "arrow", "box", "oval", "text" };
-            string[] labels = new string[] { "Move", "Pen", "Marker", "Line", "Arrow", "Box", "Oval", "Text" };
+        void SetPenColor(Color c)
+        {
+            if (selItem != null) ApplyColor(c); else penColor = c;
+            if (bColor != null) { bColor.BackColor = penColor; bColor.ForeColor = (penColor.GetBrightness() > 0.6f) ? Dark : Color.White; }
+        }
+
+        void SetWidthMul(float m)
+        {
+            widthMul = m;
+            Color on = Color.FromArgb(92, 80, 40), off = Color.FromArgb(40, 43, 52);
+            bFine.BackColor = m < 0.9f ? on : off; bMedium.BackColor = (m >= 0.9f && m < 1.4f) ? on : off; bBold.BackColor = m >= 1.4f ? on : off;
+        }
+
+        string AskQuestion()
+        {
+            if (askBox == null || !askBox.Visible || askHintShown) return "";
+            return askBox.Text.Trim();
+        }
+
+        void ShowAskHint()
+        {
+            askHintShown = true; askBox.Text = AskHint; askBox.ForeColor = Color.FromArgb(130, 134, 148);
+        }
+
+        void BuildShell(int w)
+        {
+            Color panelBg = Color.FromArgb(23, 26, 34);
+            ToolTip tp = new ToolTip();
+
+            // the old square buttons stay (their work is still done by the same code) but are not shown: the File menu, the tool row and the cards use them
+            Button[] old = new Button[] { bText, bSave, bSaveView, bSaveAs, bFolder, bPics, bLayers, bOpenShot };
+            foreach (Button ob in old) ob.Visible = false;
+            foreach (Control c in top.Controls) { Label cl = c as Label; if (cl != null && cl.Text == "Title") cl.Visible = false; }
+
+            // ---- header: name of the program, this shot's name, the other open shots, Retake, File ----
+            Panel brand = new Panel(); brand.SetBounds(10, 4, 190, 40); brand.BackColor = Dark;
+            brand.Paint += delegate (object s, PaintEventArgs pe)
+            {
+                Graphics g = pe.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias;
+                using (GraphicsPath gp = PillButton.RoundRect(new RectangleF(0, 3, 34, 34), 11f))
+                using (SolidBrush b = new SolidBrush(Gold)) g.FillPath(b, gp);
+                TextRenderer.DrawText(g, "A", BrandA, new Rectangle(0, 3, 34, 34), Color.FromArgb(26, 20, 5), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+                TextRenderer.DrawText(g, "Show Amit", BrandFont, new Rectangle(42, 2, 148, 20), Color.White, TextFormatFlags.Left | TextFormatFlags.NoPadding);
+                TextRenderer.DrawText(g, "Capture \u2192 Explain \u2192 Send", BrandSmall, new Rectangle(42, 22, 148, 16), Color.FromArgb(160, 164, 178), TextFormatFlags.Left | TextFormatFlags.NoPadding);
+            };
+            top.Controls.Add(brand);
+            title.Location = new Point(212, 12); title.Width = 230; title.Font = new Font("Segoe UI", 10f);
+            title.BackColor = Color.FromArgb(34, 37, 46); title.ForeColor = Color.White; title.BorderStyle = BorderStyle.FixedSingle;
+            tp.SetToolTip(title, "The name of this shot. It is also the file name when you save.");
+            tabs = new ShotTabs(); tabs.SetBounds(456, 6, Math.Max(60, w - 456 - 236), 36); tabs.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            tabs.Clicked += delegate (object o) { ShowAmitForm f = o as ShowAmitForm; if (f != null) f.BringFront(); };
+            tp.SetToolTip(tabs, "The other Show Amit windows that are open right now. Click one to go to it.");
+            top.Controls.Add(tabs);
+            bRecap.Text = "Retake"; bRecap.SetBounds(w - 228, 9, 100, 30); bRecap.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            bFile = MakeButton("File  \u25BE", w - 120, 108, false); bFile.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            top.Controls.Add(bFile);
+
+            fileMenu = new ContextMenuStrip();
+            fileMenu.Renderer = new ToolStripProfessionalRenderer(new DarkMenuColors());
+            fileMenu.BackColor = Color.FromArgb(30, 33, 42); fileMenu.ForeColor = Color.White; fileMenu.Font = new Font("Segoe UI", 10f); fileMenu.ShowImageMargin = false;
+            AddMenu(fileMenu, "Save and copy to the clipboard", delegate { DoSave(); });
+            AddMenu(fileMenu, "Save what I see now", delegate { DoSaveView(); });
+            AddMenu(fileMenu, "Save As...", delegate { DoSaveAs(); });
+            fileMenu.Items.Add(new ToolStripSeparator());
+            AddMenu(fileMenu, "Open a saved shot...", delegate { DoOpenShot(); });
+            AddMenu(fileMenu, "Recent pictures", delegate { ToggleSide(); });
+            AddMenu(fileMenu, "Open the Show Amit folder", delegate { DoOpenFolder(); });
+            bFile.Click += delegate { fileMenu.Show(bFile, new Point(0, bFile.Height + 2)); };
+            tp.SetToolTip(bFile, "Save, Save As, open a saved shot, recent pictures, the Show Amit folder");
+            tp.SetToolTip(bRecap, "Throw this picture away and choose a new area of the screen");
+
+            // ---- the row "ADD TO YOUR PICTURE": small tools, colors, line width, undo, Add capture, zoom ----
+            Label al = new Label(); al.Text = "ADD TO" + Environment.NewLine + "YOUR PICTURE"; al.ForeColor = Gold; al.Font = new Font("Segoe UI", 7.5f, FontStyle.Bold); al.SetBounds(12, 8, 100, 34);
+            addbar.Controls.Add(al);
+            string[] ids = new string[] { "move", "text", "pen", "marker", "arrow", "box", "line", "oval" };
+            string[] gl = new string[] { "\u2196", "T", "\u270E", "\u25AC", "\u2197", "\u25AD", "\u2571", "\u25EF" };
+            string[] tt = new string[] { "Select: click anything you added to move it. Drag the background to move the picture.", "Words: type on the picture", "Pen: draw freehand", "Marker: make an area stand out", "Arrow: point at something", "Box: frame something", "Line", "Oval: circle something" };
+            int x = 116;
             for (int i = 0; i < ids.Length; i++)
             {
-                int row = i / 3, col = i % 3;
-                Button tb = SmallButton(labels[i], 8 + col * 94, 398 + row * 34, 90);
+                PillButton tb = new PillButton(); tb.Radius = 12; tb.Text = gl[i]; tb.ForeColor = Color.White; tb.BackColor = Color.FromArgb(40, 43, 52);
+                tb.Font = ids[i] == "text" ? new Font("Georgia", 12f, FontStyle.Bold) : new Font("Segoe UI Symbol", 12f);
+                tb.SetBounds(x, 8, 34, 34); x += 38;
                 string id = ids[i];
-                tb.Click += delegate { SetTool(id); };
-                toolBtns[id] = tb;
-                lpanel.Controls.Add(tb);
+                tb.Click += delegate { SetTool(id == "text" ? (curTool == "text" ? "move" : "text") : id); };
+                toolBtns[id] = tb; tp.SetToolTip(tb, tt[i]); addbar.Controls.Add(tb);
             }
-            bColor = SmallButton("Color", 196, 466, 96); bColor.BackColor = penColor; bColor.ForeColor = Color.White;
-            Label hint = new Label(); hint.Location = new Point(8, 506); hint.Size = new Size(284, 90); hint.ForeColor = Color.FromArgb(170, 170, 180); hint.Font = new Font("Segoe UI", 8.5f);
-            hint.Text = "Pick a tool, then draw or click on the picture. Ctrl + drag moves the picture while a drawing tool is on. Ctrl+Z undoes. Ctrl+V pastes an image from the clipboard as a new layer. Double-click a layer's name to rename it.";
-
-            lpanel.Controls.Add(lh); lpanel.Controls.Add(llist); lpanel.Controls.Add(layerInfo);
-            lpanel.Controls.Add(bAddText); lpanel.Controls.Add(bAddDraw); lpanel.Controls.Add(bAddImage);
-            lpanel.Controls.Add(bDelLayer); lpanel.Controls.Add(bUp); lpanel.Controls.Add(bDown); lpanel.Controls.Add(bUndo);
-            lpanel.Controls.Add(tl); lpanel.Controls.Add(bColor); lpanel.Controls.Add(hint);
-
-            ToolTip lt = new ToolTip();
-            lt.SetToolTip(bAddText, "A new text layer"); lt.SetToolTip(bAddDraw, "A new drawing layer (pen, marker, lines, arrows, boxes, ovals)");
-            lt.SetToolTip(bAddImage, "A new image layer from a picture file"); lt.SetToolTip(bColor, "The color new marks are made in");
-
-            bAddText.Click += delegate { NewLayer("text"); SetTool("text"); };
-            bAddDraw.Click += delegate { NewLayer("draw"); if (!canvas.IsDrawTool()) SetTool("pen"); };
-            bAddImage.Click += delegate { AddImageFromFile(); };
-            bDelLayer.Click += delegate { DeleteActiveLayer(); };
-            bUp.Click += delegate { MoveActiveLayer(1); };
-            bDown.Click += delegate { MoveActiveLayer(-1); };
-            bUndo.Click += delegate { UndoLast(); };
+            x += 6; Panel sep1 = new Panel(); sep1.SetBounds(x, 13, 1, 24); sep1.BackColor = Color.FromArgb(50, 54, 66); addbar.Controls.Add(sep1); x += 10;
+            Color[] cs = new Color[] { Color.FromArgb(229, 57, 53), Color.FromArgb(212, 175, 55), Color.FromArgb(43, 123, 255), Color.FromArgb(47, 168, 79), Color.FromArgb(17, 17, 17) };
+            for (int i = 0; i < cs.Length; i++)
+            {
+                PillButton dot = new PillButton(); dot.Radius = 11; dot.BackColor = cs[i]; dot.Text = ""; dot.SetBounds(x, 14, 22, 22); x += 26;
+                Color cc = cs[i]; dot.Click += delegate { SetPenColor(cc); };
+                tp.SetToolTip(dot, "Color"); addbar.Controls.Add(dot);
+            }
+            bColor = new PillButton(); ((PillButton)bColor).Radius = 13; bColor.Text = "\u2026"; bColor.BackColor = penColor; bColor.ForeColor = Color.White; bColor.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
+            bColor.SetBounds(x, 12, 26, 26); x += 30;
             bColor.Click += delegate
             {
                 using (ColorDialog cd = new ColorDialog())
                 {
                     cd.Color = penColor; cd.FullOpen = true;
-                    if (cd.ShowDialog(this) == DialogResult.OK) { penColor = cd.Color; bColor.BackColor = penColor; bColor.ForeColor = (penColor.GetBrightness() > 0.6f) ? Dark : Color.White; }
+                    if (cd.ShowDialog(this) == DialogResult.OK) SetPenColor(cd.Color);
                 }
             };
-            llist.ItemChecked += delegate (object s, ItemCheckedEventArgs e)
+            tp.SetToolTip(bColor, "More colors. The color of the next marks, or of the mark that is selected."); addbar.Controls.Add(bColor);
+            x += 4; Panel sep2 = new Panel(); sep2.SetBounds(x, 13, 1, 24); sep2.BackColor = Color.FromArgb(50, 54, 66); addbar.Controls.Add(sep2); x += 10;
+            bFine = MakeButton("Fine", x, 50, false); bFine.SetBounds(x, 12, 50, 26); x += 53;
+            bMedium = MakeButton("Medium", x, 58, false); bMedium.SetBounds(x, 12, 58, 26); x += 61;
+            bBold = MakeButton("Bold", x, 46, false); bBold.SetBounds(x, 12, 46, 26); x += 52;
+            foreach (Button wb in new Button[] { bFine, bMedium, bBold }) { wb.Font = new Font("Segoe UI", 8.5f); addbar.Controls.Add(wb); }
+            bFine.Click += delegate { SetWidthMul(0.6f); }; bMedium.Click += delegate { SetWidthMul(1f); }; bBold.Click += delegate { SetWidthMul(1.8f); };
+            tp.SetToolTip(bFine, "Thin lines"); tp.SetToolTip(bMedium, "Normal lines"); tp.SetToolTip(bBold, "Thick lines");
+            SetWidthMul(1f);
+            Panel sep3 = new Panel(); sep3.SetBounds(x, 13, 1, 24); sep3.BackColor = Color.FromArgb(50, 54, 66); addbar.Controls.Add(sep3); x += 10;
+            PillButton un = new PillButton(); un.Radius = 12; un.Text = "\u21B6"; un.Font = new Font("Segoe UI Symbol", 12f); un.ForeColor = Color.White; un.BackColor = Color.FromArgb(40, 43, 52); un.SetBounds(x, 8, 34, 34);
+            un.Click += delegate { UndoLast(); }; bUndo = un; tp.SetToolTip(un, "Undo the last thing you added (Ctrl+Z)"); addbar.Controls.Add(un);
+
+            // on the right: Add capture, then the zoom buttons that used to sit in the top bar
+            top.Controls.Remove(bCapture); top.Controls.Remove(bZoomOut); top.Controls.Remove(zoomLbl); top.Controls.Remove(bZoomIn); top.Controls.Remove(bZoom100);
+            bCapture.Text = "Add capture"; bCapture.BackColor = Color.FromArgb(58, 50, 26); bCapture.ForeColor = Color.FromArgb(241, 213, 138);
+            bCapture.SetBounds(w - 168, 9, 156, 32); bCapture.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            bZoom100.SetBounds(w - 168 - 8 - 54, 10, 54, 30); bZoomIn.SetBounds(bZoom100.Left - 6 - 34, 10, 34, 30);
+            zoomLbl.SetBounds(bZoomIn.Left - 52, 10, 52, 30); bZoomOut.SetBounds(zoomLbl.Left - 34, 10, 34, 30);
+            foreach (Control zc in new Control[] { bCapture, bZoom100, bZoomIn, zoomLbl, bZoomOut }) { zc.Anchor = AnchorStyles.Top | AnchorStyles.Right; addbar.Controls.Add(zc); }
+
+            // ---- the bar at the bottom: ask Amit about this picture ----
+            askIcon = new Label(); askIcon.Text = "\u2728"; askIcon.Font = new Font("Segoe UI Symbol", 14f); askIcon.ForeColor = Color.FromArgb(241, 213, 138); askIcon.SetBounds(14, 14, 34, 28);
+            askBox = new TextBox(); askBox.SetBounds(50, 14, w - 50 - 158, 28); askBox.Font = new Font("Segoe UI", 11f); askBox.BorderStyle = BorderStyle.FixedSingle;
+            askBox.BackColor = Color.FromArgb(27, 30, 38); askBox.ForeColor = Color.White; askBox.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            ShowAskHint();
+            askBox.GotFocus += delegate { if (askHintShown) { askHintShown = false; askBox.Text = ""; askBox.ForeColor = Color.White; } };
+            askBox.LostFocus += delegate { if (askBox.Text.Trim().Length == 0) ShowAskHint(); };
+            askBox.KeyDown += delegate (object s, KeyEventArgs e) { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; DoSendToAmit(); } };
+            top.Controls.Remove(bAmit);
+            bAmit.Text = "Ask Amit"; bAmit.SetBounds(w - 14 - 128, 10, 128, 36); bAmit.Anchor = AnchorStyles.Top | AnchorStyles.Right; ((PillButton)bAmit).Radius = 18;
+            askpanel.Controls.Add(askIcon); askpanel.Controls.Add(askBox); askpanel.Controls.Add(bAmit);
+
+            RefreshTabs();
+            status.Text = "Mark the picture with the tools above, or ask Amit a question about it below. The wheel zooms, drag to move the picture, Ctrl+0 resets.";
+        }
+
+        // the other open shots, as tabs
+        void RefreshTabs()
+        {
+            if (tabs == null) return;
+            List<string> names = new List<string>(); List<object> tg = new List<object>();
+            List<ShowAmitForm> snap;
+            lock (editorsLock) { snap = new List<ShowAmitForm>(openEditors); }
+            foreach (ShowAmitForm f in snap) { if (f == this || f.IsDisposed) continue; names.Add(f.displayName); tg.Add(f); }
+            tabs.SetItems(names, tg);
+        }
+
+        // each new mark is its own item in "On this picture": Pen 1, Arrow 2, Words 1 ...
+        void NewMarkLayer(string type, string tool)
+        {
+            string word = tool == "text" ? "Words" : tool == "pen" ? "Pen" : tool == "marker" ? "Marker" : tool == "line" ? "Line" : tool == "arrow" ? "Arrow" : tool == "box" ? "Box" : tool == "oval" ? "Oval" : "Drawing";
+            ShotLayer L = NewLayer(type);
+            int n = 1;
+            foreach (ShotLayer o in layers) if (o != L && o.Name != null && o.Name.StartsWith(word + " ")) n++;
+            L.Name = word + " " + n;
+            ShowLayerInfo();
+        }
+
+        void CommitRename()
+        {
+            if (active == null || renameBox == null) return;
+            string t = renameBox.Text.Trim();
+            if (t.Length == 0 || t == active.Name) { renameBox.Text = active.Name; return; }
+            active.Name = t; Touch(active);
+            ShowLayerInfo();
+        }
+
+        void LayoutRight()
+        {
+            if (lpanel == null || cards == null) return;
+            int H = lpanel.ClientSize.Height;
+            int appsH = 184;
+            appsPanel.SetBounds(0, H - appsH, 300, appsH);
+            int inspH = inspector.Visible ? 96 : 0;
+            inspector.SetBounds(0, H - appsH - inspH, 300, 96);
+            cards.SetBounds(8, 82, 284, Math.Max(60, H - appsH - inspH - 82 - 6));
+        }
+
+        void BuildLayerPanel()
+        {
+            Color panelBg = Color.FromArgb(23, 26, 34);
+            ToolTip lt = new ToolTip();
+            lpanel = new Panel(); lpanel.Dock = DockStyle.Right; lpanel.Width = 300; lpanel.BackColor = panelBg; lopen = true;
+            lpanel.Paint += delegate (object s, PaintEventArgs pe) { using (Pen p = new Pen(Color.FromArgb(44, 48, 60))) pe.Graphics.DrawLine(p, 0, 0, 0, lpanel.Height); };
+
+            Label lh = new Label(); lh.Text = "On this picture"; lh.ForeColor = Gold; lh.Font = new Font("Segoe UI", 11f, FontStyle.Bold); lh.AutoSize = true; lh.Location = new Point(12, 10);
+            Label ls = new Label(); ls.Text = "Everything you add sits on top of your original. Move, hide or remove it any time.";
+            ls.ForeColor = Color.FromArgb(150, 154, 168); ls.Font = new Font("Segoe UI", 8.5f); ls.SetBounds(12, 36, 278, 40);
+            cards = new LayerCards(); cards.Layers = layers;
+            cards.Picked += delegate (ShotLayer L)
             {
-                if (suppressLayerUi) return;
-                ShotLayer L = e.Item.Tag as ShotLayer;
-                if (L == null) return;
-                L.Visible = e.Item.Checked;
-                Touch(L);
-                canvas.Invalidate();
+                active = L; ShowLayerInfo();
+                if (L.Visible && L.Items.Count > 0) SetSelection(L.Items[L.Items.Count - 1], L);
+            };
+            cards.EyeClicked += delegate (ShotLayer L)
+            {
+                L.Visible = !L.Visible; Touch(L);
+                canvas.Invalidate(); cards.Rebuild();
                 UpdateThumb(); RaiseEditorsChanged();
-                status.Text = "\"" + L.Name + "\" is " + (L.Visible ? "shown." : "hidden.");
+                status.Text = "\"" + L.Name + "\" is " + (L.Visible ? "shown." : "hidden. Click the eye again to bring it back.");
             };
-            llist.SelectedIndexChanged += delegate
+
+            inspector = new Panel(); inspector.BackColor = panelBg; inspector.Visible = false;
+            inspector.Paint += delegate (object s, PaintEventArgs pe) { using (Pen p = new Pen(Color.FromArgb(44, 48, 60))) pe.Graphics.DrawLine(p, 10, 0, 290, 0); };
+            renameBox = new TextBox(); renameBox.SetBounds(12, 10, 276, 24); renameBox.Font = new Font("Segoe UI", 10f); renameBox.BorderStyle = BorderStyle.FixedSingle;
+            renameBox.BackColor = Color.FromArgb(27, 30, 38); renameBox.ForeColor = Color.White;
+            renameBox.KeyDown += delegate (object s, KeyEventArgs e) { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; CommitRename(); canvas.Focus(); } };
+            renameBox.Leave += delegate { CommitRename(); };
+            bFwd = SmallButton("Bring forward", 12, 40, 96); bBack = SmallButton("Send back", 112, 40, 84); bRemove = SmallButton("Remove", 200, 40, 88);
+            bFwd.Font = bBack.Font = bRemove.Font = new Font("Segoe UI", 8.5f);
+            bFwd.Click += delegate { MoveActiveLayer(1); }; bBack.Click += delegate { MoveActiveLayer(-1); }; bRemove.Click += delegate { DeleteActiveLayer(); };
+            layerInfo = new Label(); layerInfo.SetBounds(12, 70, 276, 22); layerInfo.ForeColor = Color.FromArgb(150, 154, 168); layerInfo.Font = new Font("Segoe UI", 8f); layerInfo.AutoEllipsis = true;
+            lt.SetToolTip(renameBox, "Rename this item"); lt.SetToolTip(bFwd, "Put it in front of the item above it"); lt.SetToolTip(bBack, "Put it behind the item below it"); lt.SetToolTip(bRemove, "Take this item off the picture");
+            inspector.Controls.Add(renameBox); inspector.Controls.Add(bFwd); inspector.Controls.Add(bBack); inspector.Controls.Add(bRemove); inspector.Controls.Add(layerInfo);
+
+            appsPanel = new Panel(); appsPanel.BackColor = panelBg;
+            appsPanel.Paint += delegate (object s, PaintEventArgs pe) { using (Pen p = new Pen(Color.FromArgb(44, 48, 60))) pe.Graphics.DrawLine(p, 0, 0, 300, 0); };
+            Label ah = new Label(); ah.Text = "Send to an app"; ah.ForeColor = Gold; ah.Font = new Font("Segoe UI", 11f, FontStyle.Bold); ah.AutoSize = true; ah.Location = new Point(12, 6);
+            Label asub = new Label(); asub.Text = "New Amit apps get a button here by themselves."; asub.ForeColor = Color.FromArgb(150, 154, 168); asub.Font = new Font("Segoe UI", 8.5f); asub.SetBounds(12, 30, 278, 16);
+            appsPanel.Controls.Add(ah); appsPanel.Controls.Add(asub);
+            string[] appNames = new string[] { "Receipts", "Contracts", "Job site photos", "Quotes" };
+            for (int i = 0; i < appNames.Length; i++)
             {
-                if (suppressLayerUi || llist.SelectedItems.Count == 0) return;
-                ShotLayer L = llist.SelectedItems[0].Tag as ShotLayer;
-                if (L != null) { active = L; ShowLayerInfo(); }
-            };
-            llist.AfterLabelEdit += delegate (object s, LabelEditEventArgs e)
-            {
-                ShotLayer L = llist.Items[e.Item].Tag as ShotLayer;
-                if (L == null || e.Label == null || e.Label.Trim().Length == 0) { e.CancelEdit = true; return; }
-                L.Name = e.Label.Trim();
-                Touch(L);
-                BeginInvoke(new Action(ShowLayerInfo));
-            };
-            llist.DoubleClick += delegate { if (llist.SelectedItems.Count > 0) llist.SelectedItems[0].BeginEdit(); };
+                string nm = appNames[i];
+                Button ab = MakeButton(nm + Environment.NewLine + "coming soon", 0, 136, false);
+                ab.SetBounds(10 + (i % 2) * 144, 52 + (i / 2) * 44, 136, 40);
+                ab.Font = new Font("Segoe UI", 8.5f); ab.ForeColor = Color.FromArgb(200, 204, 216);
+                ab.Click += delegate { status.Text = nm + " is not built yet. When it is, this button will send the picture straight to it."; };
+                appsPanel.Controls.Add(ab);
+            }
+            Button aa = MakeButton("+  Add an app", 0, 280, false); aa.SetBounds(10, 142, 280, 32);
+            aa.Click += delegate { status.Text = "Your Amit apps will get a button here by themselves once they are built. There is nothing to set up."; };
+            appsPanel.Controls.Add(aa);
+
+            lpanel.Controls.Add(lh); lpanel.Controls.Add(ls); lpanel.Controls.Add(cards); lpanel.Controls.Add(inspector); lpanel.Controls.Add(appsPanel);
+            lpanel.Resize += delegate { LayoutRight(); };
+            LayoutRight();
             SetToolButtons();
         }
 
@@ -7887,7 +8294,7 @@ public static class AmitWhisper
             canvas.BaseCursor = t == "move" ? Cursors.Default : (t == "text" ? Cursors.IBeam : Cursors.Cross);
             canvas.Cursor = canvas.BaseCursor;
             if (t == "move") status.Text = "Move: hold the left button and drag to move the picture; the mouse wheel zooms.";
-            else if (t == "text") status.Text = "Text: click where the words should start, type, press Enter. They go on the active text layer.";
+            else if (t == "text") status.Text = "Text: click where the words should start, type, press Enter. They become a new item in the list on the right.";
             else if (t == "image") status.Text = "Image: click the picture where the image's top-left corner should go.";
             else status.Text = "Drawing (" + t + "): drag on the picture. Hold Ctrl and drag to move the picture. Ctrl+Z undoes.";
         }
@@ -7897,7 +8304,6 @@ public static class AmitWhisper
         {
             if (!canvas.IsDrawTool()) return;
             CommitEditor();
-            EnsureActive("draw");
             LayerItem it = new LayerItem();
             it.Kind = curTool; it.Col = penColor; it.W = PenWidth();
             it.A = p; it.B = p; it.Pts.Add(p);
@@ -7931,6 +8337,7 @@ public static class AmitWhisper
                 float dx = it.B.X - it.A.X, dy = it.B.Y - it.A.Y;
                 if (dx * dx + dy * dy < 9f) { canvas.Invalidate(); return; }   // a click, not a drag: nothing is drawn
             }
+            NewMarkLayer("draw", it.Kind);
             AddItem(it);
         }
 
