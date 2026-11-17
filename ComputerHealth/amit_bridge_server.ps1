@@ -1,4 +1,6 @@
 # Amit Computer Health - Local Bridge Server
+# Version v1.18 (2026-11-17, Ryan): THE NEW HOME ADDRESS. One list of the Amit site's addresses ($AmitSiteOrigins, top of the handler): askamit.org, www.askamit.org
+#   and ask-amit.github.io. The five Amit Preview origin checks and the hardware-sensor download check use it, so pages served from the new domain are not refused.
 # Version v1.17 (2026-11-15, Ryan): THE HANDLER IS PARSED ONCE. Every request used to re-parse the whole 3000-line handler (it was passed to the worker as text), so a page calling 8 times a second made this program churn hundreds of MB a second and its memory pauses froze the mouse hook inside the same process (a jerky pointer, "Mouse hook stopped answering"). The handler now lives as one function (Invoke-AmitBridgeHandler) in the pool's runspaces and each request calls it by name. Also a request counter: more than 240 calls in a minute writes the busiest routes and the calling page to bridge_requests.log.
 # Version v1.16 (2026-11-15, Ryan): APP CRASH CAPTURE. At every start the bridge makes sure the small Windows task "Amit crash catcher" exists (no administrator rights: it only reads logs): every 5 minutes, hidden, it runs amit_appcrash.ps1 -AcTask, which writes an evidence package (data\appcrash\) for any program that crashed or hung and notes when this Helper stops answering. It runs whether or not Watch mode is on; Watch mode only adds the detailed trace to the package. The one-time sensor permission also switches on Windows crash dumps for the Amit programs (a Windows setting that needs the administrator OK given there once). Card wording updated to say so.
 # Version v1.15 (2026-11-14, Ryan): new route /api/crash-notice (GET = "we noticed a Windows crash" for the Hub's pop-up, POST ?ack=<id> = answered); amit_crash_check.ps1 v1.01 writes the notice at every start after an unclean shutdown, Watch mode or not.
@@ -238,6 +240,10 @@ if (-not (Test-Path $amitTrackingDisabledFlag)) {
 
 $handlerScript = {
     param($context, $watcherDir, $dashboardPath, $deviceId, $deviceName, $bridgeState)
+
+    # THE AMIT SITE'S ADDRESSES (2026-11-17, v1.18): askamit.org is the new home; ask-amit.github.io stays trusted during the move. Add or retire an address HERE only
+    # (it must match AmitSiteOrigins in amit_whisper.cs and the trusted list in amit_update.ps1).
+    $AmitSiteOrigins = @('https://askamit.org','https://www.askamit.org','https://ask-amit.github.io')
 
     # Amit Helper bar (2026-11-01, Ryan): the Hub (which holds the login) sends the person's WHOLE bar down; this checks it against the safe step list and writes the
     # file the bar reads (amit_bar.json). The bar reloads by itself when the file changes. Every call replaces the whole file, so nothing old survives a delete.
@@ -1407,7 +1413,7 @@ $handlerScript = {
             # /api/preview/current may be asked by the page itself (file:// page = Origin "null", or the Amit site); /api/preview/open only by a local script (no Origin).
             "/api/preview/current" {
                 $pvOrigin = $request.Headers['Origin']
-                if ($pvOrigin -and $pvOrigin -ne 'null' -and $pvOrigin -ne 'https://ask-amit.github.io') { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                if ($pvOrigin -and $pvOrigin -ne 'null' -and ($AmitSiteOrigins -notcontains $pvOrigin)) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else {
                     $pvFile = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\preview_current.html'
                     if (Test-Path $pvFile) {
@@ -1429,7 +1435,7 @@ $handlerScript = {
             # The history of every preview Claude sent (show_preview.ps1 files each one in preview_history\ with its app, title, version and date). Read-only; same Origin rule.
             "/api/preview/history" {
                 $pvHO = $request.Headers['Origin']
-                if ($pvHO -and $pvHO -ne 'null' -and $pvHO -ne 'https://ask-amit.github.io') { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                if ($pvHO -and $pvHO -ne 'null' -and ($AmitSiteOrigins -notcontains $pvHO)) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else {
                     $pvHF = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\preview_history\index.json'
                     $pvHT = '[]'; if (Test-Path $pvHF) { $pvHR = ([System.IO.File]::ReadAllText($pvHF, [System.Text.Encoding]::UTF8)).Trim(); if ($pvHR.StartsWith('[')) { $pvHT = $pvHR } }
@@ -1439,7 +1445,7 @@ $handlerScript = {
             "/api/preview/item" {
                 $pvIO = $request.Headers['Origin']
                 $pvId = [string]$request.QueryString["id"]
-                if ($pvIO -and $pvIO -ne 'null' -and $pvIO -ne 'https://ask-amit.github.io') { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                if ($pvIO -and $pvIO -ne 'null' -and ($AmitSiteOrigins -notcontains $pvIO)) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 elseif ($pvId -notmatch '^[0-9A-Za-z-]{6,40}$') { Send-JsonRaw $response '{"error":"bad id"}' 400 }
                 else {
                     $pvIDir = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\preview_history'
@@ -1455,7 +1461,7 @@ $handlerScript = {
             # ("I like version 3's look and version 1's functionality"). Written only by the page itself (Origin "null" or the Amit site); nothing is ever read back out to a web page.
             "/api/preview/save" {
                 $pvSO = $request.Headers['Origin']
-                if ($request.HttpMethod -ne 'POST' -or ($pvSO -and $pvSO -ne 'null' -and $pvSO -ne 'https://ask-amit.github.io')) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                if ($request.HttpMethod -ne 'POST' -or ($pvSO -and $pvSO -ne 'null' -and ($AmitSiteOrigins -notcontains $pvSO))) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else {
                     $pvSR = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
                     $pvSB = $pvSR.ReadToEnd(); $pvSR.Dispose()
@@ -1480,7 +1486,7 @@ $handlerScript = {
                 $pvStO = $request.Headers['Origin']
                 $pvStF = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\preview_status.json'
                 if ($request.HttpMethod -eq 'POST') {
-                    if ($pvStO -and $pvStO -ne 'null' -and $pvStO -ne 'https://ask-amit.github.io') { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                    if ($pvStO -and $pvStO -ne 'null' -and ($AmitSiteOrigins -notcontains $pvStO)) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                     else {
                         $pvStR = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
                         $pvStB = $pvStR.ReadToEnd(); $pvStR.Dispose()
@@ -2903,7 +2909,9 @@ secret key must never appear here, ever, under any circumstance.
                             Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
                             $sMan = (New-Object System.Web.Script.Serialization.JavaScriptSerializer).DeserializeObject((New-Object System.Net.WebClient).DownloadString('https://ask-amit.github.io/Amit/ComputerHealth/amit_helper_manifest.json'))
                             $sInfo = $sMan['sensorReader']
-                            if (-not $sInfo -or $sInfo['name'] -ne 'AmitSensorReader.exe' -or $sInfo['url'] -ne 'https://ask-amit.github.io/Amit/ComputerHealth/AmitSensorReader.exe' -or [string]$sInfo['sha256'] -notmatch '^[0-9a-f]{64}$') {
+                            # the download may only come from one of the Amit site's addresses (the github.io site keeps its /Amit/ folder; the new domain has none)
+                            $sOkUrls = @($AmitSiteOrigins | ForEach-Object { if ($_ -like '*github.io') { $_ + '/Amit/ComputerHealth/AmitSensorReader.exe' } else { $_ + '/ComputerHealth/AmitSensorReader.exe' } })
+                            if (-not $sInfo -or $sInfo['name'] -ne 'AmitSensorReader.exe' -or ($sOkUrls -notcontains [string]$sInfo['url']) -or [string]$sInfo['sha256'] -notmatch '^[0-9a-f]{64}$') {
                                 Send-JsonRaw $response '{"ok":false,"reason":"The published list does not offer the hardware sensors right now."}'
                             } else {
                                 $sPart = $sensorReaderPath + '.part'

@@ -78,7 +78,9 @@ try {
     if ($m.manifestFormat -ne 1) { throw 'The published manifest is in a format this helper does not understand.' }
     $toVer = [string]$m.helperVersion
     $baseUrl = [string]$m.baseUrl
-    $okBase = $baseUrl.StartsWith('https://ask-amit.github.io/Amit/') -or ($TestMode -and $baseUrl.StartsWith('file:'))
+    # The Amit site's trusted addresses (2026-11-17: askamit.org added; ask-amit.github.io kept so every computer keeps updating during the move)
+    $trustedBases = @('https://askamit.org/','https://www.askamit.org/','https://ask-amit.github.io/Amit/')
+    $okBase = (@($trustedBases | Where-Object { $baseUrl.StartsWith($_) }).Count -gt 0) -or ($TestMode -and $baseUrl.StartsWith('file:'))
     if (-not $okBase) { throw 'The published manifest points somewhere that is not the Amit site.' }
     if (-not $baseUrl.EndsWith('/')) { $baseUrl += '/' }
     foreach ($f in $m.files) {

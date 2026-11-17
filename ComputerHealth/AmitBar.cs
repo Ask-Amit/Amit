@@ -38,10 +38,16 @@ public class Cfg
 static class Program
 {
     [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
+    [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr value);
     [STAThread]
     static void Main(string[] args)
     {
-        try { SetProcessDPIAware(); } catch { }
+        // The print preview process (--print) is per-monitor DPI aware (v2): on a computer with screens of different scaling, every window and every grab is in real pixels
+        // and nothing is stretched or moved. Everything else keeps the system-wide awareness it always had. Older Windows falls back to the old call.
+        bool printMode = false;
+        foreach (string a0 in args) if (a0 == "--print" || a0 == "--print-selftest") printMode = true;
+        try { if (printMode) { if (!SetProcessDpiAwarenessContext(new IntPtr(-4))) SetProcessDPIAware(); } else SetProcessDPIAware(); }
+        catch { try { SetProcessDPIAware(); } catch { } }
         for (int q = 0; q < args.Length; q++)
         {
             if (args[q] == "--audio-list" && q + 1 < args.Length) { AudioCtl.WriteList(args[q + 1]); return; }
@@ -585,7 +591,7 @@ public class BarForm : Form
                     if (s.t == "open_app" || s.t == "open_url" || s.t == "ask_amit") { if (!String.IsNullOrEmpty(s.url) && (s.url.StartsWith("https://") || s.url.StartsWith("http://"))) Process.Start(s.url); }
                     else if (s.t == "open_program") { if (!String.IsNullOrEmpty(s.path)) { if (s.path.StartsWith("shell:AppsFolder\\", StringComparison.OrdinalIgnoreCase)) Process.Start("explorer.exe", s.path); else Process.Start(s.path); } }   // a program picked from the Start menu list opens by its Start menu address
                     else if (s.t == "open_file") { OpenFileStep(s); }
-                    else if (s.t == "print") { PrintCtl.RunSta(); }
+                    else if (s.t == "print") { try { ProcessStartInfo ppi = new ProcessStartInfo(Application.ExecutablePath, "--print"); ppi.UseShellExecute = false; Process.Start(ppi); } catch { PrintCtl.RunSta(); } }
                     else if (s.t == "audio") { string am = AudioCtl.RunStep(s.text); if (am != null) Say("Audio setting", am); }
                     else if (s.t == "play_music") { if (!String.IsNullOrEmpty(s.path)) Process.Start(s.path); else if (!String.IsNullOrEmpty(s.url)) Process.Start(s.url); }
                     else if (s.t == "speak") { using (System.Speech.Synthesis.SpeechSynthesizer sp = new System.Speech.Synthesis.SpeechSynthesizer()) sp.Speak(s.text ?? ""); }
@@ -970,6 +976,29 @@ public static class PrintCtl
         return b;
     }
 
+    // the screens, the main one first, then the others from the top down and from the left to the right
+    static List<Screen> OrderedScreens()
+    {
+        List<Screen> l = new List<Screen>(Screen.AllScreens);
+        l.Sort(delegate(Screen a, Screen b)
+        {
+            if (a.Primary != b.Primary) return a.Primary ? -1 : 1;
+            int c = a.Bounds.Y.CompareTo(b.Bounds.Y); if (c != 0) return c;
+            return a.Bounds.X.CompareTo(b.Bounds.X);
+        });
+        return l;
+    }
+    static string ScreenName(int i) { return i == 0 ? "Main screen" : (i == 1 ? "Second screen" : (i == 2 ? "Third screen" : "Screen " + (i + 1))); }
+    static string Placement(Rectangle sc, Rectangle main)
+    {
+        List<string> p = new List<string>();
+        if (sc.Bottom <= main.Top) p.Add("above"); else if (sc.Top >= main.Bottom) p.Add("below");
+        if (sc.Right <= main.Left) p.Add("to the left"); else if (sc.Left >= main.Right) p.Add("to the right");
+        if (p.Count == 0) return "next to the main screen";
+        bool vOnly = p.Count == 1 && (p[0] == "above" || p[0] == "below");
+        return string.Join(" and ", p.ToArray()) + (vOnly ? " the main screen" : " of the main screen");
+    }
+
     static void Run()
     {
         Rectangle winRc; bool haveWin = TargetWindow(out winRc);
@@ -982,8 +1011,15 @@ public static class PrintCtl
         Bitmap pic = null;
         try
         {
+            List<Screen> scr = OrderedScreens();
             if (mode == "win") pic = Grab(winRc);
-            else if (mode == "all") pic = Grab(Screen.PrimaryScreen.Bounds);
+            else if (mode == "all") pic = Grab(scr.Count > 0 ? scr[0].Bounds : Screen.PrimaryScreen.Bounds);
+            else if (mode == "both") pic = Grab(SystemInformation.VirtualScreen);
+            else if (mode.Length >= 2 && mode[0] == 's' && Char.IsDigit(mode[1]))
+            {
+                int n = int.Parse(mode.Substring(1)) - 1;
+                pic = Grab(n >= 0 && n < scr.Count ? scr[n].Bounds : scr[0].Bounds);
+            }
             else pic = PickArea();
             if (pic == null) return;
             using (Form f = BuildPreview(pic, st)) f.ShowDialog();
@@ -991,33 +1027,75 @@ public static class PrintCtl
         finally { if (pic != null) pic.Dispose(); }
     }
 
-    static Button Opt(string title, string sub, int y, bool isLast, bool enabled)
+    static Button Opt(string title, string sub, int y, bool isLast, bool enabled, int badge)
     {
         Button b = new Button(); b.Text = title + "\r\n" + sub; b.Font = new Font("Segoe UI", 10f); b.TextAlign = ContentAlignment.MiddleLeft;
         b.SetBounds(16, y, 368, 62); b.FlatStyle = FlatStyle.Flat; b.BackColor = Color.FromArgb(26, 32, 48); b.ForeColor = Ink; b.Enabled = enabled;
         b.FlatAppearance.BorderSize = 2; b.FlatAppearance.BorderColor = isLast ? Gold : Line; b.Padding = new Padding(10, 0, 0, 0);
+        if (badge > 0)
+        {
+            Font bf = new Font("Segoe UI", 10f, FontStyle.Bold);
+            b.Paint += delegate(object o, PaintEventArgs e)
+            {
+                Rectangle r = new Rectangle(b.Width - 40, (b.Height - 26) / 2, 26, 26);
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                using (SolidBrush fb = new SolidBrush(Color.FromArgb(42, 50, 80))) e.Graphics.FillEllipse(fb, r);
+                TextRenderer.DrawText(e.Graphics, badge.ToString(), bf, r, Gold, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+            };
+        }
         return b;
     }
+
+    // The choice window. One screen: this window / select an area / whole screen, as it always was. Two or more screens: the same first two choices, then one choice
+    // for each screen (numbered like the screens, with its size and where it sits) and one for all the screens together. It opens on the main screen and fits it.
     static string ChooseMode(string last, bool haveWin)
     {
+        List<Screen> scr = OrderedScreens();
+        bool multi = scr.Count > 1;
         string result = null;
         using (Form f = new Form())
         {
-            f.FormBorderStyle = FormBorderStyle.None; f.StartPosition = FormStartPosition.CenterScreen; f.TopMost = true; f.ShowInTaskbar = false; f.KeyPreview = true;
-            f.BackColor = PanelBg; f.ClientSize = new Size(400, 340);
+            f.FormBorderStyle = FormBorderStyle.None; f.TopMost = true; f.ShowInTaskbar = false; f.KeyPreview = true; f.BackColor = PanelBg;
+            int rows = multi ? 2 + scr.Count + 1 : 3;
+            Rectangle wa = scr[0].WorkingArea;
+            int h = Math.Min(72 + rows * 70 + (multi ? 24 : 0) + 58, wa.Height - 40);
+            f.ClientSize = new Size(400, h);
+            f.StartPosition = FormStartPosition.Manual;
+            f.Location = new Point(wa.X + Math.Max(0, (wa.Width - f.Width) / 2), wa.Y + Math.Max(0, (wa.Height - f.Height) / 2));
             f.Paint += delegate(object o, PaintEventArgs e) { using (Pen p = new Pen(Line, 2)) e.Graphics.DrawRectangle(p, 1, 1, f.Width - 3, f.Height - 3); };
-            Label h = new Label(); h.Text = "Print from the screen"; h.Font = new Font("Segoe UI", 13f, FontStyle.Bold); h.ForeColor = Ink; h.SetBounds(16, 12, 368, 28); f.Controls.Add(h);
+            Label hl = new Label(); hl.Text = "Print from the screen"; hl.Font = new Font("Segoe UI", 13f, FontStyle.Bold); hl.ForeColor = Ink; hl.SetBounds(16, 12, 368, 28); f.Controls.Add(hl);
             Label sub = new Label(); sub.Text = "Nothing prints until you have seen the preview and pressed Print."; sub.ForeColor = Mute; sub.SetBounds(16, 42, 368, 20); f.Controls.Add(sub);
-            Button bw = Opt("Print this window", "The window you were just in", 72, last == "win", haveWin);
-            Button ba = Opt("Select area to print", "Drag a box around only what you want", 142, last == "area", true);
-            Button bs = Opt("Whole screen", "Everything you can see", 212, last == "all", true);
+            int y = 72;
+            Button bw = Opt("Print this window", "The window you were just in", y, last == "win", haveWin, 0); y += 70;
+            Button ba = Opt("Select area to print", multi ? "Drag a box on any screen" : "Drag a box around only what you want", y, last == "area", true, 0); y += 70;
             bw.Click += delegate { result = "win"; f.Close(); };
             ba.Click += delegate { result = "area"; f.Close(); };
-            bs.Click += delegate { result = "all"; f.Close(); };
-            Button cn = new Button(); cn.Text = "Cancel"; cn.SetBounds(284, 290, 100, 32); cn.FlatStyle = FlatStyle.Flat; cn.BackColor = Color.FromArgb(26, 32, 48); cn.ForeColor = Ink; cn.FlatAppearance.BorderColor = Line;
+            f.Controls.Add(bw); f.Controls.Add(ba);
+            if (!multi)
+            {
+                Button bs = Opt("Whole screen", "Everything you can see", y, last == "all", true, 0); y += 70;
+                bs.Click += delegate { result = "all"; f.Close(); };
+                f.Controls.Add(bs);
+            }
+            else
+            {
+                Label dv = new Label(); dv.Text = "OR A WHOLE SCREEN"; dv.ForeColor = Mute; dv.Font = new Font("Segoe UI", 8.5f); dv.SetBounds(16, y + 2, 368, 18); f.Controls.Add(dv); y += 24;
+                for (int i = 0; i < scr.Count; i++)
+                {
+                    int idx = i; string key = "s" + (i + 1); Rectangle bd = scr[i].Bounds;
+                    string desc = i == 0 ? "The one you are using" : "Placed " + Placement(bd, scr[0].Bounds);
+                    Button sb = Opt(ScreenName(i) + " - " + bd.Width + " x " + bd.Height, desc, y, last == key, true, i + 1); y += 70;
+                    sb.Click += delegate { result = key; f.Close(); };
+                    f.Controls.Add(sb);
+                }
+                Button bb = Opt(scr.Count == 2 ? "Both screens together" : "All screens together", "Every screen, laid out as Windows has them", y, last == "both", true, 0); y += 70;
+                bb.Click += delegate { result = "both"; f.Close(); };
+                f.Controls.Add(bb);
+            }
+            Button cn = new Button(); cn.Text = "Cancel"; cn.SetBounds(284, h - 50, 100, 32); cn.FlatStyle = FlatStyle.Flat; cn.BackColor = Color.FromArgb(26, 32, 48); cn.ForeColor = Ink; cn.FlatAppearance.BorderColor = Line;
             cn.Click += delegate { f.Close(); };
-            Label gl = new Label(); gl.Text = "Gold edge = the way you used last time"; gl.ForeColor = Mute; gl.Font = new Font("Segoe UI", 8.5f); gl.SetBounds(16, 298, 260, 20);
-            f.Controls.Add(bw); f.Controls.Add(ba); f.Controls.Add(bs); f.Controls.Add(cn); f.Controls.Add(gl);
+            Label gl = new Label(); gl.Text = "Gold edge = the way you used last time"; gl.ForeColor = Mute; gl.Font = new Font("Segoe UI", 8.5f); gl.SetBounds(16, h - 42, 260, 20);
+            f.Controls.Add(cn); f.Controls.Add(gl);
             f.KeyDown += delegate(object o, KeyEventArgs e) { if (e.KeyCode == Keys.Escape) f.Close(); };
             f.Shown += delegate { ForceFront(f); };
             f.ShowDialog();
@@ -1025,21 +1103,50 @@ public static class PrintCtl
         return result;
     }
 
+    // the covers of all screens belong to one group: the first one to finish (an area dragged, Esc, a cover closed) closes the rest and ends the wait
+    class PickGroup
+    {
+        public List<PickForm> Forms = new List<PickForm>();
+        public ApplicationContext Context = new ApplicationContext();
+        public Bitmap Result; bool done;
+        public void Finish(Bitmap r)
+        {
+            if (done) { if (r != null) r.Dispose(); return; }
+            done = true; Result = r;
+            foreach (PickForm pf in Forms) { try { pf.Close(); } catch { } }
+            Context.ExitThread();
+        }
+    }
+    // One cover for ONE screen. It shows that screen's part of the picture of the whole desktop, so nothing is stretched or moved, and an area dragged on it is turned back
+    // into a place in the whole picture. (One window over several screens of different size or scaling was stretched and shifted by Windows.)
     class PickForm : Form
     {
-        public Bitmap Full; public Rectangle Sel = Rectangle.Empty; Point start; bool drag;
-        public PickForm(Bitmap full, Rectangle vs)
+        public Bitmap Full; Rectangle scr, vs; PickGroup grp; Rectangle Sel = Rectangle.Empty; Point start; bool drag;
+        public PickForm(Bitmap full, Rectangle virtualScreen, Rectangle screenBounds, PickGroup group)
         {
-            Full = full; DoubleBuffered = true; FormBorderStyle = FormBorderStyle.None; StartPosition = FormStartPosition.Manual; Bounds = vs; TopMost = true; ShowInTaskbar = false; Cursor = Cursors.Cross; KeyPreview = true; Shown += delegate { ForceFront(this); };
+            Full = full; vs = virtualScreen; scr = screenBounds; grp = group;
+            DoubleBuffered = true; FormBorderStyle = FormBorderStyle.None; StartPosition = FormStartPosition.Manual; Bounds = screenBounds; TopMost = true; ShowInTaskbar = false; Cursor = Cursors.Cross; KeyPreview = true;
+            Shown += delegate { ForceFront(this); };
             MouseDown += delegate(object o, MouseEventArgs e) { start = e.Location; drag = true; Sel = Rectangle.Empty; };
             MouseMove += delegate(object o, MouseEventArgs e) { if (!drag) return; Sel = Rectangle.FromLTRB(Math.Min(start.X, e.X), Math.Min(start.Y, e.Y), Math.Max(start.X, e.X), Math.Max(start.Y, e.Y)); Invalidate(); };
-            MouseUp += delegate(object o, MouseEventArgs e) { if (!drag) return; drag = false; if (Sel.Width >= 12 && Sel.Height >= 12) DialogResult = DialogResult.OK; else { Sel = Rectangle.Empty; Invalidate(); } };
-            KeyDown += delegate(object o, KeyEventArgs e) { if (e.KeyCode == Keys.Escape) DialogResult = DialogResult.Cancel; };
-            Shown += delegate { Activate(); };
+            MouseUp += delegate(object o, MouseEventArgs e)
+            {
+                if (!drag) return; drag = false;
+                if (Sel.Width >= 12 && Sel.Height >= 12)
+                {
+                    Rectangle r = Sel; r.Offset(scr.X - vs.X, scr.Y - vs.Y); r.Intersect(new Rectangle(0, 0, Full.Width, Full.Height));
+                    Bitmap crop = (r.Width < 1 || r.Height < 1) ? null : Full.Clone(r, Full.PixelFormat);
+                    grp.Finish(crop);
+                }
+                else { Sel = Rectangle.Empty; Invalidate(); }
+            };
+            KeyDown += delegate(object o, KeyEventArgs e) { if (e.KeyCode == Keys.Escape) grp.Finish(null); };
+            FormClosed += delegate { grp.Finish(null); };
         }
         protected override void OnPaint(PaintEventArgs e)
         {
-            Graphics g = e.Graphics; g.DrawImage(Full, 0, 0);
+            Graphics g = e.Graphics;
+            g.DrawImage(Full, new Rectangle(0, 0, ClientSize.Width, ClientSize.Height), new Rectangle(scr.X - vs.X, scr.Y - vs.Y, scr.Width, scr.Height), GraphicsUnit.Pixel);
             using (SolidBrush dim = new SolidBrush(Color.FromArgb(130, 0, 0, 0)))
             {
                 if (Sel.Width > 0 && Sel.Height > 0)
@@ -1059,12 +1166,13 @@ public static class PrintCtl
     {
         Rectangle vs = SystemInformation.VirtualScreen;
         using (Bitmap full = Grab(vs))
-        using (PickForm f = new PickForm(full, vs))
         {
-            if (f.ShowDialog() != DialogResult.OK) return null;
-            Rectangle s = f.Sel; s.Intersect(new Rectangle(0, 0, full.Width, full.Height));
-            if (s.Width < 1 || s.Height < 1) return null;
-            return full.Clone(s, full.PixelFormat);
+            PickGroup grp = new PickGroup();
+            foreach (Screen sc in Screen.AllScreens) grp.Forms.Add(new PickForm(full, vs, sc.Bounds, grp));
+            foreach (PickForm pf in grp.Forms) pf.Show();
+            Application.Run(grp.Context);
+            foreach (PickForm pf in grp.Forms) { try { pf.Dispose(); } catch { } }
+            return grp.Result;
         }
     }
 
@@ -1073,7 +1181,9 @@ public static class PrintCtl
 
     static Form BuildPreview(Bitmap pic, Dictionary<string, string> st)
     {
-        Form f = new Form(); f.Text = "Amit - Print preview"; f.StartPosition = FormStartPosition.CenterScreen; f.ClientSize = new Size(1000, 680); f.MinimumSize = new Size(760, 600);
+        Form f = new Form(); f.Text = "Amit - Print preview"; Rectangle pwa = Screen.PrimaryScreen.WorkingArea; int pw = Math.Min(1000, pwa.Width - 40), ph = Math.Min(680, pwa.Height - 90);
+        f.StartPosition = FormStartPosition.Manual; f.ClientSize = new Size(pw, ph); f.MinimumSize = new Size(Math.Min(760, pw), Math.Min(600, ph));
+        f.Location = new Point(pwa.X + Math.Max(0, (pwa.Width - f.Width) / 2), pwa.Y + Math.Max(0, (pwa.Height - f.Height) / 2));
         f.BackColor = PanelBg; f.ForeColor = Ink; f.ShowInTaskbar = true; f.TopMost = true; f.Shown += delegate { ForceFront(f); };
         PrintDocument doc = new PrintDocument(); doc.DocumentName = "Amit screen print";
         doc.DefaultPageSettings.Margins = new Margins(50, 50, 50, 50);
