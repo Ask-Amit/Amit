@@ -24,7 +24,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const AMITSCAN_URL = "https://ask-amit.github.io/Amit/AmitBooks/AmitScan/AmitScan.html";
+const AMITSCAN_URL = "https://askamit.org/AmitBooks/AmitScan/AmitScan.html"; // 2026-11-17: the site moved to askamit.org (the old github.io address forwards here)
 
 Deno.serve(async (req) => {
   const cors = {

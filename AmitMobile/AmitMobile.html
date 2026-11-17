@@ -387,7 +387,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.54</div>
+<div class="amversion" id="pageVersion">v1.55</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -1226,7 +1226,7 @@ async function amPollRowForReply(rowId,pendingBubbleId){
 // owner-contact row (AmitBooks' contacts table, is_owner=true) the Hub's
 // About Me panel reads/writes. Voice now lives there, not the earlier
 // amit_voice_prefs table (left in place, unused, per 2026-09-06 decision —
-// see Hub\Sessions.md). Null means signed out or nothing saved yet;
+// see Hub\Sessions_Log.md). Null means signed out or nothing saved yet;
 // amSpeak() falls back honestly to this browser's own default voice/rate.
 let _amOwnerContact=null;
 async function amLoadVoicePref(){
@@ -2189,7 +2189,7 @@ async function sendPasswordResetEmail(){
   const email=(_fpEmailForRecovery||document.getElementById('fpEmail').value.trim());
   if(!email){ alert('Enter your email first.'); return; }
   if(!db)return;
-  const{error}=await db.auth.resetPasswordForEmail(email,{redirectTo:'https://ask-amit.github.io/Amit/AmitMobile/AmitMobile.html'});
+  const{error}=await db.auth.resetPasswordForEmail(email,{redirectTo:(location.protocol.startsWith('http')?location.origin+location.pathname:'https://askamit.org/AmitMobile/AmitMobile.html')});
   alert(error?error.message:'A password reset link was sent to '+email+'. This is the one case that still needs email — open it on this same device.');
 }
 

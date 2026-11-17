@@ -41,7 +41,7 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // Points at Amit Mobile, not the Hub — "Connect Your Phone" exists to get
 // someone into Amit Mobile (the phone-first dashboard), not just reopen
 // the Hub on a small screen. Changed 2026-09-05.
-const AMIT_MOBILE_URL = "https://ask-amit.github.io/Amit/AmitMobile/AmitMobile.html";
+const AMIT_MOBILE_URL = "https://askamit.org/AmitMobile/AmitMobile.html"; // 2026-11-17: the site moved to askamit.org (the old github.io address forwards here)
 
 Deno.serve(async (req) => {
   const cors = {
