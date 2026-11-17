@@ -590,6 +590,7 @@ public class BarForm : Form
                     else if (s.t == "play_music") { if (!String.IsNullOrEmpty(s.path)) Process.Start(s.path); else if (!String.IsNullOrEmpty(s.url)) Process.Start(s.url); }
                     else if (s.t == "speak") { using (System.Speech.Synthesis.SpeechSynthesizer sp = new System.Speech.Synthesis.SpeechSynthesizer()) sp.Speak(s.text ?? ""); }
                     else if (s.t == "wait") { Thread.Sleep(Math.Max(0, Math.Min(5000, s.ms))); }
+                    else if (s.t == "winact") { string wm = WinActCtl.Run(s.text); if (wm != null) Say("Windows action", wm); }   // 2026-11-16: a named Windows action (Undo, Open Task View, Lock PC ...) by its id; the keys live in WinActCtl
                     else if (s.t == "menu") { OpenMenuStep(s.text); }   // asks the Helper to open one of ITS menus by id (the Helper keeps the list and knows how each opens)
                     else if (s.t == "preview") { OpenPreviewStep(); }   // opens (or brings forward) the Amit Preview window through the Helper
                     else if (s.t == "note") { }                          // carries written instructions with the button; pressing the button does nothing with it (a program or AI that presses the button through the Helper is handed the text)
@@ -605,6 +606,50 @@ public class BarForm : Form
         wide = asWide; Rectangle wa = Screen.PrimaryScreen.WorkingArea; int w = BarW(); int h = Math.Min(wa.Height, 760);
         Bounds = new Rectangle(0, 0, w, h);
         using (Bitmap bmp = new Bitmap(w, h)) { DrawToBitmap(bmp, new Rectangle(0, 0, w, h)); bmp.Save(path, System.Drawing.Imaging.ImageFormat.Png); }
+    }
+}
+
+// ---------- Windows actions (Ryan, 2026-11-16): named actions (Undo, Open Task View, Lock PC ...) a button can do ----------
+// The Hub sends only the action's id; the keys for each id live here, so a button can never carry arbitrary keystrokes. The bar window never takes focus (no-activate), so the
+// keys reach the window the person was working in. Lock PC uses Windows' own lock call. Returns null when it worked, or a plain sentence when it did not.
+public static class WinActCtl
+{
+    [DllImport("user32.dll")] static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
+    [DllImport("user32.dll")] static extern bool LockWorkStation();
+    static readonly Dictionary<string, string> Keys = new Dictionary<string, string>
+    {
+        { "focus-notify", "win+b" }, { "search", "win+s" }, { "minimize-all", "win+m" }, { "magnifier", "win+=" }, { "narrator", "win+ctrl+enter" },
+        { "file-explorer", "win+e" }, { "emoji", "win+." }, { "win-settings", "win+i" }, { "game-bar", "win+g" }, { "show-desktop", "win+d" },
+        { "action-center", "win+a" }, { "next-desktop", "ctrl+win+right" }, { "prev-desktop", "ctrl+win+left" }, { "quick-links", "win+x" },
+        { "connect", "win+k" }, { "run", "win+r" }, { "cycle-taskbar", "win+t" }, { "ease-access", "win+u" }, { "task-view", "win+tab" },
+        { "copilot", "win+shift+f23" },
+        { "start", "ctrl+esc" }, { "switch-apps", "alt+tab" }, { "cycle-apps", "alt+esc" }, { "task-manager", "ctrl+shift+esc" }, { "exit-app", "alt+f4" },
+        { "zoom-reset", "ctrl+0" }, { "save", "ctrl+s" }, { "undo", "ctrl+z" }, { "select-all", "ctrl+a" }, { "new-tab", "ctrl+t" }, { "open", "ctrl+o" },
+        { "new", "ctrl+n" }, { "cut", "ctrl+x" }, { "copy", "ctrl+c" }, { "paste", "ctrl+v" }, { "redo", "ctrl+y" }, { "close-tab", "ctrl+w" },
+        { "zoom-out", "ctrl+-" }, { "zoom-in", "ctrl+=" },
+        { "next-tab", "ctrl+tab" }, { "prev-tab", "ctrl+shift+tab" }, { "go-back", "alt+left" }, { "go-forward", "alt+right" }
+    };
+    public static string Run(string id)
+    {
+        id = (id ?? "").Trim().ToLowerInvariant();
+        if (id == "lock-pc") { if (!LockWorkStation()) return "Windows would not lock the computer."; return null; }
+        string combo; if (!Keys.TryGetValue(id, out combo)) return "This button names a Windows action this version of the bar does not know (" + id + "). Press Update and reload on the bar.";
+        Thread.Sleep(80);   // let the mouse click on the bar finish first
+        string[] parts = combo.Split('+'); List<byte> mods = new List<byte>(); byte vk = 0; uint ext = 0;
+        foreach (string p in parts)
+        {
+            if (p == "ctrl") mods.Add(0x11); else if (p == "alt") mods.Add(0x12); else if (p == "shift") mods.Add(0x10); else if (p == "win") mods.Add(0x5B);
+            else if (p == "enter") vk = 0x0D; else if (p == "esc") vk = 0x1B; else if (p == "tab") vk = 0x09;
+            else if (p == "left") { vk = 0x25; ext = 1; } else if (p == "right") { vk = 0x27; ext = 1; }
+            else if (p == "=") vk = 0xBB; else if (p == "-") vk = 0xBD; else if (p == ".") vk = 0xBE;
+            else if (p.Length >= 2 && p[0] == 'f') { int n; if (Int32.TryParse(p.Substring(1), out n) && n >= 1 && n <= 24) vk = (byte)(0x70 + n - 1); }
+            else if (p.Length == 1 && ((p[0] >= 'a' && p[0] <= 'z') || (p[0] >= '0' && p[0] <= '9'))) vk = (byte)Char.ToUpperInvariant(p[0]);
+        }
+        if (vk == 0) return "That Windows action has no key set.";
+        foreach (byte m in mods) { keybd_event(m, 0, 0, UIntPtr.Zero); Thread.Sleep(12); }
+        keybd_event(vk, 0, ext, UIntPtr.Zero); Thread.Sleep(12); keybd_event(vk, 0, ext | 2u, UIntPtr.Zero); Thread.Sleep(12);
+        for (int i = mods.Count - 1; i >= 0; i--) { keybd_event(mods[i], 0, 2, UIntPtr.Zero); Thread.Sleep(12); }
+        return null;
     }
 }
 

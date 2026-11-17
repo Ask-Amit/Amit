@@ -5,54 +5,110 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Amit Pad">
+<link rel="apple-touch-icon" href="/pad-icon.png">
+<link rel="icon" type="image/png" href="/pad-icon.png">
+<link rel="manifest" href="/pad.webmanifest?k=__KEY__">
 <title>Amit Pad</title>
 <style>
 /* Amit Pad v1.01 (2026-11-15): no double-tap zoom, buttons flash and the info line counts clicks. v1.00: Served by the Amit Helper on the home network. Ported from the Stage 0 test page that worked on the iPhone. */
 html,body,.b{touch-action:manipulation;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
 .b:active{filter:brightness(1.6);transform:scale(.97);}
-.b.flash{background:#e0bd6a !important;color:#111;}
+.flash{background:#e0bd6a !important;color:#111;}
 html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:-apple-system,Arial,sans-serif;color:#eee;-webkit-user-select:none;user-select:none;}
 body{display:flex;flex-direction:column;}
-#bar{flex:none;display:flex;gap:5px;padding:5px 6px;padding-top:max(5px,env(safe-area-inset-top));background:#16202b;}
+#bar{flex:none;display:flex;gap:5px;padding:5px 6px;background:#16202b;}
 .b{flex:1;border:0;border-radius:8px;font-size:13px;font-weight:600;color:#fff;background:#3b4f66;padding:10px 2px;}
 .b.off{background:#5a3a3a;}
 .b.on{background:#2f7d4f;}
 .b.gold{background:#8a6d1f;}
+.tg{background:#1f6f78;}
+.tg.lit{background:#2f7d4f !important;box-shadow:0 0 0 2px #7be0a0 inset;}
+/* v1.02 (2026-11-16): MASTER MENU. One page, a Home of big tiles and one screen per tile; fits any phone or tablet (tiles and text scale with the screen). */
+.screen{flex:1;min-height:0;display:none;flex-direction:column;}
+.screen.on{display:flex;}
+#head{flex:none;display:flex;align-items:center;gap:10px;padding:8px 10px;padding-top:max(8px,env(safe-area-inset-top));background:#16202b;border-bottom:1px solid #243242;}
+#ttl{flex:1;font-weight:700;font-size:clamp(16px,2.6vw,24px);color:#e0bd6a;}
+.back{border:0;border-radius:8px;background:#3b4f66;color:#fff;font-size:clamp(14px,2vw,18px);font-weight:600;padding:9px 14px;visibility:hidden;}
+.grid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(42vw,240px),1fr));grid-auto-rows:minmax(90px,1fr);gap:12px;padding:14px;padding-bottom:max(14px,env(safe-area-inset-bottom));background:#0f151c;}
+.tile{border:0;border-radius:18px;color:#fff;font-size:clamp(17px,3vw,26px);font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:#3b4f66;}
+.tile small{font-weight:500;font-size:clamp(11px,1.6vw,15px);opacity:.8;}
+.tile .ic{font-size:clamp(30px,6vw,52px);}
+.tile:active{filter:brightness(1.5);}
+.t-mouse{background:#2f6f8f;}.t-nav{background:#1f6f78;}.t-photo{background:#8a6d1f;}.t-ask{background:#6b4f9a;}
+.tile.soon{background:transparent;border:2px dashed #34414f;color:#5d6b7a;}
+.list{flex:1;overflow-y:auto;padding:10px;background:#0f151c;-webkit-overflow-scrolling:touch;}
+.grp{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#7f9bb3;margin:12px 2px 6px;}
+.grp:first-child{margin-top:0;}
+.row{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;}
+.bt{border:0;border-radius:12px;color:#fff;font-size:clamp(14px,2vw,18px);font-weight:600;padding:16px 6px;background:#3b4f66;}
+.tip{flex:none;font-size:12px;color:#8b909a;padding:8px 12px;background:#10161d;padding-bottom:max(8px,env(safe-area-inset-bottom));}
+.big{margin:auto;text-align:center;color:#9aa3ad;padding:20px;font-size:16px;}
+.bigbtn{margin-top:14px;border:0;border-radius:14px;background:#8a6d1f;color:#fff;font-weight:700;padding:16px 30px;font-size:18px;}
+.sm{margin-top:12px;font-size:13px;color:#cfe0f0;}
+.askbox{flex:1;min-height:0;display:flex;flex-direction:column;padding:10px;gap:8px;background:#0b1118;}
 #stage{position:relative;flex:1;min-height:0;background-color:#0b1118;background-image:linear-gradient(rgba(255,255,255,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.08) 1px,transparent 1px);background-size:12.5% 25%;}
 #dot{position:absolute;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;background:rgba(255,80,80,.85);display:none;pointer-events:none;}
 #hint{position:absolute;left:0;right:0;top:26%;text-align:center;color:#7f9bb3;font-size:16px;padding:0 24px;pointer-events:none;}
 #touch{position:absolute;left:0;top:0;right:0;bottom:0;touch-action:none;}
 #info{position:absolute;left:6px;bottom:4px;right:6px;font-size:12px;color:#cfe0f0;background:rgba(0,0,0,.55);padding:3px 8px;border-radius:6px;}
 </style></head><body>
-<div id="bar">
-  <button class="b off" id="bm">Mouse: OFF</button>
-  <button class="b" id="bmode">Touchpad</button>
-  <button class="b" id="bl">Left</button>
-  <button class="b" id="br">Right</button>
-  <button class="b gold" id="bp">Photo</button>
-</div>
-<div id="bar2" style="flex:none;display:flex;gap:5px;padding:0 6px 5px;background:#16202b;">
-  <button class="b" id="hbar" style="background:#1f6f78">Helper bar</button>
-  <button class="b" id="hmenu" style="background:#1f6f78">Amit menu</button>
-  <button class="b gold" id="hask">Ask Amit</button>
-</div>
-<div id="fs" style="display:none;flex:none;background:#3a3216;color:#f0e2a8;font-size:12px;padding:5px 8px;">For full screen (no Safari tabs): tap Share, then Add to Home Screen, and open the pad from that icon. <b id="fsx" style="float:right;padding:0 6px">X</b></div>
-<div id="ask" style="display:none;position:fixed;left:0;top:0;right:0;bottom:0;z-index:10;background:#0b1118;flex-direction:column;padding:10px;gap:8px;-webkit-user-select:text;user-select:text;">
-  <div style="font-size:14px;color:#e0bd6a;padding-top:env(safe-area-inset-top)">Ask Amit. Tap the box, then tap the microphone on your keyboard and speak, or type.</div>
-  <textarea id="aq" rows="3" style="font-size:18px;border-radius:8px;border:1px solid #2c3a4a;background:#16202b;color:#eee;padding:8px;"></textarea>
-  <div style="display:flex;gap:6px">
-    <button class="b gold" id="asend">Ask</button>
-    <button class="b" id="aspeak">Speak it</button>
-    <button class="b" id="astop">Stop</button>
-    <button class="b off" id="aclose">Close</button>
+<div id="head"><button id="back" class="back">&#8249; Home</button><div id="ttl">Amit Pad</div></div>
+
+<div id="s-home" class="screen on">
+  <div class="grid">
+    <button class="tile t-mouse" data-go="mouse"><span class="ic">&#9757;</span>Mouse<small>move, click, scroll</small></button>
+    <button class="tile t-nav" data-go="nav"><span class="ic">&#9638;</span>Navigation<small>your buttons and menus</small></button>
+    <button class="tile t-photo" data-go="photo"><span class="ic">&#128247;</span>Photo<small>send to computer</small></button>
+    <button class="tile t-ask" data-go="ask"><span class="ic">&#9998;</span>Ask Amit<small>type or speak</small></button>
+    <button class="tile soon" disabled><span class="ic">+</span>more later</button>
+    <button class="tile soon" disabled><span class="ic">+</span>more later</button>
   </div>
-  <div id="areply" style="flex:1;overflow-y:auto;font-size:18px;line-height:1.35;color:#eee;background:#10181f;border-radius:8px;padding:10px;"></div>
+  <div id="fs" style="display:none;flex:none;background:#3a3216;color:#f0e2a8;font-size:12px;padding:5px 8px;">For full screen (no browser bars): tap Share, then Add to Home Screen, and open the pad from that icon. <b id="fsx" style="float:right;padding:0 6px">X</b></div>
 </div>
-<div id="stage">
-  <div id="hint">1. Tap <b>Mouse</b> (it turns green).<br>2. Slide one finger on this screen to move the pointer.<br>Tap = left click. Two fingers tap = right click. Two fingers slide = scroll. Pinch = zoom.<br>Tap <b>Touchpad</b> to change it to <b>Direct</b>: touch a spot and the pointer goes to the same spot on the computer screen.<br><br>Photo sends a picture to the computer.</div>
-  <div id="touch"></div>
-  <div id="dot"></div>
-  <div id="info">starting...</div>
+
+<div id="s-mouse" class="screen">
+  <div id="bar">
+    <button class="b off" id="bm">Mouse: OFF</button>
+    <button class="b" id="bmode">Touchpad</button>
+    <button class="b" id="bl">Left</button>
+    <button class="b" id="br">Right</button>
+  </div>
+  <div id="stage">
+    <div id="hint">1. Tap <b>Mouse</b> (it turns green).<br>2. Slide one finger on this screen to move the pointer.<br>Tap = left click. Two fingers tap = right click. Two fingers slide = scroll. Pinch = zoom.<br>Tap <b>Touchpad</b> to change it to <b>Direct</b>: touch a spot and the pointer goes to the same spot on the computer screen.</div>
+    <div id="touch"></div>
+    <div id="dot"></div>
+    <div id="info">starting...</div>
+  </div>
+</div>
+
+<div id="s-nav" class="screen">
+  <div class="list">
+    <div class="grp">Menus on the computer</div>
+    <div class="row">
+      <button class="bt tg" id="hbar">Helper bar</button>
+      <button class="bt tg" id="hmenu">Amit menu</button>
+      <button class="bt tg" id="haur">Aurora</button>
+    </div>
+    <div id="navlist"></div>
+  </div>
+  <div id="nstat" class="tip">Taps run the button on the computer, as the Helper bar would. Mouse > Left chooses from the Aurora.</div>
+</div>
+
+<div id="s-photo" class="screen">
+  <div class="big">Take a picture and it opens on the computer in Show Amit.<br><button class="bigbtn" id="bp">Take photo</button><div id="pstat" class="sm"></div></div>
+</div>
+
+<div id="s-ask" class="screen">
+  <div class="askbox">
+    <div style="font-size:14px;color:#e0bd6a">Ask Amit. Tap the box, then tap the microphone on your keyboard and speak, or type.</div>
+    <textarea id="aq" rows="3" style="font-size:18px;border-radius:8px;border:1px solid #2c3a4a;background:#16202b;color:#eee;padding:8px;-webkit-user-select:text;user-select:text;"></textarea>
+    <div style="display:flex;gap:6px">
+      <button class="b gold" id="asend">Ask</button>
+      <button class="b" id="aspeak">Speak it</button>
+      <button class="b" id="astop">Stop</button>
+    </div>
+    <div id="areply" style="flex:1;overflow-y:auto;font-size:18px;line-height:1.35;color:#eee;background:#10181f;border-radius:8px;padding:10px;-webkit-user-select:text;user-select:text;"></div>
+  </div>
 </div>
 <input id="cam" type="file" accept="image/*" capture="environment" style="display:none">
 <script>
@@ -63,7 +119,45 @@ var SID = Math.random().toString(36).slice(2, 8);
 var GAIN = 1.7, SGAIN = 3, ZGAIN = 5;
 var hint = document.getElementById("hint"), info = document.getElementById("info");
 
-function say(t) { lastNote = t; info.textContent = NAME + "  |  " + t + "  |  " + rtt + " ms"; }
+function say(t) {
+  lastNote = t; info.textContent = NAME + "  |  " + t + "  |  " + rtt + " ms";
+  var n = document.getElementById("nstat"); if (n) n.textContent = t;
+  var p = document.getElementById("pstat"); if (p) p.textContent = t;
+}
+// MASTER MENU: one screen per Home tile; Home is the only way in and Back is always the same place
+var titles = { home: "Amit Pad", mouse: "Mouse", nav: "Navigation", photo: "Photo", ask: "Ask Amit" };
+function go(n) {
+  try { speechSynthesis.cancel(); } catch (e) {}
+  var all = document.querySelectorAll(".screen"), i;
+  for (i = 0; i < all.length; i++) all[i].classList.remove("on");
+  document.getElementById("s-" + n).classList.add("on");
+  document.getElementById("ttl").textContent = titles[n];
+  document.getElementById("back").style.visibility = (n === "home") ? "hidden" : "visible";
+  if (n === "nav") loadNav();
+  if (n === "ask") document.getElementById("aq").focus();
+}
+function loadNav() {
+  var x = new XMLHttpRequest();
+  x.open("GET", "/buttons?k=" + KEY + "&t=" + Date.now(), true);
+  x.onload = function () {
+    var r = {}; try { r = JSON.parse(x.responseText); } catch (e) {}
+    var box = document.getElementById("navlist"); box.innerHTML = "";
+    var ps = r.profiles || [];
+    if (!ps.length) { box.innerHTML = '<div class="grp">No buttons on the Helper bar yet</div>'; return; }
+    ps.forEach(function (p) {
+      var g = document.createElement("div"); g.className = "grp"; g.textContent = p.name; box.appendChild(g);
+      var row = document.createElement("div"); row.className = "row"; box.appendChild(row);
+      p.buttons.forEach(function (name) {
+        var b = document.createElement("button"); b.className = "bt"; b.style.background = "#3b4f66"; b.textContent = name;
+        b.onclick = function () { flash2(b); say("pressed " + name + " on the computer"); send(["i=" + nid() + "&t=run&p=" + encodeURIComponent(p.name) + "&n=" + encodeURIComponent(name)]); };
+        row.appendChild(b);
+      });
+    });
+  };
+  x.onerror = function () { document.getElementById("navlist").innerHTML = '<div class="grp">Cannot reach the computer</div>'; };
+  x.send();
+}
+function flash2(b) { b.style.background = "#e0bd6a"; b.style.color = "#111"; setTimeout(function () { b.style.background = "#3b4f66"; b.style.color = "#fff"; }, 220); }
 function nid() { seq++; return SID + seq; }
 function send(lines, cb) {
   var x = new XMLHttpRequest(), t0 = Date.now();
@@ -72,7 +166,7 @@ function send(lines, cb) {
   x.onload = function () {
     rtt = Math.round(0.8 * rtt + 0.2 * (Date.now() - t0));
     if (x.status === 401) say("this phone is not paired (ask the computer for a new code)");
-    else if (x.responseText.indexOf('"off":true') >= 0) say("the computer has the pad switched off (Ctrl+Alt+Shift+M)");
+    else if (x.responseText.indexOf('"off":true') >= 0) say("the pad is switched off on the computer (switch it on at http://localhost:8722/pair there)");
     if (cb) cb();
   };
   x.onerror = function () { say("cannot reach the computer (same Wi-Fi? computer awake?)"); if (cb) cb(); };
@@ -98,9 +192,20 @@ function click(a, btnId) {
 }
 document.getElementById("bl").onclick = function () { click("lc", "bl"); };
 document.getElementById("br").onclick = function () { click("rc", "br"); };
-function helperMenu(id, btn, label) { flash(btn); say(label + " opened on the computer"); send(["i=" + nid() + "&t=menu&id=" + id]); }
+// the green on these three buttons is the computer's own answer (asked about once a second), so it is true even if the menu was closed on the computer
+var lit = { hmenu: false, haur: false };
+function setLit(id, on) { lit[id] = on; var b = document.getElementById(id); if (on) b.classList.add("lit"); else b.classList.remove("lit"); }
+function helperMenu(id, btn, label) { flash(btn); say(label + " sent to the computer"); send(["i=" + nid() + "&t=menu&id=" + id]); }
 document.getElementById("hbar").onclick = function () { helperMenu("amit-bar", "hbar", "Helper bar"); };
-document.getElementById("hmenu").onclick = function () { helperMenu("amit-menu", "hmenu", "Amit menu"); };
+document.getElementById("hmenu").onclick = function () { var was = lit.hmenu; setLit("hmenu", !was); say(was ? "closing the Amit menu" : "opening the Amit menu"); send(["i=" + nid() + "&t=menu&id=amit-menu"]); };
+document.getElementById("haur").onclick = function () { var was = lit.haur; setLit("haur", !was); say(was ? "closing the Aurora" : "opening the Aurora (it closes by itself; tap Left to choose)"); send(["i=" + nid() + "&t=menu&id=aurora-ring"]); };
+function poll() {
+  var x = new XMLHttpRequest();
+  x.open("GET", "/ping?k=" + KEY, true);
+  x.onload = function () { try { var r = JSON.parse(x.responseText); setLit("hmenu", !!r.menu); setLit("haur", !!r.ring); } catch (e) {} };
+  x.send();
+}
+setInterval(poll, 1000);
 // ASK AMIT: the words go to the computer, which asks Amit the way the Amit Mobile chat does; the reply is shown here and spoken
 var lastReply = "";
 function speakText(t) {
@@ -121,8 +226,11 @@ function pollReply(id, n) {
     x.send();
   }, 2500);
 }
-document.getElementById("hask").onclick = function () { document.getElementById("ask").style.display = "flex"; document.getElementById("aq").focus(); };
-document.getElementById("aclose").onclick = function () { try { speechSynthesis.cancel(); } catch (e) {} document.getElementById("ask").style.display = "none"; };
+(function () {
+  var t = document.querySelectorAll("[data-go]"), i;
+  for (i = 0; i < t.length; i++) (function (b) { b.onclick = function () { go(b.getAttribute("data-go")); }; })(t[i]);
+  document.getElementById("back").onclick = function () { go("home"); };
+})();
 document.getElementById("astop").onclick = function () { try { speechSynthesis.cancel(); } catch (e) {} };
 document.getElementById("aspeak").onclick = function () { if (lastReply) speakText(lastReply); };
 document.getElementById("asend").onclick = function () {
@@ -133,7 +241,7 @@ document.getElementById("asend").onclick = function () {
   x.open("POST", "/ask?k=" + KEY, true); x.setRequestHeader("Content-Type", "text/plain");
   x.onload = function () {
     var r = {}; try { r = JSON.parse(x.responseText); } catch (e) {}
-    if (!r.ok) { askOut(r.off ? "The computer has the pad switched off (Ctrl+Alt+Shift+M)." : (r.error || "Amit could not be asked.")); return; }
+    if (!r.ok) { askOut(r.off ? "The pad is switched off on the computer (switch it on at http://localhost:8722/pair there)." : (r.error || "Amit could not be asked.")); return; }
     document.getElementById("aq").value = ""; pollReply(r.id, 0);
   };
   x.onerror = function () { askOut("Could not reach the computer. Same Wi-Fi? Computer awake?"); };
