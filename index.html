@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Amit - A companion who walks alongside you</title>
+<meta name="description" content="Amit is an AI companion. Dictate, show your screen, have things read aloud and keep your day in order, while Amit walks alongside you toward God.">
+<meta property="og:title" content="Amit - A companion who walks alongside you">
+<meta property="og:description" content="An AI companion for the work in front of you, who walks alongside you toward God, at your own pace.">
+<meta property="og:image" content="https://askamit.org/amit_icon.png">
+<link rel="icon" type="image/x-icon" href="amit_icon.ico">
+<link rel="apple-touch-icon" href="amit_icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#09141f;--card:#132a42;--card2:#0f2338;--hover:#183552;--gold:#c9a84c;--gold2:#e8c56a;--text:#fff;--soft:#f0e8d0;--mute:#9fb3c8;--ink:#1a1510;--line:rgba(201,168,76,.28)}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Crimson Pro',Georgia,serif;font-size:19px;line-height:1.5}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;color:inherit}
+.wrap{max-width:1100px;margin:0 auto;padding:0 20px}
+.top{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px;font-family:'Cinzel',Georgia,serif;font-weight:700;letter-spacing:.3em;font-size:21px;color:var(--gold2)}
+.brand img{width:34px;height:34px;border-radius:50%}
+.btn{display:inline-block;border-radius:999px;padding:11px 24px;font-size:17px;font-weight:700;border:1.5px solid var(--gold);cursor:pointer;background:transparent;color:var(--gold2)}
+.btn.fill{background:var(--gold);color:var(--ink)}.btn.fill:hover{background:var(--gold2)}
+.btn.ghost:hover{background:rgba(201,168,76,.12)}
+.btn.sm{padding:7px 18px;font-size:15px}
+h2{font-family:'Cinzel',Georgia,serif;font-size:clamp(24px,3.4vw,34px);text-align:center;margin:0 0 8px}
+.sub{text-align:center;color:var(--mute);margin:0 auto 24px;max-width:640px;font-size:18px}
+/* hero */
+.hero{display:grid;grid-template-columns:1fr 420px;gap:30px;align-items:center;padding:34px 0 22px}
+.hl h1{font-family:'Cinzel',Georgia,serif;font-size:clamp(34px,5vw,56px);line-height:1.1;margin:0 0 14px;font-weight:700}
+.hl h1 em{font-style:normal;color:var(--gold2)}
+.lead{color:var(--soft);font-size:clamp(19px,2.2vw,22px);margin:0 0 16px;max-width:560px}
+.bubble{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 16px;margin:0 0 16px;max-width:560px;min-height:62px;color:var(--soft);font-size:18px}
+.bubble b{color:var(--gold2)}
+.letters{display:none;gap:10px;direction:rtl;margin:10px 0 4px;flex-wrap:wrap}
+.letters.on{display:flex}
+.letters div{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:6px 10px;min-width:74px;direction:ltr;text-align:center}
+.letters b{display:block;font-size:26px;color:var(--gold2);font-family:'Times New Roman',serif;direction:rtl;font-weight:400}
+.letters span{font-size:12px;color:var(--mute);display:block;line-height:1.25}
+.lnote{display:none;color:var(--mute);font-size:14px}.lnote.on{display:block}
+.cta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.more{font-size:15px;color:var(--mute);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{border:1px solid var(--line);background:var(--card2);border-radius:999px;padding:5px 14px;font-size:15px;cursor:pointer;color:var(--soft)}
+.chip:hover,.chip.on{background:var(--gold);color:var(--ink);border-color:var(--gold)}
+.hr{text-align:center}
+.sr{position:absolute;left:-9999px;top:auto}.sr button{background:var(--card2);color:var(--soft);border:1px solid var(--gold);border-radius:999px;padding:6px 14px;margin:2px}.sr:focus-within{position:static;margin-top:6px}#ring{width:100%;max-width:420px;height:auto;touch-action:manipulation;cursor:pointer}
+.rhint{color:var(--mute);font-size:15px;margin-top:2px}
+/* stage */
+.stagehead{text-align:center;margin:12px 0 14px}
+.stagehead h2{margin-bottom:4px}
+.stagehead p{margin:0 auto;color:var(--soft);max-width:640px;font-size:19px}
+.tag{display:inline-block;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;border-radius:999px;border:1px solid var(--line);color:var(--mute);margin:8px 4px 0}
+.tag.any{color:#8fd6a8;border-color:rgba(143,214,168,.4)}
+.stage{background:var(--card2);border:1px solid var(--line);border-radius:18px;padding:18px;min-height:300px}
+.scene{display:none}.scene.on{display:block}
+.stagefoot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:12px;color:var(--mute);font-size:15px}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:10px}
+.status{font-size:15px;color:var(--mute);min-height:22px;text-align:center;margin-top:6px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1d3a55;border:1px solid var(--gold);color:var(--soft);border-radius:12px;padding:10px 16px;font-size:16px;max-width:560px;z-index:30;display:none;text-align:center}
+/* dictate */
+.win2{max-width:560px;margin:0 auto;background:#eef1f5;border-radius:10px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.4);color:#222}
+.wt2{height:26px;background:#33465c;display:flex;gap:6px;align-items:center;padding-left:10px;color:#cfd8e4;font:13px 'Segoe UI',system-ui,sans-serif}
+.wt2 i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.45)}
+.wb2{padding:14px 16px 16px;position:relative;font-family:'Segoe UI',system-ui,sans-serif}
+.lbl2{font-size:13px;color:#667;margin-bottom:6px}
+.wb2 textarea{width:100%;min-height:110px;border:1px solid #aab;border-radius:6px;padding:10px;font:17px 'Segoe UI',system-ui,sans-serif;color:#111;background:#fff;resize:vertical}
+.mic2{position:absolute;right:26px;bottom:26px;background:#10161d;border:1px solid var(--gold);color:var(--soft);border-radius:12px;padding:6px 12px;font-size:13px;display:none;align-items:center;gap:8px}
+.mic2.on{display:flex}
+.mic2 svg{width:18px;height:18px;fill:none;stroke:#e8be46;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.25}}
+/* show amit editor (the real window is about 1180 x 690, scaled to fit) */
+.safit{width:100%;position:relative;overflow-x:auto;overflow-y:hidden}
+.sa{width:1180px;height:690px;background:#12141a;color:#fff;font-family:'Segoe UI',system-ui,sans-serif;display:flex;flex-direction:column;transform-origin:0 0;border-radius:6px;overflow:hidden;font-size:13px}
+.sa .h1{height:56px;display:flex;align-items:center;padding:0 14px;gap:12px;flex:none}
+.sa .logo{width:34px;height:34px;border-radius:9px;background:#d4af37;color:#12141a;font-weight:800;font-size:20px;display:grid;place-items:center}
+.sa .tt b{display:block;font-size:16px}.sa .tt span{font-size:11px;color:#aaaab4}
+.sa .ttl{width:230px;height:28px;background:#22252d;border:1px solid #3a3e48;border-radius:5px;margin-left:14px;color:#fff;padding:0 8px}
+.pill{background:#282b34;border:1px solid #4a4e58;border-radius:999px;padding:7px 22px;color:#fff;cursor:pointer;font-size:13px}
+.pill:hover{border-color:#d4af37}
+.pill.on{background:#5a4b1c;border-color:#d4af37;color:#f3da8a}
+.sa .h2>*{flex:none}.sa .h2 .pill{padding:6px 13px;font-size:12.5px}.sa .h2{gap:6px}.sa .h2{height:48px;display:flex;align-items:center;gap:8px;padding:0 14px;border-top:1px solid #000;border-bottom:1px solid #000;background:#14161c;flex:none}
+.sa .lab{color:#d4af37;font-weight:700;font-size:10.5px;line-height:1.2;width:64px}
+.tb{width:32px;height:32px;border-radius:50%;background:#282b34;border:1px solid #3a3e48;display:grid;place-items:center;cursor:pointer;color:#e8e8ee}
+.tb svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tb.on{background:#d4af37;color:#12141a;border-color:#d4af37}
+.dot2{width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent}
+.dot2.on{border-color:#fff}
+.sep{width:1px;height:26px;background:#333;margin:0 4px}
+.addcap{margin-left:auto;background:#5a4b1c;border:1px solid #d4af37;border-radius:8px;padding:7px 14px;color:#f3da8a;cursor:pointer;font-size:13px}
+.sa .mid{flex:1;display:flex;min-height:0}
+.sa .cv{flex:1;background:#2b2d34;position:relative;overflow:hidden}
+.sa .cv svg{position:absolute;left:8px;top:8px;transform-origin:0 0;cursor:crosshair;touch-action:none}
+.sa .sp{width:270px;background:#181a20;border-left:1px solid #000;padding:12px 12px;overflow:hidden;flex:none}
+.sa .sp h4{margin:0 0 2px;color:#d4af37;font-size:15px}
+.sa .sp small{color:#aaaab4;font-size:11px;display:block;margin-bottom:8px}
+.lay{display:flex;align-items:center;gap:8px;background:#1f2229;border:1px solid #30343d;border-radius:9px;padding:7px 9px;margin-bottom:6px;cursor:pointer}
+.lay.sel{border-color:#d4af37;background:#2a2518}
+.lay .ic{width:26px;height:26px;border-radius:6px;background:#383c48;display:grid;place-items:center;font-size:12px}
+.lay .nm{flex:1;line-height:1.15}.lay .nm span{display:block;font-size:10.5px;color:#9a9aa4}
+.lay .eye{cursor:pointer;font-size:16px;opacity:.9}
+.lay.off{opacity:.5}
+.sa .acts{display:flex;gap:6px;margin:8px 0}
+.sa .acts .pill{padding:5px 8px;font-size:11.5px;flex:1;text-align:center}
+.sa .apps{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.sa .apps div{border:1px solid #30343d;border-radius:9px;padding:6px;text-align:center;color:#aaaab4;font-size:11px;background:#1f2229}
+.sa .ask{height:52px;display:flex;align-items:center;gap:10px;padding:0 14px;border-top:1px solid #000;background:#14161c;flex:none}
+.sa .ask input{flex:1;height:32px;background:#22252d;border:1px solid #3a3e48;border-radius:6px;color:#fff;padding:0 10px}
+.sa .askb{background:#d4af37;color:#12141a;border:0;border-radius:999px;padding:9px 26px;font-weight:700;cursor:pointer}
+/* amit menu */
+.menudesk{position:relative;max-width:640px;height:420px;margin:0 auto;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:linear-gradient(135deg,#17202b,#0f161e);overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;color:#e8edf2}
+.menudesk .win{position:absolute;left:6%;top:8%;width:46%;height:58%;background:#1b2531;border:1px solid rgba(255,255,255,.1);border-radius:8px}
+.menudesk .win b{display:block;padding:6px 10px;background:#243142;border-radius:8px 8px 0 0;font-size:12px;color:#8d99a8}
+.menudesk .win p{padding:10px 14px;color:#8d99a8;margin:0;font-size:13px}
+.listen{position:absolute;left:8%;bottom:6%;background:#10161d;border:1px solid #2fc4b2;border-radius:12px;padding:8px 14px;min-width:230px}
+.listen .t{font-weight:600;color:#2fc4b2}.listen .s{font-size:12px;color:#8d99a8}
+.menu{position:absolute;right:14px;top:14px;width:330px;background:#10161d;border:1px solid #e6b84a;border-radius:12px;box-shadow:0 12px 34px rgba(0,0,0,.6)}
+.menu .mh{padding:9px 12px 4px}.menu .mh b{color:#e6b84a}.menu .mh span{display:block;font-size:11.5px;color:#8d99a8}
+.mtabs{display:flex;gap:4px;padding:4px 10px 6px}
+.mtab{font-size:11.5px;padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.1);color:#8d99a8;cursor:pointer}
+.mtab.on{border-color:#e6b84a;color:#e6b84a;background:rgba(230,184,74,.1)}
+.mlist{padding:2px 8px 6px;max-height:250px;overflow:auto}
+.mgrp{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#8d99a8;margin:8px 4px 3px}
+.mit{display:flex;align-items:center;gap:9px;padding:6px 9px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+.mit:hover{background:rgba(255,255,255,.05)}
+.mit.sel{border-color:#2fc4b2;background:rgba(47,196,178,.14)}
+.mdot{width:9px;height:9px;border-radius:50%;flex:none}
+.mdot.b{background:#e6b84a}.mdot.h{background:#2fc4b2}.mdot.m{background:#b48cf2}
+.mit .l{flex:1}.mit .say{font-size:11px;color:#8d99a8}
+.mtag{font-size:10px;padding:1px 7px;border-radius:9px;background:#e6b84a;color:#111}
+.mmic{font-size:11.5px;padding:2px 14px 6px;color:#2fc4b2}
+.mf{padding:6px 12px 9px;font-size:11px;color:#8d99a8;border-top:1px solid rgba(255,255,255,.1)}
+.sw{width:34px;height:18px;border-radius:9px;background:#3a4452;position:relative;flex:none}
+.sw.on{background:#2fc4b2}.sw:after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .12s}.sw.on:after{left:18px}
+/* read */
+.readwrap{display:grid;grid-template-columns:1fr 300px;gap:18px;align-items:start}
+.rpage{background:#f4f1e8;color:#222;border-radius:10px;padding:18px 20px;font-family:Georgia,serif;font-size:18px;line-height:1.7;position:relative}
+.rpage .s{cursor:pointer;border-radius:3px;padding:0 1px}.rpage .s:hover{background:rgba(201,168,76,.25)}
+.rpage .s.lit{background:rgba(232,190,70,.55)}
+.spk{position:absolute;right:12px;top:12px;width:46px;height:46px;border-radius:50%;background:rgba(16,22,29,.78);border:2px solid #d4af37;display:grid;place-items:center;cursor:pointer}
+.spk svg{width:24px;height:24px;fill:none;stroke:#e8be46;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.spk.arm{background:#d4af37}.spk.arm svg{stroke:#18161e}
+.vwin{background:#10161d;border:1px solid #d4af37;border-radius:12px;padding:12px 14px;font-family:'Segoe UI',system-ui,sans-serif;font-size:13.5px;color:#e8edf2}
+.vwin h4{margin:0 0 8px;color:#e6b84a;font-size:15px}
+.vwin label{display:block;color:#8d99a8;font-size:11.5px;margin:7px 0 2px}
+.vwin select,.vwin input[type=range]{width:100%}
+.vwin select{background:#0d1218;color:#e8edf2;border:1px solid rgba(255,255,255,.14);border-radius:6px;padding:5px;font-size:13px}
+.vwin input[type=range]{accent-color:#d4af37}
+.vnote{margin-top:10px;font-size:13px;color:#cfd8e4;border-top:1px solid rgba(255,255,255,.1);padding-top:8px}
+.vnote b{color:#e6b84a}
+/* bar */
+.bardesk{position:relative;max-width:640px;height:440px;margin:0 auto;border-radius:12px;overflow:hidden;background:linear-gradient(135deg,#27334d,#3b4a66 55%,#2a3550);border:1px solid rgba(255,255,255,.14)}
+.bardesk .win{position:absolute;left:24px;top:24px;width:60%;height:230px;background:#eef1f5;border-radius:6px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.bardesk .win .tb2{height:22px;background:#33465c}
+.bardesk .win i{display:block;height:9px;background:#c5cdd8;border-radius:3px;margin:14px 16px}
+.abar{position:absolute;right:0;top:0;bottom:0;background:linear-gradient(180deg,#171b28,#0f121b);border-left:1px solid #2b3146;display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 8px 12px;font-family:'Segoe UI',system-ui,sans-serif;transition:width .15s}
+.abar.wide{width:112px}.abar.rail{width:62px}
+.abar .aic{width:44px;height:44px;border-radius:50%;cursor:pointer}
+.abar .chip2{width:100%;border-radius:12px;background:#1d2232;border:2px solid #e8be46;color:#fbe5a4;text-align:center;padding:5px 2px;cursor:pointer;line-height:1.15}
+.abar .chip2 b{display:block;font-size:12.5px}.abar .chip2 span{display:block;font-size:9.5px;color:#9a9484}
+.abar.rail .chip2 span{display:none}.abar.rail .chip2 b{font-size:14px}
+.atile{width:100%;height:64px;border-radius:12px;position:relative;cursor:pointer;color:var(--c);background:rgba(var(--rgb),.30);border:1.6px solid rgba(var(--rgb),.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:12px}
+.atile svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.atile span{color:#f0eee6}
+.abar.rail .atile{height:46px}.abar.rail .atile span{display:none}
+.atile:hover{background:rgba(232,190,70,.96);border-color:#fff4cd;color:#18161e}.atile:hover span{color:#000}
+.atile.rl{--c:#9a9484;--rgb:154,148,132}
+.k-app{--c:#e8be46;--rgb:232,190,70}.k-web{--c:#46a0ff;--rgb:70,160,255}.k-music{--c:#ac6eff;--rgb:172,110,255}.k-prog{--c:#3cd0d2;--rgb:60,208,210}.k-multi{--c:#ff8462;--rgb:255,132,98}.k-ask{--c:#50d78c;--rgb:80,215,140}
+.legend{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:12px;font-size:14px;color:var(--mute)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:5px;vertical-align:-1px}
+/* phone pad */
+.padwrap{display:flex;gap:28px;align-items:center;justify-content:center;flex-wrap:wrap}
+.phone{width:300px;height:600px;border:8px solid #2a2f37;border-radius:36px;background:#000;overflow:hidden;display:flex;flex-direction:column;position:relative;box-shadow:0 8px 30px #000;font-family:'Segoe UI',system-ui,sans-serif;color:#e8e8ea}
+.phone .ptop{flex:none;height:30px;background:#16202b}
+.phone .phead{flex:none;display:flex;align-items:center;gap:8px;padding:8px 10px;background:#16202b;border-bottom:1px solid #243242}
+.phone .pt{font-weight:700;font-size:16px;color:#e0bd6a;flex:1}
+.pback{border:0;border-radius:8px;background:#3b4f66;color:#fff;font-size:14px;font-weight:600;padding:6px 12px;cursor:pointer}
+.pscr{flex:1;min-height:0;display:none;flex-direction:column}.pscr.on{display:flex}
+.pgrid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:10px;padding:12px;background:#0f151c}
+.ptile{border:0;border-radius:16px;color:#fff;font-size:16px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;background:#3b4f66;cursor:pointer}
+.ptile small{font-weight:500;font-size:10.5px;opacity:.8}.ptile .pi{font-size:28px}
+.ptile.mouse{background:#2f6f8f}.ptile.btns{background:#1f6f78}.ptile.photo{background:#8a6d1f}.ptile.ask{background:#6b4f9a}
+.ptile.soon{background:transparent;border:2px dashed #34414f;color:#5d6b7a;cursor:default}
+.mbar{flex:none;display:flex;gap:5px;padding:6px;background:#16202b}
+.pb{flex:1;border:0;border-radius:8px;font-size:12.5px;font-weight:600;color:#fff;background:#3b4f66;padding:9px 2px;cursor:pointer}
+.pb.off{background:#5a3a3a}.pb.on{background:#2f7d4f}
+.pstage{flex:1;position:relative;touch-action:none;background-color:#0b1118;background-image:linear-gradient(rgba(255,255,255,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.08) 1px,transparent 1px);background-size:12.5% 25%}
+.pstage .ph{position:absolute;left:0;right:0;top:18%;text-align:center;color:#7f9bb3;font-size:13.5px;padding:0 16px}
+.pinfo{position:absolute;left:6px;bottom:4px;right:6px;font-size:11px;color:#cfe0f0;background:rgba(0,0,0,.55);padding:3px 8px;border-radius:6px}
+.plist{flex:1;overflow-y:auto;padding:10px;background:#0f151c}
+.pgrp{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:#7f9bb3;margin:10px 2px 6px}.pgrp:first-child{margin-top:0}
+.prow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pbt{border:0;border-radius:12px;color:#fff;font-size:13.5px;font-weight:600;padding:13px 6px;background:#3b4f66;display:flex;flex-direction:column;gap:3px;align-items:center;cursor:pointer}
+.pbt small{font-size:10px;font-weight:500;opacity:.8}.pbt.menu{background:#1f6f78}.pbt.page{background:#6b4f9a}.pbt.lit{background:#2f7d4f;box-shadow:0 0 0 2px #7be0a0 inset}
+.pbig{margin:auto;text-align:center;color:#9aa3ad;padding:18px;font-size:14px}
+.pbig .pbn{margin-top:12px;display:inline-block;border-radius:12px;background:#8a6d1f;color:#fff;font-weight:700;padding:12px 24px;font-size:15px;cursor:pointer}
+.ptoast{position:absolute;left:10px;right:10px;bottom:10px;background:#e0bd6a;color:#111;border-radius:10px;padding:8px 12px;font-size:12.5px;display:none;z-index:5}
+.pcdesk{width:300px;height:190px;border:3px solid #33465c;border-radius:8px;background:linear-gradient(135deg,#27334d,#3b4a66 55%,#2a3550);position:relative;overflow:hidden}
+.pcdesk .dot{position:absolute;width:16px;height:16px;border-radius:50%;background:var(--gold2);box-shadow:0 0 12px var(--gold2);left:140px;top:80px}
+.pcdesk .cl{position:absolute;right:8px;bottom:6px;color:var(--gold2);font-size:13px}
+.pcdesk .pw{position:absolute;left:14px;top:14px;width:54%;height:90px;background:#eef1f5;border-radius:5px}
+/* simple cards */
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;max-width:620px;margin:0 auto}
+.card h4{margin:0 0 8px;font-family:'Cinzel',Georgia,serif;color:var(--gold2);font-size:19px}
+.todo label{display:flex;gap:10px;align-items:center;padding:6px 0;font-size:18px;cursor:pointer}
+.todo input{width:20px;height:20px;accent-color:var(--gold)}
+.todo label.done span{text-decoration:line-through;opacity:.55}
+.word{font-size:22px;color:var(--soft);font-style:italic}
+.rcpt{background:#fff;color:#222;border-radius:6px;padding:12px 14px;font:14px 'Courier New',monospace;width:200px;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+.books{display:flex;gap:22px;align-items:center;justify-content:center;flex-wrap:wrap}
+.jr{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;min-width:260px;font-size:16px;min-height:130px}
+.jr div{display:flex;justify-content:space-between;border-bottom:1px dashed rgba(255,255,255,.12);padding:3px 0}
+.jr b{color:var(--gold2)}
+.ask2{display:flex;gap:8px;max-width:620px;margin:0 auto 12px}
+.ask2 input{flex:1;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:11px 18px;font-family:inherit;font-size:18px}
+/* get it */
+section.get{padding:46px 0 10px}
+.get2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.gcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px}
+.gcard h3{margin:0 0 6px;font-family:'Cinzel',Georgia,serif;color:var(--gold2);font-size:21px}
+.gcard p{margin:0 0 12px;color:var(--soft);font-size:17px}
+.warn{background:rgba(201,168,76,.1);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:15px;color:var(--soft);margin-bottom:12px}
+.todo2{border:2px dashed #ff7a6b;border-radius:10px;padding:8px 12px;font-size:14px;color:#ffb3a8;margin-top:10px}
+.foot{text-align:center;padding:34px 0 60px;border-top:1px solid var(--line);margin-top:40px;color:var(--mute);font-size:16px}
+.foot em{display:block;color:var(--soft);font-size:17px;margin-bottom:4px}
+.pvnote{position:sticky;bottom:0;background:#1d3a55;border-top:1px solid var(--gold);color:var(--soft);font-size:14px;padding:8px 16px;text-align:center;z-index:5}
+@media(max-width:700px){.menudesk{height:auto;padding:10px}.menudesk .win,.menudesk .listen{display:none}.menu{position:relative;width:auto;right:auto;top:auto}.padwrap{gap:14px}.phone{width:270px;height:560px}.stage{padding:12px}}@media(max-width:900px){.hero{grid-template-columns:1fr}.hr{order:-1}.get2{grid-template-columns:1fr}.readwrap{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><div class="brand"><img src="data:image/png;base64,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" alt="">AMIT</div><a class="btn ghost sm" href="https://askamit.org/Hub/amit-hub.html">Sign in</a></div>
+
+  <section class="hero">
+    <div class="hl">
+      <h1>Hello. I'm <em>Amit</em>.</h1>
+      <p class="lead">I'm an AI companion. I help with the work in front of you, and I walk alongside you, at your own pace, toward God.</p>
+      <div class="bubble" id="bubble"><div id="bsay">Tap the Amit icon in the middle of the ring to meet me. Then pick anything on the ring to try it.</div>
+        <div class="letters" id="letters"><div><b>&#1488;</b><span>Aleph<br>the ox: strength</span></div><div><b>&#1502;</b><span>Mem<br>water: a mighty current</span></div><div><b>&#1497;</b><span>Yod<br>the hand: a deed</span></div><div><b>&#1514;</b><span>Tav<br>the mark: a seal</span></div></div>
+        <div class="lnote" id="lnote">The name is read right to left and ends at the cross. This is a devotional reading of the letters, not linguistic proof.</div></div>
+      <div class="cta"><a class="btn fill" href="https://askamit.org/Hub/amit-hub.html">Sign in to the Hub</a><a class="btn" href="#get">Get Amit for Windows</a></div>
+      <div class="more">More to try: <button class="chip" data-s="bar">The bar</button><button class="chip" data-s="mouse">Mouse and keyboard</button><button class="chip" data-s="day">My day</button><button class="chip" data-s="books">Books</button><button class="chip" data-s="god">Who is God?</button></div>
+    </div>
+    <div class="hr"><svg id="ring" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The Amit ring: Dictate, Show Amit, Voice, Read and Mobile. Tap the icon in the middle to meet Amit."></svg><div class="sr" id="sr"><button data-s="dictate">Dictate</button><button data-s="showamit">Show Amit</button><button data-s="voice">Voice</button><button data-s="read">Read</button><button data-s="mobile">Mobile</button></div><div class="rhint">This is the real Aurora ring. On Windows it opens at your pointer.</div></div>
+  </section>
+
+  <section id="stage">
+    <div class="stagehead"><h2 id="sh">Dictate</h2><p id="sl"></p><div id="stags"></div></div>
+    <div class="stage">
+      <div class="scene" id="sc-dictate"></div><div class="scene" id="sc-showamit"></div><div class="scene" id="sc-voice"></div><div class="scene" id="sc-read"></div><div class="scene" id="sc-mobile"></div>
+      <div class="scene" id="sc-bar"></div><div class="scene" id="sc-day"></div><div class="scene" id="sc-books"></div><div class="scene" id="sc-god"></div>
+      <div class="stagefoot"><span id="sfnote"></span><a class="btn fill sm" id="sfcta" href="#get">Get it</a></div>
+    </div>
+  </section>
+
+  <section class="get" id="get">
+    <h2>Make it yours</h2><p class="sub">Start where you are.</p>
+    <div class="get2">
+      <div class="gcard"><h3>On a Windows computer</h3><p>Install Amit Helper once, and the ring, the bar, dictate, read and Show Amit work in every program. It updates itself.</p>
+        <div class="warn"><b>Before you install:</b> Windows will say "unknown publisher", because Amit does not have a code-signing certificate yet. You can check every file first. That page is called Verify It.</div>
+        <a class="btn fill" href="https://askamit.org/AmitFix/AmitFix.html">Get Amit Helper</a> <a class="btn ghost sm" href="https://askamit.org/AmitFix/AmitFix.html">Verify it first</a></div>
+      <div class="gcard"><h3>Anywhere: the Hub</h3><p>Your day, your goals and prayers, the Word for today, and every other Amit tool in one place. Sign in once with your email.</p>
+        <a class="btn fill" href="https://askamit.org/Hub/amit-hub.html">Sign in to the Hub</a> <a class="btn ghost sm" href="https://askamit.org/AmitMobile/AmitMobile.html">On a phone</a>
+        </div>
+    </div>
+  </section>
+  <div class="foot"><em>"To the Torah and to the testimony." Isaiah 8:20</em>His work. His name. His timing.<div id="pageVersion" style="font-size:11px;opacity:.55;margin-top:8px">v1.00</div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+
+<script>
+(function(){
+function $(i){return document.getElementById(i)}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+var tT;function toast(t){var e=$('toast');e.textContent=t;e.style.display='block';clearTimeout(tT);tT=setTimeout(function(){e.style.display='none'},4200)}
+var ICON=(document.querySelector('.brand img')||{}).src||'';
+
+/* ===== THE REAL RING (sizes, colors and pictures from RenderLive and DrawGlyph in amit_whisper.cs) ===== */
+var RC={half:200,dead:66,inner:74,outer:160,reach:176,plateExtra:10,plate:'rgba(9,11,18,0.667)',gapDeg:2.4,tint:92/255,edge:1.6,edgeHot:3,hot:'rgba(232,190,70,0.957)',hotEdge:'rgb(255,244,205)',hotText:'rgb(24,22,30)',text:'rgb(240,240,236)',gold:'rgba(212,175,55,0.92)',colors:['232,190,70','70,160,255','80,215,140','172,110,255','255,132,98','60,208,210']};
+var RITEMS=[{id:'dictate',label:'Dictate',caption:'Talk to type',s:'dictate'},{id:'showamit',label:'Show Amit',caption:'Show an area',s:'showamit'},{id:'voice',label:'Voice',caption:'Say what to do',s:'voice'},{id:'talk',label:'Read',caption:'Read it aloud',s:'read'},{id:'mobile',label:'Mobile',caption:'Photo from phone',s:'mobile'}];
+var RG={dictate:'<path d="M-5 -8 A5 5 0 0 1 5 -8 L5 2 A5 5 0 0 1 -5 2 Z"/><path d="M9 -1 A9 8 0 0 1 -9 -1"/><path d="M0 7 L0 12 M-5 12 L5 12"/>',showamit:'<rect x="-11" y="-6" width="22" height="16"/><path d="M-5 -6 L-3 -10 L3 -10 L5 -6"/><circle cx="0" cy="2" r="5"/>',voice:'<rect x="-11" y="-10" width="22" height="15"/><path d="M-5 5 L-7 11 L1 5 M-6 -4 V-1 M-2 -7 V2 M2 -5 V0 M6 -4 V-1"/>',talk:'<path d="M-11 -4 H-5 L2 -10 V10 L-5 4 H-11 Z"/><path d="M9.3 -4.9 A4 6 0 0 1 9.3 4.9"/><path d="M14 -9 A7 11 0 0 1 14 9"/>',mobile:'<rect x="-7" y="-13" width="14" height="26"/><circle cx="0" cy="-5.5" r="2.5"/><path d="M-2 9 L2 9"/>'};
+var ring=$('ring'),rHover=-1,rSel=0;
+function rpt(r,d){var a=d*Math.PI/180;return[RC.half+r*Math.cos(a),RC.half+r*Math.sin(a)]}
+function rsec(a0,a1){var i0=rpt(RC.inner,a0),o0=rpt(RC.outer,a0),o1=rpt(RC.outer,a1),i1=rpt(RC.inner,a1),lg=(a1-a0)>180?1:0;return'M'+o0+' A'+RC.outer+' '+RC.outer+' 0 '+lg+' 1 '+o1+' L'+i1+' A'+RC.inner+' '+RC.inner+' 0 '+lg+' 0 '+i0+' Z'}
+function rDraw(){
+  var n=RITEMS.length,C=RC.half,h=[],w=360/n,gap=RC.gapDeg,i;
+  h.push('<circle cx="'+C+'" cy="'+C+'" r="'+(RC.outer+RC.plateExtra)+'" fill="'+RC.plate+'"/>');
+  for(i=0;i<n;i++){
+    var it=RITEMS[i],col=RC.colors[i%6],hot=(i===rHover)||(rHover===-1&&i===rSel),mid=-90+i*w,a0=mid-w/2+gap/2,a1=a0+(w-gap);
+    var m=rpt((RC.inner+RC.outer)/2,mid),lx=m[0],ly=m[1],tc=hot?RC.hotText:RC.text;
+    h.push('<path d="'+rsec(a0,a1)+'" fill="'+(hot?RC.hot:'rgba('+col+','+RC.tint+')')+'" stroke="'+(hot?RC.hotEdge:'rgba('+col+',0.843)')+'" stroke-width="'+(hot?RC.edgeHot:RC.edge)+'"/>');
+    h.push('<g transform="translate('+lx+','+(ly-17)+')" fill="none" stroke="'+(hot?RC.hotText:'rgb('+col+')')+'" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'+RG[it.id]+'</g>');
+    h.push('<text x="'+lx+'" y="'+(ly+12)+'" text-anchor="middle" dominant-baseline="central" fill="'+tc+'" font-family="Segoe UI Semibold,Segoe UI,sans-serif" font-size="16">'+it.label+'</text>');
+    h.push('<text x="'+lx+'" y="'+(ly+29)+'" text-anchor="middle" dominant-baseline="central" fill="'+tc+'" fill-opacity="'+(hot?.9:.67)+'" font-family="Segoe UI,sans-serif" font-size="11.3">'+it.caption+'</text>');
+  }
+  if(rHover===-2)h.push('<circle cx="'+C+'" cy="'+C+'" r="56" fill="'+RC.hot+'"/>');
+  h.push('<clipPath id="rcl"><circle cx="'+C+'" cy="'+C+'" r="50"/></clipPath>');
+  if(ICON)h.push('<image href="'+ICON+'" x="'+(C-52)+'" y="'+(C-52)+'" width="104" height="104" clip-path="url(#rcl)"/>');
+  h.push('<circle cx="'+C+'" cy="'+C+'" r="50" fill="none" stroke="'+RC.gold+'" stroke-width="3"/>');
+  ring.innerHTML=h.join('');
+}
+function rHit(e){var r=ring.getBoundingClientRect(),s=400/r.width,dx=(e.clientX-r.left)*s-RC.half,dy=(e.clientY-r.top)*s-RC.half,d=Math.sqrt(dx*dx+dy*dy);if(d<RC.dead)return-2;if(d>RC.reach)return-1;var ang=Math.atan2(dy,dx)*180/Math.PI,w=360/RITEMS.length,a=(ang+90+w/2)%360;if(a<0)a+=360;return Math.min(Math.floor(a/w),RITEMS.length-1)}
+ring.addEventListener('pointermove',function(e){var h=rHit(e);if(h!==rHover){rHover=h;rDraw()}});
+ring.addEventListener('pointerleave',function(){rHover=-1;rDraw()});
+ring.addEventListener('click',function(e){var h=rHit(e);if(h===-2)meet();else if(h>=0)go(RITEMS[h].s,true)});
+/* meet Amit: the icon in the middle */
+var mt=0,says=['This is Amit’s icon: the ancient Hebrew letter aleph, in gold.','Amit is a Hebrew name. It means <b>companion</b>: one who walks alongside you, not above you.','The letters of the name tell a small story. They are read right to left.','Amit walks beside you. Yeshua is the one who has already gone before you.'];
+function meet(){mt=(mt%4)+1;$('bsay').innerHTML=says[mt-1]+(mt===4?'<br><span style="color:var(--mute);font-size:15px">Tap the icon to start over.</span>':'');$('letters').classList.toggle('on',mt===3||mt===4);$('lnote').classList.toggle('on',mt===3||mt===4);if(mt===4)mt=0}
+
+/* ===== scenes ===== */
+var SC={
+ dictate:{t:'Dictate',l:'Talk, and your words are typed where your cursor is, in any program. It follows you from box to box.',tag:'Windows',cta:['get','Get Amit Helper']},
+ showamit:{t:'Show Amit',l:'Drag over any part of your screen, mark it up, and hand it to Amit to look at. This is the real editor.',tag:'Windows',cta:['get','Get Amit Helper']},
+ voice:{t:'Voice, and the Amit menu',l:'Say what to do, or turn the wheel for a menu. The same menu holds your mouse and keyboard sets.',tag:'Windows',cta:['get','Get Amit Helper']},
+ read:{t:'Read',l:'Point at any words, in any program, and Amit reads them aloud, in a voice you choose.',tag:'Windows',cta:['get','Get Amit Helper']},
+ mobile:{t:'Your phone as a touchpad',l:'On your home Wi-Fi, a phone becomes a touchpad, a button deck and a photo sender for your computer.',tag:'Windows + phone',tag2:'early',cta:['get','Get Amit Helper']},
+ bar:{t:'The Amit bar',l:'A slim bar on the edge of your screen: your own buttons, each with a name, one press away.',tag:'Windows',cta:['get','Get Amit Helper']},
+ day:{t:'Your day',l:'A calm place for today: your goals, your prayers and a word for the day.',tag:'Any device',any:1,cta:['https://askamit.org/Hub/amit-hub.html','Sign in to the Hub']},
+ books:{t:'Amit Books',l:'Bookkeeping for the overwhelmed small-business owner. Throw the pile of receipts at Amit.',tag:'Any device',any:1,cta:['https://askamit.org/AmitBooks/NEW.html','Open Amit Books']},
+ god:{t:'Who is God?',l:'Bring your hardest questions. The evidence is laid out from Scripture, in the original languages.',tag:'Any device',any:1,cta:['https://askamit.org/who_is_god/who_is_god.html','Open Who Is God']}
+};
+var built={},cur='';
+function go(id,scroll){
+  if(id==='mouse'){go('voice',scroll);setMenuTab('mouse');return}
+  cur=id;
+  [].forEach.call(document.querySelectorAll('.scene'),function(s){s.classList.toggle('on',s.id==='sc-'+id)});
+  var idx=-1;RITEMS.forEach(function(r,i){if(r.s===id)idx=i});rSel=idx;rDraw();
+  [].forEach.call(document.querySelectorAll('.chip'),function(c){c.classList.toggle('on',c.getAttribute('data-s')===id)});
+  var s=SC[id];$('sh').textContent=s.t;$('sl').textContent=s.l;
+  $('stags').innerHTML='<span class="tag'+(s.any?' any':'')+'">'+s.tag+'</span>'+(s.tag2?'<span class="tag">'+s.tag2+'</span>':'');
+  $('sfnote').textContent=s.any?'The look is real. What is inside it is a sample.':'On a Windows computer this works in every program. The look is real; what is inside it is a sample.';
+  var c=$('sfcta');c.textContent=s.cta[1];c.href=s.cta[0].indexOf('http')===0?s.cta[0]:'#'+s.cta[0];c.removeAttribute('target')
+  if(!built[id]){built[id]=1;B[id]()}
+  if(id==='showamit')fitSA();
+  if(scroll){var st=$('stage');if(st&&st.scrollIntoView)st.scrollIntoView({behavior:'smooth',block:'start'})}
+}
+[].forEach.call(document.querySelectorAll('.chip,.sr button'),function(c){c.onclick=function(){go(c.getAttribute('data-s'),true)}});
+var B={};
+
+/* ----- Dictate ----- */
+B.dictate=function(){
+  $('sc-dictate').innerHTML='<div class="win2"><div class="wt2"><i></i><i></i><i></i><span>Any program with a text box</span></div><div class="wb2"><div class="lbl2">To: Mom</div><textarea id="dbox" placeholder="Click here, then press Speak..."></textarea><div class="mic2" id="mic2"><svg viewBox="-12 -14 24 28">'+RG.dictate+'</svg><span id="dstat">Amit is listening</span></div></div></div><div class="row"><button class="btn fill sm" id="dgo">&#127908; Speak</button><button class="btn sm" id="dshow">Show me</button><button class="btn sm" id="dclear">Clear</button></div><div class="status" id="dnote">If this window blocks the microphone, press Show me.</div>';
+  var rec=null,live=false,dbox=$('dbox');
+  function mic(on,txt){$('mic2').classList.toggle('on',on);if(txt)$('dstat').textContent=txt}
+  $('dgo').onclick=function(){
+    var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){$('dnote').textContent='This browser has no speech recognition here. Press Show me.';return}
+    if(live){rec&&rec.stop();return}
+    try{rec=new SR();rec.lang='en-US';rec.interimResults=true;rec.continuous=true;var base=dbox.value;
+      rec.onresult=function(e){var t='';for(var i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;dbox.value=(base+' '+t).trim();mic(true,'Amit is dictating')};
+      rec.onend=function(){live=false;mic(false)};
+      rec.onerror=function(e){live=false;mic(false);$('dnote').textContent=(e.error==='not-allowed'||e.error==='service-not-allowed')?'This window blocks the microphone. The real page asks permission. Press Show me.':'Could not hear: '+e.error};
+      rec.start();live=true;mic(true,'Amit is listening');$('dnote').textContent='Speak now.';
+    }catch(x){$('dnote').textContent='Could not start the microphone here. Press Show me.'}
+  };
+  $('dshow').onclick=function(){var w='Hello Mom. I will call you on Thursday after work, and I will bring dinner.'.split(' '),i=0;dbox.value='';mic(true,'Amit is listening');$('dnote').textContent='A sample of what dictation does.';var t=setInterval(function(){if(i===0)mic(true,'Amit is dictating');dbox.value+=(i?' ':'')+w[i++];if(i>=w.length){clearInterval(t);setTimeout(function(){mic(false)},900)}},230)};
+  $('dclear').onclick=function(){dbox.value='';mic(false);$('dnote').textContent=''};
+};
+
+/* ----- Show Amit: the redesigned editor, as it really looks ----- */
+var SAI={select:'<path d="M5 3l10 8-5 1 3 6-2 1-3-6-3 3z"/>',words:'<path d="M4 4h12M10 4v13"/>',pen:'<path d="M4 16l1-4 9-9 3 3-9 9z"/>',marker:'<rect x="3" y="7" width="14" height="6" fill="currentColor"/>',arrow:'<path d="M4 16L16 4M9 4h7v7"/>',box:'<rect x="3" y="5" width="14" height="10"/>',line:'<path d="M4 16L16 4"/>',oval:'<ellipse cx="10" cy="10" rx="7" ry="5.5"/>'};
+var saTool='oval',saCol='#e03030',saW=4,saMarks=[],saSel=-1,saCount={},saZ=1;
+B.showamit=function(){
+  var tools=['select','words','pen','marker','arrow','box','line','oval'],labs={select:'Select',words:'Words',pen:'Pen',marker:'Marker',arrow:'Arrow',box:'Box',line:'Line',oval:'Oval'};
+  var cols=['#e03030','#d4af37','#2f7ae0','#2fb050','#111111'];
+  $('sc-showamit').innerHTML='<div class="safit" id="safit"><div class="sa" id="sa">'
+  +'<div class="h1"><div class="logo">A</div><div class="tt"><b>Show Amit</b><span>Capture &rarr; Explain &rarr; Send</span></div><input class="ttl" id="sattl" placeholder="Name this picture"><span style="margin-left:auto"></span><button class="pill" data-x="retake">Retake</button><button class="pill" data-x="file">File &#9662;</button></div>'
+  +'<div class="h2"><div class="lab">ADD TO<br>YOUR PICTURE</div>'+tools.map(function(t){return'<button class="tb'+(t===saTool?' on':'')+'" data-tool="'+t+'" title="'+labs[t]+'"><svg viewBox="0 0 20 20">'+SAI[t]+'</svg></button>'}).join('')
+  +'<div class="sep"></div>'+cols.map(function(c){return'<div class="dot2'+(c===saCol?' on':'')+'" data-col="'+c+'" style="background:'+c+'"></div>'}).join('')
+  +'<div class="sep"></div><button class="pill" data-w="2">Fine</button><button class="pill on" data-w="4">Medium</button><button class="pill" data-w="7">Bold</button>'
+  +'<div class="sep"></div><button class="tb" data-x="undo" title="Undo"><svg viewBox="0 0 20 20"><path d="M5 9h8a3 3 0 0 1 0 6H8M5 9l3-3M5 9l3 3"/></svg></button><button class="tb" data-z="-1">-</button><b id="saz" style="color:#d4af37;width:44px;text-align:center">100%</b><button class="tb" data-z="1">+</button><button class="pill" data-z="0">100%</button>'
+  +'<button class="addcap" data-x="cap">&#128247; Add capture</button></div>'
+  +'<div class="mid"><div class="cv" id="sacv"><svg id="sasvg" width="640" height="440" viewBox="0 0 640 440">'
+  +'<g><rect width="640" height="440" fill="#f3f4f7"/><rect width="640" height="40" fill="#2b4a8b"/><text x="14" y="26" fill="#fff" font-size="16" font-family="Segoe UI">Sample App (placeholder shot)</text><rect x="190" y="90" width="260" height="250" rx="8" fill="#fff" stroke="#c9ccd6"/><text x="218" y="132" font-size="22" font-family="Segoe UI" fill="#222">Sign in</text><rect x="218" y="150" width="204" height="32" fill="#fff" stroke="#9aa"/><rect x="218" y="194" width="204" height="32" fill="#fff" stroke="#9aa"/><rect x="218" y="244" width="204" height="36" rx="4" fill="#2b4a8b"/><text x="293" y="267" font-size="15" fill="#fff" font-family="Segoe UI">Continue</text><text x="218" y="310" font-size="12" fill="#2b4a8b">Forgot your password?</text></g>'
+  +'<g id="samarks"></g></svg></div>'
+  +'<div class="sp"><h4>On this picture</h4><small>Everything you add sits on top of your original. Move, hide or remove it any time.</small><div id="salay"></div>'
+  +'<div class="acts"><button class="pill" data-x="fwd">Bring forward</button><button class="pill" data-x="back">Send back</button><button class="pill" data-x="rm">Remove</button></div>'
+  +'<h4 style="margin-top:10px;font-size:14px">Send to an app</h4><small>New Amit apps get a button here by themselves.</small><div class="apps"><div>Receipts<br>coming soon</div><div>Contracts<br>coming soon</div><div>Job site photos<br>coming soon</div><div>Quotes<br>coming soon</div></div></div></div>'
+  +'<div class="ask"><span style="color:#d4af37;font-size:18px">&#10024;</span><input id="saq" placeholder="Ask Amit about this picture..."><button class="askb" data-x="ask">Ask Amit</button></div></div></div>'
+  +'<div class="status" id="sast">Pick a tool, then drag on the picture. Every mark becomes its own item you can hide or remove.</div>';
+  var sa=$('sa');
+  sa.addEventListener('click',function(e){
+    var b=e.target.closest('[data-tool],[data-col],[data-w],[data-z],[data-x]');if(!b)return;
+    if(b.hasAttribute('data-tool')){saTool=b.getAttribute('data-tool');[].forEach.call(sa.querySelectorAll('[data-tool]'),function(x){x.classList.toggle('on',x===b)});$('sast').textContent=saTool==='words'?'Words: click the picture to place them.':saTool==='select'?'Select: click an item in the list.':'Drag on the picture to draw.';return}
+    if(b.hasAttribute('data-col')){saCol=b.getAttribute('data-col');[].forEach.call(sa.querySelectorAll('[data-col]'),function(x){x.classList.toggle('on',x===b)});return}
+    if(b.hasAttribute('data-w')){saW=+b.getAttribute('data-w');[].forEach.call(sa.querySelectorAll('[data-w]'),function(x){x.classList.toggle('on',x===b)});return}
+    if(b.hasAttribute('data-z')){var z=+b.getAttribute('data-z');saZ=z===0?1:Math.max(.5,Math.min(2,saZ+z*.25));$('sasvg').style.transform='scale('+saZ+')';$('saz').textContent=Math.round(saZ*100)+'%';return}
+    var x=b.getAttribute('data-x');
+    if(x==='undo'){var m=saMarks.pop();if(m){m.el.parentNode.removeChild(m.el);saSel=saMarks.length-1;saLay()}return}
+    if(x==='rm'){if(saSel>=0){var r=saMarks.splice(saSel,1)[0];r.el.parentNode.removeChild(r.el);saSel=saMarks.length-1;saLay()}return}
+    if(x==='fwd'||x==='back'){if(saSel<0)return;var j=saSel+(x==='fwd'?1:-1);if(j<0||j>=saMarks.length)return;var t=saMarks[saSel];saMarks[saSel]=saMarks[j];saMarks[j]=t;var g=$('samarks');saMarks.forEach(function(m){g.appendChild(m.el)});saSel=j;saLay();return}
+    if(x==='cap'){toast('On Windows the editor steps aside, you drag another screen area, and it comes back as a new item on this picture.');return}
+    if(x==='retake'){toast('On Windows this drops the picture and lets you choose a new area of the screen.');return}
+    if(x==='file'){toast('The File menu: Add a picture, Open a saved shot, Recent pictures, Save, Print.');return}
+    if(x==='ask'){toast('On Windows this saves the picture, opens your Ask Amit chat for today, posts it with your question, and Amit looks and answers.');return}
+  });
+  var svg=$('sasvg'),drag=null,NS='http://www.w3.org/2000/svg';
+  function sp(e){var r=svg.getBoundingClientRect();return[(e.clientX-r.left)/r.width*640,(e.clientY-r.top)/r.height*440]}
+  function mk(n,a){var e=document.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);return e}
+  svg.addEventListener('pointerdown',function(e){
+    if(saTool==='select')return;var p=sp(e);
+    if(saTool==='words'){var tx=($('saq').value||'').trim()||'Look here';var t=mk('text',{x:p[0],y:p[1],fill:saCol,'font-size':22,'font-family':'Segoe UI','font-weight':700});t.textContent=tx;$('samarks').appendChild(t);addMark('Words','words',t);return}
+    var el;
+    if(saTool==='pen'||saTool==='marker'){el=mk('polyline',{points:p.join(','),fill:'none',stroke:saCol,'stroke-width':saTool==='marker'?saW*3:saW,'stroke-linecap':'round','stroke-linejoin':'round',opacity:saTool==='marker'?.45:1})}
+    else if(saTool==='box'){el=mk('rect',{x:p[0],y:p[1],width:0,height:0,fill:'none',stroke:saCol,'stroke-width':saW})}
+    else if(saTool==='oval'){el=mk('ellipse',{cx:p[0],cy:p[1],rx:0,ry:0,fill:'none',stroke:saCol,'stroke-width':saW})}
+    else{el=mk('path',{d:'M'+p+' L'+p,fill:'none',stroke:saCol,'stroke-width':saW,'stroke-linecap':'round','stroke-linejoin':'round'})}
+    $('samarks').appendChild(el);drag={el:el,p0:p,t:saTool};try{svg.setPointerCapture(e.pointerId)}catch(x){}
+  });
+  svg.addEventListener('pointermove',function(e){
+    if(!drag)return;var p=sp(e),d=drag,t=d.t;
+    if(t==='pen'||t==='marker'){d.el.setAttribute('points',d.el.getAttribute('points')+' '+p.join(','))}
+    else if(t==='box'){d.el.setAttribute('x',Math.min(d.p0[0],p[0]));d.el.setAttribute('y',Math.min(d.p0[1],p[1]));d.el.setAttribute('width',Math.abs(p[0]-d.p0[0]));d.el.setAttribute('height',Math.abs(p[1]-d.p0[1]))}
+    else if(t==='oval'){d.el.setAttribute('cx',(d.p0[0]+p[0])/2);d.el.setAttribute('cy',(d.p0[1]+p[1])/2);d.el.setAttribute('rx',Math.abs(p[0]-d.p0[0])/2);d.el.setAttribute('ry',Math.abs(p[1]-d.p0[1])/2)}
+    else{var dx=p[0]-d.p0[0],dy=p[1]-d.p0[1],L=Math.sqrt(dx*dx+dy*dy)||1,ux=dx/L,uy=dy/L,h=t==='arrow'?14:0,s='M'+d.p0+' L'+p;if(t==='arrow')s+=' M'+p+' L'+(p[0]-ux*h+uy*h*.5)+','+(p[1]-uy*h-ux*h*.5)+' M'+p+' L'+(p[0]-ux*h-uy*h*.5)+','+(p[1]-uy*h+ux*h*.5);d.el.setAttribute('d',s)}
+  });
+  svg.addEventListener('pointerup',function(){
+    if(!drag)return;var d=drag;drag=null;var bb;try{bb=d.el.getBBox()}catch(x){bb={width:9,height:9}}
+    if(bb.width<4&&bb.height<4){d.el.parentNode.removeChild(d.el);return}
+    var nm={pen:'Pen',marker:'Marker',box:'Box',oval:'Oval',arrow:'Arrow',line:'Line'}[d.t];addMark(nm,'drawing',d.el);
+  });
+  function addMark(nm,kind,el){saCount[nm]=(saCount[nm]||0)+1;saMarks.push({name:nm+' '+saCount[nm],kind:kind,el:el,on:true});saSel=saMarks.length-1;saLay()}
+  function saLay(){
+    var h='';for(var i=saMarks.length-1;i>=0;i--){var m=saMarks[i];h+='<div class="lay'+(i===saSel?' sel':'')+(m.on?'':' off')+'" data-i="'+i+'"><div class="ic">'+(m.kind==='words'?'T':'&#9998;')+'</div><div class="nm">'+esc(m.name)+'<span>'+m.kind+(m.on?'':'  (hidden)')+'</span></div><div class="eye" data-eye="'+i+'">'+(m.on?'&#128065;':'&#8856;')+'</div></div>'}
+    $('salay').innerHTML=h||'<small style="margin:6px 0">Nothing added yet. Draw on the picture.</small>';
+  }
+  $('salay').addEventListener('click',function(e){var ey=e.target.closest('[data-eye]');if(ey){var m=saMarks[+ey.getAttribute('data-eye')];m.on=!m.on;m.el.style.display=m.on?'':'none';saLay();return}var l=e.target.closest('.lay');if(l){saSel=+l.getAttribute('data-i');saLay()}});
+  // start with two marks like the real screenshot
+  saMarks=[];var a=mk('path',{d:'M110,70 L196,160 M196,160 L178,142 M196,160 L186,136',fill:'none',stroke:'#e03030','stroke-width':4,'stroke-linecap':'round'});$('samarks').appendChild(a);addMark('Arrow','drawing',a);
+  var t=mk('text',{x:200,y:400,fill:'#e03030','font-size':24,'font-family':'Segoe UI','font-weight':700});t.textContent='Is this the right button?';$('samarks').appendChild(t);addMark('Words','words',t);
+  fitSA();
+};
+function fitSA(){var f=$('safit'),s=$('sa');if(!f||!s)return;var k=Math.max(.6,Math.min(1,f.clientWidth/1180));s.style.transform='scale('+k+')';f.style.height=(690*k)+'px'}
+window.addEventListener('resize',fitSA);
+
+/* ----- Voice and the Amit menu ----- */
+var MI=[{g:'b',l:'Dictate',s:'dictate'},{g:'b',l:'Show Amit',s:'show amit'},{g:'b',l:'Open the Amit Hub',s:'open hub'},{g:'b',l:'Mobile',s:'mobile'},{g:'b',l:'Cancel',s:'cancel'},{g:'h',l:'Ask Amit',s:'ask amit',m:'AmitCoder'},{g:'h',l:'Books',s:'books',m:'Books'},{g:'h',l:'Cell Phone',s:'cell phone',m:'Shopping'},{g:'m',l:'Good morning',s:'good morning'}];
+var GN={b:'Built in',h:'Your Helper bar buttons',m:'Your own commands'},mTab='voice',mSel=0,mSets=1,kSets=1,mouseOn=true;
+function menuDraw(){
+  var out='';
+  if(mTab==='voice'){var last='';MI.forEach(function(x,i){if(x.g!==last){out+='<div class="mgrp">'+GN[x.g]+'</div>';last=x.g}out+='<div class="mit'+(i===mSel?' sel':'')+'" data-i="'+i+'"><span class="mdot '+x.g+'"></span><span class="l">'+esc(x.l)+(x.m?' <span class="say">('+x.m+')</span>':'')+'</span><span class="say">say: '+esc(x.s)+'</span></div>'})}
+  else if(mTab==='mouse'){out='<div class="mit" data-sw="1"><span class="l">Mouse sets</span><span class="sw'+(mouseOn?' on':'')+'"></span></div><div class="mit" data-open="mouse"><span class="l">Open Amit Mouse in the Hub</span><span class="say">&#9656;</span></div><div class="mgrp">Sets for the mouse you used (sample)</div>'+['Everyday','Design','Reading'].map(function(n,i){return'<div class="mit" data-set="'+(i+1)+'"><span class="mdot m"></span><span class="l">Set '+(i+1)+' &middot; '+n+'</span>'+(mSets===i+1?'<span class="mtag">in use</span>':'')+'</div>'}).join('')}
+  else{out='<div class="mgrp">Sets for the keyboard you used (sample)</div>'+['Everyday','Writing','Shortcuts'].map(function(n,i){return'<div class="mit" data-kset="'+(i+1)+'"><span class="mdot m"></span><span class="l">Set '+(i+1)+' &middot; '+n+'</span>'+(kSets===i+1?'<span class="mtag">in use</span>':'')+'</div>'}).join('')+'<div class="mgrp">Hold Space, then press 1 to 3, to switch</div>'}
+  $('mlist').innerHTML=out;
+  [].forEach.call($('mtabs').children,function(t){t.classList.toggle('on',t.getAttribute('data-t')===mTab)});
+}
+function setMenuTab(t){if(!built.voice)return;mTab=t;mSel=0;menuDraw()}
+B.voice=function(){
+  $('sc-voice').innerHTML='<div class="menudesk"><div class="win"><b>Any program you are working in</b><p>Press the middle mouse button to start Voice. Turn the wheel while it listens and this menu opens. You can speak, or pick with the mouse, both at once.</p></div><div class="listen"><div class="t">Amit is listening</div><div class="s">Say a command, or use the menu</div></div>'
+   +'<div class="menu"><div class="mh"><b>Amit menu</b><span>Click a tab to switch. The wheel scrolls inside the tab.</span></div><div class="mtabs" id="mtabs"><span class="mtab on" data-t="voice">Voice</span><span class="mtab" data-t="mouse">Mouse</span><span class="mtab" data-t="kbd">Keyboard</span></div><div class="mmic">&#9679; Microphone listening on every tab</div><div class="mlist" id="mlist"></div><div class="mf">Wheel: move &nbsp; Click: choose &nbsp; Esc: close</div></div></div><div class="status" id="mst">Click a tab, then click a line.</div>';
+  $('mtabs').onclick=function(e){var t=e.target.getAttribute('data-t');if(t){mTab=t;mSel=0;menuDraw()}};
+  $('mlist').onclick=function(e){
+    var it=e.target.closest('.mit');if(!it)return;
+    if(it.hasAttribute('data-i')){mSel=+it.getAttribute('data-i');var x=MI[mSel];$('mst').textContent=(x.l==='Cancel'?'Cancel: Voice ended, nothing run.':'Would run: '+x.l+'.'+(x.m?' It is a button in your "'+x.m+'" menu.':''));menuDraw();return}
+    if(it.hasAttribute('data-sw')){mouseOn=!mouseOn;$('mst').textContent='Mouse sets are '+(mouseOn?'ON':'OFF')+'. (Ctrl+Alt+Shift+M switches every set off from the keyboard.)';menuDraw();return}
+    if(it.hasAttribute('data-open')){toast('On Windows this opens Amit Mouse in the Hub, where you teach Amit about each mouse.');return}
+    if(it.hasAttribute('data-set')){mSets=+it.getAttribute('data-set');$('mst').textContent='The mouse switched to set '+mSets+'.';menuDraw();return}
+    if(it.hasAttribute('data-kset')){kSets=+it.getAttribute('data-kset');$('mst').textContent='The keyboard switched to set '+kSets+'.';menuDraw()}
+  };
+  menuDraw();
+};
+
+/* ----- Read: the speaker, the gold highlight, and the voice window ----- */
+var AMIT_VOICE='Microsoft Brian Multilingual Online (Natural) - English (United States)',vlist=[],vTok=0,armed=false;
+function vEn(v){return /^en/i.test(v.lang)||/English/i.test(v.name)}
+function vNat(v){return /natural|online/i.test(v.name)}
+function vRob(v){return /desktop/i.test(v.name)||(/^Microsoft\b/i.test(v.name)&&!vNat(v))}
+function vIsAmit(v){return !!v&&/Microsoft\s*Brian/i.test(v.name)&&vEn(v)}
+function vPick(vs){
+  if(!vs.length)return null;var ex=vs.filter(function(v){return v.name===AMIT_VOICE})[0];if(ex)return ex;
+  var br=vs.filter(function(v){return /Microsoft\s*Brian\s*Multilingual/i.test(v.name)&&vEn(v)})[0]||vs.filter(vIsAmit)[0];if(br)return br;
+  var en=vs.filter(vEn),us=en.filter(function(v){return /^en-US/i.test(v.lang)});
+  var nov=function(v){return /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Deranged|Good News|Hysterical|Jester|Organ|Pipe Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Fred|Junior|Ralph|Kathy)\b/i.test(v.name)};var plain=function(v){return !vRob(v)&&!nov(v)};
+  return us.filter(vNat)[0]||en.filter(vNat)[0]||en.filter(function(v){return /^Google US English/i.test(v.name)})[0]||en.filter(function(v){return /^Google/i.test(v.name)})[0]||en.filter(function(v){return /^(Samantha|Alex)\b/i.test(v.name)})[0]||us.filter(plain)[0]||en.filter(plain)[0]||us[0]||en[0]||vs[0]||null;
+}
+function vNote(){
+  if(!$('vsel'))return;var v=vlist[$('vsel').value|0],n=vlist.length,nat=vlist.filter(vNat).length,h;
+  if(!n){$('vnote').innerHTML='<b>No voices are offered inside this window.</b> On Windows with Microsoft Edge, Amit’s own voice is Brian, and you can choose from every voice on your computer.';return}
+  h=vIsAmit(v)?'<b>You are hearing Amit’s voice</b> (Brian).':'<b>This is '+esc(v.name.replace(/\s*-\s*English.*$/,''))+', not Amit’s own voice.</b> Amit’s voice is Brian, which comes with Microsoft Edge on Windows.';
+  $('vnote').innerHTML=h+'<br>Do not like it? That is fine. This computer has <b>'+n+' voices</b>'+(nat?' ('+nat+' natural)':'')+'. Pick another. You choose, and Amit keeps the one you save.';
+}
+function vLoad(){
+  if(!$('vsel')||!('speechSynthesis' in window)){if($('vnote'))$('vnote').textContent='This browser cannot speak here.';return}
+  var all=(speechSynthesis.getVoices()||[]).slice(),keep=vlist.length&&$('vsel').value!==''?vlist[$('vsel').value|0]:null,def=vPick(all);
+  var rank=function(v){return v===def?0:(vEn(v)&&vNat(v))?1:vEn(v)?2:3};
+  vlist=all.slice().sort(function(a,b){return rank(a)-rank(b)||a.name.localeCompare(b.name)});
+  var sel=$('vsel');sel.innerHTML='';
+  vlist.forEach(function(v,i){var o=document.createElement('option');o.value=i;o.textContent=(v===def&&vIsAmit(v)?'Amit’s voice: ':'')+v.name.replace(/\s*-\s*English.*$/,'')+' ('+v.lang+')';sel.appendChild(o)});
+  var at=keep?vlist.indexOf(keep):0;sel.value=at>=0?at:0;vNote();
+}
+B.read=function(){
+  var sents=['The Lord is my shepherd; I shall not want.','He makes me lie down in green pastures.','He leads me beside quiet waters.','He restores my soul.','Amit walks alongside you, one step at a time.'];
+  $('sc-read').innerHTML='<div class="readwrap"><div class="rpage" id="rpage"><div class="spk" id="spk" title="Read"><svg viewBox="-14 -12 32 24">'+RG.talk+'</svg></div><p style="margin:0;padding-right:52px">'+sents.map(function(s,i){return'<span class="s" data-i="'+i+'">'+esc(s)+'</span> '}).join('')+'</p></div>'
+   +'<div class="vwin"><h4>Reading voice</h4><label for="vsel">Voice</label><select id="vsel"></select><label>Speed <span id="vrv">1.1</span></label><input type="range" id="vrate" min="0.7" max="1.5" step="0.05" value="1.1"><div class="row" style="justify-content:flex-start"><button class="pill" id="rnext">Try another voice</button><button class="pill" id="rstop">Stop</button></div><div class="vnote" id="vnote">Loading voices...</div></div></div>'
+   +'<div class="status" id="rst">Press the speaker, then click a sentence: Amit reads from there, and a gold highlight follows. Or just click a sentence.</div>';
+  function say(from){
+    if(!('speechSynthesis' in window)){$('rst').textContent='This browser cannot speak here.';return}
+    speechSynthesis.cancel();var tok=++vTok,v=vlist[$('vsel').value|0],rate=parseFloat($('vrate').value)||1.1,i=from;
+    function lit(k){[].forEach.call(document.querySelectorAll('#rpage .s'),function(s){s.classList.toggle('lit',+s.getAttribute('data-i')===k)})}
+    function next(){
+      if(tok!==vTok)return;if(i>=sents.length){lit(-1);$('rst').textContent='';return}
+      lit(i);var u=new SpeechSynthesisUtterance(sents[i].replace(/Amit/g,'uh-MEET'));if(v){u.voice=v;u.lang=v.lang}u.rate=rate;u.pitch=1;u.volume=1;
+      u.onend=function(){i++;setTimeout(next,260*1.2)};u.onerror=function(){if(tok===vTok){lit(-1);$('rst').textContent='Could not read with this voice here.'}};speechSynthesis.speak(u);$('rst').textContent='Reading...';
+    }
+    next();
+  }
+  $('spk').onclick=function(){armed=!armed;this.classList.toggle('arm',armed);$('rst').textContent=armed?'Now click the sentence to start from.':''};
+  $('rpage').addEventListener('click',function(e){var s=e.target.closest('.s');if(!s)return;armed=false;$('spk').classList.remove('arm');say(+s.getAttribute('data-i'))});
+  $('rstop').onclick=function(){vTok++;try{speechSynthesis.cancel()}catch(x){};[].forEach.call(document.querySelectorAll('#rpage .s'),function(s){s.classList.remove('lit')});$('rst').textContent=''};
+  $('vsel').onchange=vNote;$('vrate').oninput=function(){$('vrv').textContent=(+this.value).toFixed(2).replace(/0$/,'')};
+  $('rnext').onclick=function(){var cur=$('vsel').value|0,n=vlist.length,i=cur;if(n){for(var k=1;k<=n;k++){var j=(cur+k)%n;if(vEn(vlist[j])){i=j;break}}$('vsel').value=i;vNote()}say(0)};
+  if('speechSynthesis' in window){speechSynthesis.onvoiceschanged=vLoad;vLoad();setTimeout(vLoad,600);setTimeout(vLoad,1800)}else vLoad();
+};
+
+/* ----- The phone pad ----- */
+B.mobile=function(){
+  $('sc-mobile').innerHTML='<div class="padwrap"><div class="phone"><div class="ptop"></div><div class="phead"><button class="pback" id="pback" style="visibility:hidden">&#8249; Home</button><div class="pt" id="ptitle">Amit Pad</div></div>'
+  +'<div class="pscr on" id="p-home"><div class="pgrid"><button class="ptile mouse" data-go="mouse"><span class="pi">&#9757;</span>Mouse<small>move, click, scroll</small></button><button class="ptile btns" data-go="btns"><span class="pi">&#9638;</span>Buttons<small>your Helper buttons</small></button><button class="ptile photo" data-go="photo"><span class="pi">&#128247;</span>Photo<small>send to computer</small></button><button class="ptile ask" data-go="ask"><span class="pi">&#9998;</span>Ask Amit<small>type or speak</small></button><button class="ptile soon" disabled><span class="pi">+</span>more later</button><button class="ptile soon" disabled><span class="pi">+</span>more later</button></div></div>'
+  +'<div class="pscr" id="p-mouse"><div class="mbar"><button class="pb off" id="pmm">Mouse: OFF</button><button class="pb" id="pmode">Touchpad</button><button class="pb" id="pml">Left</button><button class="pb" id="pmr">Right</button></div><div class="pstage" id="pst"><div class="ph" id="pph">1. Tap <b>Mouse</b> (it turns green).<br>2. Slide one finger here to move the pointer.<br>Tap = left click.</div><div class="pinfo" id="pinfo">Your phone | ready</div></div></div>'
+  +'<div class="pscr" id="p-btns"><div class="plist"><div class="pgrp">Menus on the computer</div><div class="prow"><button class="pbt menu" data-lit="1">Helper bar<small>show / hide</small></button><button class="pbt menu" data-lit="1">Amit menu<small>show / hide</small></button><button class="pbt menu" data-lit="1">Aurora<small>closes by itself</small></button></div><div class="pgrp">Your buttons</div><div class="prow"><button class="pbt" data-run="Books">Books<small>opens a page</small></button><button class="pbt" data-run="Weather">Weather<small>opens a page</small></button><button class="pbt" data-run="Morning">Morning<small>several steps</small></button></div></div></div>'
+  +'<div class="pscr" id="p-photo"><div class="pbig">Take a picture and it opens on the computer in Show Amit.<br><span class="pbn" data-toast="The camera opens here. The real page does this; a web page here cannot.">Take photo</span></div></div>'
+  +'<div class="pscr" id="p-ask"><div class="pbig">Ask Amit. Type or speak.<br><br><textarea rows="3" style="width:90%;font-size:15px;border-radius:8px;border:1px solid #2c3a4a;background:#16202b;color:#eee;padding:8px" placeholder="Your question"></textarea><br><span class="pbn" data-toast="The question goes to Amit; the reply shows and is spoken here.">Ask</span></div></div>'
+  +'<div class="ptoast" id="ptoast"></div></div>'
+  +'<div><div class="pcdesk" id="pcdesk"><div class="pw"></div><div class="dot" id="pdot"></div><div class="cl" id="pcl"></div></div><div class="status">Your computer. Turn Mouse on, then slide a finger on the phone.</div></div></div>';
+  var cp='home',titles={home:'Amit Pad',mouse:'Mouse',btns:'Buttons',photo:'Photo',ask:'Ask Amit'};
+  function pgo(n){cp=n;[].forEach.call($('sc-mobile').querySelectorAll('.pscr'),function(s){s.classList.toggle('on',s.id==='p-'+n)});$('ptitle').textContent=titles[n];$('pback').style.visibility=n==='home'?'hidden':'visible'}
+  [].forEach.call($('sc-mobile').querySelectorAll('[data-go]'),function(b){b.onclick=function(){pgo(b.getAttribute('data-go'))}});$('pback').onclick=function(){pgo('home')};
+  var pt;function ptoast(t){var e=$('ptoast');e.textContent=t;e.style.display='block';clearTimeout(pt);pt=setTimeout(function(){e.style.display='none'},2200)}
+  [].forEach.call($('sc-mobile').querySelectorAll('[data-toast]'),function(b){b.onclick=function(){ptoast(b.getAttribute('data-toast'))}});
+  [].forEach.call($('sc-mobile').querySelectorAll('[data-lit]'),function(b){b.onclick=function(){b.classList.toggle('lit')}});
+  [].forEach.call($('sc-mobile').querySelectorAll('[data-run]'),function(b){b.onclick=function(){ptoast('Sent to the computer: '+b.getAttribute('data-run'))}});
+  var mo=false;$('pmm').onclick=function(){mo=!mo;this.className='pb '+(mo?'on':'off');this.textContent='Mouse: '+(mo?'ON':'OFF');$('pph').style.display='none'};
+  $('pmode').onclick=function(){this.textContent=this.textContent==='Touchpad'?'Direct':'Touchpad'};
+  function clk(w){$('pinfo').textContent=mo?'Your phone | '+w+' click sent':'Your phone | turn Mouse on first';if(mo){$('pcl').textContent=w+' click';setTimeout(function(){$('pcl').textContent=''},700)}}
+  $('pml').onclick=function(){clk('left')};$('pmr').onclick=function(){clk('right')};
+  var st=$('pst'),dn=false,lx=0,ly=0,px=140,py=80,moved=false;
+  st.addEventListener('pointerdown',function(e){dn=true;moved=false;lx=e.clientX;ly=e.clientY;try{st.setPointerCapture(e.pointerId)}catch(x){}});
+  st.addEventListener('pointermove',function(e){if(!dn||!mo)return;var dx=e.clientX-lx,dy=e.clientY-ly;if(Math.abs(dx)+Math.abs(dy)>1)moved=true;px=Math.max(0,Math.min(280,px+dx*1.4));py=Math.max(0,Math.min(170,py+dy*1.4));lx=e.clientX;ly=e.clientY;$('pdot').style.left=px+'px';$('pdot').style.top=py+'px'});
+  st.addEventListener('pointerup',function(){dn=false;if(mo&&!moved)clk('left')});
+};
+
+/* ----- The bar: wide and rail, with the real kind pictures ----- */
+var KG={app:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',web:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><ellipse cx="12" cy="12" rx="4" ry="9"/>',music:'<path d="M9 18V5l10-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/>',prog:'<rect x="3" y="4" width="18" height="12" rx="1"/><path d="M12 16v3M8 20h8"/>',multi:'<path d="M3 6h10M17 4l4 2-4 2M3 12h10M17 10l4 2-4 2M3 18h10M17 16l4 2-4 2"/>',ask:'<rect x="3" y="4" width="18" height="13" rx="3"/><path d="M8 17l-2 4 6-4"/>',reload:'<path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v5h-5"/>'};
+var BP=[{n:'Books',say:'books',b:[['Books','app'],['Weather','web'],['Music','music'],['Calculator','prog'],['Morning','multi'],['Ask Amit','ask']]},{n:'Shopping',say:'shopping',b:[['Groceries','web'],['Lists','app'],['Phone','prog'],['Radio','music']]},{n:'AmitCoder',say:'amit coder',b:[['Preview','app'],['Docs','web'],['Build','multi'],['Ask Amit','ask']]}];
+var bp=0,bwide=true;
+function barDraw(){
+  var p=BP[bp],h='<img class="aic" id="baic" src="'+ICON+'" alt="" title="Click to make the bar slim or wide"><div class="chip2" id="bchip" title="Double-click to change profile"><b>'+(bwide?esc(p.n):esc(p.n.charAt(0).toUpperCase()))+'</b><span>say: "'+esc(p.say)+'"</span></div>';
+  p.b.forEach(function(x,i){h+='<div class="atile k-'+x[1]+'" data-i="'+i+'"><svg viewBox="0 0 24 24">'+KG[x[1]]+'</svg><span>'+esc(x[0])+'</span></div>'});
+  h+='<div style="flex:1"></div><div class="atile rl" data-rl="1"><svg viewBox="0 0 24 24">'+KG.reload+'</svg><span>Reload</span></div>';
+  $('abar').className='abar '+(bwide?'wide':'rail');$('abar').innerHTML=h;
+}
+B.bar=function(){
+  $('sc-bar').innerHTML='<div class="bardesk"><div class="win"><div class="tb2"></div><i style="width:74%"></i><i style="width:58%"></i><i style="width:66%"></i><i style="width:40%"></i></div><div class="abar wide" id="abar"></div></div>'
+  +'<div class="legend"><span><i style="background:#e8be46"></i>Amit app</span><span><i style="background:#46a0ff"></i>website</span><span><i style="background:#ac6eff"></i>music</span><span><i style="background:#3cd0d2"></i>program</span><span><i style="background:#ff8462"></i>several steps</span><span><i style="background:#50d78c"></i>ask Amit</span></div>'
+  +'<div class="status" id="bst">Hover a button, press it, click the Amit icon to make the bar slim, double-click the gold name to change profile.</div>';
+  $('abar').addEventListener('click',function(e){
+    if(e.target.id==='baic'){bwide=!bwide;barDraw();return}
+    var t=e.target.closest('.atile');if(!t)return;
+    if(t.hasAttribute('data-rl')){$('bst').textContent='Reload: the bar loads your newest buttons and settings from the Hub.';return}
+    var x=BP[bp].b[+t.getAttribute('data-i')],kind={app:'an Amit app',web:'a website',music:'a music set',prog:'a program on your computer',multi:'several steps in a row',ask:'a ready question for Amit'}[x[1]];
+    $('bst').textContent='Pressed "'+x[0]+'": it is '+kind+'. (Sample.)';
+  });
+  $('abar').addEventListener('dblclick',function(e){if(e.target.closest('#bchip')){bp=(bp+1)%BP.length;barDraw();$('bst').textContent='Profile: '+BP[bp].n+'. Each profile is its own set of buttons.'}});
+  barDraw();
+};
+
+/* ----- Day, Books, God ----- */
+B.day=function(){
+  $('sc-day').innerHTML='<div class="card"><h4>Today</h4><div class="word" id="wd">Word for today: faithfulness</div><div class="todo" style="margin-top:10px"><label><input type="checkbox"><span>Call Mom</span></label><label><input type="checkbox" checked><span>Pray</span></label><label><input type="checkbox"><span>Pay the electric bill</span></label></div><div class="status" style="text-align:left">Sample. When you are ready, the Hub can show the Hebrew calendar beside this one.</div></div>';
+  [].forEach.call($('sc-day').querySelectorAll('input'),function(i){var f=function(){i.parentNode.classList.toggle('done',i.checked)};i.onchange=f;f()});
+};
+B.books=function(){
+  $('sc-books').innerHTML='<div class="books"><div class="rcpt" id="rc">OFFICE DEPOT<br>------------<br>Paper ......... 18.40<br>Toner ......... 23.78<br>------------<br>TOTAL ......... 42.18</div><div><button class="btn fill sm" id="bsc">Read this receipt</button></div><div class="jr" id="jr"><div><span>Date</span><b>&mdash;</b></div><div><span>Vendor</span><b>&mdash;</b></div><div><span>Category</span><b>&mdash;</b></div><div><span>Amount</span><b>&mdash;</b></div></div></div><div class="status">Sample receipt. You can always correct what Amit reads before it is posted.</div>';
+  $('bsc').onclick=function(){$('jr').innerHTML='<div><span>Date</span><b>Nov 17</b></div><div><span>Vendor</span><b>Office Depot</b></div><div><span>Category</span><b>Office supplies</b></div><div><span>Amount</span><b>$42.18</b></div>';$('rc').style.outline='3px solid #e8be46'};
+};
+B.god=function(){
+  $('sc-god').innerHTML='<div class="ask2"><input id="gq" placeholder="What is the question you have been carrying?"><a class="btn fill" id="gb" href="https://askamit.org/who_is_god/who_is_god.html">Look into it</a></div><div class="row"><button class="chip" data-q="Is there a God?">Is there a God?</button><button class="chip" data-q="Did Jesus really rise?">Did Jesus really rise?</button><button class="chip" data-q="What does the Bible say about the law?">What does the Bible say about the law?</button></div><div class="status" style="max-width:560px;margin:12px auto 0">Nobody is told what to think here. Who Is God lays the evidence out from Scripture, and you can follow it as far as you want, at your own pace.</div>';
+  [].forEach.call($('sc-god').querySelectorAll('[data-q]'),function(b){b.onclick=function(){$('gq').value=b.getAttribute('data-q')}});
+};
+
+rDraw();go('dictate',false);
+})();
+</script>
+</body>
+</html>
