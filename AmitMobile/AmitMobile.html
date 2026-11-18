@@ -387,7 +387,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.56</div>
+<div class="amversion" id="pageVersion">v1.57</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -827,6 +827,7 @@ function amDashboardHtml(){
         <div class="amdash-icon">🖱️</div>
         <div class="amdash-name">Mouse and Buttons</div>
         <div class="amdash-sub" id="amHomeSub">Only at home</div>
+        <div class="amdash-sub" id="amPhoneNameLine" onclick="event.stopPropagation();amRenamePhone()" style="text-decoration:underline"></div>
       </div>
       <div class="amdash-tile" onclick="openPage(8)">
         <div class="amdash-icon">🗨️</div>
@@ -1910,15 +1911,30 @@ async function amHomeTap(){
   try{
     const{data,error}=await db.rpc('hel_make_hop_ticket',{p_computer:_amHome.computer});
     if(error||!data) throw (error||new Error('no ticket'));
+    // 1.57 (Ryan, 2026-11-18): every phone has its OWN id (made once, kept on this phone) and its own name (asked once, changeable), so two phones signed in
+    // to the same account (a personal one and a push-button one) are two separate phones on the computer and each shows in the Hub's Amit Phone list.
     let id='PH';
-    try{ id=localStorage.getItem('amHopId')||''; if(!id){ id=Math.random().toString(16).slice(2,6).toUpperCase(); localStorage.setItem('amHopId',id); } }catch(e){ id='PH'; }
-    location.href='http://'+_amHome.host+'/hop?t='+encodeURIComponent(data)+'&n='+encodeURIComponent('Phone '+id);
+    try{ id=localStorage.getItem('amHopId')||''; if(!id){ id=Math.random().toString(16).slice(2,10).toUpperCase(); localStorage.setItem('amHopId',id); } }catch(e){ id='PH'; }
+    let nm=_amPhoneName();
+    if(!nm){ nm=_amAskPhoneName(''); }
+    location.href='http://'+_amHome.host+'/hop?t='+encodeURIComponent(data)+'&i='+encodeURIComponent(id)+'&n='+encodeURIComponent(nm);
   }catch(e){
     console.error('home hop failed',e);
     alert('Could not connect at home just now. Try again in a moment.');
     amCheckHome();
   }
 }
+function _amPhoneName(){ try{ return localStorage.getItem('amPhoneName')||''; }catch(e){ return ''; } }
+function _amAskPhoneName(cur){
+  let n=prompt('Name this phone so you can tell your phones apart, for example "My iPhone" or "Kitchen buttons". It shows in your Hub.',cur||'');
+  n=(n||'').replace(/[|\r\n]/g,' ').trim().slice(0,40);
+  if(n){ try{ localStorage.setItem('amPhoneName',n); }catch(e){} }
+  _amShowPhoneName();
+  return n;
+}
+function amRenamePhone(){ _amAskPhoneName(_amPhoneName()); }   // takes effect on the computer the next time Mouse and Buttons is opened at home
+function _amShowPhoneName(){ const l=document.getElementById('amPhoneNameLine'); if(l) l.textContent='This phone: '+(_amPhoneName()||'not named yet')+' (change)'; }
+_amShowPhoneName();
 setInterval(amCheckHome,60000);
 
 if(db){

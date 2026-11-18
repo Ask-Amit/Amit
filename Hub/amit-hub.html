@@ -1403,7 +1403,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.87</div>
+      <div class="page-version" id="hubVersionBadge">v8.88</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2742,7 +2742,7 @@ header{
                 <li>Sign in with the same email and password you use here.</li>
                 <li>Tap <b>Share</b>, then <b>Add to Home Screen</b>.</li>
               </ol>
-              <div style="font-size:12px;color:var(--dim);margin-bottom:8px">At home, its <b>Mouse and Buttons</b> tile opens the Amit Pad on this computer by itself, with no second code. Away from home it works over the internet. For the home part, the Amit Helper has to be running on this computer (see below) and the Hub open here.</div>
+              <div style="font-size:12px;color:var(--dim);margin-bottom:8px">At home, its <b>Mouse and Buttons</b> tile opens the Amit Pad on this computer by itself, with no second code. Put it on every phone you want to use, a personal one and a push-button one if you like: each phone gets its own name and appears in the list at the bottom of this tab. Away from home it works over the internet. For the home part, the Amit Helper has to be running on this computer (see below) and the Hub open here.</div>
               <button type="button" class="btn" onclick="openConnectAmitModal()">Set up step by step</button>
             </div>
           </div>
@@ -2779,7 +2779,6 @@ header{
           </div>
           </div>
           <div id="amPhoneMsg" style="display:none;background:rgba(240,226,168,.12);border:1px solid rgba(240,226,168,.4);border-radius:10px;padding:12px 14px;margin-bottom:10px;line-height:1.5"><b>The Amit Helper is not running on this computer.</b> The phone connects through the Helper, so this tab only works on a computer where it is installed and running. Start the Helper (or install it), then press <button type="button" class="btn" onclick="amLoadPhone(true)" style="margin:0 4px">Check again</button></div>
-          <div id="amPhoneBackupLabel" style="font-size:12px;line-height:1.5;opacity:.85;margin:4px 2px 8px"><b>Backup: the Amit Pad on its own (home Wi-Fi only).</b> The code below opens the Pad directly on this computer. It works only at home and cannot switch to the internet. For everyday use, install Amit Mobile with the code at the top of this tab.</div>
           <iframe id="amPhoneFrame" title="Amit Phone" style="width:100%;height:calc(100vh - 190px);min-height:560px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:12px;background:rgba(0,0,0,.22)"></iframe>
         </div>
 
@@ -6088,13 +6087,12 @@ function _renderPhoneTabQr(){
 function amLoadPhone(force){
   _renderPhoneTabQr();
   var f=document.getElementById('amPhoneFrame'), m=document.getElementById('amPhoneMsg'); if(!f||!m) return;
-  var bl=document.getElementById('amPhoneBackupLabel'); function lab(v){ if(bl) bl.style.display=v?'block':'none'; }
-  if(f.getAttribute('src')&&!force){ m.style.display='none'; lab(true); return; }
-  var done=false, t=setTimeout(function(){ if(!done){ done=true; m.style.display='block'; f.style.display='none'; lab(false); } },4000);
+  if(f.getAttribute('src')&&!force){ m.style.display='none'; return; }
+  var done=false, t=setTimeout(function(){ if(!done){ done=true; m.style.display='block'; f.style.display='none'; } },4000);
   fetch('http://localhost:8722/ping',{mode:'no-cors',cache:'no-store'}).then(function(){
-    if(done) return; done=true; clearTimeout(t); m.style.display='none'; f.style.display='block'; lab(true);
-    f.setAttribute('src','http://localhost:8722/pair');
-  }).catch(function(){ if(done) return; done=true; clearTimeout(t); m.style.display='block'; f.style.display='none'; lab(false); });
+    if(done) return; done=true; clearTimeout(t); m.style.display='none'; f.style.display='block';
+    f.setAttribute('src','http://localhost:8722/pair');   // 2.08: this page is now the list of phones and the pad switch (no QR pairing)
+  }).catch(function(){ if(done) return; done=true; clearTimeout(t); m.style.display='block'; f.style.display='none'; });
 }
 // Amit Mouse pause while editing: the page pauses the person's mouse sets only while its tab is on screen. Only the Hub knows that (it is the Hub that shows and hides the tab),
 // so it tells the page whenever it changes: the tab is a visible box in a visible browser tab. One cheap check a second.

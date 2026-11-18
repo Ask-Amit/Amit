@@ -1,121 +1,90 @@
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Amit Pad - pair a phone</title>
+<title>Amit Phones</title>
 <style>
-/* Amit Pad pairing page v1.11 (2026-11-17): the QR code and link use this computer's NAME (the router's number changes, the name does not); the number is shown as a backup. v1.10 (2026-11-16): the Amit Phone tab of the Hub shows this page (served by the Helper on this computer, localhost only). A phone belongs to the person signed in on this computer. */
+/* Amit Phones page v2.00 (2026-11-18, Ryan): this is the list of the phones connected to this computer and the pad's on/off switch, shown in the Amit Phone tab of the Hub (served by the Helper on this computer, localhost only). The QR pairing and the "Pair this phone" button of v1.x are gone: a phone connects by itself from Amit Mobile (signed in to the same account, at home, Mouse and Buttons). The file keeps its old name only so the updater and installer lists need no change. */
 :root{--g:#c9a84c;--bg:#0e1116;--panel:#151a21;--line:#2a313b;--txt:#e8e8ea;--mut:#9aa3ad}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--txt);font-family:Segoe UI,Arial,sans-serif;font-size:14px;padding:16px}
 h1{font-size:20px;color:var(--g);margin:0 0 4px}
 .lead{color:var(--mut);margin:0 0 14px;line-height:1.5;max-width:900px}
-.grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px}
-@media(max-width:900px){.grid{grid-template-columns:1fr}}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
 .card h2{font-size:15px;margin:0 0 8px;color:#fff}
 .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
 .opt{background:#1c2430;border-radius:10px;padding:10px;font-size:13px;line-height:1.35}
 .opt b{display:block;color:var(--g);margin-bottom:2px}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-input{font-size:15px;padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:#1c2027;color:var(--txt);width:250px;max-width:100%}
 button{font-family:inherit}
 .btn{font-size:14px;padding:9px 16px;border-radius:8px;border:0;background:#8a6d1f;color:#fff;cursor:pointer}
-.btn[disabled],input[disabled]{opacity:.4;cursor:not-allowed}
 .btn.red{background:#5a3a3a;font-size:12px;padding:6px 12px}
 .btn.grey{background:#3b4f66}
 .note{font-size:12px;color:var(--mut);margin-top:8px;line-height:1.45}
 .warn{background:#3a3216;color:#f0e2a8;border-radius:8px;padding:9px 12px;margin:8px 0;font-size:13px;display:none}
-.phone{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+.phone{display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;border-top:1px solid var(--line);padding:12px 0 0;margin-top:12px}
 .phone.first{border-top:0;margin-top:0;padding-top:0}
-.qr{background:#fff;padding:10px;border-radius:8px;line-height:0}
-.url{font-size:11px;color:#8b909a;word-break:break-all;margin-top:6px;max-width:260px}
 .tag{display:inline-block;font-size:11px;border-radius:20px;padding:2px 9px;background:#1f4a33;color:#9ff0c0;margin-left:6px}
 .tag.old{background:#4a3a1f;color:#f0d79a}
-.steps{margin:0;padding-left:20px;line-height:1.6}
 .sw{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .dot{width:12px;height:12px;border-radius:50%;background:#2f7d4f;display:inline-block}
 .dot.off{background:#7a3a3a}
 #err{color:#ff9a9a;font-size:13px;margin-top:8px}
 </style></head><body>
 <h1>Amit Phone</h1>
-<p class="lead">Your phone, or an iPad, becomes part of your computer: a touchpad, your own buttons, a camera and a way to ask Amit. It works on your home Wi-Fi and belongs to you: it is linked to the Amit account you are signed in with on this computer, so nobody else's phone shows up here and yours never shows up for them.</p>
-<div class="warn" id="w-signed"><b>Nobody is signed in to Amit on this computer.</b> Sign in to the Hub here first: a phone belongs to the person who pairs it.</div>
+<p class="lead">Your phones and iPads become part of your computer: a touchpad, your own buttons, a camera and a way to ask Amit. They work on your home Wi-Fi and belong to you: each one is linked to the Amit account you are signed in with on this computer, so nobody else's phone shows up here and yours never shows up for them.</p>
+<div class="warn" id="w-signed"><b>Nobody is signed in to Amit on this computer.</b> Sign in to the Hub here first: a phone connects only to the account that is signed in.</div>
 
-<div class="grid">
-  <div>
-    <div class="card">
-      <h2>What your phone gets</h2>
-      <div class="opts">
-        <div class="opt"><b>Mouse</b>Move the pointer, click, scroll and zoom with your finger. Touchpad or Direct.</div>
-        <div class="opt"><b>Navigation</b>Your own Helper buttons, the Helper bar, the Amit menu and the Aurora, one tap away.</div>
-        <div class="opt"><b>Photo</b>Take a picture; it opens on the computer in Show Amit.</div>
-        <div class="opt"><b>Ask Amit</b>Type or speak a question; the answer shows on the phone and can be spoken.</div>
-      </div>
-      <div class="note">More will be added here as they are built.</div>
-    </div>
-    <div class="card">
-      <h2>Put it on your phone's home screen</h2>
-      <ol class="steps">
-        <li>Pair the phone (right), then scan its code with the phone's camera.</li>
-        <li>Open the link it gives you, then tap <b>Share</b> and <b>Add to Home Screen</b>.</li>
-        <li>Next time, tap the <b>Amit Pad</b> icon. It opens full screen, with no browser bars, as long as this computer is on, the Helper is running and you are on the same Wi-Fi. The link uses this computer's name, so it keeps working when your router gives the computer a new number.</li>
-      </ol>
-      <div class="note">Away from home it will not connect yet; that needs the secure web address that is still to come.</div>
-    </div>
-    <div class="card">
-      <div class="sw"><span class="dot" id="dot"></span><span>The phone pad is <b id="swt">...</b> for this computer.</span><button class="btn grey" id="swb">...</button></div>
-      <div class="note">Switching it off stops every paired phone at once. It does not unpair them.</div>
-    </div>
+<div class="card">
+  <h2>What your phone gets</h2>
+  <div class="opts">
+    <div class="opt"><b>Mouse</b>Move the pointer, click, scroll and zoom with your finger. Touchpad or Direct.</div>
+    <div class="opt"><b>Navigation</b>Your own Helper buttons, the Helper bar, the Amit menu and the Aurora, one tap away.</div>
+    <div class="opt"><b>Photo</b>Take a picture; it opens on the computer in Show Amit.</div>
+    <div class="opt"><b>Ask Amit</b>Type or speak a question; the answer shows on the phone and can be spoken.</div>
   </div>
-  <div>
-    <div class="card">
-      <h2>Connect a phone</h2>
-      <div class="row"><input id="nm" placeholder="Name this phone, for example Ryan's iPhone" maxlength="40"><button class="btn" id="go">Pair this phone</button></div>
-      <div class="note">One press makes a private key for that one phone and shows its QR code below. After that the code stays here for that phone; you do not have to press anything again. Pair only phones that are yours.</div>
-      <div id="err"></div>
-    </div>
-    <div class="card" id="phones"></div>
-  </div>
+  <div class="note">More will be added here as they are built.</div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<div class="card">
+  <div class="sw"><span class="dot" id="dot"></span><span>The phone pad is <b id="swt">...</b> for this computer.</span><button class="btn grey" id="swb">...</button></div>
+  <div class="note">Switching it off stops every phone at once. It does not remove them from the list.</div>
+</div>
+
+<div class="card" id="phones"></div>
+<div id="err"></div>
+
 <script>
-var HOST = "__HOST__"; if (HOST.indexOf("__") === 0) HOST = "";
-var LAN = "__LAN__";
 function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 function call(path, post) {
   return fetch(path, { method: post ? "POST" : "GET", headers: post ? { "X-Amit-Pair": "1" } : {} }).then(function (r) { return r.json(); });
+}
+function ago(s) {
+  if (!s) return "not yet";
+  var t = Date.parse(s.replace(" ", "T")); if (isNaN(t)) return s;
+  var m = Math.round((Date.now() - t) / 60000);
+  if (m < 2) return "just now"; if (m < 60) return m + " minutes ago";
+  if (m < 1440) return Math.round(m / 60) + " hours ago";
+  return s;
 }
 function draw(d) {
   document.getElementById("dot").className = "dot" + (d.enabled ? "" : " off");
   document.getElementById("swt").textContent = d.enabled ? "ON" : "OFF";
   var sb = document.getElementById("swb"); sb.textContent = d.enabled ? "Switch it off" : "Switch it on";
   sb.onclick = function () { call("/pair/switch?on=" + (d.enabled ? "0" : "1"), true).then(draw); };
-  document.getElementById("go").disabled = !d.signedIn; document.getElementById("nm").disabled = !d.signedIn;
   document.getElementById("w-signed").style.display = d.signedIn ? "none" : "block";
   var box = document.getElementById("phones"); box.innerHTML = "<h2>Your phones</h2>";
-  if (!d.devices.length) { box.innerHTML += '<div class="note">No phone is paired yet. Name one above and press Pair this phone.</div>'; return; }
+  if (!d.devices.length) { box.innerHTML += '<div class="note">No phone is connected yet. To add one, put Amit Mobile on it (the code at the top of this tab), sign in with the same email and password, and while you are at home tap <b>Mouse and Buttons</b>. It appears here by itself, with the name you give it on the phone.</div>'; return; }
   d.devices.forEach(function (v, i) {
-    var url = HOST ? "http://" + HOST + "/pad?k=" + v.token : (LAN ? "http://" + LAN + "/pad?k=" + v.token : "");
-    var backup = (HOST && LAN) ? "http://" + LAN + "/pad?k=" + v.token : "";
     var c = document.createElement("div"); c.className = "phone" + (i === 0 ? " first" : "");
-    var qrHtml = "";
-    if (url && window.qrcode) { var q = qrcode(0, "M"); q.addData(url); q.make(); qrHtml = '<div class="qr">' + q.createImgTag(5, 2) + '</div>'; }
-    c.innerHTML = '<div>' + (qrHtml || '<div class="note">' + (url ? 'The QR code could not be drawn (no internet for its small helper script). Type this link into the phone instead.' : 'This computer has no home network address right now.') + '</div>') + (url ? '<div class="url">' + esc(url) + '</div>' : '') + (backup ? '<div class="url">If the name does not open on the phone, use this backup (it changes when the router gives this computer a new number):<br>' + esc(backup) + '</div>' : '') + '</div>' +
-      '<div><b>' + esc(v.name) + '</b>' + (v.linked ? '<span class="tag">linked to your Amit account</span>' : '<span class="tag old">older pairing</span>') +
-      '<div class="note">paired ' + esc(v.created) + '<br>Scan with this phone\'s camera.' + (v.linked ? '' : '<br>Older pairings use whoever is signed in. Revoke and pair again to link it to you.') + '</div>' +
-      '<div style="margin-top:8px"><button class="btn red rv" data-t="' + v.token + '">Revoke this phone</button></div></div>';
+    c.innerHTML = '<div><b>' + esc(v.name) + '</b>' + (v.linked ? '<span class="tag">linked to your Amit account</span>' : '<span class="tag old">older pairing</span>') +
+      '<div class="note">added ' + esc(v.created) + ' &middot; last used ' + esc(ago(v.seen)) + (v.linked ? '' : '<br>An older pairing uses whoever is signed in. Remove it; the phone connects again from Amit Mobile.') + '</div></div>' +
+      '<div><button class="btn red rv" data-t="' + v.token + '">Remove this phone</button></div>';
     box.appendChild(c);
   });
+  box.insertAdjacentHTML("beforeend", '<div class="note">Name a phone on the phone itself, in Amit Mobile. Removing a phone only forgets it on this computer: while it is signed in to your account it can connect again from Amit Mobile.</div>');
   Array.prototype.forEach.call(document.querySelectorAll(".rv"), function (b) {
-    b.onclick = function () { if (confirm("Revoke this phone? It will stop working at once.")) call("/pair/revoke?token=" + b.getAttribute("data-t"), true).then(draw); };
+    b.onclick = function () { if (confirm("Remove this phone? It stops working here at once.")) call("/pair/revoke?token=" + b.getAttribute("data-t"), true).then(draw); };
   });
 }
-document.getElementById("go").onclick = function () {
-  var n = document.getElementById("nm").value.trim();
-  if (!n) { document.getElementById("err").textContent = "Type a name for the phone first."; return; }
-  document.getElementById("err").textContent = "";
-  call("/pair/add?name=" + encodeURIComponent(n), true).then(function (d) { document.getElementById("nm").value = ""; draw(d); });
-};
 call("/pair/list", false).then(draw).catch(function () { document.getElementById("err").textContent = "The Amit Helper did not answer. Is it running?"; });
+setInterval(function () { call("/pair/list", false).then(draw).catch(function () {}); }, 30000);
 </script>
 </body></html>

@@ -10,7 +10,7 @@
 <link rel="manifest" href="/pad.webmanifest?k=__KEY__">
 <title>Amit Pad</title>
 <style>
-/* Amit Pad v1.03 (2026-11-17): a "Back to Amit Mobile" link on the Home screen. v1.01 (2026-11-15): no double-tap zoom, buttons flash and the info line counts clicks. v1.00: Served by the Amit Helper on the home network. Ported from the Stage 0 test page that worked on the iPhone. */
+/* Amit Pad v1.04 (2026-11-18): the messages no longer point at the old QR pairing. v1.03 (2026-11-17): a "Back to Amit Mobile" link on the Home screen. v1.01 (2026-11-15): no double-tap zoom, buttons flash and the info line counts clicks. v1.00: Served by the Amit Helper on the home network. Ported from the Stage 0 test page that worked on the iPhone. */
 html,body,.b{touch-action:manipulation;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
 .b:active{filter:brightness(1.6);transform:scale(.97);}
 .flash{background:#e0bd6a !important;color:#111;}
@@ -166,8 +166,8 @@ function send(lines, cb) {
   x.setRequestHeader("Content-Type", "text/plain");
   x.onload = function () {
     rtt = Math.round(0.8 * rtt + 0.2 * (Date.now() - t0));
-    if (x.status === 401) say("this phone is not paired (ask the computer for a new code)");
-    else if (x.responseText.indexOf('"off":true') >= 0) say("the pad is switched off on the computer (switch it on at http://localhost:8722/pair there)");
+    if (x.status === 401) say("this phone is not connected: open Amit Mobile and tap Mouse and Buttons again");
+    else if (x.responseText.indexOf('"off":true') >= 0) say("the pad is switched off on the computer (switch it on in the Hub: Communications > Amit Phone)");
     if (cb) cb();
   };
   x.onerror = function () { say("cannot reach the computer (same Wi-Fi? computer awake?)"); if (cb) cb(); };
@@ -242,7 +242,7 @@ document.getElementById("asend").onclick = function () {
   x.open("POST", "/ask?k=" + KEY, true); x.setRequestHeader("Content-Type", "text/plain");
   x.onload = function () {
     var r = {}; try { r = JSON.parse(x.responseText); } catch (e) {}
-    if (!r.ok) { askOut(r.off ? "The pad is switched off on the computer (switch it on at http://localhost:8722/pair there)." : (r.error || "Amit could not be asked.")); return; }
+    if (!r.ok) { askOut(r.off ? "The pad is switched off on the computer (switch it on in the Hub: Communications > Amit Phone)." : (r.error || "Amit could not be asked.")); return; }
     document.getElementById("aq").value = ""; pollReply(r.id, 0);
   };
   x.onerror = function () { askOut("Could not reach the computer. Same Wi-Fi? Computer awake?"); };
