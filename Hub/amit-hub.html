@@ -1403,7 +1403,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.83</div>
+      <div class="page-version" id="hubVersionBadge">v8.84</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4080,10 +4080,12 @@ if(db){
         _pullReflections();
       }
       _startAmitMobileHeartbeat();
+      _startHomeNetworkReport();
     } else {
       // No session — show auth gate only after Supabase has had time to check
       if(event==='SIGNED_OUT'||event==='INITIAL_SESSION') checkAuthGate();
       _stopAmitMobileHeartbeat();
+      _stopHomeNetworkReport();
     }
     _refreshAmitReadinessBanner();
   });
@@ -4513,6 +4515,37 @@ let _amitMobileVisibilityListenerAdded=false;
 function _stopAmitMobileHeartbeat(){
   if(_amitMobileHeartbeatTimer){clearInterval(_amitMobileHeartbeatTimer);_amitMobileHeartbeatTimer=null;}
   _setAmitMobileHeartbeatIndicator(false);
+}
+// ══════════════════════════════════════════════
+// HOME NETWORK REPORT — added 2026-11-17 (Ryan: "build the complete scope").
+// While a signed-in person has the Hub open ON THE COMPUTER THAT RUNS THE AMIT HELPER, the Hub tells their account which computer this is
+// (hel_report_home). The database records the public address the SERVER sees for this request; Amit Mobile on a phone asks hel_am_i_home()
+// and, if the phone is on the same home network, offers "Mouse and Buttons" (the Amit Pad). Nothing secret is sent: the computer's name and
+// its .local address only. It reports ONLY when the local Helper answers (helper 2.07 or newer tells us this computer's name), so a Hub opened
+// on a phone can never report the phone as a computer. Reports every 4 minutes (a report older than 15 minutes counts as "not home").
+// ══════════════════════════════════════════════
+let _homeNetTimer=null;
+async function _reportHomeNetwork(){
+  if(!db||!currentUser)return;
+  try{
+    const ctl=(typeof AbortController!=='undefined')?new AbortController():null;
+    const to=ctl?setTimeout(()=>ctl.abort(),4000):null;
+    const r=await fetch('http://localhost:8710/api/helper/status',ctl?{signal:ctl.signal}:{});
+    if(to)clearTimeout(to);
+    if(!r.ok)return;
+    const s=await r.json();
+    if(!s||!s.computer||!/^[A-Za-z0-9-]{1,63}$/.test(String(s.computer)))return;   // no Helper here, or an older Helper: report nothing
+    await db.rpc('hel_report_home',{p_computer:String(s.computer),p_host:String(s.computer).toLowerCase()+'.local:8722'});
+  }catch(e){ /* the Helper is not here (for example this Hub is open on a phone): nothing to report */ }
+}
+function _startHomeNetworkReport(){
+  if(_homeNetTimer)return;
+  _reportHomeNetwork();
+  _homeNetTimer=setInterval(_reportHomeNetwork,240000);
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&_homeNetTimer)_reportHomeNetwork(); });
+}
+function _stopHomeNetworkReport(){
+  if(_homeNetTimer){clearInterval(_homeNetTimer);_homeNetTimer=null;}
 }
 function _setAmitMobileHeartbeatIndicator(on){
   const el=document.getElementById('amitMobileHeartbeatIndicator');
