@@ -2,7 +2,7 @@
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Amit Pad - pair a phone</title>
 <style>
-/* Amit Pad pairing page v1.10 (2026-11-16): the Amit Phone tab of the Hub shows this page (served by the Helper on this computer, localhost only). A phone belongs to the person signed in on this computer. */
+/* Amit Pad pairing page v1.11 (2026-11-17): the QR code and link use this computer's NAME (the router's number changes, the name does not); the number is shown as a backup. v1.10 (2026-11-16): the Amit Phone tab of the Hub shows this page (served by the Helper on this computer, localhost only). A phone belongs to the person signed in on this computer. */
 :root{--g:#c9a84c;--bg:#0e1116;--panel:#151a21;--line:#2a313b;--txt:#e8e8ea;--mut:#9aa3ad}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--txt);font-family:Segoe UI,Arial,sans-serif;font-size:14px;padding:16px}
@@ -57,7 +57,7 @@ button{font-family:inherit}
       <ol class="steps">
         <li>Pair the phone (right), then scan its code with the phone's camera.</li>
         <li>Open the link it gives you, then tap <b>Share</b> and <b>Add to Home Screen</b>.</li>
-        <li>Next time, tap the <b>Amit Pad</b> icon. It opens full screen, with no browser bars, as long as this computer is on, the Helper is running and you are on the same Wi-Fi.</li>
+        <li>Next time, tap the <b>Amit Pad</b> icon. It opens full screen, with no browser bars, as long as this computer is on, the Helper is running and you are on the same Wi-Fi. The link uses this computer's name, so it keeps working when your router gives the computer a new number.</li>
       </ol>
       <div class="note">Away from home it will not connect yet; that needs the secure web address that is still to come.</div>
     </div>
@@ -79,6 +79,7 @@ button{font-family:inherit}
 
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script>
+var HOST = "__HOST__"; if (HOST.indexOf("__") === 0) HOST = "";
 var LAN = "__LAN__";
 function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 function call(path, post) {
@@ -94,11 +95,12 @@ function draw(d) {
   var box = document.getElementById("phones"); box.innerHTML = "<h2>Your phones</h2>";
   if (!d.devices.length) { box.innerHTML += '<div class="note">No phone is paired yet. Name one above and press Pair this phone.</div>'; return; }
   d.devices.forEach(function (v, i) {
-    var url = LAN ? "http://" + LAN + "/pad?k=" + v.token : "";
+    var url = HOST ? "http://" + HOST + "/pad?k=" + v.token : (LAN ? "http://" + LAN + "/pad?k=" + v.token : "");
+    var backup = (HOST && LAN) ? "http://" + LAN + "/pad?k=" + v.token : "";
     var c = document.createElement("div"); c.className = "phone" + (i === 0 ? " first" : "");
     var qrHtml = "";
     if (url && window.qrcode) { var q = qrcode(0, "M"); q.addData(url); q.make(); qrHtml = '<div class="qr">' + q.createImgTag(5, 2) + '</div>'; }
-    c.innerHTML = '<div>' + (qrHtml || '<div class="note">' + (url ? 'The QR code could not be drawn (no internet for its small helper script). Type this link into the phone instead.' : 'This computer has no home network address right now.') + '</div>') + (url ? '<div class="url">' + esc(url) + '</div>' : '') + '</div>' +
+    c.innerHTML = '<div>' + (qrHtml || '<div class="note">' + (url ? 'The QR code could not be drawn (no internet for its small helper script). Type this link into the phone instead.' : 'This computer has no home network address right now.') + '</div>') + (url ? '<div class="url">' + esc(url) + '</div>' : '') + (backup ? '<div class="url">If the name does not open on the phone, use this backup (it changes when the router gives this computer a new number):<br>' + esc(backup) + '</div>' : '') + '</div>' +
       '<div><b>' + esc(v.name) + '</b>' + (v.linked ? '<span class="tag">linked to your Amit account</span>' : '<span class="tag old">older pairing</span>') +
       '<div class="note">paired ' + esc(v.created) + '<br>Scan with this phone\'s camera.' + (v.linked ? '' : '<br>Older pairings use whoever is signed in. Revoke and pair again to link it to you.') + '</div>' +
       '<div style="margin-top:8px"><button class="btn red rv" data-t="' + v.token + '">Revoke this phone</button></div></div>';
