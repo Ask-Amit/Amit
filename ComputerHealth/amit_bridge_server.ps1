@@ -2045,7 +2045,7 @@ try {
                     }
                     $hsSha.Dispose()
                     $hsCan = (Test-Path (Join-Path $watcherDir 'amit_update.ps1')).ToString().ToLowerInvariant()
-                    Send-JsonRaw $response ('{"ok":true,"helperVersion":"' + [AmitWhisper]::Version + '","canUpdate":' + $hsCan + ',"files":[' + ($hsParts -join ',') + ']}')
+                    Send-JsonRaw $response ('{"ok":true,"helperVersion":"' + [AmitWhisper]::Version + '","computer":"' + [System.Environment]::MachineName + '","canUpdate":' + $hsCan + ',"files":[' + ($hsParts -join ',') + ']}')
                 }
             }
             "/api/helper/update" {
