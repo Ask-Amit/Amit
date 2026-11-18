@@ -387,7 +387,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.55</div>
+<div class="amversion" id="pageVersion">v1.56</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -821,6 +821,12 @@ function amDashboardHtml(){
         <div class="amdash-icon">📷</div>
         <div class="amdash-name">Send to computer</div>
         <div class="amdash-sub">Take a photo, it opens on your PC</div>
+      </div>
+      <!-- ADDED 2026-11-17: at home, this opens the Amit Pad (mouse, buttons, navigation) on your own computer. Hidden when signed out. -->
+      <div class="amdash-tile" id="amHomeTile" onclick="amHomeTap()" style="display:none;opacity:.45">
+        <div class="amdash-icon">🖱️</div>
+        <div class="amdash-name">Mouse and Buttons</div>
+        <div class="amdash-sub" id="amHomeSub">Only at home</div>
       </div>
       <div class="amdash-tile" onclick="openPage(8)">
         <div class="amdash-icon">🗨️</div>
@@ -1875,10 +1881,51 @@ if(window.AmitChat){
   AmitChat.voiceSaver=async function(f){ if(!_amOwnerContact&&db&&currentUser) await amLoadVoicePref(); const c=_amOwnerContact; if(!c||typeof saveOwnerContactFields!=='function') return false; const ok=await saveOwnerContactFields(db,c.id,f); if(ok) Object.assign(c,f); return ok; };
   AmitChat.onSpeak=function(on){ try{ if(on){ if(typeof startSpeakingPulse==='function') startSpeakingPulse(); } else if(typeof stopSpeakingPulse==='function') stopSpeakingPulse(); }catch(e){} };
 }
+// ══════════════════════════════════════════════
+// AT HOME — added 2026-11-17 (Ryan: "build the complete scope"). The Hub on the person's computer reports which home network the computer is on
+// (hel_report_home); this phone asks the database "is one of MY computers on the same network as me, heard from in the last 15 minutes?"
+// (hel_am_i_home). If yes the "Mouse and Buttons" tile is live: tapping it gets a ONE-TIME ticket (hel_make_hop_ticket, only given on the same
+// network) and navigates to the computer's own Amit Pad over the home Wi-Fi (http://<computer>.local:8722/hop?t=...). A page on the internet may not
+// call a plain home address, so this can only navigate ("hop"). Away from home the tile stays dim and everything else works over the internet.
+// ══════════════════════════════════════════════
+let _amHome=null; // {computer,host} when this phone is at home with one of the person's computers
+async function amCheckHome(){
+  const t=document.getElementById('amHomeTile'), sub=document.getElementById('amHomeSub');
+  if(!t)return;
+  if(!db||!currentUser){ t.style.display='none'; _amHome=null; return; }
+  t.style.display='';
+  try{
+    const{data,error}=await db.rpc('hel_am_i_home');
+    if(error) throw error;
+    _amHome=(data&&data.length)?data[0]:null;
+  }catch(e){ _amHome=null; }
+  t.style.opacity=_amHome?'1':'.45';
+  if(sub) sub.textContent=_amHome?('At home: '+_amHome.computer):'Only at home (not at home right now)';
+}
+async function amHomeTap(){
+  if(!_amHome){
+    alert('You are not at home right now, or the Hub is not open on your computer. Mouse and Buttons works on your home Wi-Fi.');
+    amCheckHome(); return;
+  }
+  try{
+    const{data,error}=await db.rpc('hel_make_hop_ticket',{p_computer:_amHome.computer});
+    if(error||!data) throw (error||new Error('no ticket'));
+    let id='PH';
+    try{ id=localStorage.getItem('amHopId')||''; if(!id){ id=Math.random().toString(16).slice(2,6).toUpperCase(); localStorage.setItem('amHopId',id); } }catch(e){ id='PH'; }
+    location.href='http://'+_amHome.host+'/hop?t='+encodeURIComponent(data)+'&n='+encodeURIComponent('Phone '+id);
+  }catch(e){
+    console.error('home hop failed',e);
+    alert('Could not connect at home just now. Try again in a moment.');
+    amCheckHome();
+  }
+}
+setInterval(amCheckHome,60000);
+
 if(db){
   db.auth.onAuthStateChange(async (event,session)=>{
     currentUser=session?session.user:null;
     _updateSyncUI();
+    amCheckHome();
     _refreshAmitReadinessBanner();
     amInitThreadPages(); // reload real thread history now that sign-in state is known
     amLoadVoicePref(); // pick up whatever voice was set in the Hub's Amit Voice panel
@@ -1936,6 +1983,7 @@ document.addEventListener('visibilitychange',async()=>{
     currentUser=session?session.user:null;
   }catch(e){ console.error('resume session check failed',e); }
   amInitThreadPages();
+  amCheckHome();
 });
 
 // ══════════════════════════════════════════════
