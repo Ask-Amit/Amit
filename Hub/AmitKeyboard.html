@@ -115,7 +115,7 @@ td.nm{white-space:nowrap}.btn.red{background:#5a2323;border-color:var(--red)}
     <b>Keyboard:</b><select id="devPick" title="Which keyboard"></select>
     <span class="pill g" id="activePill"></span>
     <span id="pretendBox" hidden><span class="n2">Which keyboard I just used:</span><select id="pretend" title="The Amit Helper tells me this by itself when it is connected. Until then you choose it."></select></span>
-    <span class="pill" id="pageVer" title="Version of this Amit Keyboard page">v1.02</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser until your login answers.</span>
+    <span class="pill" id="pageVer" title="Version of this Amit Keyboard page">v1.03</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser until your login answers.</span>
     <div class="sw"><span>Keyboard sets are</span><div class="tog on" id="master" title="Turn all keyboard sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
   </header>
   <div class="tabs"><div class="tab on" id="t1">1. Learn keyboard</div><div class="tab" id="t2">2. Keyboard sets</div><div class="tab" id="t3">3. Secret code</div><div class="tab" id="t4">4. Secret modifier</div><div class="tab" id="t5">5. Secret decipher</div></div>
@@ -430,7 +430,29 @@ $('pretend').onchange=function(){lastUsed=+this.value;drawHead()};
 /* ---- tab 2: laid out like the Mouse sets page. TOP = the chosen key, changed there. BELOW = the saved list. ---- */
 var OPTS=[['keep','Keep as it is'],['key','Send keys (another key, or a combination)'],['keyswitch','Send keys, then switch keyboard set'],['helper','Run a Helper button'],['set','Switch keyboard set'],['none','Do nothing']];
 var recSlot=null, recDoneAt=0, delArm=null, slog=[];
-function armRec(id,slot){recSlot=id+'~'+slot}
+var recArmedAt=0;
+function armRec(id,slot){recSlot=id+'~'+slot;recArmedAt=Date.now()}
+/* v1.03: the key is caught by the PAGE (not by the box), so it no longer matters which element has the focus: the next key pressed is the key to send */
+function recFinish(text){var i=recSlot.lastIndexOf('~'),id=recSlot.slice(0,i),slot=recSlot.slice(i+1),a=getSlot(stOf(),id,slot);if(a&&text!=null)a.v=text;recSlot=null;recDoneAt=Date.now();drawSetsView()}
+document.addEventListener('keydown',function(e){
+  if(!recSlot)return;
+  if(e.ctrlKey&&e.altKey&&e.shiftKey&&e.code==='KeyM')return;
+  e.preventDefault();e.stopPropagation();
+  if(/^(Control|Shift|Alt|Meta)(Left|Right)$/.test(e.code))return;
+  if(e.code==='Escape'&&!e.ctrlKey&&!e.altKey&&!e.shiftKey&&!e.metaKey){recFinish(null);return}
+  recFinish(recText(e));
+},true);
+document.addEventListener('click',function(e){if(!recSlot||Date.now()-recArmedAt<700)return;var x=e.target;if(x&&x.closest&&x.closest('.key-in'))return;recFinish(null)});   /* clicking anywhere else stops the listening */
+/* the same key, as the Helper reports it, in case this page does not have the keyboard focus */
+function recFromReal(code){
+  var k=code,m;
+  if(m=code.match(/^Key([A-Z])$/))k=m[1].toLowerCase();else if(m=code.match(/^Digit([0-9])$/))k=m[1];else if(m=code.match(/^Numpad([0-9])$/))k=m[1];else if(code==='Space')k=' ';
+  var combo=modsReal.ControlLeft||modsReal.ControlRight||modsReal.AltLeft||modsReal.AltRight||modsReal.MetaLeft||modsReal.MetaRight,p=[];
+  if(k.length===1&&combo)k=k.toUpperCase();
+  if(modsReal.ControlLeft||modsReal.ControlRight)p.push('Ctrl');if((modsReal.ShiftLeft||modsReal.ShiftRight)&&!(k.length===1&&!combo))p.push('Shift');if(modsReal.AltLeft||modsReal.AltRight)p.push('Alt');if(modsReal.MetaLeft||modsReal.MetaRight)p.push('Win');
+  p.push(k===' '?'Space':k);return p.join('+');
+}
+
 function recBusy(){return !!recSlot||Date.now()-recDoneAt<1500}   /* while a key is being recorded for "send key", and just after, a pressed key must not choose a different key at the top */
 function stOf(){return setOf(cur,cur.selId)}
 function getSlot(st,id,slot){var m=st.map[id];return m?m[slot]:null}
@@ -478,17 +500,7 @@ function bindK(root,st){
   [].forEach.call(root.querySelectorAll('[data-k]'),function(e){
     var id=e.getAttribute('data-c'),slot=e.getAttribute('data-s'),k=e.getAttribute('data-k');
     if(k==='rec'){
-      e.onclick=function(){recSlot=id+'~'+slot;pick(id);drawSetsView();var r=document.querySelector('.key-in.rec');if(r)r.focus()};
-      e.onkeydown=function(ev){
-        ev.preventDefault();ev.stopPropagation();
-        if(/^(Control|Shift|Alt|Meta)(Left|Right)$/.test(ev.code))return;
-        if(ev.code==='Escape'&&!ev.ctrlKey&&!ev.altKey&&!ev.shiftKey&&!ev.metaKey){recSlot=null;recDoneAt=Date.now();drawSetsView();return}
-        var a=getSlot(st,id,slot);if(a)a.v=recText(ev);recSlot=null;recDoneAt=Date.now();drawSetsView();
-      };
-      e.onblur=function(){setTimeout(function(){   /* the box is redrawn when it is clicked, which drops the focus for an instant: only stop listening if the focus really went somewhere else */
-        var a=document.activeElement;if(a&&a.classList&&a.classList.contains('rec'))return;
-        if(recSlot===id+'~'+slot){recSlot=null;drawSetsView()}
-      },80)};
+      e.onclick=function(){armRec(id,slot);pick(id);drawSetsView()};
       return;
     }
     e.onchange=function(){
@@ -500,10 +512,9 @@ function bindK(root,st){
       pick(id);
       if(k==='t'&&(e.value==='key'||e.value==='keyswitch'))armRec(id,slot);   /* choosing "send key": the very next key you press becomes the key it sends */
       drawSetsView();
-      if(recSlot){var r=document.querySelector('.key-in.rec');if(r)r.focus()}
     };
   });
-  [].forEach.call(root.querySelectorAll('[data-add]'),function(e){e.onclick=function(){var p=e.getAttribute('data-add').split('~');putSlot(st,p[0],p[1],p[1]==='h'?{t:'key',v:'',ms:500}:{t:'key',v:''});pick(p[0]);armRec(p[0],p[1]);drawSetsView();var r=document.querySelector('.key-in.rec');if(r)r.focus()}});
+  [].forEach.call(root.querySelectorAll('[data-add]'),function(e){e.onclick=function(){var p=e.getAttribute('data-add').split('~');putSlot(st,p[0],p[1],p[1]==='h'?{t:'key',v:'',ms:500}:{t:'key',v:''});pick(p[0]);armRec(p[0],p[1]);drawSetsView()}});
   [].forEach.call(root.querySelectorAll('[data-rm]'),function(e){e.onclick=function(){var p=e.getAttribute('data-rm').split('~');putSlot(st,p[0],p[1],null);pick(p[0]);drawSetsView()}});
   [].forEach.call(root.querySelectorAll('[data-lock]'),function(e){e.onclick=function(){var id=e.getAttribute('data-lock');st.locks=st.locks||{};if(st.locks[id])delete st.locks[id];else st.locks[id]=true;pick(id);drawSetsView()}});
 }
@@ -1003,6 +1014,8 @@ function realKey(ev){
   var code=ev.code;
   if(/^(Control|Shift|Alt|Meta)(Left|Right)$/.test(code)){modsReal[code]=!!ev.down;return}
   if(!ev.down){var i0=heldReal.indexOf(code);if(i0>=0)heldReal.splice(i0,1);return}
+  if(recSlot&&tab===2){if(code==='Escape')recFinish(null);else recFinish(recFromReal(code));return}   /* listening for the key to send: this key is it */
+  if(recBusy())return;
   var d=devByKey(ev.dev);
   if(!d){
     var blank=devs.filter(function(x){return !x.dev})[0];
