@@ -1,4 +1,5 @@
 # Amit Computer Health - Local Bridge Server
+# Version v1.19 (2026-11-18, Ryan): /api/menu/open passes ?origin= to the Helper (Helper 2.11: Show Amit sends its picture back to the chat that opened it).
 # Version v1.18 (2026-11-17, Ryan): THE NEW HOME ADDRESS. One list of the Amit site's addresses ($AmitSiteOrigins, top of the handler): askamit.org, www.askamit.org
 #   and ask-amit.github.io. The five Amit Preview origin checks and the hardware-sensor download check use it, so pages served from the new domain are not refused.
 # Version v1.17 (2026-11-15, Ryan): THE HANDLER IS PARSED ONCE. Every request used to re-parse the whole 3000-line handler (it was passed to the worker as text), so a page calling 8 times a second made this program churn hundreds of MB a second and its memory pauses froze the mouse hook inside the same process (a jerky pointer, "Mouse hook stopped answering"). The handler now lives as one function (Invoke-AmitBridgeHandler) in the pool's runspaces and each request calls it by name. Also a request counter: more than 240 calls in a minute writes the busiest routes and the calling page to bridge_requests.log.
@@ -2118,7 +2119,7 @@ try {
             "/api/menu/open" {
                 # a button asks the Helper to open a menu by id or name: ?id=amit-menu. The Helper calls it alive with the mechanism in its list.
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
-                else { Send-JsonRaw $response ([AmitWhisper]::OpenListedMenu([string]$request.QueryString["id"])) }
+                else { Send-JsonRaw $response ([AmitWhisper]::OpenListedMenu([string]$request.QueryString["id"], [string]$request.QueryString["origin"])) }   # Helper 2.11: ?origin= names the page that asked (Show Amit sends its picture back there)
             }
             "/api/mouse/sync" {
                 # Amit Mouse (Helper 1.71): the page sends the person's mice and sets; the Helper keeps them (mouse_config.json) and runs them. Only the Amit site or a local program may send.
