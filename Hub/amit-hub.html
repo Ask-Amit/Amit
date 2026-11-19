@@ -15,6 +15,7 @@
 <script src="../amit_speaking_indicator.js?v=4.00"></script>
 <script src="../amit_appearance.js?v=1.06"></script>
 <script src="../amit_chat.js?v=0.26"></script>
+<script src="../AskAmit/door/askamit_visitor_source.js?v=1.10"></script>
 <script src="../amit_data_tools.js?v=1.01"></script>
 <script src="../amit_ch_sync.js?v=1.04"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
@@ -1403,7 +1404,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.89</div>
+      <div class="page-version" id="hubVersionBadge">v8.90</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -14213,12 +14214,31 @@ if(window.AmitChat){
   AmitChat.onSpeak=function(on){ try{ if(on){ if(typeof startSpeakingPulse==='function') startSpeakingPulse(); } else if(typeof stopSpeakingPulse==='function') stopSpeakingPulse(); }catch(e){} };
   AmitChat.onNeedBirthDate=function(){ try{ openPanel('aboutme'); if(typeof amvLoadBirth==='function') amvLoadBirth(); }catch(e){} };
 }
+// THE ASK AMIT BUTTON ON THE NEW ENGINE (Hub v8.90, Ryan 2026-11-18, Hub only for now): the person's private "Ask Amit" chat is answered by AskAmit (door v1.10); every other chat (the Chats panel,
+// people, groups) keeps the Hub's own source. The two are joined by conversation id, so nothing else changes. If the door file is missing the Hub works exactly as before.
+var _hubDoor=null,_hubDoorUid=null,_hubDoorId=null,_hubDoorLast=false;
+function _hubAskAmitDoorWire(){
+  try{
+    if(!window.AskAmitDoor||!window.AmitChat||typeof currentUser==='undefined'||!currentUser||typeof db==='undefined'||!db) return;
+    var orig=AmitChat.source; if(!orig||orig.__askamit) return;
+    if(!_hubDoor||_hubDoorUid!==currentUser.id){ _hubDoor=AskAmitDoor.makeVisitorSource(db,{userId:currentUser.id}); _hubDoorUid=currentUser.id; _hubDoorId=null; }
+    AskAmitDoor.injectStyle();
+    var d=_hubDoor, c=Object.create(orig); c.__askamit=true;
+    var isD=function(id){ return id!=null&&id===_hubDoorId; };
+    c.helpOpen=function(){ return d.helpOpen.apply(d,arguments).then(function(r){ _hubDoorId=r&&r.id; return r; }); };
+    ['getConversation','send','sendShot','sendAttachment','ask','markRead','touchChat'].forEach(function(n){
+      c[n]=function(id){ var s=isD(id)?d:orig; if(n==='ask') _hubDoorLast=isD(id); return s[n].apply(s,arguments); };
+    });
+    c.askStatus=function(id){ var s=(isD(id)||(id==null&&_hubDoorLast))?d:orig; return s.askStatus.apply(s,arguments); };
+    AmitChat.useSource(c);
+  }catch(e){ try{ console.warn('AskAmit door not wired:',e); }catch(x){} }
+}
 function _hubRailChat(){
   const e=document.getElementById('rail-chat'); if(!e||!window.AmitChat) return;
   const on=!!(typeof currentUser!=='undefined'&&currentUser)||AmitChat.preview;
   e.style.display=on?'':'none';
   // signed in: switch the chat to real data; signed out: back to the sample, timers stopped
-  if(typeof currentUser!=='undefined'&&currentUser&&typeof db!=='undefined'&&db) AmitChat.connect(db,currentUser.id);
+  if(typeof currentUser!=='undefined'&&currentUser&&typeof db!=='undefined'&&db){ AmitChat.connect(db,currentUser.id); _hubAskAmitDoorWire(); }
   else AmitChat.disconnect();
   if(on) AmitChat.refreshUnread(); else AmitChat.setUnread(0);
 }
