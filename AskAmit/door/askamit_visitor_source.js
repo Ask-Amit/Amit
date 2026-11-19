@@ -20,7 +20,7 @@
   /* v1.10 (2026-11-18): the SAME door now also serves a SIGNED-IN person (makeSignedSource / AskAmitDoor.connectSigned): earlier questions come back from ask_my_history, a picture (Show Amit, a photo or a
      file the person chose) is uploaded to the private bucket askamit-shots in their own folder and travels with their next question (the engine measures it, Amit looks at it, then it is deleted). The voice
      message and live-transcript buttons are hidden (dictation and transcription are the Aurora's job), and the picture button opens Show Amit through the Helper when the Helper can, else the file picker. */
-  var VERSION = '1.11', CONV = 'askamit-visitor', MSGKEY = 'askamit_visitor_msgs', GUESTKEY = 'askamit_guest', BUCKET = 'askamit-shots', HELPER = 'http://localhost:8710';
+  var VERSION = '1.12', CONV = 'askamit-visitor', MSGKEY = 'askamit_visitor_msgs', GUESTKEY = 'askamit_guest', BUCKET = 'askamit-shots', HELPER = 'http://localhost:8710';
   var SIGNIN = 'That is for signed-in people. Signing up is free.';
   var SIGNED_GREETING = 'Hello again. I’m Amit. What would you like to ask? You can also send me a picture with the camera button.';
   var GREETING ='Hello, and welcome! I’m Amit. I can tell you about what Amit’s applications do and how they could help you. What would you like to know?';
@@ -223,15 +223,23 @@
     }, 2500);
   }
   var bypass = false;
+  /* v1.12: a failure is never silent: a small note on the page says why Show Amit did not open */
+  function toast(text) {
+    try {
+      var d = document.createElement('div'); d.textContent = text;
+      d.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:80vw;z-index:2147483647;background:#3a1f1f;color:#ffe8e0;border:1px solid #d9826b;border-radius:10px;padding:10px 14px;font:14px Segoe UI,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.5)';
+      document.body.appendChild(d); setTimeout(function () { try { d.remove(); } catch (e) {} }, 9000);
+    } catch (e) {}
+  }
   function hookPictureButton() {
     document.addEventListener('click', function (e) {
       var b = e.target && e.target.closest && e.target.closest('.acx-comp .acx-ib[title="Send a photo"]'); if (!b) return;
       if (bypass) { bypass = false; return; }                      /* the one click that falls back to the ordinary picker */
       e.stopImmediatePropagation(); e.preventDefault();
       /* v1.11: the button ALWAYS asks the Helper to open Show Amit (no earlier check that could have gone stale); only if the Helper does not answer does the ordinary picker open */
-      var fallback = function () { bypass = true; try { b.click(); } catch (x) { bypass = false; } };
+      var fallback = function (why) { toast('Show Amit could not be opened (' + why + '), so the ordinary file picker opened instead.'); bypass = true; try { b.click(); } catch (x) { bypass = false; } };
       fetch(HELPER + '/api/menu/open?id=show-amit&origin=' + encodeURIComponent(ORIGIN), { signal: AbortSignal.timeout(4000) }).then(function (r) { return r.json(); })
-        .then(function (j) { if (j && j.ok) watchShot(); else fallback(); }).catch(fallback);
+        .then(function (j) { if (j && j.ok) watchShot(); else fallback('the Helper said: ' + ((j && j.error) || 'no')); }).catch(function (err) { fallback('this page could not reach the Helper on this computer: ' + ((err && err.name) || 'error')); });
     }, true);
     probeShowAmit(); document.addEventListener('click', function (e) { if (e.target && e.target.closest && e.target.closest('#rail-chat')) probeShowAmit(); }, true);
   }
