@@ -20,7 +20,7 @@
   /* v1.10 (2026-11-18): the SAME door now also serves a SIGNED-IN person (makeSignedSource / AskAmitDoor.connectSigned): earlier questions come back from ask_my_history, a picture (Show Amit, a photo or a
      file the person chose) is uploaded to the private bucket askamit-shots in their own folder and travels with their next question (the engine measures it, Amit looks at it, then it is deleted). The voice
      message and live-transcript buttons are hidden (dictation and transcription are the Aurora's job), and the picture button opens Show Amit through the Helper when the Helper can, else the file picker. */
-  var VERSION = '1.12', CONV = 'askamit-visitor', MSGKEY = 'askamit_visitor_msgs', GUESTKEY = 'askamit_guest', BUCKET = 'askamit-shots', HELPER = 'http://localhost:8710';
+  var VERSION = '1.13', CONV = 'askamit-visitor', MSGKEY = 'askamit_visitor_msgs', GUESTKEY = 'askamit_guest', BUCKET = 'askamit-shots', HELPER = 'http://localhost:8710';
   var SIGNIN = 'That is for signed-in people. Signing up is free.';
   var SIGNED_GREETING = 'Hello again. I’m Amit. What would you like to ask? You can also send me a picture with the camera button.';
   var GREETING ='Hello, and welcome! I’m Amit. I can tell you about what Amit’s applications do and how they could help you. What would you like to know?';
@@ -192,56 +192,20 @@
     '.acx-pop .acx-b.amit small, .acx-pop .acx-b.them small, .acx-panel .acx-b.amit small, .acx-panel .acx-b.them small { color: rgba(170,210,255,.95); }',
     '.acx-pop .acx-b.me small, .acx-panel .acx-b.me small { color: rgba(240,205,120,.95); text-align: right; }',
     /* dictation and transcription are the Aurora's job now (Ryan, 2026-11-18): no voice-message or live-transcript button in this box */
-    '.acx-comp .acx-ib[title^="Record a voice"], .acx-comp .acx-ib[title^="Live transcript"] { display: none !important; }'
+    '.acx-comp .acx-ib[title^="Record a voice"], .acx-comp .acx-ib[title^="Live transcript"], .askamit-nocam .acx-comp .acx-ib[title="Send a photo"] { display: none !important; }'
   ].join('\n');
 
-  /* THE PICTURE BUTTON (Ryan, 2026-11-18): it opens Show Amit (capture an area, upload, or take one from the phone); Show Amit's own Ask Amit button then sends the picture into this chat. When the Helper
-     cannot open Show Amit (not installed, an older Helper, a phone, another computer) the button does what it always did: the file or camera picker. Show Amit's pending picture is claimed through the
-     same "seen" mark the Amit Live window uses, so only one of the two posts it. */
-  var showAmitOk = false, probeAt = 0, watching = 0;
-  function probeShowAmit() {
-    if (Date.now() - probeAt < 60000) return; probeAt = Date.now();
-    try { fetch(HELPER + '/api/menus', { signal: AbortSignal.timeout(1500) }).then(function (r) { return r.json(); }).then(function (j) {
-      showAmitOk = !!(j && Array.isArray(j.menus) && j.menus.some(function (m) { return m && m.id === 'show-amit' && m.buttonOk; }));
-    }).catch(function () { showAmitOk = false; }); } catch (e) { showAmitOk = false; }
-  }
-  /* v1.11: THE TAG. Each page load has its own tag; the picture button hands it to the Helper (?origin=), Show Amit keeps it with the shot, and only a page whose tag matches takes the picture, so it
-     always goes back into the chat it came from (and the Amit Live window leaves tagged pictures alone). */
-  var ORIGIN = 'askamit-' + Math.random().toString(36).slice(2, 10);
-  function watchShot() {
-    var until = Date.now() + 60 * 60000, n = ++watching;      /* the editor may stay open a while before the person presses Show Amit in it */
-    var t = setInterval(function () {
-      if (n !== watching || Date.now() > until) { clearInterval(t); return; }
-      fetch(HELPER + '/api/showamit/pending').then(function (r) { return r.json(); }).then(function (j) {
-        if (!j || !j.id || j.origin !== ORIGIN) return; var seen = ''; try { seen = localStorage.getItem('amit_shot_seen') || ''; } catch (e) {}
-        if (seen === j.id) return; try { localStorage.setItem('amit_shot_seen', j.id); } catch (e) {}
-        clearInterval(t);
-        fetch(HELPER + '/api/showamit/pending.png?id=' + encodeURIComponent(j.id)).then(function (r) { if (!r.ok) throw new Error('the picture is no longer available'); return r.blob(); })
-          .then(function (blob) { return AmitChat.sendShot(new File([blob], j.name || 'shot.png', { type: 'image/png' }), { title: j.title, text: j.text, name: j.name }); })
-          .then(function () { if (AmitChat.showHelpChat) AmitChat.showHelpChat(); }).catch(function () {});
-      }).catch(function () {});
-    }, 2500);
-  }
-  var bypass = false;
-  /* v1.12: a failure is never silent: a small note on the page says why Show Amit did not open */
-  function toast(text) {
-    try {
-      var d = document.createElement('div'); d.textContent = text;
-      d.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:80vw;z-index:2147483647;background:#3a1f1f;color:#ffe8e0;border:1px solid #d9826b;border-radius:10px;padding:10px 14px;font:14px Segoe UI,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.5)';
-      document.body.appendChild(d); setTimeout(function () { try { d.remove(); } catch (e) {} }, 9000);
-    } catch (e) {}
-  }
-  function hookPictureButton() {
-    document.addEventListener('click', function (e) {
-      var b = e.target && e.target.closest && e.target.closest('.acx-comp .acx-ib[title="Send a photo"]'); if (!b) return;
-      if (bypass) { bypass = false; return; }                      /* the one click that falls back to the ordinary picker */
-      e.stopImmediatePropagation(); e.preventDefault();
-      /* v1.11: the button ALWAYS asks the Helper to open Show Amit (no earlier check that could have gone stale); only if the Helper does not answer does the ordinary picker open */
-      var fallback = function (why) { toast('Show Amit could not be opened (' + why + '), so the ordinary file picker opened instead.'); bypass = true; try { b.click(); } catch (x) { bypass = false; } };
-      fetch(HELPER + '/api/menu/open?id=show-amit&origin=' + encodeURIComponent(ORIGIN), { signal: AbortSignal.timeout(4000) }).then(function (r) { return r.json(); })
-        .then(function (j) { if (j && j.ok) watchShot(); else fallback('the Helper said: ' + ((j && j.error) || 'no')); }).catch(function (err) { fallback('this page could not reach the Helper on this computer: ' + ((err && err.name) || 'error')); });
-    }, true);
-    probeShowAmit(); document.addEventListener('click', function (e) { if (e.target && e.target.closest && e.target.closest('#rail-chat')) probeShowAmit(); }, true);
+  /* NO CAMERA BUTTON (Ryan, 2026-11-18: "we're going to make it simple"): the picture (camera) button is taken out of every chat that is a solo chat with Amit (the header reads "Members: You, Amit"),
+     and out of the visitor's box entirely. Chats with other people keep their own picture button. Show Amit itself is unchanged: its own Ask Amit button still sends a picture. */
+  var camQueued = false;
+  function hideCameraInAmitChats() {
+    function run() {
+      camQueued = false;
+      try { Array.prototype.forEach.call(document.querySelectorAll('.acx-pop, .acx-panel'), function (p) { p.classList.toggle('askamit-nocam', /Members:\s*You,\s*Amit\b/.test((p.textContent || '').slice(0, 400))); }); } catch (e) {}
+    }
+    function queue() { if (camQueued) return; camQueued = true; (window.requestAnimationFrame || setTimeout)(run); }
+    try { new MutationObserver(queue).observe(document.body, { childList: true, subtree: true }); } catch (e) {}
+    queue();
   }
   function grow(t) {
     try {
@@ -263,7 +227,7 @@
   var styled = false;
   function injectStyle() {
     if (styled) return; styled = true;
-    sizeBox(); hookPictureButton();
+    sizeBox(); hideCameraInAmitChats();
     window.addEventListener('resize', sizeBox); window.addEventListener('focus', sizeBox);
     document.addEventListener('click', function (e) { if (e.target && e.target.closest && e.target.closest('#rail-chat')) sizeBox(); }, true);
     var s = document.createElement('style'); s.id = 'askamit-door-css'; s.textContent = CSS; document.head.appendChild(s);
