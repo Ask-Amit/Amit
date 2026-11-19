@@ -115,7 +115,7 @@ td.nm{white-space:nowrap}.btn.red{background:#5a2323;border-color:var(--red)}
     <b>Keyboard:</b><select id="devPick" title="Which keyboard"></select>
     <span class="pill g" id="activePill"></span>
     <span id="pretendBox" hidden><span class="n2">Which keyboard I just used:</span><select id="pretend" title="The Amit Helper tells me this by itself when it is connected. Until then you choose it."></select></span>
-    <span class="pill" id="pageVer" title="Version of this Amit Keyboard page">v1.00</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser until your login answers.</span>
+    <span class="pill" id="pageVer" title="Version of this Amit Keyboard page">v1.02</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser until your login answers.</span>
     <div class="sw"><span>Keyboard sets are</span><div class="tog on" id="master" title="Turn all keyboard sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
   </header>
   <div class="tabs"><div class="tab on" id="t1">1. Learn keyboard</div><div class="tab" id="t2">2. Keyboard sets</div><div class="tab" id="t3">3. Secret code</div><div class="tab" id="t4">4. Secret modifier</div><div class="tab" id="t5">5. Secret decipher</div></div>
@@ -429,7 +429,9 @@ $('pretend').onchange=function(){lastUsed=+this.value;drawHead()};
 
 /* ---- tab 2: laid out like the Mouse sets page. TOP = the chosen key, changed there. BELOW = the saved list. ---- */
 var OPTS=[['keep','Keep as it is'],['key','Send keys (another key, or a combination)'],['keyswitch','Send keys, then switch keyboard set'],['helper','Run a Helper button'],['set','Switch keyboard set'],['none','Do nothing']];
-var recSlot=null, delArm=null, slog=[];
+var recSlot=null, recDoneAt=0, delArm=null, slog=[];
+function armRec(id,slot){recSlot=id+'~'+slot}
+function recBusy(){return !!recSlot||Date.now()-recDoneAt<1500}   /* while a key is being recorded for "send key", and just after, a pressed key must not choose a different key at the top */
 function stOf(){return setOf(cur,cur.selId)}
 function getSlot(st,id,slot){var m=st.map[id];return m?m[slot]:null}
 function putSlot(st,id,slot,o){
@@ -480,10 +482,13 @@ function bindK(root,st){
       e.onkeydown=function(ev){
         ev.preventDefault();ev.stopPropagation();
         if(/^(Control|Shift|Alt|Meta)(Left|Right)$/.test(ev.code))return;
-        if(ev.code==='Escape'&&!ev.ctrlKey&&!ev.altKey&&!ev.shiftKey&&!ev.metaKey){recSlot=null;drawSetsView();return}
-        var a=getSlot(st,id,slot);if(a)a.v=recText(ev);recSlot=null;drawSetsView();
+        if(ev.code==='Escape'&&!ev.ctrlKey&&!ev.altKey&&!ev.shiftKey&&!ev.metaKey){recSlot=null;recDoneAt=Date.now();drawSetsView();return}
+        var a=getSlot(st,id,slot);if(a)a.v=recText(ev);recSlot=null;recDoneAt=Date.now();drawSetsView();
       };
-      e.onblur=function(){if(recSlot===id+'~'+slot){recSlot=null;drawSetsView()}};
+      e.onblur=function(){setTimeout(function(){   /* the box is redrawn when it is clicked, which drops the focus for an instant: only stop listening if the focus really went somewhere else */
+        var a=document.activeElement;if(a&&a.classList&&a.classList.contains('rec'))return;
+        if(recSlot===id+'~'+slot){recSlot=null;drawSetsView()}
+      },80)};
       return;
     }
     e.onchange=function(){
@@ -492,10 +497,13 @@ function bindK(root,st){
       else if(k==='ms')o.ms=Math.max(200,Math.min(3000,+e.value||500));
       else if(k==='v2')o.v2=+e.value;
       else o.v=(o.t==='set')?+e.value:e.value;
-      pick(id);drawSetsView();
+      pick(id);
+      if(k==='t'&&(e.value==='key'||e.value==='keyswitch'))armRec(id,slot);   /* choosing "send key": the very next key you press becomes the key it sends */
+      drawSetsView();
+      if(recSlot){var r=document.querySelector('.key-in.rec');if(r)r.focus()}
     };
   });
-  [].forEach.call(root.querySelectorAll('[data-add]'),function(e){e.onclick=function(){var p=e.getAttribute('data-add').split('~');putSlot(st,p[0],p[1],p[1]==='h'?{t:'key',v:'',ms:500}:{t:'key',v:''});pick(p[0]);drawSetsView()}});
+  [].forEach.call(root.querySelectorAll('[data-add]'),function(e){e.onclick=function(){var p=e.getAttribute('data-add').split('~');putSlot(st,p[0],p[1],p[1]==='h'?{t:'key',v:'',ms:500}:{t:'key',v:''});pick(p[0]);armRec(p[0],p[1]);drawSetsView();var r=document.querySelector('.key-in.rec');if(r)r.focus()}});
   [].forEach.call(root.querySelectorAll('[data-rm]'),function(e){e.onclick=function(){var p=e.getAttribute('data-rm').split('~');putSlot(st,p[0],p[1],null);pick(p[0]);drawSetsView()}});
   [].forEach.call(root.querySelectorAll('[data-lock]'),function(e){e.onclick=function(){var id=e.getAttribute('data-lock');st.locks=st.locks||{};if(st.locks[id])delete st.locks[id];else st.locks[id]=true;pick(id);drawSetsView()}});
 }
@@ -537,6 +545,7 @@ function drawSetsView(){
 (function(){var p=$('spad');
   $('spadTitle').textContent='Press a key, or two keys together in either order (Space + 1 is the same as 1 + Space). Hold Ctrl, Shift, Alt or Windows too for a longer combination.';p.classList.add('live');
   window.padCore=function(code,ch,held,keyName){
+    if(recBusy())return;
     if(!inLayout(cur,code))captureUnknown(cur,code,keyName);
     cur.seen[code]=1;if(ch)ch.split('&').forEach(function(c){cur.seen[c]=1});sel=ch||code;selMods=held;
     var id=idOf(held,sel),m=stOf().map[id];slog.unshift(idLabel(cur,id)+' pressed'+(m&&m.p?' \u2192 '+actDesc(m.p,cur):''));
