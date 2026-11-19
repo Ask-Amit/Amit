@@ -20,7 +20,7 @@
   /* v1.10 (2026-11-18): the SAME door now also serves a SIGNED-IN person (makeSignedSource / AskAmitDoor.connectSigned): earlier questions come back from ask_my_history, a picture (Show Amit, a photo or a
      file the person chose) is uploaded to the private bucket askamit-shots in their own folder and travels with their next question (the engine measures it, Amit looks at it, then it is deleted). The voice
      message and live-transcript buttons are hidden (dictation and transcription are the Aurora's job), and the picture button opens Show Amit through the Helper when the Helper can, else the file picker. */
-  var VERSION = '1.10', CONV = 'askamit-visitor', MSGKEY = 'askamit_visitor_msgs', GUESTKEY = 'askamit_guest', BUCKET = 'askamit-shots', HELPER = 'http://localhost:8710';
+  var VERSION = '1.11', CONV = 'askamit-visitor', MSGKEY = 'askamit_visitor_msgs', GUESTKEY = 'askamit_guest', BUCKET = 'askamit-shots', HELPER = 'http://localhost:8710';
   var SIGNIN = 'That is for signed-in people. Signing up is free.';
   var SIGNED_GREETING = 'Hello again. I’m Amit. What would you like to ask? You can also send me a picture with the camera button.';
   var GREETING ='Hello, and welcome! I’m Amit. I can tell you about what Amit’s applications do and how they could help you. What would you like to know?';
@@ -205,12 +205,15 @@
       showAmitOk = !!(j && Array.isArray(j.menus) && j.menus.some(function (m) { return m && m.id === 'show-amit' && m.buttonOk; }));
     }).catch(function () { showAmitOk = false; }); } catch (e) { showAmitOk = false; }
   }
+  /* v1.11: THE TAG. Each page load has its own tag; the picture button hands it to the Helper (?origin=), Show Amit keeps it with the shot, and only a page whose tag matches takes the picture, so it
+     always goes back into the chat it came from (and the Amit Live window leaves tagged pictures alone). */
+  var ORIGIN = 'askamit-' + Math.random().toString(36).slice(2, 10);
   function watchShot() {
-    var until = Date.now() + 5 * 60000, n = ++watching;
+    var until = Date.now() + 60 * 60000, n = ++watching;      /* the editor may stay open a while before the person presses Show Amit in it */
     var t = setInterval(function () {
       if (n !== watching || Date.now() > until) { clearInterval(t); return; }
       fetch(HELPER + '/api/showamit/pending').then(function (r) { return r.json(); }).then(function (j) {
-        if (!j || !j.id) return; var seen = ''; try { seen = localStorage.getItem('amit_shot_seen') || ''; } catch (e) {}
+        if (!j || !j.id || j.origin !== ORIGIN) return; var seen = ''; try { seen = localStorage.getItem('amit_shot_seen') || ''; } catch (e) {}
         if (seen === j.id) return; try { localStorage.setItem('amit_shot_seen', j.id); } catch (e) {}
         clearInterval(t);
         fetch(HELPER + '/api/showamit/pending.png?id=' + encodeURIComponent(j.id)).then(function (r) { if (!r.ok) throw new Error('the picture is no longer available'); return r.blob(); })
@@ -219,12 +222,16 @@
       }).catch(function () {});
     }, 2500);
   }
+  var bypass = false;
   function hookPictureButton() {
     document.addEventListener('click', function (e) {
       var b = e.target && e.target.closest && e.target.closest('.acx-comp .acx-ib[title="Send a photo"]'); if (!b) return;
-      if (!showAmitOk) return;                                     /* no Show Amit available: the ordinary picker opens */
+      if (bypass) { bypass = false; return; }                      /* the one click that falls back to the ordinary picker */
       e.stopImmediatePropagation(); e.preventDefault();
-      fetch(HELPER + '/api/menu/open?id=show-amit').then(function (r) { return r.json(); }).then(function (j) { if (j && j.ok) watchShot(); else { showAmitOk = false; b.click(); } }).catch(function () { showAmitOk = false; b.click(); });
+      /* v1.11: the button ALWAYS asks the Helper to open Show Amit (no earlier check that could have gone stale); only if the Helper does not answer does the ordinary picker open */
+      var fallback = function () { bypass = true; try { b.click(); } catch (x) { bypass = false; } };
+      fetch(HELPER + '/api/menu/open?id=show-amit&origin=' + encodeURIComponent(ORIGIN), { signal: AbortSignal.timeout(4000) }).then(function (r) { return r.json(); })
+        .then(function (j) { if (j && j.ok) watchShot(); else fallback(); }).catch(fallback);
     }, true);
     probeShowAmit(); document.addEventListener('click', function (e) { if (e.target && e.target.closest && e.target.closest('#rail-chat')) probeShowAmit(); }, true);
   }
