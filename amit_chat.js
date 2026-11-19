@@ -1,6 +1,6 @@
 /* ════════════════════════════════════════════════════════════════
    amit_chat.js — the ONE AmitChat engine, shared by every Amit page.
-   v0.31 — 2026-11-18 (Ryan: "we are going to make it simple"). NO CAMERA (PICTURE) BUTTON in the composer: it is no longer added to the row. Nothing else changed.
+   v0.32 — 2026-11-18 (Ryan). THE CAMERA BUTTON IS BACK AND OPENS SHOW AMIT: it asks the Amit Helper to open Show Amit empty (Capture or Open...), tagged so the picture comes back into this box only; if the Helper cannot be reached a note says so, never the file picker. v0.31 — 2026-11-18 (Ryan: "we are going to make it simple"). NO CAMERA (PICTURE) BUTTON in the composer: it is no longer added to the row. Nothing else changed.
    v0.30 — 2026-11-05. MOBILE CHAT: AmitChat.openMobile({label}) opens a NEW numbered "Mobile #N" Ask Amit chat (a photo sent from the phone through Show Amit; needs migration _037) in the same small box; AmitChat.showHelpChat() shows the chat just opened again; sendShot meta.primer replaces the press note (Amit is primed with the photo and the person's own note). Nothing existing changed.
    v0.29 — 2026-10-31. SHOW AMIT SHOT: AmitChat.sendShot(file, {title, text, name}) posts a picture into the chat the Amit Live window just opened and asks Amit to look at it; a 10-minute link made under the person's own sign-in travels with the press (never stored in the chat). Amit's answering helper downloads that one file, reads it, and deletes it.
    v0.28 — 2026-10-31. ONE ASK AMIT CHAT PER DAY (Amit Live window): AmitChat.openHelp({ day: 'YYYY-MM-DD' }) opens that day's own chat (made on the first open of the day, the same chat all day, a new one the next day); the Hub's openHelp() with no argument is unchanged. Needs migration _033 (falls back to the single running chat until it is run).
@@ -30,7 +30,39 @@
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.31';
+  var VERSION = 'v0.32';
+  /* v0.32 THE CAMERA BUTTON OPENS SHOW AMIT (Ryan, 2026-11-18). Pressing it asks the Amit Helper on this computer to open Show Amit empty (Capture takes the screen, Open... chooses a file).
+     The box gives the Helper a tag of its own; Show Amit keeps it with the picture, and only this box takes the picture, so it goes back into the chat it came from. If the Helper cannot be reached
+     a note says so: the button never falls back to the file picker. */
+  var SHOW_HELPER = 'http://localhost:8710', SHOW_ORIGIN = 'amitchat-' + Math.random().toString(36).slice(2, 10), showWatching = 0;
+  function showNote(text) {
+    try {
+      var d = document.createElement('div'); d.textContent = text;
+      d.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:80vw;z-index:2147483647;background:#3a1f1f;color:#ffe8e0;border:1px solid #d9826b;border-radius:10px;padding:10px 14px;font:14px Segoe UI,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.5)';
+      document.body.appendChild(d); setTimeout(function () { try { d.remove(); } catch (e) {} }, 9000);
+    } catch (e) {}
+  }
+  function watchShowAmit() {
+    var until = Date.now() + 60 * 60000, n = ++showWatching;      /* the editor may stay open a while before the person presses Show Amit in it */
+    var t = setInterval(function () {
+      if (n !== showWatching || Date.now() > until) { clearInterval(t); return; }
+      fetch(SHOW_HELPER + '/api/showamit/pending').then(function (r) { return r.json(); }).then(function (j) {
+        if (!j || !j.id || j.origin !== SHOW_ORIGIN) return;
+        var seen = ''; try { seen = localStorage.getItem('amit_shot_seen') || ''; } catch (e) {}
+        if (seen === j.id) return; try { localStorage.setItem('amit_shot_seen', j.id); } catch (e) {}
+        clearInterval(t);
+        fetch(SHOW_HELPER + '/api/showamit/pending.png?id=' + encodeURIComponent(j.id)).then(function (r) { if (!r.ok) throw new Error('the picture is no longer available'); return r.blob(); })
+          .then(function (blob) { return window.AmitChat.sendShot(new File([blob], j.name || 'shot.png', { type: 'image/png' }), { title: j.title, text: j.text, name: j.name }); })
+          .then(function () { if (window.AmitChat.showHelpChat) window.AmitChat.showHelpChat(); })
+          .catch(function () { showNote('The picture from Show Amit could not be added to the chat. Please send it again.'); });
+      }).catch(function () {});
+    }, 2500);
+  }
+  function openShowAmit() {
+    fetch(SHOW_HELPER + '/api/menu/open?id=show-amit&origin=' + encodeURIComponent(SHOW_ORIGIN), { signal: AbortSignal.timeout(4000) }).then(function (r) { return r.json(); })
+      .then(function (j) { if (j && j.ok) watchShowAmit(); else showNote('Show Amit could not be opened: ' + ((j && j.error) || 'the Helper said no') + '.'); })
+      .catch(function () { showNote('Show Amit could not be opened: this page cannot reach the Amit Helper on this computer.'); });
+  }
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
   var SCRIPT_BASE = (function () { var sc = document.currentScript; return sc && sc.src ? sc.src.replace(/[^\/?#]*([?#].*)?$/, '') : ''; })();
 
@@ -1269,7 +1301,7 @@
         photoIn = el('input'); photoIn.type = 'file'; photoIn.accept = 'image/*'; photoIn.multiple = true; photoIn.style.display = 'none';
         ta = el('textarea'); ta.rows = 1; ta.placeholder = 'Type a message\u2026';
         sendBtn = el('button', 'acx-btn go', 'Send');
-        comp.appendChild(fileBtn); comp.appendChild(voiceBtn); comp.appendChild(liveBtn); comp.appendChild(amitBtn); comp.appendChild(moreBtn); comp.appendChild(videoBtn); comp.appendChild(fixBtn); comp.appendChild(itemBtn); comp.appendChild(ownerBtn); comp.appendChild(noteBtn); comp.appendChild(silentBtn); comp.appendChild(fileIn); comp.appendChild(photoIn);
+        comp.appendChild(fileBtn); comp.appendChild(photoBtn); comp.appendChild(voiceBtn); comp.appendChild(liveBtn); comp.appendChild(amitBtn); comp.appendChild(moreBtn); comp.appendChild(videoBtn); comp.appendChild(fixBtn); comp.appendChild(itemBtn); comp.appendChild(ownerBtn); comp.appendChild(noteBtn); comp.appendChild(silentBtn); comp.appendChild(fileIn); comp.appendChild(photoIn);
         comp.appendChild(ta); comp.appendChild(sendBtn);
       } else if (ro) {
         comp.appendChild(el('div', 'acx-stub', 'Read only \u2014 you are reading this as a guardian'));
@@ -1901,7 +1933,7 @@
       }
       if (live && !ro) {
         fileBtn.onclick = function () { fileIn.value = ''; fileIn.click(); };
-        photoBtn.onclick = function () { photoIn.value = ''; photoIn.click(); };
+        photoBtn.onclick = function () { openShowAmit(); };      /* v0.32: opens Show Amit (the file picker is Show Amit's own Open... button) */
         fileIn.onchange = function () { sendFiles(fileIn.files); };
         photoIn.onchange = function () { sendFiles(photoIn.files); };
         amitBtn.onclick = amitClick;

@@ -20,7 +20,7 @@
   /* v1.10 (2026-11-18): the SAME door now also serves a SIGNED-IN person (makeSignedSource / AskAmitDoor.connectSigned): earlier questions come back from ask_my_history, a picture (Show Amit, a photo or a
      file the person chose) is uploaded to the private bucket askamit-shots in their own folder and travels with their next question (the engine measures it, Amit looks at it, then it is deleted). The voice
      message and live-transcript buttons are hidden (dictation and transcription are the Aurora's job), and the picture button opens Show Amit through the Helper when the Helper can, else the file picker. */
-  var VERSION = '1.13', CONV = 'askamit-visitor', MSGKEY = 'askamit_visitor_msgs', GUESTKEY = 'askamit_guest', BUCKET = 'askamit-shots', HELPER = 'http://localhost:8710';
+  var VERSION = '1.14', CONV = 'askamit-visitor', MSGKEY = 'askamit_visitor_msgs', GUESTKEY = 'askamit_guest', BUCKET = 'askamit-shots', HELPER = 'http://localhost:8710';
   var SIGNIN = 'That is for signed-in people. Signing up is free.';
   var SIGNED_GREETING = 'Hello again. I’m Amit. What would you like to ask? You can also send me a picture with the camera button.';
   var GREETING ='Hello, and welcome! I’m Amit. I can tell you about what Amit’s applications do and how they could help you. What would you like to know?';
@@ -192,21 +192,9 @@
     '.acx-pop .acx-b.amit small, .acx-pop .acx-b.them small, .acx-panel .acx-b.amit small, .acx-panel .acx-b.them small { color: rgba(170,210,255,.95); }',
     '.acx-pop .acx-b.me small, .acx-panel .acx-b.me small { color: rgba(240,205,120,.95); text-align: right; }',
     /* dictation and transcription are the Aurora's job now (Ryan, 2026-11-18): no voice-message or live-transcript button in this box */
-    '.acx-comp .acx-ib[title^="Record a voice"], .acx-comp .acx-ib[title^="Live transcript"], .askamit-nocam .acx-comp .acx-ib[title="Send a photo"] { display: none !important; }'
+    '.acx-comp .acx-ib[title^="Record a voice"], .acx-comp .acx-ib[title^="Live transcript"] { display: none !important; }'
   ].join('\n');
 
-  /* NO CAMERA BUTTON (Ryan, 2026-11-18: "we're going to make it simple"): the picture (camera) button is taken out of every chat that is a solo chat with Amit (the header reads "Members: You, Amit"),
-     and out of the visitor's box entirely. Chats with other people keep their own picture button. Show Amit itself is unchanged: its own Ask Amit button still sends a picture. */
-  var camQueued = false;
-  function hideCameraInAmitChats() {
-    function run() {
-      camQueued = false;
-      try { Array.prototype.forEach.call(document.querySelectorAll('.acx-pop, .acx-panel'), function (p) { p.classList.toggle('askamit-nocam', /Members:\s*You,\s*Amit\b/.test((p.textContent || '').slice(0, 400))); }); } catch (e) {}
-    }
-    function queue() { if (camQueued) return; camQueued = true; (window.requestAnimationFrame || setTimeout)(run); }
-    try { new MutationObserver(queue).observe(document.body, { childList: true, subtree: true }); } catch (e) {}
-    queue();
-  }
   function grow(t) {
     try {
       var cap = parseFloat(getComputedStyle(t).maxHeight); if (!cap || isNaN(cap)) cap = Math.round(window.innerHeight * 0.38);   /* the cap comes from the style: 22% of the window in the small box, 38% full screen */
@@ -227,7 +215,7 @@
   var styled = false;
   function injectStyle() {
     if (styled) return; styled = true;
-    sizeBox(); hideCameraInAmitChats();
+    sizeBox();
     window.addEventListener('resize', sizeBox); window.addEventListener('focus', sizeBox);
     document.addEventListener('click', function (e) { if (e.target && e.target.closest && e.target.closest('#rail-chat')) sizeBox(); }, true);
     var s = document.createElement('style'); s.id = 'askamit-door-css'; s.textContent = CSS; document.head.appendChild(s);
