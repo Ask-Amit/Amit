@@ -1,5 +1,6 @@
 /* ════════════════════════════════════════════════════════════════
    amit_chat.js — the ONE AmitChat engine, shared by every Amit page.
+   v0.31 — 2026-11-18 (Ryan: "we are going to make it simple"). NO CAMERA (PICTURE) BUTTON in the composer: it is no longer added to the row. Nothing else changed.
    v0.30 — 2026-11-05. MOBILE CHAT: AmitChat.openMobile({label}) opens a NEW numbered "Mobile #N" Ask Amit chat (a photo sent from the phone through Show Amit; needs migration _037) in the same small box; AmitChat.showHelpChat() shows the chat just opened again; sendShot meta.primer replaces the press note (Amit is primed with the photo and the person's own note). Nothing existing changed.
    v0.29 — 2026-10-31. SHOW AMIT SHOT: AmitChat.sendShot(file, {title, text, name}) posts a picture into the chat the Amit Live window just opened and asks Amit to look at it; a 10-minute link made under the person's own sign-in travels with the press (never stored in the chat). Amit's answering helper downloads that one file, reads it, and deletes it.
    v0.28 — 2026-10-31. ONE ASK AMIT CHAT PER DAY (Amit Live window): AmitChat.openHelp({ day: 'YYYY-MM-DD' }) opens that day's own chat (made on the first open of the day, the same chat all day, a new one the next day); the Hub's openHelp() with no argument is unchanged. Needs migration _033 (falls back to the single running chat until it is run).
@@ -29,7 +30,7 @@
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.30';
+  var VERSION = 'v0.31';
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
   var SCRIPT_BASE = (function () { var sc = document.currentScript; return sc && sc.src ? sc.src.replace(/[^\/?#]*([?#].*)?$/, '') : ''; })();
 
@@ -1268,7 +1269,7 @@
         photoIn = el('input'); photoIn.type = 'file'; photoIn.accept = 'image/*'; photoIn.multiple = true; photoIn.style.display = 'none';
         ta = el('textarea'); ta.rows = 1; ta.placeholder = 'Type a message\u2026';
         sendBtn = el('button', 'acx-btn go', 'Send');
-        comp.appendChild(fileBtn); comp.appendChild(photoBtn); comp.appendChild(voiceBtn); comp.appendChild(liveBtn); comp.appendChild(amitBtn); comp.appendChild(moreBtn); comp.appendChild(videoBtn); comp.appendChild(fixBtn); comp.appendChild(itemBtn); comp.appendChild(ownerBtn); comp.appendChild(noteBtn); comp.appendChild(silentBtn); comp.appendChild(fileIn); comp.appendChild(photoIn);
+        comp.appendChild(fileBtn); comp.appendChild(voiceBtn); comp.appendChild(liveBtn); comp.appendChild(amitBtn); comp.appendChild(moreBtn); comp.appendChild(videoBtn); comp.appendChild(fixBtn); comp.appendChild(itemBtn); comp.appendChild(ownerBtn); comp.appendChild(noteBtn); comp.appendChild(silentBtn); comp.appendChild(fileIn); comp.appendChild(photoIn);
         comp.appendChild(ta); comp.appendChild(sendBtn);
       } else if (ro) {
         comp.appendChild(el('div', 'acx-stub', 'Read only \u2014 you are reading this as a guardian'));
