@@ -663,7 +663,7 @@ If someone asks what a specific reading or flagged item on their screen actually
   under it; otherwise a round chat button floats at the bottom right. It shows only when signed in.
   Bump the two versions below whenever amit_chat.js or amit_data_tools.js is pushed.
 */
-const AMIT_CHAT_ENGINE_V = '0.26', AMIT_DATA_TOOLS_V = '1.01', AMIT_CHAT_PROJECT = 'hleqtjqojksurvkyqixt';
+const AMIT_CHAT_ENGINE_V = '0.30', AMIT_DATA_TOOLS_V = '1.01', AMIT_ASKAMIT_DOOR_V = '1.16', AMIT_CHAT_PROJECT = 'hleqtjqojksurvkyqixt';
 const _amitScriptBase = (function(){ try{ const s=document.currentScript&&document.currentScript.src; return s?s.replace(/[?#].*$/,'').replace(/[^\/]*$/,''):''; }catch(e){ return ''; } })();
 let _amitChatOwnDb = null, _amitChatOwned = false, _amitChatKey = '', _amitChatBusy = null, _amitChatWired = false;
 
@@ -710,8 +710,18 @@ async function _amitChatBoot(){
       AmitChat.placeProvider=function(){ return { page:_amitChatKey||'page', label:(typeof PAGE_DISPLAY_NAMES!=='undefined'&&PAGE_DISPLAY_NAMES[_amitChatKey])||document.title||_amitChatKey||'this page' }; };
     }
     if(!AmitChat.live||AmitChat.live.me!==user.id) AmitChat.connect(client,user.id);
+    await _amitWireAskAmit(client,user);      // every Ask Amit BUTTON is answered by AskAmit (the chat itself is not touched)
     return { client:client, user:user };
   }catch(e){ return null; }
+}
+// THE ASK AMIT BUTTONS ON THE ASKAMIT PROGRAM (Ryan, 2026-11-19): the person's Ask Amit chat, opened by any page button, is answered by AskAmit (AskAmit/door); every other chat keeps working as it always did.
+// If the door file cannot be loaded, nothing changes: the button opens the saved chat as before.
+let _amitDoorBusy=null;
+async function _amitWireAskAmit(client,user){
+  try{
+    if(!window.AskAmitDoor){ if(!_amitDoorBusy) _amitDoorBusy=_amitLoadScript(_amitScriptBase+'AskAmit/door/askamit_visitor_source.js?v='+AMIT_ASKAMIT_DOOR_V).catch(function(){}); await _amitDoorBusy; }
+    if(window.AskAmitDoor&&AskAmitDoor.wireBox) AskAmitDoor.wireBox(client,user.id);
+  }catch(e){}
 }
 // the Ask Amit button: opens the real chat when it can. Resolves true when the chat took the press.
 async function _amitChatOpen(pageKey){

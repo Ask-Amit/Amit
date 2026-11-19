@@ -20,7 +20,7 @@
   /* v1.10 (2026-11-18): the SAME door now also serves a SIGNED-IN person (makeSignedSource / AskAmitDoor.connectSigned): earlier questions come back from ask_my_history, a picture (Show Amit, a photo or a
      file the person chose) is uploaded to the private bucket askamit-shots in their own folder and travels with their next question (the engine measures it, Amit looks at it, then it is deleted). The voice
      message and live-transcript buttons are hidden (dictation and transcription are the Aurora's job), and the picture button opens Show Amit through the Helper when the Helper can, else the file picker. */
-  var VERSION = '1.14', CONV = 'askamit-visitor', MSGKEY = 'askamit_visitor_msgs', GUESTKEY = 'askamit_guest', BUCKET = 'askamit-shots', HELPER = 'http://localhost:8710';
+  var VERSION = '1.16', CONV = 'askamit-visitor', MSGKEY = 'askamit_visitor_msgs', GUESTKEY = 'askamit_guest', BUCKET = 'askamit-shots', HELPER = 'http://localhost:8710';
   var SIGNIN = 'That is for signed-in people. Signing up is free.';
   var SIGNED_GREETING = 'Hello again. I’m Amit. What would you like to ask? You can also send me a picture with the camera button.';
   var GREETING ='Hello, and welcome! I’m Amit. I can tell you about what Amit’s applications do and how they could help you. What would you like to know?';
@@ -150,6 +150,7 @@
       ask: function (id, o) {
         o = o || {}; var tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
         var place = {}; try { var from = (o.place && o.place.from) || {}; place = { page: String(from.page || '').slice(0, 60), label: String(from.label || '').slice(0, 80) }; } catch (e) {}
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id || ''))) place.chat = String(id);     /* a saved Ask Amit chat: the engine also saves the reply into it */
         var question = String(o.note || '').trim(); if (!question) return Promise.resolve({ online: online });
         var shot = signed ? pendingShot : null;
         if (shot) { place.shot = { path: shot.path, name: shot.name, title: shot.title, text: shot.text }; if (o.place && o.place.from && o.place.from.attachment) add('me', '📷 ' + shot.name + (shot.title ? ' — ' + shot.title : '') + '\n' + question); }
@@ -179,20 +180,20 @@
     /* THE SIZE OF THE SMALL BOX (Ryan, 2026-11-18: "it's awful small"; then "not by the pixel size: by the size of the current monitor"): 25% of the width and 50% of the height of the MONITOR the page is on
        (sizeBox() below reads it from the browser and sets these two variables; the fallback is the window). Phone-size windows (700 px and under) keep the box's own full-screen layout, and a minimised box
        keeps its 44 px bar. The maximise arrow is unchanged. */
-    '@media (min-width: 701px) { .acx-pop.acx-pop:not(.min) { width: var(--askamit-box-w, 25vw); height: var(--askamit-box-h, 50vh); max-height: none; } }',
-    '.acx-pop .acx-comp, .acx-panel .acx-comp { flex-wrap: wrap; align-items: center; row-gap: 6px; padding: 8px 10px 10px; }',
-    '.acx-pop .acx-comp textarea, .acx-panel .acx-comp textarea { order: -1; flex: 1 1 100%; margin-left: 12%; min-width: 0; box-sizing: border-box; min-height: 68px; max-height: 38vh; overflow-y: auto;',
+    '@media (min-width: 701px) { .acx-pop.acx-pop.askamit-view:not(.min) { width: var(--askamit-box-w, 25vw); height: var(--askamit-box-h, 50vh); max-height: none; } }',
+    '.acx-pop.askamit-view .acx-comp, .acx-panel.askamit-view .acx-comp { flex-wrap: wrap; align-items: center; row-gap: 6px; padding: 8px 10px 10px; }',
+    '.acx-pop.askamit-view .acx-comp textarea, .acx-panel.askamit-view .acx-comp textarea { order: -1; flex: 1 1 100%; margin-left: 12%; min-width: 0; box-sizing: border-box; min-height: 68px; max-height: 38vh; overflow-y: auto;',
     '  padding: 10px 13px; font-size: 15px; line-height: 1.4; border-radius: 14px 14px 4px 14px; background: rgba(214,170,60,.38); border: 1px solid rgba(232,197,106,.85); color: #fff8e4; resize: none; }',
-    '.acx-pop .acx-comp textarea { max-height: 22vh; }',
-    '.acx-pop .acx-comp textarea:focus, .acx-panel .acx-comp textarea:focus { outline: none; border-color: rgba(232,197,106,.95); box-shadow: 0 0 0 2px rgba(201,168,76,.25); }',
-    '.acx-pop .acx-comp .acx-btn.go, .acx-panel .acx-comp .acx-btn.go { margin-left: auto; }',
-    '.acx-pop .acx-b, .acx-panel .acx-b { max-width: 86%; }',
-    '.acx-pop .acx-b.amit, .acx-pop .acx-b.them, .acx-panel .acx-b.amit, .acx-panel .acx-b.them { align-self: flex-start; margin-right: 8%; background: rgba(55,125,215,.40); border-color: rgba(125,185,245,.8); border-radius: 12px 12px 12px 4px; }',
-    '.acx-pop .acx-b.me, .acx-panel .acx-b.me { align-self: flex-end; margin-left: 8%; background: rgba(214,170,60,.38); border-color: rgba(232,197,106,.85); border-radius: 12px 12px 4px 12px; }',
-    '.acx-pop .acx-b.amit small, .acx-pop .acx-b.them small, .acx-panel .acx-b.amit small, .acx-panel .acx-b.them small { color: rgba(170,210,255,.95); }',
-    '.acx-pop .acx-b.me small, .acx-panel .acx-b.me small { color: rgba(240,205,120,.95); text-align: right; }',
+    '.acx-pop.askamit-view .acx-comp textarea { max-height: 22vh; }',
+    '.acx-pop.askamit-view .acx-comp textarea:focus, .acx-panel.askamit-view .acx-comp textarea:focus { outline: none; border-color: rgba(232,197,106,.95); box-shadow: 0 0 0 2px rgba(201,168,76,.25); }',
+    '.acx-pop.askamit-view .acx-comp .acx-btn.go, .acx-panel.askamit-view .acx-comp .acx-btn.go { margin-left: auto; }',
+    '.acx-pop.askamit-view .acx-b, .acx-panel.askamit-view .acx-b { max-width: 86%; }',
+    '.acx-pop.askamit-view .acx-b.amit, .acx-pop.askamit-view .acx-b.them, .acx-panel.askamit-view .acx-b.amit, .acx-panel.askamit-view .acx-b.them { align-self: flex-start; margin-right: 8%; background: rgba(55,125,215,.40); border-color: rgba(125,185,245,.8); border-radius: 12px 12px 12px 4px; }',
+    '.acx-pop.askamit-view .acx-b.me, .acx-panel.askamit-view .acx-b.me { align-self: flex-end; margin-left: 8%; background: rgba(214,170,60,.38); border-color: rgba(232,197,106,.85); border-radius: 12px 12px 4px 12px; }',
+    '.acx-pop.askamit-view .acx-b.amit small, .acx-pop.askamit-view .acx-b.them small, .acx-panel.askamit-view .acx-b.amit small, .acx-panel.askamit-view .acx-b.them small { color: rgba(170,210,255,.95); }',
+    '.acx-pop.askamit-view .acx-b.me small, .acx-panel.askamit-view .acx-b.me small { color: rgba(240,205,120,.95); text-align: right; }',
     /* dictation and transcription are the Aurora's job now (Ryan, 2026-11-18): no voice-message or live-transcript button in this box */
-    '.acx-comp .acx-ib[title^="Record a voice"], .acx-comp .acx-ib[title^="Live transcript"] { display: none !important; }'
+    '.askamit-view .acx-comp .acx-ib[title^="Record a voice"], .askamit-view .acx-comp .acx-ib[title^="Live transcript"] { display: none !important; }'
   ].join('\n');
 
   function grow(t) {
@@ -212,10 +213,25 @@
       return { screenW: sw, screenH: sh, w: w, h: h };
     } catch (e) { return null; }
   }
+  var doors = {};      /* one AskAmit question line per signed-in person (wireBox) */
+  /* TWO VIEWS (Ryan, 2026-11-19): an Ask Amit chat opens in the Ask Amit view (its look, below); a chat with friends or other people keeps the original view. The box says which it is by setting the Ask Amit
+     placeholder on its message box (only for chats whose purpose is "help"); every box on the page is marked from that. A page that is ONLY an Ask Amit box (the standalone one) is always the Ask Amit view. */
+  var viewAlways = false, viewQueued = false, viewWatching = false;
+  function markViews() {
+    function run() {
+      viewQueued = false;
+      try { Array.prototype.forEach.call(document.querySelectorAll('.acx-pop, .acx-panel'), function (p) {
+        var ta = p.querySelector('.acx-comp textarea'); p.classList.toggle('askamit-view', viewAlways || !!(ta && /^Ask Amit anything/.test(ta.placeholder || '')));
+      }); } catch (e) {}
+    }
+    function queue() { if (viewQueued) return; viewQueued = true; (window.requestAnimationFrame || setTimeout)(run); }
+    if (!viewWatching) { viewWatching = true; try { new MutationObserver(queue).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['placeholder'] }); } catch (e) {} }
+    queue();
+  }
   var styled = false;
   function injectStyle() {
     if (styled) return; styled = true;
-    sizeBox();
+    sizeBox(); markViews();
     window.addEventListener('resize', sizeBox); window.addEventListener('focus', sizeBox);
     document.addEventListener('click', function (e) { if (e.target && e.target.closest && e.target.closest('#rail-chat')) sizeBox(); }, true);
     var s = document.createElement('style'); s.id = 'askamit-door-css'; s.textContent = CSS; document.head.appendChild(s);
@@ -229,10 +245,32 @@
     makeVisitorSource: makeVisitorSource,
     injectStyle: injectStyle,
     sizeBox: sizeBox,
+    /* v1.15 THE BUTTONS' OWN CHAT (Ryan, 2026-11-19): every Ask Amit BUTTON is answered by AskAmit, while the chat stays the chat. wireBox joins the two inside the one box: the person's Ask Amit chat
+       (opened by a button) goes to AskAmit; every other chat in the box (the Chats button, people, groups) keeps the source the box already has. Safe to call again and again. Returns true when wired. */
+    wireBox: function (db, userId, opts) {
+      try {
+        if (!window.AmitChat || !db || !userId) return false;
+        var orig = window.AmitChat.source; if (!orig) return false; if (orig.__askamit) return true;
+        injectStyle();
+        if (!doors[userId]) doors[userId] = { src: makeVisitorSource(db, Object.assign({}, opts || {}, { userId: userId })), help: {}, last: false };
+        var D = doors[userId], d = D.src, c = Object.create(orig); c.__askamit = true;
+        /* which chats are Ask Amit chats: the chat the Ask Amit button opens, and any chat whose purpose is "help" when it is opened */
+        c.helpOpen = function () { return orig.helpOpen.apply(orig, arguments).then(function (r) { if (r && r.id) D.help[r.id] = true; return r; }); };
+        c.getConversation = function (id) { return orig.getConversation.apply(orig, arguments).then(function (cv) { if (cv && cv.purpose === 'help') D.help[id] = true; return cv; }); };
+        /* a question in an Ask Amit chat goes to AskAmit; the question and the answer are saved in the chat as they always were. A question that comes with a picture keeps the old route for now. */
+        c.ask = function (id, o) {
+          var withPicture = !!(o && o.place && o.place.from && o.place.from.attachment);
+          if (D.help[id] && !withPicture) { D.last = true; return d.ask.apply(d, arguments); }
+          D.last = false; return orig.ask.apply(orig, arguments);
+        };
+        c.askStatus = function (id) { var t = (D.last && D.help[id]) ? d : orig; return t.askStatus.apply(t, arguments); };
+        window.AmitChat.useSource(c); return true;
+      } catch (e) { return false; }
+    },
     /* wires the real chat box to AskAmit for a visitor; the page then calls AmitChat.openHelp() as it does today */
     connect: function (db, opts) {
       if (!window.AmitChat) throw new Error('amit_chat.js must be loaded first');
-      injectStyle();
+      viewAlways = true; injectStyle(); markViews();
       var src = makeVisitorSource(db, opts);
       /* a visitor has no storage login: no picture or file buttons (they appear after signing in) */
       if (!document.getElementById('askamit-visitor-css')) { var vs = document.createElement('style'); vs.id = 'askamit-visitor-css'; vs.textContent = '.acx-comp .acx-ib[title^="Attach a file"], .acx-comp .acx-ib[title="Send a photo"] { display: none !important; }'; document.head.appendChild(vs); }
