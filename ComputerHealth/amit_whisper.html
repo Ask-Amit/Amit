@@ -92,6 +92,9 @@
   var pending = '', lastResultAt = 0, speechAt = 0, mon = null;   // for the watchdog: see startMonitor()
   // ONE restart path (Ryan, 2026-11-15): see restartRec(). restartBusy = "a restart is already happening, ignore other requests".
   var restartBusy = false, restartAgain = '', failStreak = 0, runStart = 0, runHeard = false;
+  // v2.12 (Ryan, 2026-11-20): tell the person at once when sound is heard but no words come back. speechOnsetAt = when the current burst of
+  // speech began; noticeSent = the 2-second warning has been sent for this stall; stallStreak = restarts in a row with no words in between.
+  var speechOnsetAt = 0, noticeSent = false, stallStreak = 0;
   var BTN = { right: 'right mouse button', middle: 'middle button (wheel click)', x1: 'back side button', x2: 'forward side button' };
 
   document.title = isHost ? 'Amit Live (listening)' : 'Amit Live settings';
@@ -178,7 +181,7 @@
     rec.onnomatch = function () { diag('no match'); };
     rec.onaudiostart = function () { post('audiostart'); diag('audio capture started'); setStatus('Listening...', 'on'); };
     rec.onresult = function (e) {
-      runHeard = true; failStreak = 0; retries = 0;
+      runHeard = true; failStreak = 0; retries = 0; stallStreak = 0; noticeSent = false;
       if (e.results[e.results.length - 1].isFinal) diag('result final: "' + (e.results[e.results.length - 1][0].transcript || '') + '"');
       var interim = '';
       for (var i = e.resultIndex; i < e.results.length; i++) {
@@ -216,7 +219,7 @@
     if (!SR) { post('error', 'unsupported'); return; }
     killRec(); restartBusy = false; restartAgain = ''; failStreak = 0;
     active = true; stopping = false; retries = 0; $('live').textContent = '';
-    pending = ''; lastResultAt = Date.now(); speechAt = 0;
+    pending = ''; lastResultAt = Date.now(); speechAt = 0; speechOnsetAt = 0; noticeSent = false; stallStreak = 0;
     statsStart();
     startMonitor();
     newRec();
@@ -246,11 +249,23 @@
         an.getFloatTimeDomainData(buf);
         var s = 0; for (var i = 0; i < buf.length; i++) s += buf[i] * buf[i];
         var now = Date.now();
-        if (Math.sqrt(s / buf.length) > 0.012) speechAt = now;
-        if (active && !stopping && speechAt && now - speechAt < 1500 && now - lastResultAt > 4500) {
-          post('diag', 'watchdog: speech heard but no words for ' + Math.round((now - lastResultAt) / 1000) + ' s, restarting the recognizer');
-          lastResultAt = now;
-          restartRec('watchdog');
+        if (Math.sqrt(s / buf.length) > 0.012) { if (!speechAt || now - speechAt > 1500) speechOnsetAt = now; speechAt = now; }
+        // v2.12: the time with no words is counted from the later of the last words and the start of this burst of speech,
+        // so the first words of a sentence (which take a moment) do not raise a false alarm.
+        var sinceWords = now - Math.max(lastResultAt, speechOnsetAt);
+        if (active && !stopping && speechAt && now - speechAt < 1500) {
+          if (sinceWords > 2000 && !noticeSent) {
+            noticeSent = true;
+            post('diag', 'watchdog: speech heard but no words for 2 s, telling the person');
+            post('stalled', 'notice');
+          }
+          if (sinceWords > 3500) {
+            stallStreak++;
+            post('diag', 'watchdog: speech heard but no words for ' + Math.round(sinceWords / 1000) + ' s, restarting the recognizer (' + stallStreak + ' in a row)');
+            post('stalled', 'restart:' + stallStreak);
+            lastResultAt = now; speechOnsetAt = now; noticeSent = false;
+            restartRec('watchdog');
+          }
         }
       }, 300);
     }).catch(function () {});
