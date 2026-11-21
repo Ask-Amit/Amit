@@ -1403,7 +1403,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v9.00</div>
+      <div class="page-version" id="hubVersionBadge">v9.01</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -5987,7 +5987,7 @@ async function amMouseGet(comp,kind){
     return {id:x.id,name:x.name,device_key:x.device_key,is_primary:x.is_primary,learned:x.learned,settings:x.settings||{},
       controls:(cs.data||[]).filter(function(c){return c.device_id===x.id;}),
       sets:(ss.data||[]).filter(function(s){return s.device_id===x.id;}).map(function(s){
-        return {id:s.id,num:s.num,label:s.label,actions:(ac.data||[]).filter(function(a){return a.set_id===s.id;})};})};
+        return {id:s.id,num:s.num,label:s.label,secure:!!s.secure,actions:(ac.data||[]).filter(function(a){return a.set_id===s.id;})};})};
   })};
 }
 // saves run ONE AT A TIME (several quick edits used to overlap and wipe each other's primary flag); while one runs, only the newest waiting one is kept
@@ -6009,7 +6009,9 @@ async function amMousePut(d,kind){
     devRows.push({id:x.id,user_id:uidv,computer_id:c.id,kind:kind,name:String(x.name).slice(0,40),device_key:x.device_key,is_primary:false,learned:!!x.learned,settings:x.settings||{},updated_at:now,_primary:!!x.is_primary});
     x.controls.forEach(function(k){ctlRows.push({user_id:uidv,device_id:x.id,control_id:k.control_id,label:String(k.label||'').slice(0,80),original_call:k.original_call||'',seen:!!k.seen});});
     x.sets.forEach(function(s){
-      setRows.push({id:s.id,user_id:uidv,device_id:x.id,num:s.num,label:String(s.label||'').slice(0,40)});
+      var srow={id:s.id,user_id:uidv,device_id:x.id,num:s.num,label:String(s.label||'').slice(0,40)};
+      if(s.secure) srow.secure=true;   /* only sent when true, so ordinary sets (and mouse sets) save the same as before the secure column existed */
+      setRows.push(srow);
       s.actions.forEach(function(a){actRows.push({user_id:uidv,set_id:s.id,control_id:a.control_id,slot:a.slot,action_type:a.action_type,action_value:a.action_value||'',hold_ms:a.hold_ms,locked:!!a.locked});});
     });
   });
