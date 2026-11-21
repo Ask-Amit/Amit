@@ -115,7 +115,7 @@ td.nm{white-space:nowrap}.btn.red{background:#5a2323;border-color:var(--red)}
     <b>Keyboard:</b><select id="devPick" title="Which keyboard"></select>
     <span class="pill g" id="activePill"></span>
     <span id="pretendBox" hidden><span class="n2">Which keyboard I just used:</span><select id="pretend" title="The Amit Helper tells me this by itself when it is connected. Until then you choose it."></select></span>
-    <span class="pill" id="pageVer" title="Version of this Amit Keyboard page">v1.08</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser until your login answers.</span>
+    <span class="pill" id="pageVer" title="Version of this Amit Keyboard page">v1.09</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser until your login answers.</span>
     <div class="sw"><span>Keyboard sets are</span><div class="tog on" id="master" title="Turn all keyboard sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
   </header>
   <div class="tabs"><div class="tab on" id="t1">1. Learn keyboard</div><div class="tab" id="t2">2. Keyboard sets</div><div class="tab" id="t3">3. Secure code</div><div class="tab" id="t4">4. Secure modifier</div><div class="tab" id="t5">5. Secure decipher</div></div>
@@ -191,6 +191,10 @@ td.nm{white-space:nowrap}.btn.red{background:#5a2323;border-color:var(--red)}
   <div class="main" id="v3" hidden style="flex:1;min-height:0;overflow:auto;padding:12px 16px">
     <div class="notice" style="border:1px solid var(--gold);border-radius:8px;margin-bottom:10px"><b>Scrambled, not real encryption.</b> A Code keeps a message from casual eyes. A determined person with a computer can break a code like this (the Enigma machine was broken). For real privacy, real encryption goes underneath; that is a separate step and is not built.</div>
     <div class="tip"><b>How a Code works</b><br>Each of your keyboard sets (not Set 1) is a scramble table: in Set 4, G types Q, and so on. EVERY key can be scrambled, not only letters: <b>Space is not necessarily a space</b> (in a set, M can type the space and the Space key can type a letter), and a combination such as <b>Ctrl+G</b> or a pair of keys held together can be a symbol of its own. Some keys also say <b>"type this, then switch to Set N"</b> (set it on the Keyboard sets tab: <i>Send keys, then switch set</i>). So the table changes as you type, and the next letter is scrambled by a different set. To read the message, the other person needs the same sets: they follow the same switches and arrive at the same set for every letter.<div class="n2" style="margin-top:4px">Rules that make a message readable: every scramble set must be one-to-one (no two keys type the same character, a space counts as a character), and every key that switches must also type something, because the reader can only see the letters, not the switches. The checks below look for both.</div></div>
+    <h2>Make a secure code for me</h2>
+    <div class="tip"><b>One press, and it is made.</b> The button builds a secure code on this keyboard: three linked sets, every key scrambled at random, and a few keys that jump to another set as you type (they always type a letter too, so the message can still be read back). They are saved as <b>S1</b>, <b>S2</b>, <b>S3</b> and so on. Press the button again and you get a completely different random code, as many times as you like. When you are happy with it, press <b>Lock</b>: a locked code can never be changed, so every message you have already sent stays readable. The next press then makes the next code (S2).<div class="n2" style="margin-top:4px">The sets are numbered from 10 up, so Sets 1 to 9 stay free for your ordinary sets. You can still turn any ordinary set into a secure one with the "Secure code set" box on the Keyboard sets tab.</div></div>
+    <div class="form" style="margin:6px 0"><button class="btn gold" id="sNew">Make a random secure code</button></div>
+    <div id="sList" style="margin-bottom:12px"></div>
     <div class="form" style="margin:6px 0">
       <span>Keyboard: <b id="cKb"></b></span>
       <span class="n2">1. Choose the set to start with:</span><select id="cStart"></select>
@@ -474,6 +478,7 @@ function cellK(id,st){
   var lk=lockId(cur,id);
   if(lk)return'<div class="syslock"><b>&#128274; '+LOCKTXT[lk]+'</b></div>';
   var g=st.map[id]||{},p=g.p||{t:'keep'};
+  if(st.locks&&st.locks[id]&&setSealed(st))return'<div class="syslock user"><b>&#128274; Part of a locked secure code. It cannot be changed.</b><div class="slot"><span class="lab">Press</span>'+esc(actDesc(p,cur))+'</div></div>';
   if(st.locks&&st.locks[id]){
     var lc='<div class="syslock user"><b>&#128274; Locked by you. It will not change.</b><div class="slot"><span class="lab">Press</span>'+esc(actDesc(p,cur))+'</div>';
     if(g.d)lc+='<div class="slot"><span class="lab">Double-press</span>'+esc(actDesc(g.d,cur))+'</div>';
@@ -518,7 +523,7 @@ function bindK(root,st){
   [].forEach.call(root.querySelectorAll('[data-rm]'),function(e){e.onclick=function(){var p=e.getAttribute('data-rm').split('~');putSlot(st,p[0],p[1],null);pick(p[0]);drawSetsView()}});
   [].forEach.call(root.querySelectorAll('[data-lock]'),function(e){e.onclick=function(){var id=e.getAttribute('data-lock');st.locks=st.locks||{};if(st.locks[id])delete st.locks[id];else st.locks[id]=true;pick(id);drawSetsView()}});
 }
-function numOpts(st){var used={};cur.sets.forEach(function(x){if(x!==st)used[x.num]=1});var h='';for(var n=1;n<=9;n++)if(!used[n])h+='<option value="'+n+'"'+(n===st.num?' selected':'')+'>Set '+n+'</option>';return h}
+function numOpts(st){var used={};cur.sets.forEach(function(x){if(x!==st)used[x.num]=1});var h='';for(var n=1;n<=9;n++)if(!used[n])h+='<option value="'+n+'"'+(n===st.num?' selected':'')+'>Set '+n+'</option>';if(st.num>9)h+='<option value="'+st.num+'" selected>Set '+st.num+'</option>';return h}
 function drawSetsView(){
   var s=stOf(),sid=sel?idOf(selMods,sel):null;
   $('setList').innerHTML=cur.sets.map(function(x){return'<div class="set'+(x.id===cur.selId?' sel':'')+'" data-id="'+x.id+'"><div class="n">'+esc(sname(x))+(x.secure?' <span class="badge">secure</span>':'')+(master&&x.id===cur.activeId?' <span class="badge">in use now</span>':'')+'</div><div class="p">Say: "'+esc(phrase(cur,x))+'"'+(x.num===1?' (starting set)':'')+'</div></div>'}).join('');
@@ -534,7 +539,7 @@ function drawSetsView(){
   bindK($('focus'),s);
   $('slog').innerHTML=slog.slice(0,1).map(function(t){return'<div>'+esc(t)+'</div>'}).join('');
   /* BELOW: the saved list */
-  $('useBox').innerHTML='<div class="use"><button class="btn gold" id="useNow">'+(cur.activeId===s.id?'This set is in use':'Use this set now')+'</button> <span class="sim">Number: <select id="setNum"'+(s.num===1?' disabled':'')+'>'+numOpts(s)+'</select> &nbsp; Label (optional, not spoken): <input id="setLabel" value="'+esc(s.label||'')+'" placeholder="e.g. Editing" style="width:120px"> &nbsp; <label title="Marks this set as part of a secure code (the Secure code tab). Set 1 can never be secure."><input type="checkbox" id="setSecure"'+(s.secure?' checked':'')+(s.num===1?' disabled':'')+'> Secure code set</label> &nbsp; Double-press speed: two presses within <input type="number" id="dblMs" min="150" max="800" step="25" value="'+(cur.dbl||300)+'" class="ms"> ms count as a double-press (this keyboard). Holding is timed per key.</span></div>';
+  $('useBox').innerHTML='<div class="use"><button class="btn gold" id="useNow">'+(cur.activeId===s.id?'This set is in use':'Use this set now')+'</button> <span class="sim">Number: <select id="setNum"'+(s.num===1||isGen(s)?' disabled':'')+'>'+numOpts(s)+'</select> &nbsp; Label (optional, not spoken): <input id="setLabel" value="'+esc(s.label||'')+'" placeholder="e.g. Editing" style="width:120px"'+(isGen(s)?' disabled':'')+'> &nbsp; <label title="Marks this set as part of a secure code (the Secure code tab). Set 1 can never be secure."><input type="checkbox" id="setSecure"'+(s.secure?' checked':'')+(s.num===1||isGen(s)?' disabled':'')+'> Secure code set</label> &nbsp; Double-press speed: two presses within <input type="number" id="dblMs" min="150" max="800" step="25" value="'+(cur.dbl||300)+'" class="ms"> ms count as a double-press (this keyboard). Holding is timed per key.</span></div>';
   $('useBox').innerHTML+='<div class="use"><label><input type="checkbox" id="spN"'+(cur.spaceNum!==false?' checked':'')+'> Hold <b>Space</b>, then press a number: switch to that numbered set</label> <span class="sim">&nbsp; after Space has been held for <input type="number" id="spMs" min="200" max="1500" step="50" value="'+(cur.spaceMs||400)+'" class="ms"> ms &nbsp; <label><input type="checkbox" id="spI"'+(cur.spaceIn1?' checked':'')+'> also work in Set 1</label></span><div class="n2" style="margin-top:3px">Works in every set except Set 1 (the safe starting set) unless you tick the box, so Space + 1 always takes you straight back to Set 1, Space + 2 to Set 2, and so on. A quick Space tap, or a number typed right after a normal space, types as usual; only a Space that has been held this long counts, and then the Space is not typed.</div></div>';
   $('spN').onchange=function(){cur.spaceNum=this.checked;drawSetsView()};
   $('spI').onchange=function(){cur.spaceIn1=this.checked;drawSetsView()};
@@ -547,7 +552,8 @@ function drawSetsView(){
   $('mapTitle').textContent='Saved jobs of "'+cur.name+'" in "'+sname(s)+'"';
   var order=Object.keys(s.map);var builtin=(cur.spaceNum!==false&&(s.num!==1||cur.spaceIn1))?'<tr><td class="nm">Space (held) + a number</td><td><div class="syslock"><b>&#128274; Built in.</b> Hold Space for '+(cur.spaceMs||400)+' ms, then press <b>1 to 9</b>: switches to that numbered set (Space + 1 is always the way back to Set 1). It is on in every set'+(cur.spaceIn1?'':' except Set 1')+'. You can change or turn it off just above the list.</div></td></tr>':'';
   $('rows').innerHTML=builtin+(order.length?order.map(function(id){return'<tr data-row="'+esc(id)+'" class="'+(id===sid?'selrow':'')+'"><td class="nm" style="cursor:pointer" title="Click to change it at the top">'+esc(idLabel(cur,id))+(s.locks&&s.locks[id]?'<div class="n2 lockb">&#128274; Locked by you</div>':'')+'</td><td>'+cellK(id,s)+'</td></tr>'}).join(''):(builtin?'':'<tr><td colspan="2" class="n2">Nothing saved yet. Press a key in the box above, say what it should do, and it is saved here.</td></tr>'));
-  if(s.num!==1)$('rows').innerHTML+='<tr><td colspan="2" style="text-align:right;border:0"><button class="btn'+(delArm===s.id?' red':'')+'" id="delBtn">'+(delArm===s.id?'Press again to delete "'+esc(sname(s))+'"':'Delete this set')+'</button></td></tr>';
+  if(isGen(s))$('rows').innerHTML+='<tr><td colspan="2" class="n2" style="border:0">This set belongs to the secure code '+esc((SEC_RX.exec(s.label)||[])[0].split('-')[0])+'. Re-roll, lock or delete the whole code on the Secure code tab.</td></tr>';
+  if(s.num!==1&&!isGen(s))$('rows').innerHTML+='<tr><td colspan="2" style="text-align:right;border:0"><button class="btn'+(delArm===s.id?' red':'')+'" id="delBtn">'+(delArm===s.id?'Press again to delete "'+esc(sname(s))+'"':'Delete this set')+'</button></td></tr>';
   bindK($('rows'),s);
   [].forEach.call($('rows').querySelectorAll('tr[data-row] .nm'),function(td){td.onclick=function(){pick(td.parentNode.getAttribute('data-row'));drawSetsView()}});
   var db=$('delBtn');if(db)db.onclick=function(){if(delArm===s.id){cur.sets=cur.sets.filter(function(x){return x.id!==s.id});cur.activeId=cur.selId=cur.sets[0].id;delArm=null}else delArm=s.id;drawAll()};
@@ -570,7 +576,7 @@ function drawSetsView(){
     window.padCore(e.code,e.__ch,held,e.key);
   };
 })();
-$('newBtn').onclick=function(){var ns=mkSet(cur.nextNum++,'',{});cur.sets.push(ns);cur.selId=cur.activeId=ns.id;drawAll()};
+$('newBtn').onclick=function(){while(cur.sets.some(function(x){return x.num===cur.nextNum}))cur.nextNum++;var ns=mkSet(cur.nextNum++,'',{});cur.sets.push(ns);cur.selId=cur.activeId=ns.id;drawAll()};
 $('voiceBtn').onclick=function(){
   var t=$('voiceIn').value.toLowerCase().trim(),m=t.match(/^keyboard (\w+)(?: set (\w+))?$/);if(!m){alert('Say: keyboard <name> [set <number>]');return}
   var d=devs.filter(function(x){return x.name.toLowerCase()===m[1]})[0];if(!d){alert('No keyboard with that name');return}
@@ -656,7 +662,7 @@ function checkSet(st){
   return{mapped:mapped,bad:bad,only:only,sw:sw};
 }
 function drawCode(){
-  var d=cur;$('cKb').textContent=d.name;
+  var d=cur;$('cKb').textContent=d.name;drawSecureRoster();
   if(!d.sets.some(function(x){return x.num!==1})){$('cStart').innerHTML='';$('cChecks').innerHTML='There are no scramble sets yet. Make a set 2 or higher on the Keyboard sets tab, or press <b>Fill a demo code</b> to try the idea.';$('cView').innerHTML='';$('cOut').innerHTML='';return}
   var opts=d.sets.filter(function(x){return x.num!==1}).map(function(x){return'<option value="'+x.num+'"'+(x.num===codeState.startNum?' selected':'')+'>'+esc(sname(x))+'</option>'}).join('');
   $('cStart').innerHTML=opts;
@@ -761,6 +767,78 @@ function buildDemo(sample){
   $('cPaste').value=applyMods(codeState.sampleCoded||'');
   drawAll();
 }
+/* ---- secure codes made for you: S1, S2, ... Each is THREE linked sets, numbered from 10 up so Sets 1 to 9 stay free for ordinary sets.
+   Every code is made from the browser's secure random source (never a fixed seed), so no two presses repeat. ---- */
+function secRand(n){var a=new Uint32Array(1),lim=Math.floor(4294967296/n)*n,x;do{crypto.getRandomValues(a);x=a[0]}while(x>=lim);return x%n}
+function secShuffle(arr){for(var i=arr.length-1;i>0;i--){var j=secRand(i+1),t=arr[i];arr[i]=arr[j];arr[j]=t}return arr}
+var SEC_RX=/^S(\d+)-([ABC])$/;
+function isGen(s){return !!s&&!!s.secure&&SEC_RX.test(s.label||'')}
+function secGroups(d){var g={};d.sets.forEach(function(s){var m=isGen(s)&&SEC_RX.exec(s.label);if(m)(g[m[1]]=g[m[1]]||{n:+m[1],sets:[]}).sets.push(s)});return Object.keys(g).map(function(k){var o=g[k];o.sets.sort(function(a,b){return a.label<b.label?-1:1});return o}).sort(function(a,b){return a.n-b.n})}
+function setSealed(s){var ks=Object.keys(s.map||{});if(!isGen(s)||!ks.length)return false;return ks.every(function(k){return s.locks&&s.locks[k]})}
+function groupSealed(g){return g.sets.length>0&&g.sets.every(setSealed)}
+/* fill three sets with a fresh random code: every symbol (26 letters, Space, Ctrl+G) types a different character in each set (a one-to-one scramble),
+   and four random letter keys per set also jump to one of the other two sets, so the scramble changes as you type */
+function secFill(sets){
+  var inputs=[],outs=[],q;
+  for(q=0;q<26;q++){inputs.push('Key'+String.fromCharCode(65+q));outs.push(String.fromCharCode(65+q))}
+  inputs.push('Space');outs.push('Space');inputs.push('Ctrl|KeyG');outs.push('#');
+  var letters=inputs.slice(0,26);
+  sets.forEach(function(s){
+    var sh=secShuffle(outs.slice()),others=sets.filter(function(x){return x!==s}),trig={};
+    secShuffle(letters.slice()).slice(0,4).forEach(function(id){trig[id]=others[secRand(others.length)].id});
+    s.map={};s.locks={};
+    inputs.forEach(function(id,i){s.map[id]={p:trig[id]?{t:'keyswitch',v:sh[i],v2:trig[id]}:{t:'key',v:sh[i]}}});
+  });
+}
+var secMsg='',secRolls=0;
+function secNextNums(d){var used={},out=[],n;d.sets.forEach(function(x){used[x.num]=1});for(n=10;n<=99&&out.length<3;n++)if(!used[n])out.push(n);return out.length===3?out:null}
+function secFocus(g){codeState.startNum=g.sets[0].num;decState.startNum=g.sets[0].num;codeState.hist=[]}
+function secMake(){
+  var d=cur,gs=secGroups(d),last=gs.length?gs[gs.length-1]:null;
+  if(last&&last.sets.length===3&&!groupSealed(last)){
+    secFill(last.sets);secRolls++;secMsg='S'+last.n+' now has a completely different random code (change number '+secRolls+'). Press the button again for another, or Lock it when you like it.';
+    secFocus(last);drawAll();return;
+  }
+  var nums=secNextNums(d);if(!nums){alert('There is no room for another secure code on this keyboard (the set numbers 10 to 99 are used).');return}
+  var n=1;gs.forEach(function(g){if(g.n>=n)n=g.n+1});
+  var made=['A','B','C'].map(function(L,i){var s=mkSet(nums[i],'S'+n+'-'+L,{});s.secure=true;d.sets.push(s);return s});
+  secFill(made);d.sets.sort(function(a,b){return a.num-b.num});secRolls=0;
+  secMsg='S'+n+' is made (Sets '+nums.join(', ')+'). Press the button again for a different one, or Lock it when you like it.';
+  secFocus({sets:made});drawAll();
+}
+function secLock(n){
+  var g=secGroups(cur).filter(function(x){return x.n===n})[0];if(!g)return;
+  if(!confirm('Lock S'+n+'?\n\nA locked code can no longer be changed or re-rolled, so every message you have already sent with it stays readable. (You can still delete it.)'))return;
+  g.sets.forEach(function(s){s.locks=s.locks||{};Object.keys(s.map).forEach(function(k){s.locks[k]=true})});
+  secMsg='S'+n+' is locked. The next press makes S'+(n+1)+'.';drawAll();
+}
+function secDelete(n){
+  var g=secGroups(cur).filter(function(x){return x.n===n})[0];if(!g)return;
+  var sealed=groupSealed(g);
+  if(!confirm(sealed?'S'+n+' is LOCKED.\n\nIf you delete it you can no longer read or write any message made with it, and this cannot be undone. Delete it anyway?':'Delete S'+n+'?'))return;
+  if(sealed&&!confirm('Last check: delete the locked code S'+n+' for good?'))return;
+  var ids={};g.sets.forEach(function(s){ids[s.id]=1});
+  cur.sets=cur.sets.filter(function(x){return !ids[x.id]});
+  if(!cur.sets.some(function(x){return x.id===cur.activeId}))cur.activeId=cur.sets[0].id;
+  if(!cur.sets.some(function(x){return x.id===cur.selId}))cur.selId=cur.sets[0].id;
+  codeState.hist=[];secMsg='S'+n+' was deleted.';drawAll();
+}
+function drawSecureRoster(){
+  var d=cur,gs=secGroups(d),last=gs.length?gs[gs.length-1]:null,draft=!!last&&last.sets.length===3&&!groupSealed(last),h='';
+  $('sNew').textContent=draft?('Make a different random code (replaces S'+last.n+')'):'Make a random secure code';
+  gs.forEach(function(g){
+    var sealed=groupSealed(g),ok=g.sets.length===3&&g.sets.every(function(s){var c=checkSet(s);return !c.bad.length&&!c.only.length});
+    h+='<div class="use" style="margin:4px 0"><b>S'+g.n+'</b> <span class="badge">'+(sealed?'locked':'draft')+'</span> <span class="n2">Sets '+g.sets.map(function(s){return s.num}).join(', ')+' &middot; '+(ok?'<span style="color:var(--green)">&#10003; one-to-one, reads back</span>':'<span style="color:var(--red)">does not read back: press the button for a new one</span>')+(sealed?' &middot; &#128274; cannot be changed':'')+'</span> '
+      +'<button class="btn" data-suse="'+g.n+'">Type with S'+g.n+'</button> '
+      +(sealed?'':'<button class="btn gold" data-slock="'+g.n+'">Lock S'+g.n+'</button> ')
+      +'<button class="btn" data-sdel="'+g.n+'">Delete S'+g.n+'</button></div>';
+  });
+  $('sList').innerHTML=(h||'<div class="n2">No secure code yet. Press the button to make S1.</div>')+(secMsg?'<div class="n2" style="margin-top:4px;color:var(--green)">'+esc(secMsg)+'</div>':'');
+  [].forEach.call($('sList').querySelectorAll('[data-suse]'),function(e){e.onclick=function(){var g=secGroups(cur).filter(function(x){return x.n===+e.getAttribute('data-suse')})[0];if(g){secFocus(g);secMsg='';drawAll();$('cin').focus()}}});
+  [].forEach.call($('sList').querySelectorAll('[data-slock]'),function(e){e.onclick=function(){secLock(+e.getAttribute('data-slock'))}});
+  [].forEach.call($('sList').querySelectorAll('[data-sdel]'),function(e){e.onclick=function(){secDelete(+e.getAttribute('data-sdel'))}});
+}
+$('sNew').onclick=secMake;
 /* share: the sets as text, and back in. Set references are written as set NUMBERS so they survive the trip. */
 $('cExp').onclick=function(){
   var d=cur,numOf={};d.sets.forEach(function(x){numOf[x.id]=x.num});
@@ -777,15 +855,21 @@ $('cImp').onclick=function(){
   var d=cur,msg=$('cShareMsg'),data;
   try{data=JSON.parse($('cShare').value)}catch(e){msg.textContent='That is not a keyboard-sets text. Nothing was imported.';return}
   if(!data||data.amitKeyboardSets!==1||!data.sets){msg.textContent='That is not a keyboard-sets text. Nothing was imported.';return}
+  var blocked=data.sets.filter(function(x){if(x.num===1)return false;var ex=setByNum(d,x.num);return ex&&setSealed(ex)})[0];
+  if(blocked){msg.textContent='Set '+blocked.num+' is part of a locked secure code on this keyboard, so nothing was imported. Delete that code first if you really want to replace it.';return}
+  /* a shared secure code arrives LOCKED, under the next free S number, so it can never be re-rolled by accident */
+  var nMap={},nextN=1,gotCodes=[];secGroups(d).forEach(function(g){if(g.n>=nextN)nextN=g.n+1});
+  data.sets.forEach(function(x){var m=SEC_RX.exec(x.label||'');if(!m)return;if(!nMap[m[1]]){nMap[m[1]]=nextN++;gotCodes.push('S'+nMap[m[1]])}x.label='S'+nMap[m[1]]+'-'+m[2]});
   var idOfNum={};
-  data.sets.forEach(function(x){if(x.num===1)return;var ex=setByNum(d,x.num);if(ex){ex.map={};ex.label=x.label;ex.secure=true;idOfNum[x.num]=ex.id}else{var s=mkSet(x.num,x.label,{});s.secure=true;d.sets.push(s);idOfNum[x.num]=s.id}});
+  data.sets.forEach(function(x){if(x.num===1)return;var gen=SEC_RX.test(x.label||''),ex=setByNum(d,x.num);if(ex){ex.map={};ex.locks={};ex.label=x.label;ex.secure=gen;idOfNum[x.num]=ex.id}else{var s=mkSet(x.num,x.label,{});s.secure=gen;d.sets.push(s);idOfNum[x.num]=s.id}});
   data.sets.forEach(function(x){if(x.num===1)return;var s=setOf(d,idOfNum[x.num]);
     Object.keys(x.map).forEach(function(id){var m=x.map[id];['p','d','h'].forEach(function(sl){var a=m[sl];if(!a)return;
       if(a.t==='set'){a.v=idOfNum[a.v];if(!a.v)return}
       if(a.t==='keyswitch'){a.v2=idOfNum[a.v2];if(!a.v2)a.v2=s.id}
-      (s.map[id]||(s.map[id]={}))[sl]=a})})});
+      (s.map[id]||(s.map[id]={}))[sl]=a})})
+    if(isGen(s)){s.locks={};Object.keys(s.map).forEach(function(k){s.locks[k]=true})}});
   d.sets.sort(function(a,b){return a.num-b.num});
-  msg.textContent='Imported '+data.sets.filter(function(x){return x.num!==1}).length+' set(s) as your own copy. Set 1 was not touched.';
+  msg.textContent='Imported '+data.sets.filter(function(x){return x.num!==1}).length+' set(s) as your own copy. Set 1 was not touched.'+(gotCodes.length?' The secure code'+(gotCodes.length===1?'':'s')+' arrived locked as '+gotCodes.join(', ')+'.':'');
   codeState.hist=[];drawCode();
 };
 
@@ -1060,7 +1144,7 @@ $('delDev').onclick=function(){
 $('copyBtn').onclick=function(){
   var v=$('copyFrom').value;if(!v)return;var src=dev(+v);if(!src)return;
   if(!confirm('Replace all sets of "'+(cur.name||'this keyboard')+'" with a copy of the sets of "'+src.name+'"?'))return;
-  var idMap={},ns=src.sets.map(function(s){var o={id:nid++,num:s.num,label:s.label,map:JSON.parse(JSON.stringify(s.map)),locks:JSON.parse(JSON.stringify(s.locks||{}))};idMap[s.id]=o.id;return o});
+  var idMap={},ns=src.sets.map(function(s){var o={id:nid++,num:s.num,label:s.label,secure:!!s.secure,map:JSON.parse(JSON.stringify(s.map)),locks:JSON.parse(JSON.stringify(s.locks||{}))};idMap[s.id]=o.id;return o});
   ns.forEach(function(o){Object.keys(o.map).forEach(function(id){['p','d','h'].forEach(function(sl){var a=o.map[id][sl];if(!a)return;if(a.t==='set')a.v=idMap[a.v];if(a.t==='keyswitch')a.v2=idMap[a.v2]})})});
   cur.sets=ns;cur.selId=cur.activeId=ns[0].id;cur.nextNum=Math.max.apply(null,ns.map(function(x){return x.num}))+1;cur.dbl=src.dbl;cur.spaceNum=src.spaceNum;cur.spaceMs=src.spaceMs;cur.spaceIn1=src.spaceIn1;drawAll();
 };
