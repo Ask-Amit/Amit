@@ -5,5 +5,5 @@ using System.Reflection;
 [assembly: AssemblyProduct("Amit Installer")]
 [assembly: AssemblyCompany("Amit")]
 [assembly: AssemblyCopyright("Amit")]
-[assembly: AssemblyVersion("5.23.0.0")]
-[assembly: AssemblyFileVersion("5.23.0.0")]
+[assembly: AssemblyVersion("5.24.0.0")]
+[assembly: AssemblyFileVersion("5.24.0.0")]
