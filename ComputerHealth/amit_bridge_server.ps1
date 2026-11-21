@@ -2153,7 +2153,8 @@ try {
                 else {
                     $kbSince = 0; [void][long]::TryParse([string]$request.QueryString["since"], [ref]$kbSince)
                     $kbLearn = ([string]$request.QueryString["learn"]) -eq '1'
-                    try { Send-JsonRaw $response ([AmitWhisper]::KeyboardStatusJson($kbSince, $kbLearn)) } catch { Send-JsonRaw $response '{"ok":false}' }
+                    $kbSwallow = ([string]$request.QueryString["swallow"]) -eq '1'
+                    try { Send-JsonRaw $response ([AmitWhisper]::KeyboardStatusJson($kbSince, $kbLearn, $kbSwallow)) } catch { Send-JsonRaw $response '{"ok":false}' }
                 }
             }
             "/api/programs" {

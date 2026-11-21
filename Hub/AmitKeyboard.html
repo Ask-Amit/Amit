@@ -115,7 +115,7 @@ td.nm{white-space:nowrap}.btn.red{background:#5a2323;border-color:var(--red)}
     <b>Keyboard:</b><select id="devPick" title="Which keyboard"></select>
     <span class="pill g" id="activePill"></span>
     <span id="pretendBox" hidden><span class="n2">Which keyboard I just used:</span><select id="pretend" title="The Amit Helper tells me this by itself when it is connected. Until then you choose it."></select></span>
-    <span class="pill" id="pageVer" title="Version of this Amit Keyboard page">v1.03</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser until your login answers.</span>
+    <span class="pill" id="pageVer" title="Version of this Amit Keyboard page">v1.04</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser until your login answers.</span>
     <div class="sw"><span>Keyboard sets are</span><div class="tog on" id="master" title="Turn all keyboard sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
   </header>
   <div class="tabs"><div class="tab on" id="t1">1. Learn keyboard</div><div class="tab" id="t2">2. Keyboard sets</div><div class="tab" id="t3">3. Secret code</div><div class="tab" id="t4">4. Secret modifier</div><div class="tab" id="t5">5. Secret decipher</div></div>
@@ -582,6 +582,7 @@ document.addEventListener('keydown',function(e){
   if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA'||(t&&t.id==='tpad'))return;
   if(e.ctrlKey&&e.altKey&&e.shiftKey&&e.code==='KeyM')return;
   if(/^(Control|Shift|Alt|Meta)(Left|Right)$/.test(e.code))return;
+  if(tab===1&&/^F([1-9]|1\d|2[0-4])$/.test(e.code))e.preventDefault();   /* while learning, a function key must not do its normal job (F5 refresh, F2, F11...) even when the Helper is connected */
   if(helperLive)return;
   if(tab===2&&window.padKey)window.padKey(e);
   else if(tab===1){e.preventDefault();learnKey(e.code,false,e.key)}
@@ -995,7 +996,7 @@ function pollHelper(){
   if(pollBusy)return;pollBusy=true;
   var learning=(tab===1||tab===2)&&editing;
   var ctl=new AbortController();setTimeout(function(){ctl.abort()},1500);
-  fetch(HELPER_URL+'/api/keyboard/status?since='+evSince+(learning?'&learn=1':''),{cache:'no-store',signal:ctl.signal}).then(function(r){return r.json()}).then(function(j){
+  fetch(HELPER_URL+'/api/keyboard/status?since='+evSince+(learning?'&learn=1':'')+((tab===1&&editing&&document.hasFocus())?'&swallow=1':''),{cache:'no-store',signal:ctl.signal}).then(function(r){return r.json()}).then(function(j){
     pollBusy=false;
     if(!j||!j.ok||j.raw===false){setLive(false);return}
     setLive(true);
