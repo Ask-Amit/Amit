@@ -1403,7 +1403,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v9.02</div>
+      <div class="page-version" id="hubVersionBadge">v9.03</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -6625,7 +6625,7 @@ function hlRequestText(){
 function hlCopy(text,okMsg){
   (navigator.clipboard?navigator.clipboard.writeText(text):Promise.reject()).then(function(){ hlEditMsg(okMsg); },function(){ hlEditMsg('Could not copy. Select and copy it by hand.',true); });
 }
-function hlEditMsg(m,bad){ const n=hlEl('hlEditNote'); n.textContent=m||''; n.style.color=bad?'var(--amit-danger,#e07a6a)':''; }
+function hlEditMsg(m,bad){ const n=hlEl('hlEditNote'); n.textContent=m||''; n.style.color=bad?'var(--amit-danger,#e07a6a)':''; if(m&&bad){ try{ n.scrollIntoView({block:'center'}); }catch(e){} } }
 function hlGenerate(){
   if(!hlEl('hlSay').value.trim()){ hlEditMsg('Write what the button should do first.',true); return; }
   hlCopy(hlRequestText(),'Copied. Paste it to Amit in your Amit session, then paste Amit\'s answer in the box below.');
@@ -6882,8 +6882,10 @@ function hlAudioDefault(){ return {m:'toggle',a:{l:'Speakers',v:-1},b:{l:'Headph
 // Every audio name must now be unique across all of the person's buttons and steps: new steps start with a free name, a typed name that is taken is refused, and saving checks again.
 function hlAudioTaken(skipStep,skipKey){   // lower-case audio names used by every OTHER button, every OTHER step being edited, and (for a toggle) the other device of this step
   const t={};
-  hl.buttons.forEach(function(b){ if(b.id===hl.editId) return; (b.steps||[]).forEach(function(s){ const d=hlDec(s); if(d.t==='audio'&&d.cfg) ['a','b'].forEach(function(k){ const l=d.cfg[k]&&String(d.cfg[k].l||'').trim().toLowerCase(); if(l) t[l]=1; }); }); });
-  hl.steps.forEach(function(s,i){ if(s.t!=='audio'||!s.cfg) return; ['a','b'].forEach(function(k){ if(i===skipStep&&(skipKey===''||k===skipKey)) return; const l=s.cfg[k]&&String(s.cfg[k].l||'').trim().toLowerCase(); if(l) t[l]=1; }); });
+  // only the devices a step really uses count: "toggle" uses a and b, "set" uses a only; volume and settings steps use none (their leftover a/b names are ignored)
+  const used=function(c){ return c.m==='toggle'?['a','b']:(c.m==='set'?['a']:[]); };
+  hl.buttons.forEach(function(b){ if(b.id===hl.editId) return; (b.steps||[]).forEach(function(s){ try{ const d=hlDec(s); if(d.t==='audio'&&d.cfg) used(d.cfg).forEach(function(k){ const l=d.cfg[k]&&String(d.cfg[k].l||'').trim().toLowerCase(); if(l) t[l]=1; }); }catch(e){} }); });
+  hl.steps.forEach(function(s,i){ if(s.t!=='audio'||!s.cfg) return; used(s.cfg).forEach(function(k){ if(i===skipStep&&(skipKey===''||k===skipKey)) return; const l=s.cfg[k]&&String(s.cfg[k].l||'').trim().toLowerCase(); if(l) t[l]=1; }); });
   return t;
 }
 function hlAudioFree(base,taken){ let n=base,i=2; while(taken[n.toLowerCase()]){ n=base+' '+i; i++; } return n; }
@@ -7046,7 +7048,7 @@ async function hlTestAll(){
 }
 function hlAddStep(){ if(hl.steps.length>=12){ return; } hl.steps.push({t:'open_app',v:''}); hlRenderSteps(); }
 async function hlSaveButton(){
-  const note=function(m){ hlEl('hlEditNote').textContent=m; hlEl('hlEditNote').style.color='var(--amit-danger,#e07a6a)'; };
+  const note=function(m){ const n=hlEl('hlEditNote'); n.textContent=m; n.style.color='var(--amit-danger,#e07a6a)'; try{ n.scrollIntoView({block:'center'}); }catch(e){} };   // v9.03: scroll the message into view so a refused save is never silent
   const name=hlEl('hlName').value.trim(), desc=hlEl('hlDesc').value.trim();
   if(hl.editId&&(hl.mode==='icon'||hl.mode==='name'||hl.mode==='desc')){
     const part=hl.mode==='icon'?{icon:hl.icon}:hl.mode==='name'?{name:name}:{description:desc.slice(0,200)};
