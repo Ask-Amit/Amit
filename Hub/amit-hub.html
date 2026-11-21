@@ -1403,7 +1403,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v9.01</div>
+      <div class="page-version" id="hubVersionBadge">v9.02</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -6813,7 +6813,7 @@ function hlSetType(i,val){
   if(val==='preview'){ s.v='The Amit Preview window'; }
   if(val==='preview_rules'){ s.v='How to send a preview'; }
   if(val==='menu'){ s.v=''; s.mid=''; hl.menus=undefined; } else { delete s.mid; }   // choosing "Open a menu" asks the Helper for its list again
-  if(val==='audio'){ s.cfg=hlAudioDefault(); s.v=hlAudioSummary(s.cfg); if(hl.mode==='new'&&(!hl.icon||hl.icon==='⭐')){ hl.icon='🔊'; hlRenderIcons(); } }
+  if(val==='audio'){ s.cfg=hlAudioDefaultFor(i); s.v=hlAudioSummary(s.cfg); if(hl.mode==='new'&&(!hl.icon||hl.icon==='⭐')){ hl.icon='🔊'; hlRenderIcons(); } }
   hlRenderSteps();
 }
 const HL_FILE_ICONS={xls:'📊',xlsx:'📊',csv:'📊',tsv:'📊',ods:'📊',doc:'📝',docx:'📝',rtf:'📝',odt:'📝',txt:'📝',md:'📝',pdf:'📕',ppt:'📽️',pptx:'📽️',odp:'📽️',png:'🖼️',jpg:'🖼️',jpeg:'🖼️',gif:'🖼️',bmp:'🖼️',webp:'🖼️',tif:'🖼️',tiff:'🖼️',mp3:'🎵',wav:'🎵',m4a:'🎵',flac:'🎵',mp4:'🎬',mov:'🎬',wmv:'🎬',mkv:'🎬',epub:'📚'};
@@ -6878,6 +6878,20 @@ async function hlFileStatuses(){
 // Microphones are never listed. The top volume a button can set is 80. Stored under an existing step type: open_program with the value audio:{...} (see hlDec/hlEnc).
 const HL_AUDIO_MAX=80;
 function hlAudioDefault(){ return {m:'toggle',a:{l:'Speakers',v:-1},b:{l:'Headphones',v:-1},vol:-1,mute:''}; }
+// v9.02 (2026-11-21, Ryan): THIS computer saves the chosen device under the audio NAME, so two buttons that use the same name moved together (Speaker and Headset both said "Speakers").
+// Every audio name must now be unique across all of the person's buttons and steps: new steps start with a free name, a typed name that is taken is refused, and saving checks again.
+function hlAudioTaken(skipStep,skipKey){   // lower-case audio names used by every OTHER button, every OTHER step being edited, and (for a toggle) the other device of this step
+  const t={};
+  hl.buttons.forEach(function(b){ if(b.id===hl.editId) return; (b.steps||[]).forEach(function(s){ const d=hlDec(s); if(d.t==='audio'&&d.cfg) ['a','b'].forEach(function(k){ const l=d.cfg[k]&&String(d.cfg[k].l||'').trim().toLowerCase(); if(l) t[l]=1; }); }); });
+  hl.steps.forEach(function(s,i){ if(s.t!=='audio'||!s.cfg) return; ['a','b'].forEach(function(k){ if(i===skipStep&&(skipKey===''||k===skipKey)) return; const l=s.cfg[k]&&String(s.cfg[k].l||'').trim().toLowerCase(); if(l) t[l]=1; }); });
+  return t;
+}
+function hlAudioFree(base,taken){ let n=base,i=2; while(taken[n.toLowerCase()]){ n=base+' '+i; i++; } return n; }
+function hlAudioDefaultFor(i){
+  const c=hlAudioDefault(), t=hlAudioTaken(i,'');
+  c.a.l=hlAudioFree('Speakers',t); t[c.a.l.toLowerCase()]=1; c.b.l=hlAudioFree('Headphones',t);
+  return c;
+}
 function hlAudioSummary(c){
   if(!c) return 'audio';
   if(c.m==='toggle') return 'switch '+((c.a&&c.a.l)||'?')+' / '+((c.b&&c.b.l)||'?');
@@ -6925,9 +6939,15 @@ function hlAudioControl(s,i){
 function hlAu(i,path,val){
   const s=hl.steps[i]; if(!s||s.t!=='audio') return; const c=s.cfg||(s.cfg=hlAudioDefault());
   const vol=function(x){ if(x===''||x==null) return -1; const n=parseInt(x,10); if(isNaN(n)||n<0) return -1; return Math.min(n,HL_AUDIO_MAX); };
-  if(path==='m'){ c.m=val; if(!c.a) c.a={l:'Speakers',v:-1}; if(val==='toggle'&&!c.b) c.b={l:'Headphones',v:-1}; }
+  if(path==='m'){ c.m=val; const t=hlAudioTaken(i,''); if(!c.a){ c.a={l:hlAudioFree('Speakers',t),v:-1}; } t[String(c.a.l||'').trim().toLowerCase()]=1; if(val==='toggle'&&!c.b) c.b={l:hlAudioFree('Headphones',t),v:-1}; }
   else if(path==='vol') c.vol=vol(val); else if(path==='mute') c.mute=val;
-  else { const p=path.split('.'); if(!c[p[0]]) c[p[0]]={l:'',v:-1}; if(p[1]==='l') c[p[0]].l=String(val).trim().slice(0,24); else c[p[0]].v=vol(val); }
+  else { const p=path.split('.'); if(!c[p[0]]) c[p[0]]={l:'',v:-1};
+    if(p[1]==='l'){
+      const nl=String(val).trim().slice(0,24), other=p[0]==='a'?'b':'a', t=hlAudioTaken(i,p[0]);
+      if(nl&&c[other]&&String(c[other].l||'').trim().toLowerCase()===nl.toLowerCase()) t[nl.toLowerCase()]=1;
+      if(nl&&t[nl.toLowerCase()]){ hlEditMsg('The name "'+nl+'" is already used by another audio button or device here. This computer saves the chosen device under the name, so each device needs its own name, like "Desk Speakers" or "My Headset".',true); hlRenderSteps(); return; }
+      c[p[0]].l=nl;
+    } else c[p[0]].v=vol(val); }
   s.v=hlAudioSummary(c); if(path.slice(-2)==='.l') hlAudioStatus().then(function(){ hlRenderSteps(); }); else hlRenderSteps();
 }
 async function hlAuPick(i,which,id){
@@ -7044,7 +7064,9 @@ async function hlSaveButton(){
     if(s.t==='open_file'&&!s.token){ note('Step '+(i+1)+': choose a file first.'); return; }
     if(s.t==='audio'){ const c=s.cfg||{}, la=c.a?String(c.a.l||'').trim():'', lb=c.b?String(c.b.l||'').trim():'';
       if(c.m==='toggle'&&(!la||!lb||la.toLowerCase()===lb.toLowerCase())){ note('Step '+(i+1)+': give the two devices two different names, like Speakers and Headphones.'); return; }
-      if(c.m==='set'&&!la){ note('Step '+(i+1)+': give the device a name, like Speakers.'); return; } }
+      if(c.m==='set'&&!la){ note('Step '+(i+1)+': give the device a name, like Speakers.'); return; }
+      const tk=hlAudioTaken(i,''); const mine=[]; if(c.m==='toggle'||c.m==='set') mine.push(la); if(c.m==='toggle') mine.push(lb);
+      for(let q=0;q<mine.length;q++){ if(mine[q]&&tk[mine[q].toLowerCase()]){ note('Step '+(i+1)+': the name "'+mine[q]+'" is already used by another audio button. Each device needs its own name (this computer saves the chosen device under it), like "Desk Speakers" or "My Headset".'); return; } } }
     if(s.t==='settings'&&!s.sid){ note('Step '+(i+1)+': choose a settings page first.'); return; }
     if(s.t==='winact'&&!s.wid){ note('Step '+(i+1)+': choose a Windows action first.'); return; }
     if(s.t==='menu'&&!s.mid){ note('Step '+(i+1)+': choose a menu first.'); return; }
