@@ -120,6 +120,8 @@ tr.clk{cursor:pointer}tr.clk:hover td{background:rgba(255,255,255,.04)}
 #v2 .topc{flex:none;padding:9px 12px 8px;border-bottom:1px solid var(--line);max-height:80%;overflow:auto}
 #v2 .botc{flex:1;min-height:0;overflow:auto;padding:9px 12px}
 td.nm{white-space:nowrap}.btn.red{background:#5a2323;border-color:var(--red)}
+.secbox{border:2px solid var(--green);border-radius:10px;padding:8px 10px;margin-top:8px;background:rgba(60,200,120,.07)}.sechd{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px}.seclk{font-weight:700;color:var(--green)}.sechd .btn{margin-left:auto}
+.privbar{border:1px solid var(--green);border-radius:8px;padding:7px 10px;margin:6px 0;background:rgba(60,200,120,.08);font-size:13px}
 </style>
 </head>
 <body>
@@ -128,7 +130,7 @@ td.nm{white-space:nowrap}.btn.red{background:#5a2323;border-color:var(--red)}
     <b>Keyboard:</b><select id="devPick" title="Which keyboard"></select>
     <span class="pill g" id="activePill"></span>
     <span id="pretendBox" hidden><span class="n2">Which keyboard I just used:</span><select id="pretend" title="The Amit Helper tells me this by itself when it is connected. Until then you choose it."></select></span>
-    <span class="pill" id="pageVer" title="Version of this Amit Keyboard page">v1.11</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser until your login answers.</span>
+    <span class="pill" id="pageVer" title="Version of this Amit Keyboard page">v1.13</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser until your login answers.</span>
     <button class="btn gold" id="smOpen" title="Write a secure message, read one you were sent, and share codes with friends">&#128274; Secure message</button>
     <div class="sw"><span>Keyboard sets are</span><div class="tog on" id="master" title="Turn all keyboard sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
   </header>
@@ -260,12 +262,13 @@ td.nm{white-space:nowrap}.btn.red{background:#5a2323;border-color:var(--red)}
   <div class="smh"><b>&#128274; Secure message</b>
    <div class="tabs" style="border:0;padding:0"><div class="tab on" id="smt1">Write</div><div class="tab" id="smt2">Read</div><div class="tab" id="smt3">Share codes</div></div>
    <button class="btn sp" id="smX">Close</button></div>
+  <div class="privbar"><b>&#128274; Private to this computer.</b> Your messages are written, coded and translated <b>only here, on this computer</b>. Nothing you type or read in this window is saved, uploaded or sent anywhere. When you press <b>Read</b> (or Erase now), the message is gone from this page and never comes back. <span class="form" style="display:inline-flex;margin:4px 0 0"><span>Erase automatically after:</span><select id="smAuto"><option value="-1" selected>The moment I copy it or press Read (5 minutes at the latest)</option><option value="30">30 seconds</option><option value="60">1 minute</option><option value="300">5 minutes</option><option value="900">15 minutes</option><option value="3600">1 hour</option><option value="0">Never (I will erase it myself)</option></select><span class="n2" id="smCount"></span><button class="btn red" id="smNow" title="This will eliminate this message from all history">Erase now</button></span><div class="n2" style="margin-top:3px">Each person sets their own time, on their own computer, and the sender erases theirs too. What a friend already copied, or what an email service already holds, is outside this page and cannot be reached from here.</div></div>
   <div class="smb" id="smv1">
    <div class="n2" style="margin-bottom:6px">Scrambled, not real encryption. It keeps a message from casual eyes.</div>
    <div id="smNone" hidden><div class="tip">You do not have a secure code yet. <button class="btn gold" id="smMake">Make one now</button></div></div>
    <div id="smWrite">
-    <div class="form" style="margin:0 0 6px"><span>Use this code:</span><select id="smWho"></select><button class="btn" id="smClear">New message</button></div>
-    <div class="pad" id="mIn" tabindex="0" style="min-height:0;cursor:text"><span class="big" style="font-size:13px;font-weight:600">Click here, then type your message. Backspace takes the last symbol back.</span></div>
+    <div class="form" style="margin:0 0 6px"><span>Use this code:</span><select id="smWho"></select><button class="btn" id="smClear">New message</button><button class="btn gold" id="smPasteBtn" title="Takes what you copied somewhere else and codes it here">Paste and code it</button></div>
+    <div class="pad" id="mIn" tabindex="0" style="min-height:0;cursor:text"><span class="big" style="font-size:13px;font-weight:600">Click here, then type your message, or write it anywhere else, copy it, and press Ctrl+V here (or the Paste button): it is coded the moment it lands. Backspace takes the last symbol back.</span></div>
     <div id="mView" style="margin:8px 0"></div>
     <div id="mSet" class="use"></div>
     <div id="mKb" style="margin-top:6px"></div>
@@ -276,8 +279,8 @@ td.nm{white-space:nowrap}.btn.red{background:#5a2323;border-color:var(--red)}
    <div class="tip"><b>Read a message you were sent</b><br>Choose whose code it is (you picked their name when you added it), paste the message and press Translate. It always starts at that code's first set, so nobody has to tell you where to start.</div>
    <div class="form" style="margin:6px 0"><span>The code is from:</span><select id="smFrom"></select><button class="btn" id="smTry" title="Tries every code you have and shows which one reads">Not sure? Try every code</button></div>
    <div id="smMods" class="n2" style="margin:4px 0"></div>
-   <textarea id="smPaste" rows="4" placeholder="Paste the coded message here"></textarea>
-   <div class="form" style="margin:6px 0"><button class="btn gold" id="smDec">Translate</button><button class="btn" id="smPClear">Clear</button></div>
+   <textarea id="smPaste" rows="4" placeholder="Copy the message you were sent, click here and press Ctrl+V (or press Paste and decipher). It is deciphered the moment it lands, however long it is."></textarea>
+   <div class="form" style="margin:6px 0"><button class="btn gold" id="smPasteRead" title="Takes the message you copied and deciphers it here">Paste and decipher</button><button class="btn gold" id="smDec">Translate</button><button class="btn" id="smPClear">Clear</button></div>
    <div id="smDecOut"></div>
   </div>
   <div class="smb" id="smv3" hidden>
@@ -705,7 +708,8 @@ function setByNum(d,n){for(var i=0;i<d.sets.length;i++)if(d.sets[i].num===n)retu
 var BASEIN=[];(function(){for(var i=0;i<26;i++)BASEIN.push('Key'+String.fromCharCode(65+i));for(var n=0;n<10;n++)BASEIN.push('Digit'+n);BASEIN.push('Space')})();
 function baseChar(id){if(id==='Space')return' ';var m=/^(?:Key|Digit)(.)$/.exec(id);return m?m[1]:null}
 function outChar(v){if(v==='Space')return' ';if(v&&v.length===1)return v.toUpperCase();return null}
-function inLabel(id){var b=baseChar(id);return b!==null?b:'['+idLabel(cur,id)+']'}
+var PUNCT_OUT={Backquote:'`',Minus:'-',Equal:'=',BracketLeft:'[',BracketRight:']',Backslash:'\\',Semicolon:';',Quote:"'",Comma:',',Period:'.',Slash:'/'};
+function inLabel(id){var b=baseChar(id);if(b!==null)return b;if(PUNCT_OUT[id])return PUNCT_OUT[id];return'['+idLabel(cur,id)+']'}
 function jobOf(st,id){
   var m=st.map[id],p=m&&m.p;
   if(p){
@@ -774,6 +778,7 @@ function drawCodeView(){
   var startId=h[0].before,dec=decodeText(cur,startId,coded),decS=dec.map(function(e){return e.p}).join('');
   $('cOut').innerHTML='<div class="n2" style="margin:4px 0">Starts at '+esc(sname(setOf(cur,startId)))+'. '+(decS===plain?'<span style="color:var(--green)">&#10003; Anyone with the same sets reads it back exactly as you typed it.</span>':'<span style="color:var(--red)">It does not read back the same: check the sets above.</span>')+' Send the coded text and tell them the starting set.</div>';
 }
+var codeQuiet=false;   /* set while a long paste is being coded, so the picture is drawn once at the end, not after every character */
 function codeTypeId(id){
   var d=cur;if(!codeState.curId)return;
   var st=setOf(d,codeState.curId),j=jobOf(st,id);
@@ -781,7 +786,7 @@ function codeTypeId(id){
   var ent={p:inLabel(id),c:(j.out===null?'':j.out),n:st.num,before:st.id};
   codeState.hist.push(ent);
   if(j.sw){var t=setOf(d,j.sw);if(t&&t.id===j.sw)codeState.curId=t.id}
-  drawCodeView();
+  if(!codeQuiet)drawCodeView();
 }
 function codeType(code){            /* used by the example: a base key, or a ready-made id such as Ctrl|KeyG */
   if(code==='Backspace'){var e=codeState.hist.pop();if(e)codeState.curId=e.before;drawCodeView();return}
@@ -987,14 +992,14 @@ $('cImp').onclick=function(){
 
 /* ---- THE SECURE MESSAGE WINDOW: Write (type and see the code, the switching keys lit on a drawn keyboard), Read (paste a message and translate it), Share codes (password-protected, under each person's name) ---- */
 var smTabN=1,smKey='';
-function copyText(t,btn){
-  var done=function(){if(btn){var o=btn.getAttribute('data-o')||btn.textContent;btn.setAttribute('data-o',o);btn.textContent='Copied';setTimeout(function(){btn.textContent=o},1300)}};
+function copyText(t,btn,cb){
+  var done=function(){if(cb)try{cb()}catch(e){}if(btn){var o=btn.getAttribute('data-o')||btn.textContent;btn.setAttribute('data-o',o);btn.textContent='Copied';setTimeout(function(){btn.textContent=o},1300)}};
   function fb(){var ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');done()}catch(e){}document.body.removeChild(ta)}
   try{navigator.clipboard.writeText(t).then(done,fb)}catch(e){fb()}
 }
 function smTab(n){smTabN=n;[1,2,3].forEach(function(i){$('smt'+i).className='tab'+(i===n?' on':'');$('smv'+i).hidden=(i!==n)});smRefresh();if(n===1&&!$('smWrite').hidden)$('mIn').focus()}
 function smOpen(n){if(!cur)return;$('sm').hidden=false;smTab(n||smTabN||1)}
-function smClose(){$('sm').hidden=true}
+function smClose(){$('sm').hidden=true;try{smWipe()}catch(e){}}
 function smFillSel(el,list,want){var v=want!==undefined?want:el.value;el.innerHTML=list.map(function(g){return'<option value="'+esc(g.key)+'">'+esc(gName(g)+(g.owner?'':' (mine)'))+'</option>'}).join('');if(list.some(function(g){return g.key===v}))el.value=v}
 function smStartGroup(g){codeState.startNum=g.sets[0].num;decState.startNum=g.sets[0].num;codeState.hist=[];codeState.curId=g.sets[0].id}
 function smShort(s){return String(s.label||'').replace(/^.*: /,'')}
@@ -1017,24 +1022,58 @@ function smDrawWrite(g){
   var big='font:20px ui-monospace,Consolas,monospace;word-break:break-word;margin:2px 0 4px',chk='';
   if(h.length){var dec=decodeText(cur,h[0].before,undoMods(fin)).map(function(e){return e.p}).join('');chk=dec===plain?'<span style="color:var(--green)">&#10003; Your friend reads it back exactly as you typed it.</span>':'<span style="color:var(--red)">It does not read back the same: check the code and the modifiers.</span>'}
   $('mView').innerHTML=h.length?'<span class="n2">What you typed:</span><div style="'+big+'">'+esc(plain)+'</div><span class="n2">Send this:</span><div style="'+big+';color:var(--green)">'+esc(fin)+'</div><div class="form" style="margin-top:2px"><button class="btn gold" id="mCopy">Copy the message</button><span class="n2">'+(nm?'Includes your '+nm+' modifier'+(nm===1?'':'s')+' from the Secure modifier tab. ':'')+chk+' Your friend needs the code <b>'+esc(gName(g))+'</b> (see Share codes); the message starts at its first set.</span></div>':'<div class="n2">Nothing typed yet. Your message appears here as you type it, with the coded version to send below it.</div>';
-  if(h.length)$('mCopy').onclick=function(){copyText(fin,$('mCopy'))};
+  if(h.length)$('mCopy').onclick=function(){smCopied=true;smLast=fin;copyText(fin,$('mCopy'),function(){
+    if(!smInstant)return;
+    smWipe(true);
+    $('mView').innerHTML='<div class="tip"><b>&#128274; Copied and erased from this screen.</b> Paste it into your email or chat now. You cannot see what you sent, and neither can anyone using this computer. It is gone from this page for good.</div>'+$('mView').innerHTML;
+  })};
   var jumps=[];Object.keys(st.map).forEach(function(k){var p=st.map[k].p;if(p&&p.t==='keyswitch'){var t=setOf(cur,p.v2);jumps.push('<b>'+esc(inLabel(k))+'</b> &rarr; '+esc(smShort(t)))}});
   $('mSet').innerHTML='Typing now with <b>'+esc(smShort(st))+'</b> (Set '+st.num+') of <b>'+esc(gName(g))+'</b>. '+(jumps.length?'<span style="color:var(--gold)">Keys that switch you to another set: '+jumps.join(', ')+'.</span> ':'')+'After one of those the keyboard below changes to the new set.';
   secViewSet=st;drawKb($('mKb'),function(){},'sec');
   $('mKbNote').innerHTML='<b style="color:var(--gold)">Gold keys</b> switch sets (the small letter says which set you land in). <b style="color:var(--teal)">Green keys</b> just type: the small character in the corner is what that key types in this set. <span style="opacity:.6">Faded keys</span> (arrows, Enter, Backspace, Tab&hellip;) are not part of the code and work as usual. Ctrl+G is also a symbol in this code.';
 }
+/* pasting a message written somewhere else: each character is run through the code exactly as if it had been typed */
+var SM_PUNCT={'`':'Backquote','-':'Minus','=':'Equal','[':'BracketLeft',']':'BracketRight','\\':'Backslash',';':'Semicolon',"'":'Quote',',':'Comma','.':'Period','/':'Slash'};
+function smCharId(ch){if(/[a-zA-Z]/.test(ch))return'Key'+ch.toUpperCase();if(/[0-9]/.test(ch))return'Digit'+ch;if(/\s/.test(ch))return'Space';return SM_PUNCT[ch]||null}
+function smPaste(text){
+  if(!gFind(smKey))return;
+  text=String(text||'');
+  var skipped=[],n=0,i,ch,id,b;
+  codeQuiet=true;
+  try{
+    for(i=0;i<text.length;i++){
+      ch=text.charAt(i);id=smCharId(ch);b=codeState.hist.length;
+      if(id)codeTypeId(id);
+      if(codeState.hist.length>b)n++;else if(skipped.indexOf(ch)<0)skipped.push(ch);
+    }
+  }finally{codeQuiet=false}
+  smRefresh();smArm();
+  var note='<div class="tip"><b>&#128274; Pasted and coded ('+n+' character'+(n===1?'':'s')+').</b> '+(skipped.length?'<span style="color:var(--red)">These are not in the code and were left out: '+esc(skipped.slice(0,12).join(' '))+(skipped.length>12?' &hellip;':'')+'.</span> ':'')+'The original is still where you wrote it and may still be on your clipboard; erase those yourself.</div>';
+  $('mView').innerHTML=note+$('mView').innerHTML;
+}
+document.addEventListener('paste',function(e){
+  if($('sm').hidden||smTabN!==1||$('smWrite').hidden)return;
+  var t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))return;
+  var txt=(e.clipboardData||window.clipboardData).getData('text');
+  e.preventDefault();smPaste(txt);
+});
+$('smPasteBtn').onclick=function(){
+  try{navigator.clipboard.readText().then(function(t){smPaste(t)},function(){$('mView').innerHTML='<div class="tip">Your browser did not allow reading the clipboard. Click the box below and press Ctrl+V instead.</div>'+$('mView').innerHTML})}catch(e){$('mView').innerHTML='<div class="tip">Click the box below and press Ctrl+V.</div>'+$('mView').innerHTML}
+};
 $('mIn').addEventListener('keydown',function(e){
   if(/^(Control|Shift|Alt|Meta)(Left|Right)$/.test(e.code))return;
+  if((e.ctrlKey||e.metaKey)&&e.code==='KeyV')return;
+  if(e.shiftKey&&e.code==='Insert')return;
   if(/^(Escape|Tab|Enter|NumpadEnter|Arrow(Up|Down|Left|Right)|Home|End|PageUp|PageDown|Insert|Delete)$/.test(e.code))return;
   if(e.ctrlKey&&e.altKey&&e.shiftKey&&e.code==='KeyM')return;
   e.preventDefault();
   if(!gFind(smKey))return;
-  if(e.code==='Backspace'){codeType('Backspace');smRefresh();return}
+  if(e.code==='Backspace'){codeType('Backspace');smRefresh();smArm();return}
   var held=[];if(e.ctrlKey)held.push('Ctrl');if(e.shiftKey)held.push('Shift');if(e.altKey)held.push('Alt');if(e.metaKey)held.push('Win');
   var st=codeState.curId?setOf(cur,codeState.curId):null,id=idOf(held,e.code);
   if(e.__ch&&st&&st.map[idOf(held,e.__ch)])id=idOf(held,e.__ch);
   else if(held.length===1&&held[0]==='Shift'&&st&&!st.map[id])id=e.code;
-  codeTypeId(id);smRefresh();
+  codeTypeId(id);smRefresh();smArm();
 });
 $('mIn').addEventListener('focus',function(){$('mIn').classList.add('live')});
 $('mIn').addEventListener('blur',function(){$('mIn').classList.remove('live')});
@@ -1049,20 +1088,82 @@ function smDrawRead(){
   if(!gs.length)$('smDecOut').innerHTML='<div class="n2">You have no codes yet. Add a friend’s code on the Share codes tab, or make your own on the Secure code tab.</div>';
 }
 function smTranslate(g,text){var un=$('smUndo')&&$('smUndo').checked,t=un?undoMods(text):text,dec=decodeText(cur,g.sets[0].id,t);return{plain:dec.map(function(e){return e.p}).join(''),miss:dec.filter(function(e){return e.n===''}).length,dec:dec}}
+/* a long message pasted from an email or chat: line breaks added by wrapping are not part of the code, so they are dropped */
+function smClean(t){return String(t||'').replace(/[\r\n]+/g,'').replace(/^\s+|\s+$/g,'')}
+/* decipher at once: use the code that fits the whole message best (fewest characters that do not fit), then translate */
+function smAutoRead(){
+  var gs=secGroups(cur),text=smClean($('smPaste').value);
+  if(!text){return}
+  if(!gs.length){$('smDecOut').innerHTML='<div class="n2">You have no codes yet. Add a friend’s code on the Share codes tab, or make your own on the Secure code tab.</div>';return}
+  var best=null,bm=1e9;
+  gs.forEach(function(g){var r=smTranslate(g,text);if(r.miss<bm){bm=r.miss;best=g}});
+  var cur2=gFind($('smFrom').value);
+  if(cur2){var rc=smTranslate(cur2,text);if(rc.miss<=bm){best=cur2}}
+  if(best){smFillSel($('smFrom'),gs,best.key);$('smFrom').value=best.key}
+  $('smDec').onclick();
+}
+$('smPaste').addEventListener('paste',function(){setTimeout(smAutoRead,0)});
+$('smPasteRead').onclick=function(){
+  try{navigator.clipboard.readText().then(function(t){$('smPaste').value=t;smAutoRead()},function(){$('smDecOut').innerHTML='<div class="n2">Your browser did not allow reading the clipboard. Click the box above and press Ctrl+V instead.</div>'})}catch(e){$('smDecOut').innerHTML='<div class="n2">Click the box above and press Ctrl+V.</div>'}
+};
 $('smDec').onclick=function(){
-  var g=gFind($('smFrom').value),text=$('smPaste').value.replace(/\s+$/,'').replace(/^\s+/,'');
+  var g=gFind($('smFrom').value),text=smClean($('smPaste').value);
   if(!g){$('smDecOut').innerHTML='<div class="n2">Choose whose code it is first.</div>';return}
   if(!text){$('smDecOut').innerHTML='<div class="n2">Paste the message first.</div>';return}
   var r=smTranslate(g,text);
-  $('smDecOut').innerHTML='<div class="use"><span class="n2">The message says:</span><div style="font:20px ui-monospace,Consolas,monospace;color:var(--green);word-break:break-word;margin-top:2px">'+esc(r.plain)+'</div>'+(r.miss?'<div class="n2" style="margin-top:4px;color:var(--red)">'+r.miss+' character'+(r.miss===1?'':'s')+' did not fit '+esc(gName(g))+'. It may be a different code, different modifiers, or the message was changed.</div>':'')+'</div><details><summary class="n2" style="cursor:pointer">Letter by letter</summary>'+cellsHtml(r.dec)+'</details>';
+  smSecureShow('<div class="use"><span class="n2">The message says:</span><div style="font:20px ui-monospace,Consolas,monospace;color:var(--green);word-break:break-word;margin-top:2px">'+esc(r.plain)+'</div>'+(r.miss?'<div class="n2" style="margin-top:4px;color:var(--red)">'+r.miss+' character'+(r.miss===1?'':'s')+' did not fit '+esc(gName(g))+'. It may be a different code, different modifiers, or the message was changed.</div>':'')+'</div><details><summary class="n2" style="cursor:pointer">Letter by letter'+(r.dec.length>300?' (first 300 of '+r.dec.length+')':'')+'</summary>'+cellsHtml(r.dec.slice(0,300))+'</details>');
 };
 $('smTry').onclick=function(){
-  var gs=secGroups(cur),text=$('smPaste').value.replace(/\s+$/,'').replace(/^\s+/,'');
+  var gs=secGroups(cur),text=smClean($('smPaste').value);
   if(!text){$('smDecOut').innerHTML='<div class="n2">Paste the message first.</div>';return}
   var rs=gs.map(function(g){var r=smTranslate(g,text);r.g=g;return r}).sort(function(a,b){return a.miss-b.miss});
-  $('smDecOut').innerHTML=rs.length?rs.map(function(r,i){return'<div class="use" style="margin:4px 0"><b>'+esc(gName(r.g))+'</b> <span class="n2">'+(r.miss?r.miss+' character'+(r.miss===1?'':'s')+' did not fit':'every character fits')+'</span>'+(i===0&&!r.miss?' <span class="badge">best match</span>':'')+'<div style="font:16px ui-monospace,Consolas,monospace;word-break:break-word;color:'+(r.miss?'var(--mute)':'var(--green)')+'">'+esc(r.plain.slice(0,300))+'</div></div>'}).join(''):'<div class="n2">You have no codes yet.</div>';
+  if(!rs.length){$('smDecOut').innerHTML='<div class="n2">You have no codes yet.</div>';return}
+  smSecureShow(rs.map(function(r,i){return'<div class="use" style="margin:4px 0"><b>'+esc(gName(r.g))+'</b> <span class="n2">'+(r.miss?r.miss+' character'+(r.miss===1?'':'s')+' did not fit':'every character fits')+'</span>'+(i===0&&!r.miss?' <span class="badge">best match</span>':'')+'<div style="font:16px ui-monospace,Consolas,monospace;word-break:break-word;color:'+(r.miss?'var(--mute)':'var(--green)')+'">'+esc(r.plain.slice(0,300))+'</div></div>'}).join(''));
 };
-$('smPClear').onclick=function(){$('smPaste').value='';$('smDecOut').innerHTML=''};
+function smSecureShow(html){
+  $('smDecOut').innerHTML='<div class="secbox"><div class="sechd"><span class="seclk">🔒 SECURE MESSAGE</span><span class="n2">Shown only on this device. It is never saved and never sent anywhere.</span><button class="btn red" id="smRead" title="This will eliminate this message from all history">Read</button></div>'+html+'</div>';
+  $('smRead').onclick=smWipe;
+  smArm();
+}
+var smSecs=300,smInstant=true,smLast='',smDeadline=0,smTick=null,smCopied=false;
+function smHas(){return (codeState.hist&&codeState.hist.length)||!!$('smRead')||!!$('smPaste').value}
+function smWipe(keepClip){
+  if(keepClip!==true)keepClip=false;
+  smDeadline=0;
+  $('smPaste').value='';
+  $('smDecOut').innerHTML='<div class="n2">Message eliminated. Nothing of it is left on this page.</div>';
+  try{codeState.hist=[];var g=gFind(smKey);if(g)smStartGroup(g);$('mView').innerHTML=''}catch(e){}
+  if(smCopied&&!keepClip){
+    // clear the clipboard only if it still holds the message this page copied (never overwrite something newer)
+    var sent=smLast;smCopied=false;smLast='';
+    try{navigator.clipboard.readText().then(function(t){if(t===sent&&sent)navigator.clipboard.writeText(' ')},function(){})}catch(e){}
+  }
+  smCountShow();
+  try{if(!$('sm').hidden&&smTabN===1)smRefresh()}catch(e){}
+}
+function smCountShow(){
+  var el=$('smCount');if(!el)return;
+  if(!smSecs)el.textContent='Automatic erase is off.';
+  else if(smInstant&&!smDeadline)el.textContent='Erases the moment you copy or press Read.';
+  else if(!smDeadline)el.textContent='Starts when you type or translate.';
+  else{var r=Math.max(0,Math.ceil((smDeadline-Date.now())/1000));el.textContent='Erases in '+Math.floor(r/60)+':'+('0'+(r%60)).slice(-2)}
+}
+function smArm(){
+  if(!smSecs){smDeadline=0;smCountShow();return}
+  smDeadline=Date.now()+smSecs*1000;
+  if(!smTick)smTick=setInterval(function(){
+    if(smDeadline&&Date.now()>=smDeadline){smWipe();return}
+    smCountShow();
+  },500);
+  smCountShow();
+}
+$('smAuto').onchange=function(){var v=+this.value;smInstant=(v===-1);smSecs=smInstant?300:v;if(smSecs&&smHas())smArm();else{smDeadline=0;smCountShow()}};
+$('smNow').onclick=smWipe;
+smCountShow();
+$('smPaste').setAttribute('autocomplete','off');$('smPaste').setAttribute('spellcheck','false');
+$('smPClear').onclick=smWipe;
+$('smPClear').title='This will eliminate this message from all history';
+window.addEventListener('pagehide',function(){try{$('smPaste').value='';$('smDecOut').innerHTML=''}catch(e){}});
 function smLoadName(){try{return localStorage.getItem('amitkb_myname')||''}catch(e){return ''}}
 function smDrawShare(){
   if(!$('smMyName').value&&$('smMyName')!==document.activeElement)$('smMyName').value=smLoadName();
