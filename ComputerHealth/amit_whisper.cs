@@ -29,7 +29,7 @@ using System.Windows.Automation.Text;
 
 public static class AmitWhisper
 {
-    public const string Version = "2.17";   // 2.17: VOICE RUNS AT ONCE ON AN EXACT MATCH (Ryan, 2026-11-21): words that already match one command exactly run after 0.15 s instead of the 0.5 s pause. 2.16: 2.16: VOICE IS FASTER AND QUIETER (Ryan, 2026-11-21): while Voice listens only the small blinking microphone shows (no help text), a 0.5 s pause after words runs the command, and "Activating <name>" shows for 0.5 s. 2.15: 2.12: DICTATION STARTS ON A FRESH LISTENING PAGE EVERY TIME (Ryan, 2026-11-20), CHECKS THE INTERNET FIRST ("Internet error" on screen if there is none), AND SAYS SO ON SCREEN WITHIN 2 SECONDS WHEN SOUND IS HEARD BUT NO WORDS COME BACK (a second stall in a row reconnects on another fresh page). 2.11: THE PICTURE BUTTON ONLY OPENS SHOW AMIT, AND THE PICTURE GOES BACK TO THE CHAT IT CAME FROM (Ryan, 2026-11-18): /api/menu/open?id=show-amit&origin=<tag> opens the Show Amit editor EMPTY (no screen drag): Capture takes the screen, Open... chooses a file; the tag follows the shot through Capture, Open and Recapture, and Show Amit's send offers the picture at /api/showamit/pending with that "origin", does NOT open the Amit Live window, and only the page that sent the tag takes it (a shot with no tag works as before). 2.10: FOUR CAUSES FIXED (Ryan, 2026-11-18: the mouse moved but would not click, the Aurora would not open, and Amit Mouse kept turning itself on while he set up the keyboard): (1) the release of the Voice/ring button was swallowed when Voice was started from the keyboard, although its press had gone through, so Windows was left holding the right button down; (2) Amit Mouse could take the Aurora's own button (the right button) on any mouse that was not marked primary, which held it back and stopped the hold that opens the Aurora; it can no longer take that button on any mouse; (3) when the mouse or keyboard sets were switched on or off from the keyboard the Helper did not save it, so a restart brought back an old value, now it saves it at once; (4) the Amit keys (Pause for Voice and the others) did nothing wrong but fired while the Amit Keyboard setup page was open and started Voice over the setup, now they are ignored while it is being edited. The log of the run before is also kept (whisper.prev.log). 2.09: SHOW AMIT CAN BE OPENED BY A BUTTON (Ryan, 2026-11-18): the Helper's menu list has a "show-amit" entry (opens the same Show Amit capture as the ring choice, through /api/menu/open?id=show-amit), so the picture button in the Ask Amit chat box opens Show Amit; nothing else changed. 2.08: EACH PHONE IS TRACKED BY ITS OWN NAME AND ID, AND THE OLD QR PAIRING IS GONE (Ryan, 2026-11-18): Amit Mobile sends the phone's own id and name with the home hop, so two phones (a personal one and a push-button one) never overwrite each other; the device list keeps the phone id and when it was last seen; the /pair page is now only the list of phones (name, added, last seen, revoke) and the pad switch; /pair/add, the QR pairing page code, AddDev, PairPage and LanIp are removed. 2.07: THE HOME HOP (Ryan, 2026-11-17): a phone signed in to the same Amit account, at home, opens the Amit Pad from Amit Mobile with a one-time ticket (/hop), no QR code; the bridge status also tells the Hub this computer's name so the Hub can report the home network. 2.06: THE AMIT PAD KEEPS ITS CONNECTION OPEN between a phone's messages (HTTP keep-alive, no Nagle delay, 20 s idle, at most 40 connections), because by its .local name the mouse was jerky when every message opened a new connection (Ryan, 2026-11-17). 2.05: THE PAD'S PAIRING QR AND HOME-SCREEN LINK USE THE COMPUTER'S NAME (Ryan, 2026-11-17: the router's number changes every day, the name does not); the number stays as the backup link. 2.04: THE NEW HOME ADDRESS (Ryan, 2026-11-17): the Helper, the bridge and the updater trust askamit.org (and www.askamit.org) as well as ask-amit.github.io, so the site can move to its own domain without stranding any computer; nothing is fetched from the new address yet. 2.03: PRINT WORKS WITH MORE THAN ONE SCREEN (Ryan, 2026-11-17): the print preview (AmitBar.exe --print) found that a switched-off second display was still active in Windows and its "Select area" cover, one window over both screens of different scaling, came up magnified and shifted. Now the choice window lists this window, select an area (on any screen), each screen (numbered, with its size and where it sits) and all screens together; Select area uses one cover per screen; the print process is per-monitor DPI aware; the preview opens on the main screen and fits it; the Helper bar Print button starts the same process. One screen looks and works as before. Only the bar program changed (this file carries the version number). 2.02: PRINT IN SHOW AMIT (Ryan, 2026-11-17): a Print button in the editor header (also File > Print and Ctrl+P) starts the Amit print preview that already exists in the Helper bar program (AmitBar.exe --print: this window, select an area or the whole screen); nothing prints until Print is pressed in the preview; the bar program is unchanged. The Print button (with a printer picture) sits on the tools row next to Undo and is also in the File menu. The header shows the real Amit icon (amit_icon.ico) instead of a drawn letter. 2.01: SHOW AMIT KEEPS PULLING IN OLD PICTURES (Ryan, 2026-11-16): an "Add picture" button (and File > Add a picture from a file) adds any picture file as a new item, opening in the Show Amit folder; File > Open a saved shot or picture opens a .amitshot or ANY picture file in a new window (a picture Show Amit saved opens with its layers); pictures dragged from File Explorer onto the editor are added as items (a .amitshot opens in its own window); the zoom buttons moved to the bottom left of the picture. 2.00: SHOW AMIT NEW LOOK (Ryan, 2026-11-16): the editor has a slim header (this shot's name, the other open shots as tabs, Retake, a File menu), an "Add to your picture" row of small tools, colors, line width, undo and Add capture, an "On this picture" list where every mark is its own item (eye to hide it, bring forward, send back, rename, remove), a "Send to an app" panel (apps not built yet show as coming soon) and an Ask Amit bar under the picture; soft rounded buttons everywhere. The drawing engine, the save and open code, the .amitshot format and the send-to-Amit path are unchanged. 1.99: THE PAD HAS ITS OWN SWITCH (Ryan, 2026-11-16): the Amit Pad no longer follows the mouse sets master (Ctrl+Alt+Shift+M); it is ON unless switched off on its pairing page (http://localhost:8722/pair, remembered in pad_enabled.txt), and a phone told "off" is told where to switch it on. New route /pair/switch; amit_pad.html and amit_pad_pair.html changed. 1.98: THE MENUS GROUP FOR MOUSE ACTIONS (Ryan, 2026-11-15): a mouse set action "Run a Helper button" on the built-in group "Menus" opens any menu in the Helper own list by name (Amit Helper bar, Amit menu, Dictate window, Amit Preview window), no bar button needed; only MsRunHelper changes. 1.97: APP CRASH CAPTURE (Ryan, 2026-11-15): Computer Health now notes when ANY program crashes or hangs and keeps an evidence package (amit_appcrash.ps1, run every 5 minutes by a small Windows task the bridge sets up, v1.16; this file only carries the version number). 1.96: THE PAD ASKS AMIT (Ryan, 2026-11-15): a question typed or dictated on the pad goes to Amit the way the Amit Mobile chat does (a row in amit_mobile_captures under this computer's owner; the Mobile watcher answers) and the pad page shows and speaks the reply; new pad routes /ask and /askreply. 1.95: THE PAD OPENS THE BAR AND THE AMIT MENU (Ryan, 2026-11-15): two pad buttons call the Helper's own menu list (amit-bar, amit-menu); nothing else can be opened from the pad. 1.94: AMIT PAD (Ryan and Robin, 2026-11-15): a paired phone on the home network is a pad for this computer: a small listener on port 8722 (home addresses only, every request needs the device key made at /pair on this computer) serves amit_pad.html and takes touchpad, Direct, left and right click, scroll, zoom and photo messages; photos open in Show Amit; Ctrl+Alt+Shift+M switches the pad off too. New files amit_pad.html and amit_pad_pair.html. 1.93: DICTATION NEVER FIGHTS ITSELF (Ryan, 2026-11-15): the listening page (amit_whisper.html) had two separate things that each restarted the speech recognizer (its "ended" handler and the 4.5 s no-words watchdog); when one hiccup tripped both in the same moment, two recognizers existed, aborted each other and restarted each other about once a second, so nothing was typed until the idle stop closed the page. Now there is ONE restart function (the recognizer is always closed first, other restart requests are ignored while one is happening and for 1 s after, waits grow 0.5/1/2/4 s only if restarts keep failing at once); also the network-retry counter resets when words arrive. Also carries the words-only rename "Amit Live" -> "Amit Helper" in the Helper's own messages, the bridge and the Computer Health dashboard. This file only carries the version number and the words. 1.92: CRASH NOTICE (Ryan, 2026-11-14): the helper notes every Windows crash (amit_crash_check.ps1 v1.01, Watch mode or not) and the Hub asks for it at sign-in through the new bridge route /api/crash-notice (bridge v1.15); this file only carries the version number. 1.91: WATCH MODE (Ryan, 2026-11-14): a switch for when the computer is having crashes; while on there is no idle stop, the recorder keeps a permanent daily trace, and after an unclean shutdown the trace and Windows events are packaged at sign-in for the database (bridge v1.14, resource_watcher.ps1 v1.02, new amit_crash_check.ps1; this file only carries the version number). 1.88: AMIT KEYBOARD (Ryan and Robin, 2026-11-09): the same idea as Amit Mouse, with keys. Windows raw input names the keyboard behind every key; each keyboard has numbered sets; a key, a pair of keys held together, or a key held with Ctrl/Shift/Alt/Windows can send other keys, run a bar button, switch set (or send keys then switch), or do nothing, on a press, a double press or a hold; hold Space then press 1 to 9 switches to that set. Safety: Ctrl, Alt, Shift, Windows and Esc alone never change; Ctrl+Alt+Shift+M switches every mouse AND keyboard set off and puts every keyboard back on Set 1; the main keyboard keeps its typing keys in Set 1; sets pause while the Amit Keyboard page is open. What is typed is never logged; which key on which keyboard is only reported to the page while it is learning. New routes /api/keyboard/sync and /api/keyboard/status; the Amit menu Keyboard tab lists the sets of the keyboard last used. 1.87: THE MOUSE TAB HAS REAL CONTROLS (Ryan, 2026-11-08, design A in the preview): "Mouse sets" is a visible ON/OFF switch (choosing it flips it and the menu stays open so the change shows) and the Hub row is a visible "Open >" button; before they were plain text. 1.86: THE MOUSE TAB OF THE AMIT MENU (Ryan, 2026-11-08): the Mouse tab recognizes WHICH MOUSE opened the menu (Windows raw input names it with every press; a press older than 2.5 s is not trusted and the tab asks "which mouse?") and lists that mouse's sets with the one in use marked; the wheel scrolls, a click or the middle button chooses and that mouse switches to the set; also Sets ON/OFF and Open Amit Mouse in the Hub; a mouse the Helper does not know shows one clear line. 1.85: THE WHEEL OPENS THE MENU WHILE VOICE IS LISTENING (Ryan, 2026-11-08): turn the wheel with Voice on and the menu opens so a command can be chosen as well as spoken; if the wheel is never turned Voice works as before; with nothing listening the middle click opens the menu (1.74). 1.84: THE MOUSE IS INDEPENDENT OF DICTATION (Ryan, 2026-11-08): the middle button opens the Amit menu, and the menu opens, while dictation (not Voice) is listening, finishing or stopping; dictation keeps listening underneath. Double right-click still waits for nothing to be dictating (right press stops latched dictation, by design). 1.83: 1.77: AN OPEN DICTATE WINDOW MOVES ITS WORDS INTO THE NEXT TEXT BOX (opened by itself because the person left the text box while speaking, or opened from the ring): when the focus has been in a text box of another program for about a second, the window stops listening, everything in its message is typed into that box, the window closes and typing dictation starts there; Place (pick the exact spot) still works and switches the automatic move off for that window. 1.76: DICTATION FOLLOWS THE FOCUS (Ryan 2026-11-08): while words are typed into a text box the helper watches where the keyboard focus is; focus moves to another text box (any program) = typing carries on there; focus clearly NOT in a text box = the words are held, and if they keep coming for a second the typing dictation ends and the Dictate window opens with those words already in it; "cannot tell" never counts as no text box. FIX: after Enter or a change of box the phrase typed so far is never rewritten (the self-correcting typing used to retype half of an earlier phrase into the emptied box). 1.75: BAR ICONS ARE CENTERED - the icon in each bar button is drawn once to a scratch picture, where the visible pixels really are is measured, and THAT is centered (before, the glyph box was centered and the font padding pushed icons off-center). 1.74: MIDDLE CLICK OPENS THE MENU, VOICE STAYS OFF - a single middle click opens the Amit menu at the pointer and nothing listens; the Voice tab lists Voice first (choosing it turns listening on), Dictate second, then everything else; Esc or a click away closes it; the wheel only moves inside an open menu and no longer opens it. 1.73: SHOW AMIT SAVES EVERY CAPTURE AT ONCE - a fresh capture is saved to Pictures\Show Amit the moment it is taken (as well as going on the clipboard), so "look" always finds it without pressing Save. 1.68: VOICE LIVES INSIDE THE MENU - once the wheel has opened the menu, closing the menu in any way (a click away, Esc, choosing something) turns Voice off too; nothing runs and no box shows. A single click with no wheel works as before. 1.67: LEFT BUTTON CAN NEVER BE LOCKED BY THE MENU - a left click is only taken when the pointer is really over the menu's own window; anywhere else the menu closes and the click goes through, whatever state the Helper is in. 1.66: THE MENU HAS THREE TABS - Voice (everything Voice understands, as before), Mouse and Keyboard. The mouse picks the tab by a click; the wheel scrolls inside the tab; speaking still works on every tab. Mouse shows a note until the Mouse screen creates sets; Keyboard is greyed until the keyboard app. 1.65: PREVIEWS CAN BE TRIED WITH THE REAL MOUSE - over an Amit preview window (title starts "Amit " and ends " Preview") the Voice button is left alone, so the middle button reaches the preview page instead of starting Voice. 1.64: VOICE MENU SAFETY - Esc closes the Voice menu (Voice keeps listening); the menu can never keep eating clicks after Voice has ended (it is cleared on the next click, and never appears if Voice ended while it was being built); the release of a click the menu took is only swallowed if it comes straight after (1.5 s), never left waiting. Fixes the left mouse button going dead after using the menu. 1.63: THE VOICE MENU - while Voice is listening (started by the middle click, Aurora, a key or by saying it), turning the wheel opens a menu of everything Voice understands: the built-in commands, your Helper bar buttons and your own commands. The wheel moves, a middle click or a left click chooses, a click elsewhere closes it, and speaking still works at the same time. If the wheel is never turned, Voice works as before. 1.62: VOICE ON RELEASE - the Voice button (middle by default) now acts when it is let go, and only if it was a click (shorter than 500 ms); a longer hold does nothing yet and is reserved for the mouse set picker. Before, Voice started the instant the button went down, so a hold could not be told from a click. 1.61: THE PHONE CAPTION COMES ALONG - a note typed on the phone with the photo is put in the note box when the photo opens (new "note" in the /api/mobile/pull answer). 1.60: PHONE NOTE NOT LOST - Ask Amit on a phone photo first lets the last dictated words in, then sends the note; Amit answers a question note right away. 1.59: HARDWARE SENSORS ON REQUEST - the 72 MB sensor reader is no longer in the installer; the Hardware tab adds it (/api/sensors/install, size and SHA-256 checked); dashboard 5.11. 1.58: ASK AMIT ABOUT A PHONE PHOTO - the editor button starts a new numbered Mobile chat in the Amit Live window with the photo and the note, and Amit greets out loud. 1.57: MOBILE RING SLICE - a phone photo (Amit Mobile > Send to computer) is fetched by the helper, saved in PicturesShow Amit, opened in the Show Amit editor on the clipboard with a note box and dictation on; the note goes back to the photo row. 1.56: DICTATE WINDOW (page amit_dictate.html, served at /dictate): choosing Dictate on the ring (or saying it, or a bar button) while NOT in a text box opens one window in the top right of the screen (in a text box it still types there as before, one plain press of the trigger button stops it), always in front, that hears the person (its own speech recognition, in its own Edge profile dictate_profile), shows the words in a Subject and a Message that can be split into numbered sections, remembers each dictation on this computer (Recent, Settings, Help), and nothing is typed anywhere until the person presses Place and left-clicks a text box (new routes /api/dictate/place and /api/dictate/cancel; the click is checked with the same text-box test as before and the message is typed there, a new line being Shift+Enter so a chat box does not send). The window hears through the original listening page (its words are handed to the window instead of typed); hold-to-talk is unchanged. 1.55: VOICE RUNS ANY BAR BUTTON BY ITS TITLE: no shortcut per button; the title list comes from the bar (bar_buttons.txt) when someone speaks. 1.54: SHOW AMIT QUICK SNAP: a fresh capture from the ring goes straight onto the clipboard and the editor waits minimized in the taskbar without taking focus; opened from the taskbar it is the normal editor; left alone for 60 seconds it closes itself (nothing saved, clipboard untouched). 1.53: DOUBLE-RIGHT-CLICK brings up the Amit Helper bar: two short right taps close together at the same spot (while nothing else is going on with the button) show the bar (an event it listens on) or start AmitBar.exe from this folder; the first tap is replayed as a normal click as always, a menu it opened is closed with Esc, and the second press and its release are swallowed. The ring (hold) and dictation are untouched. 1.52: a preview opened as a plain browser TAB (file double-clicked, a link) also splits the screen: the whole browser window goes on the right, the window the person was in on the left, both put back when they leave that tab; only a tab titled "Amit ... Preview" counts. 1.51: the window that goes on the LEFT of a preview is the WINDOW THE PERSON WAS IN (the Hub in a browser, VS Code, anything), taken from a short history of the windows they used; VS Code is only the fallback; the same window is put back when the preview closes. 1.50: PREVIEW SPLIT: whenever a window whose title ends with " Preview" appears (however it was opened: the opener script, the "preview" voice command, a button in a page), the person's VS Code goes on the LEFT half of its screen and the preview on the RIGHT half, and the focus goes back to VS Code; when the last preview has been closed for 4 seconds VS Code is put back the way it was (unless the person moved it). 1.49: the voice command "preview" opens the Amit Preview window. 1.48: an image layer is a WINDOW onto its image: the corner handles change the window to any shape (the image inside keeps its size and place, only what shows changes); the wheel over the window zooms the image inside, like the main picture (the size % box does the same); Ctrl + drag moves the image inside the window; dragging the body moves the window. Saved in the same .amitshot format. 1.47: a placed image layer has four corner handles (drag one to make it larger or smaller, the opposite corner stays), shows move/resize cursors, drags to move, and the mouse wheel over it resizes it (the wheel anywhere else zooms the whole picture). 1.46: Capture now places the new image layer at once (no click needed) and logs the placing. 1.45: a Capture button (camera) in the Show Amit editor: the editor steps aside, a bar waits while the person shows the screen they want ("Capture now"), they drag an area, click where it goes, and it becomes a new image layer (Capture 1, 2...) that can be switched on/off, resized with the size % box and dragged to move. 1.44: the Show Amit editor has a Clear & Recapture button: it drops the picture (asking first if there are unsaved changes) and lets the person choose a new area of the screen. 1.43: each part of Amit has its own icon: the same dark circle and gold ring, only the gold symbol changes (Whisper = microphone, Read = speaker, Show Amit = camera; Ask Amit keeps the aleph). The dictation "Amit is listening" box, the Whisper window, the Read window and the Show Amit editor each show their own, in the taskbar and the title bar. The Read windows are now named "Amit Read". The dictation box says "Amit is listening" until words come through, then "Amit is dictating", and the words always show beside the icon. The icons are bigger and bolder, with real 48/32/24/16 px images (256 first) so the taskbar is not blurry. Icons live in Templates; a missing icon falls back to the Amit one. 1.42: while Read is paused for dictation, the gold highlight over the screen is hidden (it cluttered the screen the person is dictating into) and comes back, in the same place, when the reading resumes. 1.41: FIX (dictation after Read paused it): (1) the speaking/voice windows of Read are now recognised as the helper's own windows, so dictation never "types" into the hidden Edge page and gives the focus back to the window the person was using (first failure: words heard, typed nowhere); (2) the "Read is speaking" mute can no longer be left on by a late message: it is set only when Read STARTS speaking while dictation is already listening, and cleared when Read pauses, ends or stops or the listening ends (second failure: a late heartbeat after "paused" made dictation throw the words away). 1.40: (1) a live voice change carries on from the word being spoken instead of starting the sentence over (amit_talk.html v1.04); (2) when dictation or Voice starts while Read is speaking, Read pauses by itself (the speaker shows the pause bars) and carries on where it was when the listening ends; a press of the speaker by the person cancels the automatic resume. 1.39: FIX: dictation could stay blocked after Read (the "Read is speaking" signal depended on a "finished" message that can get lost after live voice changes). Now the speaking page sends a heartbeat every 1.5 s while sound really plays, dictation is only quieted for 4 seconds after the last one, and a watchdog returns the speaker to waiting if the sound stops without a "finished"; the page also waits a moment between cancelling a sentence and saying it again with new settings (Edge sometimes dropped it). 1.38: while Read is speaking, dictation and Voice ignore what the microphone hears (it is Amit's own voice, which used to be typed into the person's text box) and dictation's "Amit is listening" box is taken off the screen; they work normally again when Read is not speaking, including while it is paused. 1.37: the voice window is INTERACTIVE (moving a slider or choosing another voice while Amit is reading changes the sound within about a third of a second; the current sentence is said again with the new settings; amit_talk.html v1.02); the hidden Edge speaking window is slimmed (extra switches) and now closes 30 seconds after the last reading instead of 3 minutes, never while the voice window is open. 1.36: a DOUBLE CLICK on the reading speaker opens a small voice window beside it (voice, speed, pause between sentences, pitch, volume, Test, Save); Save keeps the new voice on this computer at once and hands it to the person's login (their saved voice, their default) the next time an Amit page loads, without the old copy from the database overwriting it (new bridge routes /api/talk/voice-save and /api/talk/voice-ack). A single click is acted on after a very short wait (the double-click time, at most 400 ms) so a double click is no longer two presses. The note "Your saved voice is not on this computer" no longer pops up on the screen (it is only logged). 1.35: the ring choice is now called READ (it reads aloud what the person points at) and works ONE SHOT: press the speaker, and the very next click or selection is what is read, then it goes back to waiting so the person can use the computer freely; to read somewhere else, press it again. A click reads from the clicked word to the end of its paragraph; a highlight reads exactly the highlight (one word if one word, the whole page after Select All). Pressing while reading pauses it and the next click or selection is read instead (pressing again with none resumes). A soft gold highlight shows the words being read (where Windows accessibility gives their place). When the words cannot be read, Amit says so out loud in the person's voice ("Sorry, I'm not able to read this") and on screen, never silently; a plain click on a button or menu only shows a note. 1.33: TALK, a fourth choice in the Amit Live ring: a small see-through speaker stays on top of everything; the person selects words (or clicks where to start) in any program and presses it, and Amit reads aloud from there in the person's own saved Amit voice (copied here from their login; with none, Talk asks them to open Amit and sign in). Press again to pause or resume; Esc or a right click on the speaker removes it. The speaking is done by a hidden Edge window (page /talk, new bridge routes /api/talk/*) because the natural voices exist only in Edge. 1.32: a SHOW AMIT button in the Show Amit editor: saves the shot, hands it to the Amit Live window, which posts it into the person's own Ask Amit chat for today (under their own sign-in; the helper holds no login) and asks Amit to look at it (new bridge routes /api/showamit/pending and /api/showamit/pending.png, offered for 5 minutes, only to the Amit site). 1.31: the Amit Live window closes itself after 60 seconds without the focus (never while music plays; the no-internet page too). ONE Amit Live window only: choosing Ask Amit when its window is already open brings that window to the front instead of opening another (and a second press while the first is still opening starts nothing). 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
+    public const string Version = "2.20";   // 2.20: THE FIVE ORIGINAL AURORA CHOICES CAN BE RUN BY BAR BUTTONS (Ryan, 2026-11-22): menu ids ring-dictate, ring-showamit, ring-voice, ring-talk, ring-mobile. 2.19: AURORA EDITOR (Ryan, 2026-11-22): a window (menu id aurora-editor) where the person picks what sits on the ring, the order, a letter or drawing for each wedge, several sets and which one is on the ring; the Default set is now a normal editable set in ring_sets.txt with Reset to default; changes save at once. 2.18: AURORA SETS (Ryan, 2026-11-22), stage 1: the ring reads the person's active set from ring_sets.txt (built-ins, bar buttons, listed menus, up to 10, own letter or picture on each wedge); no file = the five built-ins as before. 2.17: VOICE RUNS AT ONCE ON AN EXACT MATCH (Ryan, 2026-11-21): words that already match one command exactly run after 0.15 s instead of the 0.5 s pause. 2.16: 2.16: VOICE IS FASTER AND QUIETER (Ryan, 2026-11-21): while Voice listens only the small blinking microphone shows (no help text), a 0.5 s pause after words runs the command, and "Activating <name>" shows for 0.5 s. 2.15: 2.12: DICTATION STARTS ON A FRESH LISTENING PAGE EVERY TIME (Ryan, 2026-11-20), CHECKS THE INTERNET FIRST ("Internet error" on screen if there is none), AND SAYS SO ON SCREEN WITHIN 2 SECONDS WHEN SOUND IS HEARD BUT NO WORDS COME BACK (a second stall in a row reconnects on another fresh page). 2.11: THE PICTURE BUTTON ONLY OPENS SHOW AMIT, AND THE PICTURE GOES BACK TO THE CHAT IT CAME FROM (Ryan, 2026-11-18): /api/menu/open?id=show-amit&origin=<tag> opens the Show Amit editor EMPTY (no screen drag): Capture takes the screen, Open... chooses a file; the tag follows the shot through Capture, Open and Recapture, and Show Amit's send offers the picture at /api/showamit/pending with that "origin", does NOT open the Amit Live window, and only the page that sent the tag takes it (a shot with no tag works as before). 2.10: FOUR CAUSES FIXED (Ryan, 2026-11-18: the mouse moved but would not click, the Aurora would not open, and Amit Mouse kept turning itself on while he set up the keyboard): (1) the release of the Voice/ring button was swallowed when Voice was started from the keyboard, although its press had gone through, so Windows was left holding the right button down; (2) Amit Mouse could take the Aurora's own button (the right button) on any mouse that was not marked primary, which held it back and stopped the hold that opens the Aurora; it can no longer take that button on any mouse; (3) when the mouse or keyboard sets were switched on or off from the keyboard the Helper did not save it, so a restart brought back an old value, now it saves it at once; (4) the Amit keys (Pause for Voice and the others) did nothing wrong but fired while the Amit Keyboard setup page was open and started Voice over the setup, now they are ignored while it is being edited. The log of the run before is also kept (whisper.prev.log). 2.09: SHOW AMIT CAN BE OPENED BY A BUTTON (Ryan, 2026-11-18): the Helper's menu list has a "show-amit" entry (opens the same Show Amit capture as the ring choice, through /api/menu/open?id=show-amit), so the picture button in the Ask Amit chat box opens Show Amit; nothing else changed. 2.08: EACH PHONE IS TRACKED BY ITS OWN NAME AND ID, AND THE OLD QR PAIRING IS GONE (Ryan, 2026-11-18): Amit Mobile sends the phone's own id and name with the home hop, so two phones (a personal one and a push-button one) never overwrite each other; the device list keeps the phone id and when it was last seen; the /pair page is now only the list of phones (name, added, last seen, revoke) and the pad switch; /pair/add, the QR pairing page code, AddDev, PairPage and LanIp are removed. 2.07: THE HOME HOP (Ryan, 2026-11-17): a phone signed in to the same Amit account, at home, opens the Amit Pad from Amit Mobile with a one-time ticket (/hop), no QR code; the bridge status also tells the Hub this computer's name so the Hub can report the home network. 2.06: THE AMIT PAD KEEPS ITS CONNECTION OPEN between a phone's messages (HTTP keep-alive, no Nagle delay, 20 s idle, at most 40 connections), because by its .local name the mouse was jerky when every message opened a new connection (Ryan, 2026-11-17). 2.05: THE PAD'S PAIRING QR AND HOME-SCREEN LINK USE THE COMPUTER'S NAME (Ryan, 2026-11-17: the router's number changes every day, the name does not); the number stays as the backup link. 2.04: THE NEW HOME ADDRESS (Ryan, 2026-11-17): the Helper, the bridge and the updater trust askamit.org (and www.askamit.org) as well as ask-amit.github.io, so the site can move to its own domain without stranding any computer; nothing is fetched from the new address yet. 2.03: PRINT WORKS WITH MORE THAN ONE SCREEN (Ryan, 2026-11-17): the print preview (AmitBar.exe --print) found that a switched-off second display was still active in Windows and its "Select area" cover, one window over both screens of different scaling, came up magnified and shifted. Now the choice window lists this window, select an area (on any screen), each screen (numbered, with its size and where it sits) and all screens together; Select area uses one cover per screen; the print process is per-monitor DPI aware; the preview opens on the main screen and fits it; the Helper bar Print button starts the same process. One screen looks and works as before. Only the bar program changed (this file carries the version number). 2.02: PRINT IN SHOW AMIT (Ryan, 2026-11-17): a Print button in the editor header (also File > Print and Ctrl+P) starts the Amit print preview that already exists in the Helper bar program (AmitBar.exe --print: this window, select an area or the whole screen); nothing prints until Print is pressed in the preview; the bar program is unchanged. The Print button (with a printer picture) sits on the tools row next to Undo and is also in the File menu. The header shows the real Amit icon (amit_icon.ico) instead of a drawn letter. 2.01: SHOW AMIT KEEPS PULLING IN OLD PICTURES (Ryan, 2026-11-16): an "Add picture" button (and File > Add a picture from a file) adds any picture file as a new item, opening in the Show Amit folder; File > Open a saved shot or picture opens a .amitshot or ANY picture file in a new window (a picture Show Amit saved opens with its layers); pictures dragged from File Explorer onto the editor are added as items (a .amitshot opens in its own window); the zoom buttons moved to the bottom left of the picture. 2.00: SHOW AMIT NEW LOOK (Ryan, 2026-11-16): the editor has a slim header (this shot's name, the other open shots as tabs, Retake, a File menu), an "Add to your picture" row of small tools, colors, line width, undo and Add capture, an "On this picture" list where every mark is its own item (eye to hide it, bring forward, send back, rename, remove), a "Send to an app" panel (apps not built yet show as coming soon) and an Ask Amit bar under the picture; soft rounded buttons everywhere. The drawing engine, the save and open code, the .amitshot format and the send-to-Amit path are unchanged. 1.99: THE PAD HAS ITS OWN SWITCH (Ryan, 2026-11-16): the Amit Pad no longer follows the mouse sets master (Ctrl+Alt+Shift+M); it is ON unless switched off on its pairing page (http://localhost:8722/pair, remembered in pad_enabled.txt), and a phone told "off" is told where to switch it on. New route /pair/switch; amit_pad.html and amit_pad_pair.html changed. 1.98: THE MENUS GROUP FOR MOUSE ACTIONS (Ryan, 2026-11-15): a mouse set action "Run a Helper button" on the built-in group "Menus" opens any menu in the Helper own list by name (Amit Helper bar, Amit menu, Dictate window, Amit Preview window), no bar button needed; only MsRunHelper changes. 1.97: APP CRASH CAPTURE (Ryan, 2026-11-15): Computer Health now notes when ANY program crashes or hangs and keeps an evidence package (amit_appcrash.ps1, run every 5 minutes by a small Windows task the bridge sets up, v1.16; this file only carries the version number). 1.96: THE PAD ASKS AMIT (Ryan, 2026-11-15): a question typed or dictated on the pad goes to Amit the way the Amit Mobile chat does (a row in amit_mobile_captures under this computer's owner; the Mobile watcher answers) and the pad page shows and speaks the reply; new pad routes /ask and /askreply. 1.95: THE PAD OPENS THE BAR AND THE AMIT MENU (Ryan, 2026-11-15): two pad buttons call the Helper's own menu list (amit-bar, amit-menu); nothing else can be opened from the pad. 1.94: AMIT PAD (Ryan and Robin, 2026-11-15): a paired phone on the home network is a pad for this computer: a small listener on port 8722 (home addresses only, every request needs the device key made at /pair on this computer) serves amit_pad.html and takes touchpad, Direct, left and right click, scroll, zoom and photo messages; photos open in Show Amit; Ctrl+Alt+Shift+M switches the pad off too. New files amit_pad.html and amit_pad_pair.html. 1.93: DICTATION NEVER FIGHTS ITSELF (Ryan, 2026-11-15): the listening page (amit_whisper.html) had two separate things that each restarted the speech recognizer (its "ended" handler and the 4.5 s no-words watchdog); when one hiccup tripped both in the same moment, two recognizers existed, aborted each other and restarted each other about once a second, so nothing was typed until the idle stop closed the page. Now there is ONE restart function (the recognizer is always closed first, other restart requests are ignored while one is happening and for 1 s after, waits grow 0.5/1/2/4 s only if restarts keep failing at once); also the network-retry counter resets when words arrive. Also carries the words-only rename "Amit Live" -> "Amit Helper" in the Helper's own messages, the bridge and the Computer Health dashboard. This file only carries the version number and the words. 1.92: CRASH NOTICE (Ryan, 2026-11-14): the helper notes every Windows crash (amit_crash_check.ps1 v1.01, Watch mode or not) and the Hub asks for it at sign-in through the new bridge route /api/crash-notice (bridge v1.15); this file only carries the version number. 1.91: WATCH MODE (Ryan, 2026-11-14): a switch for when the computer is having crashes; while on there is no idle stop, the recorder keeps a permanent daily trace, and after an unclean shutdown the trace and Windows events are packaged at sign-in for the database (bridge v1.14, resource_watcher.ps1 v1.02, new amit_crash_check.ps1; this file only carries the version number). 1.88: AMIT KEYBOARD (Ryan and Robin, 2026-11-09): the same idea as Amit Mouse, with keys. Windows raw input names the keyboard behind every key; each keyboard has numbered sets; a key, a pair of keys held together, or a key held with Ctrl/Shift/Alt/Windows can send other keys, run a bar button, switch set (or send keys then switch), or do nothing, on a press, a double press or a hold; hold Space then press 1 to 9 switches to that set. Safety: Ctrl, Alt, Shift, Windows and Esc alone never change; Ctrl+Alt+Shift+M switches every mouse AND keyboard set off and puts every keyboard back on Set 1; the main keyboard keeps its typing keys in Set 1; sets pause while the Amit Keyboard page is open. What is typed is never logged; which key on which keyboard is only reported to the page while it is learning. New routes /api/keyboard/sync and /api/keyboard/status; the Amit menu Keyboard tab lists the sets of the keyboard last used. 1.87: THE MOUSE TAB HAS REAL CONTROLS (Ryan, 2026-11-08, design A in the preview): "Mouse sets" is a visible ON/OFF switch (choosing it flips it and the menu stays open so the change shows) and the Hub row is a visible "Open >" button; before they were plain text. 1.86: THE MOUSE TAB OF THE AMIT MENU (Ryan, 2026-11-08): the Mouse tab recognizes WHICH MOUSE opened the menu (Windows raw input names it with every press; a press older than 2.5 s is not trusted and the tab asks "which mouse?") and lists that mouse's sets with the one in use marked; the wheel scrolls, a click or the middle button chooses and that mouse switches to the set; also Sets ON/OFF and Open Amit Mouse in the Hub; a mouse the Helper does not know shows one clear line. 1.85: THE WHEEL OPENS THE MENU WHILE VOICE IS LISTENING (Ryan, 2026-11-08): turn the wheel with Voice on and the menu opens so a command can be chosen as well as spoken; if the wheel is never turned Voice works as before; with nothing listening the middle click opens the menu (1.74). 1.84: THE MOUSE IS INDEPENDENT OF DICTATION (Ryan, 2026-11-08): the middle button opens the Amit menu, and the menu opens, while dictation (not Voice) is listening, finishing or stopping; dictation keeps listening underneath. Double right-click still waits for nothing to be dictating (right press stops latched dictation, by design). 1.83: 1.77: AN OPEN DICTATE WINDOW MOVES ITS WORDS INTO THE NEXT TEXT BOX (opened by itself because the person left the text box while speaking, or opened from the ring): when the focus has been in a text box of another program for about a second, the window stops listening, everything in its message is typed into that box, the window closes and typing dictation starts there; Place (pick the exact spot) still works and switches the automatic move off for that window. 1.76: DICTATION FOLLOWS THE FOCUS (Ryan 2026-11-08): while words are typed into a text box the helper watches where the keyboard focus is; focus moves to another text box (any program) = typing carries on there; focus clearly NOT in a text box = the words are held, and if they keep coming for a second the typing dictation ends and the Dictate window opens with those words already in it; "cannot tell" never counts as no text box. FIX: after Enter or a change of box the phrase typed so far is never rewritten (the self-correcting typing used to retype half of an earlier phrase into the emptied box). 1.75: BAR ICONS ARE CENTERED - the icon in each bar button is drawn once to a scratch picture, where the visible pixels really are is measured, and THAT is centered (before, the glyph box was centered and the font padding pushed icons off-center). 1.74: MIDDLE CLICK OPENS THE MENU, VOICE STAYS OFF - a single middle click opens the Amit menu at the pointer and nothing listens; the Voice tab lists Voice first (choosing it turns listening on), Dictate second, then everything else; Esc or a click away closes it; the wheel only moves inside an open menu and no longer opens it. 1.73: SHOW AMIT SAVES EVERY CAPTURE AT ONCE - a fresh capture is saved to Pictures\Show Amit the moment it is taken (as well as going on the clipboard), so "look" always finds it without pressing Save. 1.68: VOICE LIVES INSIDE THE MENU - once the wheel has opened the menu, closing the menu in any way (a click away, Esc, choosing something) turns Voice off too; nothing runs and no box shows. A single click with no wheel works as before. 1.67: LEFT BUTTON CAN NEVER BE LOCKED BY THE MENU - a left click is only taken when the pointer is really over the menu's own window; anywhere else the menu closes and the click goes through, whatever state the Helper is in. 1.66: THE MENU HAS THREE TABS - Voice (everything Voice understands, as before), Mouse and Keyboard. The mouse picks the tab by a click; the wheel scrolls inside the tab; speaking still works on every tab. Mouse shows a note until the Mouse screen creates sets; Keyboard is greyed until the keyboard app. 1.65: PREVIEWS CAN BE TRIED WITH THE REAL MOUSE - over an Amit preview window (title starts "Amit " and ends " Preview") the Voice button is left alone, so the middle button reaches the preview page instead of starting Voice. 1.64: VOICE MENU SAFETY - Esc closes the Voice menu (Voice keeps listening); the menu can never keep eating clicks after Voice has ended (it is cleared on the next click, and never appears if Voice ended while it was being built); the release of a click the menu took is only swallowed if it comes straight after (1.5 s), never left waiting. Fixes the left mouse button going dead after using the menu. 1.63: THE VOICE MENU - while Voice is listening (started by the middle click, Aurora, a key or by saying it), turning the wheel opens a menu of everything Voice understands: the built-in commands, your Helper bar buttons and your own commands. The wheel moves, a middle click or a left click chooses, a click elsewhere closes it, and speaking still works at the same time. If the wheel is never turned, Voice works as before. 1.62: VOICE ON RELEASE - the Voice button (middle by default) now acts when it is let go, and only if it was a click (shorter than 500 ms); a longer hold does nothing yet and is reserved for the mouse set picker. Before, Voice started the instant the button went down, so a hold could not be told from a click. 1.61: THE PHONE CAPTION COMES ALONG - a note typed on the phone with the photo is put in the note box when the photo opens (new "note" in the /api/mobile/pull answer). 1.60: PHONE NOTE NOT LOST - Ask Amit on a phone photo first lets the last dictated words in, then sends the note; Amit answers a question note right away. 1.59: HARDWARE SENSORS ON REQUEST - the 72 MB sensor reader is no longer in the installer; the Hardware tab adds it (/api/sensors/install, size and SHA-256 checked); dashboard 5.11. 1.58: ASK AMIT ABOUT A PHONE PHOTO - the editor button starts a new numbered Mobile chat in the Amit Live window with the photo and the note, and Amit greets out loud. 1.57: MOBILE RING SLICE - a phone photo (Amit Mobile > Send to computer) is fetched by the helper, saved in PicturesShow Amit, opened in the Show Amit editor on the clipboard with a note box and dictation on; the note goes back to the photo row. 1.56: DICTATE WINDOW (page amit_dictate.html, served at /dictate): choosing Dictate on the ring (or saying it, or a bar button) while NOT in a text box opens one window in the top right of the screen (in a text box it still types there as before, one plain press of the trigger button stops it), always in front, that hears the person (its own speech recognition, in its own Edge profile dictate_profile), shows the words in a Subject and a Message that can be split into numbered sections, remembers each dictation on this computer (Recent, Settings, Help), and nothing is typed anywhere until the person presses Place and left-clicks a text box (new routes /api/dictate/place and /api/dictate/cancel; the click is checked with the same text-box test as before and the message is typed there, a new line being Shift+Enter so a chat box does not send). The window hears through the original listening page (its words are handed to the window instead of typed); hold-to-talk is unchanged. 1.55: VOICE RUNS ANY BAR BUTTON BY ITS TITLE: no shortcut per button; the title list comes from the bar (bar_buttons.txt) when someone speaks. 1.54: SHOW AMIT QUICK SNAP: a fresh capture from the ring goes straight onto the clipboard and the editor waits minimized in the taskbar without taking focus; opened from the taskbar it is the normal editor; left alone for 60 seconds it closes itself (nothing saved, clipboard untouched). 1.53: DOUBLE-RIGHT-CLICK brings up the Amit Helper bar: two short right taps close together at the same spot (while nothing else is going on with the button) show the bar (an event it listens on) or start AmitBar.exe from this folder; the first tap is replayed as a normal click as always, a menu it opened is closed with Esc, and the second press and its release are swallowed. The ring (hold) and dictation are untouched. 1.52: a preview opened as a plain browser TAB (file double-clicked, a link) also splits the screen: the whole browser window goes on the right, the window the person was in on the left, both put back when they leave that tab; only a tab titled "Amit ... Preview" counts. 1.51: the window that goes on the LEFT of a preview is the WINDOW THE PERSON WAS IN (the Hub in a browser, VS Code, anything), taken from a short history of the windows they used; VS Code is only the fallback; the same window is put back when the preview closes. 1.50: PREVIEW SPLIT: whenever a window whose title ends with " Preview" appears (however it was opened: the opener script, the "preview" voice command, a button in a page), the person's VS Code goes on the LEFT half of its screen and the preview on the RIGHT half, and the focus goes back to VS Code; when the last preview has been closed for 4 seconds VS Code is put back the way it was (unless the person moved it). 1.49: the voice command "preview" opens the Amit Preview window. 1.48: an image layer is a WINDOW onto its image: the corner handles change the window to any shape (the image inside keeps its size and place, only what shows changes); the wheel over the window zooms the image inside, like the main picture (the size % box does the same); Ctrl + drag moves the image inside the window; dragging the body moves the window. Saved in the same .amitshot format. 1.47: a placed image layer has four corner handles (drag one to make it larger or smaller, the opposite corner stays), shows move/resize cursors, drags to move, and the mouse wheel over it resizes it (the wheel anywhere else zooms the whole picture). 1.46: Capture now places the new image layer at once (no click needed) and logs the placing. 1.45: a Capture button (camera) in the Show Amit editor: the editor steps aside, a bar waits while the person shows the screen they want ("Capture now"), they drag an area, click where it goes, and it becomes a new image layer (Capture 1, 2...) that can be switched on/off, resized with the size % box and dragged to move. 1.44: the Show Amit editor has a Clear & Recapture button: it drops the picture (asking first if there are unsaved changes) and lets the person choose a new area of the screen. 1.43: each part of Amit has its own icon: the same dark circle and gold ring, only the gold symbol changes (Whisper = microphone, Read = speaker, Show Amit = camera; Ask Amit keeps the aleph). The dictation "Amit is listening" box, the Whisper window, the Read window and the Show Amit editor each show their own, in the taskbar and the title bar. The Read windows are now named "Amit Read". The dictation box says "Amit is listening" until words come through, then "Amit is dictating", and the words always show beside the icon. The icons are bigger and bolder, with real 48/32/24/16 px images (256 first) so the taskbar is not blurry. Icons live in Templates; a missing icon falls back to the Amit one. 1.42: while Read is paused for dictation, the gold highlight over the screen is hidden (it cluttered the screen the person is dictating into) and comes back, in the same place, when the reading resumes. 1.41: FIX (dictation after Read paused it): (1) the speaking/voice windows of Read are now recognised as the helper's own windows, so dictation never "types" into the hidden Edge page and gives the focus back to the window the person was using (first failure: words heard, typed nowhere); (2) the "Read is speaking" mute can no longer be left on by a late message: it is set only when Read STARTS speaking while dictation is already listening, and cleared when Read pauses, ends or stops or the listening ends (second failure: a late heartbeat after "paused" made dictation throw the words away). 1.40: (1) a live voice change carries on from the word being spoken instead of starting the sentence over (amit_talk.html v1.04); (2) when dictation or Voice starts while Read is speaking, Read pauses by itself (the speaker shows the pause bars) and carries on where it was when the listening ends; a press of the speaker by the person cancels the automatic resume. 1.39: FIX: dictation could stay blocked after Read (the "Read is speaking" signal depended on a "finished" message that can get lost after live voice changes). Now the speaking page sends a heartbeat every 1.5 s while sound really plays, dictation is only quieted for 4 seconds after the last one, and a watchdog returns the speaker to waiting if the sound stops without a "finished"; the page also waits a moment between cancelling a sentence and saying it again with new settings (Edge sometimes dropped it). 1.38: while Read is speaking, dictation and Voice ignore what the microphone hears (it is Amit's own voice, which used to be typed into the person's text box) and dictation's "Amit is listening" box is taken off the screen; they work normally again when Read is not speaking, including while it is paused. 1.37: the voice window is INTERACTIVE (moving a slider or choosing another voice while Amit is reading changes the sound within about a third of a second; the current sentence is said again with the new settings; amit_talk.html v1.02); the hidden Edge speaking window is slimmed (extra switches) and now closes 30 seconds after the last reading instead of 3 minutes, never while the voice window is open. 1.36: a DOUBLE CLICK on the reading speaker opens a small voice window beside it (voice, speed, pause between sentences, pitch, volume, Test, Save); Save keeps the new voice on this computer at once and hands it to the person's login (their saved voice, their default) the next time an Amit page loads, without the old copy from the database overwriting it (new bridge routes /api/talk/voice-save and /api/talk/voice-ack). A single click is acted on after a very short wait (the double-click time, at most 400 ms) so a double click is no longer two presses. The note "Your saved voice is not on this computer" no longer pops up on the screen (it is only logged). 1.35: the ring choice is now called READ (it reads aloud what the person points at) and works ONE SHOT: press the speaker, and the very next click or selection is what is read, then it goes back to waiting so the person can use the computer freely; to read somewhere else, press it again. A click reads from the clicked word to the end of its paragraph; a highlight reads exactly the highlight (one word if one word, the whole page after Select All). Pressing while reading pauses it and the next click or selection is read instead (pressing again with none resumes). A soft gold highlight shows the words being read (where Windows accessibility gives their place). When the words cannot be read, Amit says so out loud in the person's voice ("Sorry, I'm not able to read this") and on screen, never silently; a plain click on a button or menu only shows a note. 1.33: TALK, a fourth choice in the Amit Live ring: a small see-through speaker stays on top of everything; the person selects words (or clicks where to start) in any program and presses it, and Amit reads aloud from there in the person's own saved Amit voice (copied here from their login; with none, Talk asks them to open Amit and sign in). Press again to pause or resume; Esc or a right click on the speaker removes it. The speaking is done by a hidden Edge window (page /talk, new bridge routes /api/talk/*) because the natural voices exist only in Edge. 1.32: a SHOW AMIT button in the Show Amit editor: saves the shot, hands it to the Amit Live window, which posts it into the person's own Ask Amit chat for today (under their own sign-in; the helper holds no login) and asks Amit to look at it (new bridge routes /api/showamit/pending and /api/showamit/pending.png, offered for 5 minutes, only to the Amit site). 1.31: the Amit Live window closes itself after 60 seconds without the focus (never while music plays; the no-internet page too). ONE Amit Live window only: choosing Ask Amit when its window is already open brings that window to the front instead of opening another (and a second press while the first is still opening starts nothing). 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
 
     // v1.03 (2026-10-29, Ryan): LATCH MODE. Hold the button to start; let go and dictation keeps going, so long dictations do not need the
     // button held. Hold the button again (same hold time) to stop; a quick tap during dictation is still a normal click. Dictation also
@@ -579,7 +579,14 @@ public static class AmitWhisper
             delegate { OpenPreviewWindow(); }));
         l.Add(MenuItemDef("show-amit", "Show Amit", "Opens Show Amit empty: take a capture with its Capture button, or open a picture with its Open button, mark it up and send it to Amit.", "The Show Amit editor, with nothing loaded yet.", "Helper function OpenShowAmitEmpty (opened with the tag ?origin=, so the picture goes back to the chat that opened it)", "the picture button in the Ask Amit chat box (the ring's Show Amit choice still goes straight to the screen drag)", "2.11", true,
             delegate { string og = menuOrigin; menuOrigin = ""; OpenShowAmitEmpty(og); }));
-        l.Add(MenuItemDef("aurora-ring", "Amit Helper ring (Aurora)", "The ring of choices: Dictate, Show Amit, Talk, Read, Ask Amit.", "A ring around the pointer.", "Opens only from holding the right mouse button (its own hold-and-choose state); it cannot be opened by a button yet", "hold the right mouse button", "before the list", false, null));
+        l.Add(MenuItemDef("aurora-editor", "Aurora editor", "A window where the person chooses what sits on the Aurora ring (built-in choices, their own bar buttons, any menu in this list), the order, the picture on each wedge, and keeps several sets to switch between. Every change is saved at once.", "A window in the middle of the screen.", "Helper function OpenAuroraEditor (a window inside the Helper, on the ring's own window thread)", "", "2.19", true,
+            delegate { OpenAuroraEditor(); }));
+        l.Add(MenuItemDef("ring-dictate", "Dictate (ring choice)", "Starts dictation where the pointer is: speak and the words are typed at the cursor.", "At the pointer.", "Helper function StartDictationFromMenu at the pointer", "the ring's Dictate wedge", "2.20", true, delegate { RingDictateNow(); }));
+        l.Add(MenuItemDef("ring-showamit", "Show Amit (ring choice)", "Show Amit straight to the screen drag: drag over what to capture, mark it up and send it to Amit.", "The whole screen.", "Helper function StartShowAmit", "the ring's Show Amit wedge", "2.20", true, delegate { RingShowAmitNow(); }));
+        l.Add(MenuItemDef("ring-voice", "Voice (ring choice)", "Voice commands: listens and runs the button or command you say.", "The small blinking microphone at the pointer.", "Helper function StartVoiceListen at the pointer", "the ring's Voice wedge", "2.20", true, delegate { RingVoiceNow(); }));
+        l.Add(MenuItemDef("ring-talk", "Read (ring choice)", "Reads aloud (Talk): the natural voice speaks what is selected or copied.", "No window; sound.", "Helper function StartTalk", "the ring's Read wedge", "2.20", true, delegate { RingTalkNow(); }));
+        l.Add(MenuItemDef("ring-mobile", "Mobile (ring choice)", "Brings in the photo just sent from the phone (Amit Mobile > Send to computer) and opens it in Show Amit.", "The Show Amit editor.", "Helper function StartMobile", "the ring's Mobile wedge", "2.20", true, delegate { RingMobileNow(); }));
+        l.Add(MenuItemDef("aurora-ring","Amit Helper ring (Aurora)", "The ring of choices: Dictate, Show Amit, Talk, Read, Ask Amit.", "A ring around the pointer.", "Opens only from holding the right mouse button (its own hold-and-choose state); it cannot be opened by a button yet", "hold the right mouse button", "before the list", false, null));
         // AMIT-MENU-EXTERNAL: print-menu
         l.Add(MenuItemDef("print-menu", "Print from the screen", "The print menu for what is on the screen.", "A pop-up from the Helper bar.", "Lives in the bar program (AmitBar.cs), run by the bar button step print; it cannot be opened from here yet", "", "before the list", false, null));
         menuList = l;
@@ -3899,7 +3906,455 @@ public static class AmitWhisper
     class LiveItem
     {
         public string Id, Label, Caption;
+        public string Kind = "builtin", Arg = "", Glyph = "";   // 2.18: Kind builtin | bar (Arg = profile TAB button) | menu (Arg = a menu id from MenuList); Glyph = a built-in picture id or a letter
         public LiveItem(string id, string label, string caption) { Id = id; Label = label; Caption = caption; }
+    }
+
+    // 2.18 AURORA SETS (Ryan, 2026-11-22): the ring shows whichever set the person picked. The file ring_sets.txt (in %LOCALAPPDATA%\AmitComputerHealth) holds the person's own sets;
+    // the set called Default is always there (the five built-in choices until the person changes it; "Reset to default" in the Aurora editor puts it back). A set lists only what the person wants: built-ins, any bar button, any listed menu.
+    //   active<TAB>Set name                       which set the ring shows (missing or unknown = Default)
+    //   set<TAB>Set name                          starts a set
+    //   builtin<TAB>dictate|showamit|voice|talk|mobile
+    //   bar<TAB>Profile<TAB>Button name<TAB>icon  (icon optional: a built-in picture id or one letter; none = the first letter of the name)
+    //   menu<TAB>menu id<TAB>Label<TAB>icon       (a menu from the Helper's own list, see MenuList)
+    // At most 10 per set. Lines starting with # are notes. Read each time the ring opens, so a change shows the next time.
+    const int LiveMaxItems = 10;
+    static string RingSetsFile() { return Path.Combine(Path.Combine(Environment.GetEnvironmentVariable("LOCALAPPDATA") ?? "", "AmitComputerHealth"), "ring_sets.txt"); }
+    static List<LiveItem> LoadLiveItems() { return LoadLiveItemsFrom(RingSetsFile(), null); }
+    class RingSetFile
+    {
+        public string Active = "Default";
+        public List<string> Names = new List<string>();
+        public Dictionary<string, List<LiveItem>> Sets = new Dictionary<string, List<LiveItem>>(StringComparer.OrdinalIgnoreCase);
+    }
+    static LiveItem CopyLiveItem(LiveItem s)
+    {
+        LiveItem c = new LiveItem(s.Id, s.Label, s.Caption); c.Kind = s.Kind; c.Arg = s.Arg; c.Glyph = s.Glyph; return c;
+    }
+    static LiveItem MakeBarItem(string profile, string name, string glyph)
+    {
+        LiveItem it = new LiveItem("bar:" + profile + "/" + name, name, "");
+        it.Kind = "bar"; it.Arg = profile + "\t" + name; it.Glyph = glyph ?? "";
+        return it;
+    }
+    static LiveItem MakeMenuItem(string menuId, string label, string glyph)
+    {
+        LiveItem it = new LiveItem("menu:" + menuId, label, "");
+        it.Kind = "menu"; it.Arg = menuId; it.Glyph = glyph ?? "";
+        return it;
+    }
+    // Reads ring_sets.txt. A missing or unreadable file is just the Default set. Default is always there (the five built-in choices unless the person changed it).
+    static RingSetFile ReadRingSets(string file)
+    {
+        RingSetFile rs = new RingSetFile();
+        try
+        {
+            if (File.Exists(file))
+            {
+                string cur = "";
+                List<LiveItem> defs = DefaultLiveItems();
+                foreach (string raw in File.ReadAllLines(file, Encoding.UTF8))
+                {
+                    string line = raw.TrimEnd('\r', '\n');
+                    if (line.Trim().Length == 0 || line.TrimStart().StartsWith("#")) continue;
+                    string[] p = line.Split('\t');
+                    string k = p[0].Trim().ToLowerInvariant();
+                    if (k == "active" && p.Length > 1) { rs.Active = p[1].Trim(); continue; }
+                    if (k == "set" && p.Length > 1)
+                    {
+                        cur = p[1].Trim();
+                        if (cur.Length > 0 && !rs.Sets.ContainsKey(cur)) { rs.Sets[cur] = new List<LiveItem>(); rs.Names.Add(cur); }
+                        continue;
+                    }
+                    if (cur.Length == 0 || !rs.Sets.ContainsKey(cur) || rs.Sets[cur].Count >= LiveMaxItems) continue;
+                    List<LiveItem> l = rs.Sets[cur];
+                    if (k == "builtin" && p.Length > 1)
+                    {
+                        foreach (LiveItem d in defs) if (d.Id == p[1].Trim().ToLowerInvariant()) { l.Add(CopyLiveItem(d)); break; }
+                    }
+                    else if (k == "bar" && p.Length > 2 && p[1].Trim().Length > 0 && p[2].Trim().Length > 0)
+                        l.Add(MakeBarItem(p[1].Trim(), p[2].Trim(), p.Length > 3 ? p[3].Trim() : ""));
+                    else if (k == "menu" && p.Length > 2 && p[1].Trim().Length > 0 && p[2].Trim().Length > 0)
+                        l.Add(MakeMenuItem(p[1].Trim(), p[2].Trim(), p.Length > 3 ? p[3].Trim() : ""));
+                }
+            }
+        }
+        catch (Exception ex) { Log("Aurora sets: could not read ring_sets.txt (" + ex.Message + "); the default ring is used"); }
+        if (!rs.Sets.ContainsKey("Default")) { rs.Sets["Default"] = DefaultLiveItems(); rs.Names.Insert(0, "Default"); }
+        if (!rs.Sets.ContainsKey(rs.Active)) rs.Active = "Default";
+        return rs;
+    }
+    static bool WriteRingSets(string file, RingSetFile rs)
+    {
+        try
+        {
+            StringBuilder b = new StringBuilder();
+            b.Append("# Aurora sets. Written by the Aurora editor; it can also be edited by hand (fields are separated by a TAB).\r\n");
+            b.Append("# builtin<TAB>id   |   bar<TAB>Profile<TAB>Button<TAB>icon   |   menu<TAB>menu id<TAB>Label<TAB>icon\r\n");
+            b.Append("active\t" + rs.Active + "\r\n");
+            foreach (string n in rs.Names)
+            {
+                b.Append("set\t" + n + "\r\n");
+                foreach (LiveItem it in rs.Sets[n])
+                {
+                    if (it.Kind == "bar") b.Append("bar\t" + it.Arg + "\t" + it.Glyph + "\r\n");
+                    else if (it.Kind == "menu") b.Append("menu\t" + it.Arg + "\t" + it.Label + "\t" + it.Glyph + "\r\n");
+                    else b.Append("builtin\t" + it.Id + "\r\n");
+                }
+            }
+            Directory.CreateDirectory(Path.GetDirectoryName(file));
+            File.WriteAllText(file, b.ToString(), new UTF8Encoding(false));
+            return true;
+        }
+        catch (Exception ex) { Log("Aurora sets: could not save ring_sets.txt (" + ex.Message + ")"); return false; }
+    }
+    static List<LiveItem> LoadLiveItemsFrom(string file, string setOverride)
+    {
+        RingSetFile rs = ReadRingSets(file);
+        string want = String.IsNullOrEmpty(setOverride) ? rs.Active : setOverride;
+        List<LiveItem> got;
+        if (rs.Sets.TryGetValue(want, out got) && got.Count > 0) return got;
+        return DefaultLiveItems();
+    }
+
+    // ---- the Aurora editor (2.19, Ryan 2026-11-22): a window inside the Helper where the person chooses what sits on the ring, in what order, with what picture, in as many sets as they like.
+    // Every change is saved at once; the ring reads the file each time it opens. It runs on the same window thread as the ring.
+    static string AskText(string title, string prompt, string initial)
+    {
+        string result = null;
+        using (Form f = new Form())
+        {
+            f.Text = title; f.FormBorderStyle = FormBorderStyle.FixedDialog; f.StartPosition = FormStartPosition.CenterScreen;
+            f.ClientSize = new Size(380, 112); f.MaximizeBox = false; f.MinimizeBox = false; f.ShowInTaskbar = false; f.TopMost = true;
+            Label l = new Label(); l.Text = prompt; l.SetBounds(12, 10, 356, 20); f.Controls.Add(l);
+            TextBox t = new TextBox(); t.Text = initial; t.SetBounds(12, 34, 356, 24); f.Controls.Add(t);
+            Button ok = new Button(); ok.Text = "OK"; ok.SetBounds(200, 72, 80, 28); ok.DialogResult = DialogResult.OK; f.Controls.Add(ok);
+            Button cancel = new Button(); cancel.Text = "Cancel"; cancel.SetBounds(288, 72, 80, 28); cancel.DialogResult = DialogResult.Cancel; f.Controls.Add(cancel);
+            f.AcceptButton = ok; f.CancelButton = cancel;
+            if (f.ShowDialog() == DialogResult.OK) result = t.Text;
+        }
+        return result;
+    }
+
+    class AuroraEditorForm : Form
+    {
+        RingSetFile rs;
+        string cur = "Default";
+        bool loading;
+        List<LiveItem> avail = new List<LiveItem>();
+        ComboBox cmbSet, cmbIcon;
+        ListBox lstRing, lstAvail;
+        PictureBox pic;
+        Label lblActive, lblStatus;
+        static readonly Color Back = Color.FromArgb(24, 26, 34), Panel2 = Color.FromArgb(38, 41, 54), Gold = Color.FromArgb(232, 190, 70);
+
+        Label Lbl(string text, int x, int y, int w, int h)
+        {
+            Label l = new Label(); l.Text = text; l.SetBounds(x, y, w, h); l.ForeColor = Color.FromArgb(232, 232, 228); Controls.Add(l); return l;
+        }
+        Button Btn(string text, int x, int y, int w, EventHandler click)
+        {
+            Button b = new Button(); b.Text = text; b.SetBounds(x, y, w, 30); b.FlatStyle = FlatStyle.Flat; b.BackColor = Color.FromArgb(52, 56, 72); b.ForeColor = Color.White;
+            b.FlatAppearance.BorderColor = Gold; b.Click += click; Controls.Add(b); return b;
+        }
+        ListBox Lst(int x, int y, int w, int h)
+        {
+            ListBox l = new ListBox(); l.SetBounds(x, y, w, h); l.BackColor = Panel2; l.ForeColor = Color.White; l.BorderStyle = BorderStyle.FixedSingle; l.IntegralHeight = false; Controls.Add(l); return l;
+        }
+
+        public AuroraEditorForm()
+        {
+            Text = "Aurora editor - choose what is on your ring";
+            ClientSize = new Size(940, 590); FormBorderStyle = FormBorderStyle.FixedSingle; MaximizeBox = false; StartPosition = FormStartPosition.CenterScreen;
+            BackColor = Back; ForeColor = Color.White; Font = new Font("Segoe UI", 10f);
+            try { if (iconPath != null && File.Exists(iconPath)) Icon = new Icon(iconPath); } catch { }
+
+            Lbl("Ring set:", 12, 16, 70, 22);
+            cmbSet = new ComboBox(); cmbSet.DropDownStyle = ComboBoxStyle.DropDownList; cmbSet.SetBounds(86, 12, 200, 28); cmbSet.BackColor = Panel2; cmbSet.ForeColor = Color.White;
+            cmbSet.SelectedIndexChanged += delegate { if (loading || cmbSet.SelectedItem == null) return; cur = cmbSet.SelectedItem.ToString(); RefreshRing(0); };
+            Controls.Add(cmbSet);
+            Btn("New set", 296, 11, 84, delegate { OnNew(); });
+            Btn("Delete set", 386, 11, 92, delegate { OnDelete(); });
+            Btn("Reset to default", 484, 11, 130, delegate { OnReset(); });
+            Btn("Use this set on my ring", 86, 46, 200, delegate { OnUse(); });
+            lblActive = Lbl("", 296, 52, 630, 22);
+
+            Lbl("On the ring (up to " + LiveMaxItems + ")", 12, 90, 250, 22);
+            lstRing = Lst(12, 114, 250, 318);
+            lstRing.SelectedIndexChanged += delegate { if (!loading) UpdateIconBox(); };
+            Btn("< Add", 270, 150, 92, delegate { OnAdd(); });
+            Btn("Remove >", 270, 190, 92, delegate { OnRemove(); });
+            Btn("Move up", 270, 250, 92, delegate { OnMove(-1); });
+            Btn("Move down", 270, 290, 92, delegate { OnMove(1); });
+
+            Lbl("You can add (double-click one)", 372, 90, 290, 22);
+            lstAvail = Lst(372, 114, 280, 318);
+            lstAvail.DoubleClick += delegate { OnAdd(); };
+
+            Lbl("How the ring will look", 668, 90, 260, 22);
+            pic = new PictureBox(); pic.SetBounds(668, 114, 260, 260); pic.SizeMode = PictureBoxSizeMode.Zoom; pic.BackColor = Color.FromArgb(70, 80, 100); Controls.Add(pic);
+            Lbl("Fewer wedges = bigger wedges. A set with nothing in it shows the default ring.", 668, 380, 262, 52);
+
+            Lbl("Picture for the selected wedge: type one letter, or pick a drawing", 12, 446, 520, 22);
+            cmbIcon = new ComboBox(); cmbIcon.DropDownStyle = ComboBoxStyle.DropDown; cmbIcon.SetBounds(12, 472, 200, 28); cmbIcon.BackColor = Panel2; cmbIcon.ForeColor = Color.White;
+            cmbIcon.Items.AddRange(new object[] { "dictate", "showamit", "voice", "talk", "mobile" });
+            cmbIcon.TextChanged += delegate { OnIconText(); };
+            Controls.Add(cmbIcon);
+            Lbl("Drawings: dictate = microphone, showamit = camera, voice = speech, talk = speaker, mobile = phone. With nothing chosen a button shows the first letter of its name. The built-in choices keep their own drawing.", 222, 466, 706, 44);
+
+            lblStatus = Lbl("", 12, 540, 800, 24);
+            Btn("Close", 838, 534, 90, delegate { Close(); });
+
+            loading = true;
+            rs = ReadRingSets(RingSetsFile()); cur = rs.Active;
+            BuildAvail();
+            FillSets();
+            loading = false;
+            RefreshRing(0);
+            lblStatus.Text = "Changes are saved the moment you make them. The ring uses them the next time it opens.";
+        }
+
+        void BuildAvail()
+        {
+            avail.Clear(); lstAvail.Items.Clear();
+            foreach (LiveItem d in DefaultLiveItems()) { avail.Add(d); lstAvail.Items.Add("Built in:   " + d.Label + "  (" + d.Caption + ")"); }
+            try
+            {
+                string f = Path.Combine(Path.Combine(Environment.GetEnvironmentVariable("LOCALAPPDATA") ?? "", "AmitComputerHealth"), "bar_buttons.txt");
+                List<string> seen = new List<string>();
+                if (File.Exists(f))
+                    foreach (string line in File.ReadAllLines(f, Encoding.UTF8))
+                    {
+                        string[] p = line.TrimEnd('\r', '\n').Split('\t');
+                        if (p.Length < 2 || p[0].Trim().Length == 0 || p[1].Trim().Length == 0) continue;
+                        string key = p[0].Trim() + "\t" + p[1].Trim();
+                        if (seen.Contains(key)) continue;
+                        seen.Add(key);
+                        avail.Add(MakeBarItem(p[0].Trim(), p[1].Trim(), ""));
+                        lstAvail.Items.Add("Bar button:   " + p[0].Trim() + "  >  " + p[1].Trim());
+                    }
+            }
+            catch (Exception ex) { Log("Aurora editor: could not read the bar buttons (" + ex.Message + ")"); }
+            foreach (MenuEntry m in MenuList())
+                if (m.ButtonOk) { avail.Add(MakeMenuItem(m.Id, m.Name, "")); lstAvail.Items.Add("Menu:   " + m.Name); }
+        }
+
+        void FillSets()
+        {
+            cmbSet.Items.Clear();
+            foreach (string n in rs.Names) cmbSet.Items.Add(n);
+            int i = rs.Names.IndexOf(cur); if (i < 0) { i = 0; cur = rs.Names[0]; }
+            cmbSet.SelectedIndex = i;
+        }
+
+        void Save(string what)
+        {
+            lblStatus.Text = WriteRingSets(RingSetsFile(), rs) ? what + ". Saved: the ring uses it the next time it opens." : "Could not save the ring settings (see the Helper log).";
+        }
+
+        void RefreshRing(int select)
+        {
+            loading = true;
+            lstRing.Items.Clear();
+            List<LiveItem> l = rs.Sets[cur];
+            for (int i = 0; i < l.Count; i++) lstRing.Items.Add((i + 1) + "    " + l[i].Label);
+            if (l.Count > 0) lstRing.SelectedIndex = Math.Max(0, Math.Min(select, l.Count - 1));
+            lblActive.Text = rs.Active.Equals(cur, StringComparison.OrdinalIgnoreCase) ? "This set is the one on your ring now." : "Your ring is showing the set called \"" + rs.Active + "\". Press the button to use this one.";
+            loading = false;
+            UpdateIconBox();
+            DrawPreview();
+        }
+
+        void UpdateIconBox()
+        {
+            bool was = loading; loading = true;
+            int i = lstRing.SelectedIndex; List<LiveItem> l = rs.Sets[cur];
+            if (i >= 0 && i < l.Count && l[i].Kind != "builtin") { cmbIcon.Enabled = true; cmbIcon.Text = l[i].Glyph; }
+            else { cmbIcon.Enabled = false; cmbIcon.Text = ""; }
+            loading = was;
+        }
+
+        void DrawPreview()
+        {
+            List<LiveItem> l = rs.Sets[cur]; if (l.Count == 0) l = DefaultLiveItems();
+            Bitmap b = RenderLive(l, -1, false);
+            Image old = pic.Image; pic.Image = b; if (old != null) old.Dispose();
+        }
+
+        void OnIconText()
+        {
+            if (loading) return;
+            int i = lstRing.SelectedIndex; List<LiveItem> l = rs.Sets[cur];
+            if (i < 0 || i >= l.Count || l[i].Kind == "builtin") return;
+            string t = cmbIcon.Text.Trim();
+            l[i].Glyph = IsGlyphId(t) ? t : (t.Length > 0 ? t.Substring(0, 1) : "");
+            Save("Picture changed");
+            DrawPreview();
+        }
+
+        void OnAdd()
+        {
+            int a = lstAvail.SelectedIndex; if (a < 0 || a >= avail.Count) { lblStatus.Text = "Pick something from the list on the right first."; return; }
+            List<LiveItem> l = rs.Sets[cur];
+            if (l.Count >= LiveMaxItems) { lblStatus.Text = "A ring holds up to " + LiveMaxItems + ". Remove one first."; return; }
+            foreach (LiveItem x in l) if (x.Id == avail[a].Id) { lblStatus.Text = avail[a].Label + " is already on this ring."; return; }
+            l.Add(CopyLiveItem(avail[a]));
+            RefreshRing(l.Count - 1);
+            Save("Added " + avail[a].Label);
+        }
+
+        void OnRemove()
+        {
+            int i = lstRing.SelectedIndex; List<LiveItem> l = rs.Sets[cur];
+            if (i < 0 || i >= l.Count) { lblStatus.Text = "Pick something in the ring list first."; return; }
+            string name = l[i].Label;
+            l.RemoveAt(i);
+            RefreshRing(i);
+            Save("Removed " + name);
+        }
+
+        void OnMove(int d)
+        {
+            int i = lstRing.SelectedIndex; List<LiveItem> l = rs.Sets[cur];
+            int j = i + d;
+            if (i < 0 || i >= l.Count || j < 0 || j >= l.Count) return;
+            LiveItem t = l[i]; l[i] = l[j]; l[j] = t;
+            RefreshRing(j);
+            Save("Moved " + t.Label);
+        }
+
+        void OnUse()
+        {
+            if (rs.Sets[cur].Count == 0) { lblStatus.Text = "Add at least one thing to this set first (an empty set would show the default ring)."; return; }
+            rs.Active = cur;
+            RefreshRing(Math.Max(0, lstRing.SelectedIndex));
+            Save("\"" + cur + "\" is now the set on your ring");
+        }
+
+        void OnNew()
+        {
+            string n = AskText("New ring set", "Name for the new set (it starts as a copy of \"" + cur + "\"):", "");
+            if (n == null) return;
+            n = n.Replace("\t", " ").Replace("\r", " ").Replace("\n", " ").Trim();
+            if (n.Length == 0) return;
+            if (rs.Sets.ContainsKey(n)) { lblStatus.Text = "A set called \"" + n + "\" already exists."; return; }
+            List<LiveItem> copy = new List<LiveItem>();
+            foreach (LiveItem x in rs.Sets[cur]) copy.Add(CopyLiveItem(x));
+            rs.Sets[n] = copy; rs.Names.Add(n); cur = n;
+            loading = true; FillSets(); loading = false;
+            RefreshRing(0);
+            Save("Made the set \"" + n + "\"");
+        }
+
+        void OnDelete()
+        {
+            if (cur.Equals("Default", StringComparison.OrdinalIgnoreCase)) { lblStatus.Text = "The Default set cannot be deleted. Use Reset to default to put it back as it was."; return; }
+            if (MessageBox.Show("Delete the set \"" + cur + "\"?", "Aurora editor", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+            string gone = cur;
+            rs.Sets.Remove(gone); rs.Names.Remove(gone);
+            if (rs.Active.Equals(gone, StringComparison.OrdinalIgnoreCase)) rs.Active = "Default";
+            cur = "Default";
+            loading = true; FillSets(); loading = false;
+            RefreshRing(0);
+            Save("Deleted the set \"" + gone + "\"");
+        }
+
+        void OnReset()
+        {
+            if (MessageBox.Show("Put the Default set back to the five built-in choices (Dictate, Show Amit, Voice, Read, Mobile)?", "Aurora editor", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+            rs.Sets["Default"] = DefaultLiveItems();
+            cur = "Default";
+            loading = true; FillSets(); loading = false;
+            RefreshRing(0);
+            Save("The Default set is back to the five built-in choices");
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            base.OnFormClosed(e);
+            if (pic != null && pic.Image != null) { pic.Image.Dispose(); pic.Image = null; }
+            auroraEditor = null;
+        }
+    }
+    static AuroraEditorForm auroraEditor;
+
+    // THE FIVE ORIGINAL AURORA CHOICES AS BUTTONS (Ryan, 2026-11-22, 2.20): each can be run by a bar button (step "Open a menu"). Dictate and Voice start at the pointer.
+    static void PointerNow(out int x, out int y) { x = 0; y = 0; POINT pt; if (GetCursorPos(out pt)) { x = pt.x; y = pt.y; } }
+    // AMIT-MENU: ring-dictate
+    static void RingDictateNow() { int x, y; PointerNow(out x, out y); StartDictationFromMenu(x, y); }
+    // AMIT-MENU: ring-showamit
+    static void RingShowAmitNow() { StartShowAmit(); }
+    // AMIT-MENU: ring-voice
+    static void RingVoiceNow() { int x, y; PointerNow(out x, out y); StartVoiceListen(x, y, 1); }
+    // AMIT-MENU: ring-talk
+    static void RingTalkNow() { StartTalk(); }
+    // AMIT-MENU: ring-mobile
+    static void RingMobileNow() { StartMobile(); }
+
+    // AMIT-MENU: aurora-editor
+    public static string OpenAuroraEditor()
+    {
+        try
+        {
+            EnsureLiveForm();
+            LiveForm f = liveForm;
+            if (f == null || !f.IsHandleCreated) { Log("Aurora editor: the Helper's window thread is not ready"); return "{\"ok\":false}"; }
+            f.BeginInvoke(new Action(delegate
+            {
+                try
+                {
+                    if (auroraEditor != null && !auroraEditor.IsDisposed)
+                    {
+                        if (auroraEditor.WindowState == FormWindowState.Minimized) auroraEditor.WindowState = FormWindowState.Normal;
+                        auroraEditor.Show(); auroraEditor.Activate(); auroraEditor.BringToFront();
+                        return;
+                    }
+                    auroraEditor = new AuroraEditorForm();
+                    auroraEditor.Show(); auroraEditor.Activate();
+                }
+                catch (Exception ex) { Log("Aurora editor: " + ex.Message); auroraEditor = null; }
+            }));
+            return "{\"ok\":true}";
+        }
+        catch (Exception ex) { Log("OpenAuroraEditor: " + ex.Message); return "{\"ok\":false}"; }
+    }
+    static bool IsGlyphId(string s) { return s == "dictate" || s == "showamit" || s == "voice" || s == "talk" || s == "mobile"; }
+    // the picture on a wedge: a built-in choice keeps its own drawing; a custom one uses a chosen built-in drawing, or a ring with a letter in it
+    static void DrawItemIcon(Graphics g, LiveItem it, float cx, float cy, Color col)
+    {
+        if (it.Kind == "builtin") { DrawGlyph(g, it.Id, cx, cy, col); return; }
+        if (IsGlyphId(it.Glyph)) { DrawGlyph(g, it.Glyph, cx, cy, col); return; }
+        string s = it.Glyph.Length > 0 ? it.Glyph : (it.Label.Length > 0 ? it.Label : "?");
+        s = s.Substring(0, 1).ToUpperInvariant();
+        using (Pen p = new Pen(col, 2.2f)) g.DrawEllipse(p, cx - 12f, cy - 12f, 24f, 24f);
+        using (Font f = new Font("Segoe UI Semibold", 12f))
+        using (SolidBrush b = new SolidBrush(col))
+        using (StringFormat sf = new StringFormat())
+        {
+            sf.Alignment = StringAlignment.Center; sf.LineAlignment = StringAlignment.Center;
+            g.DrawString(s, f, b, cx, cy + 1f, sf);
+        }
+    }
+    // tests only: loads a set from a file and draws the ring to a picture (nothing on screen)
+    public static string RingSetTest(string file, string setName, string pngPath, string icon)
+    {
+        try
+        {
+            iconPath = icon;
+            List<LiveItem> items = LoadLiveItemsFrom(file, setName);
+            StringBuilder r = new StringBuilder("ok n=" + items.Count + ":");
+            foreach (LiveItem it in items) r.Append(" [" + it.Kind + " " + it.Label + "]");
+            using (Bitmap b = RenderLive(items, -1, false))
+            using (Bitmap outp = new Bitmap(b.Width, b.Height))
+            using (Graphics g = Graphics.FromImage(outp))
+            {
+                g.Clear(Color.FromArgb(70, 80, 100));
+                g.DrawImage(b, 0, 0);
+                outp.Save(pngPath, ImageFormat.Png);
+            }
+            return r.ToString();
+        }
+        catch (Exception ex) { return "error: " + ex.Message; }
     }
 
     // What is in the ring. Fixed for now; later this list comes from each person's own choices, saved under their Hub login
@@ -4139,7 +4594,8 @@ public static class AmitWhisper
                     float lr = (LiveInner + LiveOuter) / 2f;
                     float lx = C + (float)(Math.Cos(rad) * lr), ly = C + (float)(Math.Sin(rad) * lr);
                     Color tc = hot ? Color.FromArgb(24, 22, 30) : Color.FromArgb(240, 240, 236);
-                    DrawGlyph(g, items[i].Id, lx, ly - 17f, hot ? Color.FromArgb(24, 22, 30) : col);
+                    DrawItemIcon(g, items[i], lx, ly - 17f, hot ? Color.FromArgb(24, 22, 30) : col);
+                    string lab = items[i].Label; int maxLab = n > 6 ? 11 : 14; if (lab.Length > maxLab) lab = lab.Substring(0, maxLab - 1) + "...";
                     using (Font f1 = new Font("Segoe UI Semibold", n > 6 ? 9.5f : 12f))
                     using (Font f2 = new Font("Segoe UI", 8.5f))
                     using (SolidBrush b1 = new SolidBrush(tc))
@@ -4147,7 +4603,7 @@ public static class AmitWhisper
                     using (StringFormat sf = new StringFormat())
                     {
                         sf.Alignment = StringAlignment.Center; sf.LineAlignment = StringAlignment.Center;
-                        g.DrawString(items[i].Label, f1, b1, lx, ly + 12f, sf);
+                        g.DrawString(lab, f1, b1, lx, ly + 12f, sf);
                         if (n <= 6 && items[i].Caption.Length > 0) g.DrawString(items[i].Caption, f2, b2, lx, ly + 29f, sf);
                     }
                 }
@@ -4303,6 +4759,7 @@ public static class AmitWhisper
             int cx = wa.Width < R * 2 ? wa.Left + wa.Width / 2 : Math.Max(wa.Left + R, Math.Min(wa.Right - R, x));
             int cy = wa.Height < R * 2 ? wa.Top + wa.Height / 2 : Math.Max(wa.Top + R, Math.Min(wa.Bottom - R, y));
             lock (sync) { if (state != ST_MENU || token != t) return; }
+            if (!welcomeRingActive) liveItems = LoadLiveItems();   // 2.18: the person's active Aurora set (the five built-ins when there is none)
             menuCx = cx; menuCy = cy; liveOpen = true; menuReady = true;
             liveHover = LiveHit(x, y);
             PostKbd(true);
@@ -4386,6 +4843,17 @@ public static class AmitWhisper
         else if (it.Id == "voice") StartVoiceListen(menuOpenX, menuOpenY, 1);
         else if (it.Id == "talk") StartTalk();
         else if (it.Id == "mobile") StartMobile();
+        else if (it.Kind == "bar")
+        {
+            string[] a = it.Arg.Split('\t');
+            VoiceCand c = new VoiceCand(); c.Phrase = NormPhrase(a[1]); c.Action = "barbutton"; c.Text = it.Arg; c.Label = it.Label;
+            ThreadPool.QueueUserWorkItem(delegate { RunBarButton(c); });   // off this thread: starting the bar program can take a few seconds
+        }
+        else if (it.Kind == "menu")
+        {
+            string mid = it.Arg;
+            ThreadPool.QueueUserWorkItem(delegate { OpenListedMenu(mid); });
+        }
     }
 
     // =====================================================================================================
