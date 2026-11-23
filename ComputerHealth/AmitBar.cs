@@ -235,6 +235,10 @@ public class BarForm : Form
             StringBuilder sb = new StringBuilder();
             foreach (Prof p in cfg.profiles) foreach (Btn b in p.buttons) if (!String.IsNullOrEmpty(b.name)) sb.Append(OneLine(p.name)).Append('\t').Append(OneLine(b.name)).Append("\r\n");
             File.WriteAllText(VoiceFile("bar_buttons.txt"), sb.ToString(), new UTF8Encoding(false));
+            // Helper 2.21: every button's own icon for the Aurora ring (profile TAB name TAB icon); a separate file so the voice list above keeps its two columns
+            StringBuilder si = new StringBuilder();
+            foreach (Prof p in cfg.profiles) foreach (Btn b in p.buttons) if (!String.IsNullOrEmpty(b.name)) si.Append(OneLine(p.name)).Append('\t').Append(OneLine(b.name)).Append('\t').Append(OneLine(b.icon)).Append("\r\n");
+            File.WriteAllText(VoiceFile("bar_icons.txt"), si.ToString(), new UTF8Encoding(false));
         }
         catch { }
     }
@@ -374,8 +378,36 @@ public class BarForm : Form
         }
     }
     // the icon the person picked in the Hub (a character from the Hub's icon library), drawn in the button's color; the kind glyph is used only when none was sent
+    // IMPORTED PICTURES (Helper 2.21): an icon "img:<8 hex>" is a small PNG the person imported, kept in %LOCALAPPDATA%\AmitComputerHealth\icons; it is drawn in its own colors
+    Dictionary<string, Bitmap> imgIconCache = new Dictionary<string, Bitmap>();
+    Bitmap ImportedIcon(string icon)
+    {
+        if (icon == null || icon.Length != 12 || !icon.StartsWith("img:")) return null;
+        Bitmap b;
+        if (imgIconCache.TryGetValue(icon, out b)) return b;
+        b = null;
+        try
+        {
+            string id = icon.Substring(4);
+            foreach (char ch in id) if (!Uri.IsHexDigit(ch)) { imgIconCache[icon] = null; return null; }
+            string p = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AmitComputerHealth\\icons\\" + id + ".png");
+            if (System.IO.File.Exists(p)) using (Bitmap raw = new Bitmap(p)) b = new Bitmap(raw);
+        }
+        catch { b = null; }
+        imgIconCache[icon] = b;
+        return b;
+    }
     void DrawIcon(Graphics g, string icon, Rectangle area, Color c)
     {
+        Bitmap imp = ImportedIcon(icon);
+        if (imp != null)
+        {
+            float sz = Math.Max(10f, Math.Min(area.Width, area.Height) * 0.62f);
+            GraphicsState gs = g.Save(); g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            g.DrawImage(imp, new RectangleF(area.X + (area.Width - sz) / 2f, area.Y + (area.Height - sz) / 2f, sz, sz));
+            g.Restore(gs);
+            return;
+        }
         float px = Math.Max(10f, Math.Min(area.Width, area.Height) * 0.5f);
         // the font pads each glyph differently, so draw it once to a scratch picture, find where the ink really is, and center THAT
         string key = icon + "|" + (int)px + "|" + c.ToArgb();

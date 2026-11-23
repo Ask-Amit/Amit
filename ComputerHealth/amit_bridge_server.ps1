@@ -1,4 +1,5 @@
 # Amit Computer Health - Local Bridge Server
+# Version v1.20 (2026-11-22, Ryan): imported button icons: /api/icons/save (a small PNG kept as icons\<id>.png, the button's icon field holds img:<id>) and /api/icons/get.
 # Version v1.19 (2026-11-18, Ryan): /api/menu/open passes ?origin= to the Helper (Helper 2.11: Show Amit sends its picture back to the chat that opened it).
 # Version v1.18 (2026-11-17, Ryan): THE NEW HOME ADDRESS. One list of the Amit site's addresses ($AmitSiteOrigins, top of the handler): askamit.org, www.askamit.org
 #   and ask-amit.github.io. The five Amit Preview origin checks and the hardware-sensor download check use it, so pages served from the new domain are not refused.
@@ -2120,6 +2121,41 @@ try {
                 # a button asks the Helper to open a menu by id or name: ?id=amit-menu. The Helper calls it alive with the mechanism in its list.
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else { Send-JsonRaw $response ([AmitWhisper]::OpenListedMenu([string]$request.QueryString["id"], [string]$request.QueryString["origin"])) }   # Helper 2.11: ?origin= names the page that asked (Show Amit sends its picture back there)
+            }
+            "/api/icons/save" {
+                # IMPORTED BUTTON ICONS (Helper 2.21, 2026-11-22): the Hub sends a small PNG (base64) the person picked for a button. It is kept here as icons\<id>.png where id = first 8 hex of its SHA-1, and the button's icon field holds "img:<id>" (12 characters, the bar's limit). The bar and the Aurora ring read the file from this folder.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $icReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $icBody = $icReader.ReadToEnd(); $icReader.Dispose()
+                    try {
+                        Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+                        $icJs = New-Object System.Web.Script.Serialization.JavaScriptSerializer; $icJs.MaxJsonLength = 600000
+                        $icIn = $icJs.DeserializeObject($icBody)
+                        $icB64 = [string]$icIn['png']; if ($icB64 -match '^data:image/png;base64,') { $icB64 = $icB64.Substring(22) }
+                        $icBytes = [Convert]::FromBase64String($icB64)
+                        if ($icBytes.Length -lt 60 -or $icBytes.Length -gt 120000 -or $icBytes[0] -ne 0x89 -or $icBytes[1] -ne 0x50 -or $icBytes[2] -ne 0x4E -or $icBytes[3] -ne 0x47) { Send-JsonRaw $response '{"ok":false,"error":"that is not a small PNG picture"}' }
+                        else {
+                            $icSha = [System.Security.Cryptography.SHA1]::Create(); $icHash = (($icSha.ComputeHash($icBytes) | ForEach-Object { $_.ToString('x2') }) -join '').Substring(0, 8)
+                            $icDir = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\icons'; if (-not (Test-Path $icDir)) { New-Item -ItemType Directory -Path $icDir -Force | Out-Null }
+                            [System.IO.File]::WriteAllBytes((Join-Path $icDir ($icHash + '.png')), $icBytes)
+                            Send-JsonRaw $response ('{"ok":true,"icon":"img:' + $icHash + '"}')
+                        }
+                    } catch { Send-JsonRaw $response '{"ok":false,"error":"could not keep the picture"}' }
+                }
+            }
+            "/api/icons/get" {
+                # an imported icon back to the Hub (?id=img:xxxxxxxx or xxxxxxxx), as base64 PNG, so the Hub can draw it
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $igId = ([string]$request.QueryString["id"]) -replace '^img:', ''
+                    if ($igId -notmatch '^[0-9a-f]{8}$') { Send-JsonRaw $response '{"ok":false,"error":"no such icon"}' }
+                    else {
+                        $igPath = Join-Path $env:LOCALAPPDATA ('AmitComputerHealth\icons\' + $igId + '.png')
+                        if (Test-Path $igPath) { Send-JsonRaw $response ('{"ok":true,"png":"' + [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($igPath)) + '"}') }
+                        else { Send-JsonRaw $response '{"ok":false,"error":"this computer does not have that picture"}' }
+                    }
+                }
             }
             "/api/mouse/sync" {
                 # Amit Mouse (Helper 1.71): the page sends the person's mice and sets; the Helper keeps them (mouse_config.json) and runs them. Only the Amit site or a local program may send.
