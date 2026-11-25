@@ -28,6 +28,14 @@ $global:fake = Acct 'pat.person@example.com' 'pro'; Say ((As-ClaudeChoose 'bad')
 Say ((As-ClaudeAtRun 'user-1').allowed) 'at press time the same account still passes'
 $global:fake = Acct 'robin.other@example.com' 'pro'; Say ((As-ClaudeAtRun 'user-1').reason -eq 'email_mismatch') 'at press time, a second person signed in to Claude on a shared computer is refused'
 $global:fake = Acct 'pat.person@example.com' 'pro'; Say ((As-ClaudeAtRun 'user-2').reason -eq 'not_checked') 'a login that was never checked is refused'
+$global:hub = @{ id = 'user-1'; email = 'Pat.Person@example.com'; linked = @('pat.work@example.com', 'pat.third@example.com') }
+$global:fake = Acct 'PAT.Work@example.com' 'pro'; Say ((As-ClaudeChoose 'good').allowed) 'a linked Claude email is allowed'
+Say ((As-ClaudeAtRun 'user-1').allowed) 'and still allowed at press time'
+$global:fake = Acct 'pat.third@example.com' 'max'; Say ((As-ClaudeAtRun 'user-1').allowed) 'a second linked email is allowed too'
+$global:fake = Acct 'stranger@example.com' 'max'; Say ((As-ClaudeAtRun 'user-1').reason -eq 'email_mismatch') 'an email that is not linked is still refused'
+$global:hub = @{ id = 'user-1'; email = 'Pat.Person@example.com'; linked = @() }; [void](As-ClaudeChoose 'good')
+$global:fake = Acct 'pat.work@example.com' 'pro'; Say ((As-ClaudeAtRun 'user-1').reason -eq 'email_mismatch') 'after the link is removed and checked again, it is refused'
+$saved = [IO.File]::ReadAllText((Join-Path $root '_claude_check.json')); Say ($saved -notmatch '@') 'still no email written to disk'
 ${function:global:As-HubUser} = $realHub
 Say ($null -eq (As-HubUser 'not-a-token') -and $null -eq (As-HubUser 'aaa.bbb.ccc')) 'the real sign-in server refuses a made-up token'
 ${function:global:As-ClaudeStatus} = $realStatus

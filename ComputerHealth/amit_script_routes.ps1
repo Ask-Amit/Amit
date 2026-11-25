@@ -165,7 +165,13 @@ function global:As-HubUser([string]$token) {
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
         $u = Invoke-RestMethod -Uri 'https://hleqtjqojksurvkyqixt.supabase.co/auth/v1/user' -Headers @{ apikey = 'sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF'; Authorization = ('Bearer ' + $token) } -TimeoutSec 15
-        if ($u -and $u.id -and $u.email -and ($u.email_confirmed_at -or $u.confirmed_at)) { return @{ id = [string]$u.id; email = [string]$u.email } }
+        if ($u -and $u.id -and $u.email -and ($u.email_confirmed_at -or $u.confirmed_at)) {
+            # the extra Claude emails this person proved are theirs (the database lets a login read only its own). If they cannot be read, only the login email counts.
+            $linked = @()
+            try { $rows = Invoke-RestMethod -Uri 'https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/hel_claude_emails?select=email,user_id' -Headers @{ apikey = 'sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF'; Authorization = ('Bearer ' + $token) } -TimeoutSec 15
+                $linked = @(@($rows) | ForEach-Object { $_ } | Where-Object { $_.email -and ([string]$_.user_id) -eq ([string]$u.id) } | ForEach-Object { [string]$_.email }) } catch { }
+            return @{ id = [string]$u.id; email = [string]$u.email; linked = $linked }
+        }
     } catch { }
     return $null
 }
@@ -175,7 +181,7 @@ function global:As-EmailPrint([string]$email) {
 }
 function global:As-ClaudeNo([string]$reason, [string]$plain) { return @{ ok = $true; allowed = $false; reason = $reason; plain = $plain } }
 # the one decision, used both when a feature is chosen and every time it runs. $emailPrint = the fingerprint of the Hub login's verified email.
-function global:As-ClaudeDecide([string]$emailPrint) {
+function global:As-ClaudeDecide([string[]]$emailPrints) {
     $s = As-ClaudeStatus
     if ($null -eq $s) { return (As-ClaudeNo 'no_claude_code' 'This is a premium feature. It needs your own paid Claude account, signed in to Claude Code on this computer. Claude Code was not found here.') }
     if ((As-Get $s 'failed' $false) -eq $true) { return (As-ClaudeNo 'check_failed' 'The Helper could not ask Claude Code who is signed in. Nothing ran. Try again in a moment.') }
@@ -183,7 +189,7 @@ function global:As-ClaudeDecide([string]$emailPrint) {
     $plan = ([string](As-Get $s 'subscriptionType' '')).ToLowerInvariant()
     if ([string](As-Get $s 'authMethod' '') -ne 'claude.ai' -or @('pro', 'max', 'team', 'enterprise') -notcontains $plan) { return (As-ClaudeNo 'not_paid' 'This is a premium feature. You need a paid Claude plan that includes Claude Code, signed in with your own Claude account.') }
     $mail = [string](As-Get $s 'email' '')
-    if (-not $mail -or -not $emailPrint -or (As-EmailPrint $mail) -ne $emailPrint) { return (As-ClaudeNo 'email_mismatch' 'Claude Code on this computer is signed in with a different email than your Hub login. Sign in to Claude Code with the same email as your Hub login, then try again.') }
+    if (-not $mail -or @(@($emailPrints) | Where-Object { $_ }) -notcontains (As-EmailPrint $mail)) { return (As-ClaudeNo 'email_mismatch' 'Claude Code on this computer is signed in with a different email than your Hub login. Add that Claude email in the Hub (About Me, Security, Claude emails), or sign in to Claude Code with your Hub email.') }
     return @{ ok = $true; allowed = $true; reason = 'ok'; plan = $plan; plain = 'Your own Claude account is signed in.' }
 }
 function global:As-ClaudeFile { return (Join-Path (As-Root) '_claude_check.json') }
@@ -191,10 +197,11 @@ function global:As-ClaudeFile { return (Join-Path (As-Root) '_claude_check.json'
 function global:As-ClaudeChoose([string]$token) {
     $u = As-HubUser $token
     if ($null -eq $u) { return (As-ClaudeNo 'hub_sign_in' 'The Helper could not confirm your Hub login. Sign in to the Hub again, then try once more.') }
-    $print = As-EmailPrint $u.email
-    $d = As-ClaudeDecide $print
+    $prints = @(As-EmailPrint $u.email)
+    foreach ($m in @($u.linked)) { if ($m) { $prints += (As-EmailPrint ([string]$m)) } }
+    $d = As-ClaudeDecide $prints
     $all = As-ReadJson (As-ClaudeFile); if ($null -eq $all) { $all = @{} }
-    $all[$u.id] = @{ emailPrint = $print }
+    $all[$u.id] = @{ emailPrint = $prints[0]; emailPrints = $prints }
     As-WriteText (As-ClaudeFile) (As-ToJson ($all))
     return $d
 }
@@ -202,7 +209,9 @@ function global:As-ClaudeChoose([string]$token) {
 function global:As-ClaudeAtRun([string]$userId) {
     $all = As-ReadJson (As-ClaudeFile)
     if ($null -eq $all -or -not $userId -or -not $all.ContainsKey($userId)) { return (As-ClaudeNo 'not_checked' 'Open the Hub on this computer once and save this button again, so the Helper can check your account.') }
-    return (As-ClaudeDecide ([string](As-Get $all[$userId] 'emailPrint' '')))
+    $prints = @((As-Get $all[$userId] 'emailPrints' @()) | ForEach-Object { [string]$_ })
+    if ($prints.Count -eq 0) { $prints = @([string](As-Get $all[$userId] 'emailPrint' '')) }
+    return (As-ClaudeDecide $prints)
 }
 
 function global:Invoke-AmitScriptRoute {

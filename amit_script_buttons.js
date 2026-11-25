@@ -51,6 +51,57 @@
     (buttons || []).forEach(function (x) { var b = document.createElement('button'); b.type = 'button'; b.textContent = x[0]; b.style.cssText = 'font:650 18px "Segoe UI",sans-serif;border:0;border-radius:12px;padding:11px 18px;cursor:pointer;margin:14px 10px 0 0;background:' + (x[2] ? '#e8964a;color:#231505' : '#e9e1cd;color:#3b4650'); b.onclick = x[1]; c.appendChild(b); });
     o.appendChild(c); document.body.appendChild(o);
   }
+  /* ---------- About Me > Security > Claude emails (rule 4): add an address and prove it with a code sent to it. Approved screen: AmitHelper_claudefeature_preview.html tab 3 ---------- */
+  var CE = { step: 'list', email: '', request: '', temp: null, msg: '', busy: false };
+  function ceTemp() {   // a separate, short-lived sign-in just to confirm the code: it never touches the person's own Hub session and is not saved
+    return root.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'amit-claude-email-check' } });
+  }
+  async function renderClaudeEmails() {
+    var el = document.getElementById('amvClaudeEmails'); if (!el || !DB() || !ME()) return;
+    var r = await DB().from('hel_claude_emails').select('id,email,verified_at,user_id').eq('user_id', ME().id).order('verified_at');
+    var small = 'color:rgba(var(--amit-text-rgb,240,232,208),.55);font-size:12px;line-height:1.5';
+    var h = '<div style="font-family:var(--amit-font-heading,\'Cinzel\',serif);font-size:11px;letter-spacing:.14em;color:var(--gold);text-transform:uppercase;margin-bottom:4px">Claude emails</div>';
+    if (r.error) { el.innerHTML = h + '<div style="' + small + '">Adding Claude emails is not switched on yet. It needs one database change by the owner.</div>'; return; }
+    h += '<div style="' + small + ';margin-bottom:8px">Premium features run on your own Claude account. Your Hub login (' + esc(ME().email || '') + ') always counts. If your Claude account uses a different email, add it here. It is only for this check: you sign in to the Hub the same way.</div>';
+    h += (r.data || []).map(function (x, i) { return '<div style="display:flex;gap:10px;align-items:center;margin-bottom:6px;flex-wrap:wrap"><b style="overflow-wrap:anywhere">' + esc(x.email) + '</b><button class="btn" type="button" data-ce-remove="' + esc(x.id) + '">Remove</button></div>'; }).join('');
+    if (CE.step === 'list') h += '<input class="fg-input" id="amvCEmail" type="email" placeholder="Your Claude account email" style="margin:4px 0 8px" value="' + esc(CE.email) + '"><button class="btn" type="button" id="amvCSend"' + (CE.busy ? ' disabled' : '') + '>Email me a code</button>';
+    else h += '<div style="' + small + ';margin:6px 0">We sent a code to <b>' + esc(CE.email) + '</b>. Type it here. It works for 15 minutes.</div><input class="fg-input" id="amvCCode" inputmode="numeric" autocomplete="one-time-code" placeholder="Code from the email" style="margin-bottom:8px"><button class="btn" type="button" id="amvCConfirm"' + (CE.busy ? ' disabled' : '') + '>Confirm</button> <button class="btn" type="button" id="amvCCancel">Cancel</button>';
+    h += '<div id="amvCMsg" style="font-size:13px;margin-top:8px">' + esc(CE.msg) + '</div>';
+    el.innerHTML = h;
+    var on = function (id, fn) { var b = document.getElementById(id); if (b) b.onclick = fn; };
+    on('amvCSend', ceSend); on('amvCConfirm', ceConfirm); on('amvCCancel', function () { CE = { step: 'list', email: '', request: '', temp: null, msg: '', busy: false }; renderClaudeEmails(); });
+    [].forEach.call(el.querySelectorAll('[data-ce-remove]'), function (b) { b.onclick = async function () {
+      if (!root.confirm('Remove this Claude email?')) return;
+      var d = await DB().from('hel_claude_emails').delete().eq('id', b.getAttribute('data-ce-remove'));
+      CE.msg = d.error ? 'Could not remove it: ' + d.error.message : 'Removed.'; if (!d.error) claudeCheck();   // so the Helper on this computer forgets it now
+      renderClaudeEmails();
+    }; });
+  }
+  async function ceSend() {
+    var i = document.getElementById('amvCEmail'), mail = String(i ? i.value : '').trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) { CE.msg = 'Type the email of your Claude account.'; CE.email = mail; return renderClaudeEmails(); }
+    CE.busy = true; CE.email = mail; CE.msg = 'Sending...'; await renderClaudeEmails();
+    var s = await DB().rpc('hel_claude_email_start', { p_email: mail });
+    if (s.error) { CE.busy = false; CE.msg = s.error.message; return renderClaudeEmails(); }
+    CE.temp = ceTemp();
+    var o = await CE.temp.auth.signInWithOtp({ email: mail, options: { shouldCreateUser: true } });
+    CE.busy = false;
+    if (o.error) { CE.msg = 'The email could not be sent: ' + o.error.message; return renderClaudeEmails(); }
+    CE.request = s.data; CE.step = 'code'; CE.msg = ''; renderClaudeEmails();
+  }
+  async function ceConfirm() {
+    var i = document.getElementById('amvCCode'), code = String(i ? i.value : '').replace(/\s+/g, '');
+    if (!/^[0-9]{4,10}$/.test(code)) { CE.msg = 'Type the code from the email.'; return renderClaudeEmails(); }
+    CE.busy = true; CE.msg = 'Checking...'; await renderClaudeEmails();
+    var v = await CE.temp.auth.verifyOtp({ email: CE.email, token: code, type: 'email' });
+    if (v.error) { CE.busy = false; CE.msg = 'That code did not work: ' + v.error.message; return renderClaudeEmails(); }
+    var f = await CE.temp.rpc('hel_claude_email_finish', { p_request: CE.request });
+    try { await CE.temp.auth.signOut({ scope: 'local' }); } catch (e) {}
+    CE = { step: 'list', email: '', request: '', temp: null, busy: false, msg: f.error ? f.error.message : 'Claude email added.' };
+    if (!f.error) claudeCheck();   // tell the Helper on this computer right away
+    renderClaudeEmails();
+  }
+
   /* when a shortcut step is CHOSEN: resolves 'ok' (their own paid Claude), 'free' (they take the copy-and-paste version, which runs nothing) or null (cancel the selection) */
   async function claudeGate() {
     ccBox('One moment', 'Checking for your own paid Claude account...', []);
@@ -529,6 +580,7 @@
   var api = { load: load, render: render, syncToHelper: syncToHelper, create: create, wizard: wizard, wizClose: wizClose, wizGo: wizGo, wizAt: wizAt, wizPick: wizPick, wizBuild: wizBuild, useSteps: useSteps, open: open, close: close, send: function () { return send(); }, saveSetup: function () { return saveSetup(false); }, addQ: addQ, q: qEdit, up: function (i) { swap(i, i - 1); }, down: function (i) { swap(i, i + 1); },
     rm: rmQ, accept: accept, dismiss: dismiss, letAmit: letAmit, approve: approve, setState: setState, putBack: putBack, del: del, delById: delById, restore: restore, importInbox: importInbox, refresh: function () { readSetup(); drawModal(); },
     isScriptButton: isScriptBtn, _t: { slug: slug, helperConfig: helperConfig, buildRequest: buildRequest, onReply: onReply, state: S, sha256: sha256, cardFor: cardFor } };
+  api.renderClaudeEmails = renderClaudeEmails;
   api.claudeCheck = claudeCheck; api.claudeGate = claudeGate; api.loadShortcuts = loadShortcuts; api.shortcutsOf = shortcutsOf; api.shortcutName = scName;
   api.shortcutById = function (id) { return (S.shortcuts || []).filter(function (s) { return s.id === id; })[0] || null; };
   root.AmitScriptButtons = api;
