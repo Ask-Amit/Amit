@@ -48,6 +48,7 @@
   }
   function cardFor(row) {
     var p = row.permissions || {}, bits = [];
+    if (p.opensWebsites) { var sites = (p.websites || []).join(', '); return { wish: row.wish || '', reads: 'nothing on your computer', mayDo: 'open websites in your browser' + (sites ? ' (' + sites + ')' : '') + ', and any website you type yourself when you press it. Up to 10 a press.', never: 'read your files or clipboard, delete anything, change settings, spend money or read passwords', worstCase: row.worst_case || '' }; }
     if (p.reads) bits.push('read files in the folders you approved'); if (p.clipboard) bits.push('use the clipboard');
     var may = []; if (p.writes) may.push('change files in those folders (a backup is made first)'); if (p.sends) may.push('prepare messages for you to send'); if (!may.length) may.push('nothing: it only looks');
     return { wish: row.wish || '', reads: (bits.join(', ') || 'nothing'), mayDo: may.join('; ') + '. Up to ' + (p.maxActions || 20) + ' things a press, ' + (p.maxSeconds || 60) + ' seconds at most.',
@@ -112,7 +113,7 @@
   }
   async function open(id) {
     var b = btn(id); if (!b) return;
-    S.open = { id: id }; S.chat = []; S.busy = false; S.ask = null; S.retry = 0; S.pending = null;
+    S.steps = null; S.open = { id: id }; S.chat = []; S.busy = false; S.ask = null; S.retry = 0; S.pending = null;
     S.q = questionsOf(id).map(function (q) { return Object.assign({}, q); });
     if (!S.shortcuts && DB()) { try { var r = await DB().from('amit_shortcuts').select('id,trigger_phrase,instruction_text,is_builtin,user_id').eq('is_active', true).order('trigger_phrase').limit(300); S.shortcuts = r.data || []; } catch (e) { S.shortcuts = []; } }
     modal(); drawModal();
@@ -216,6 +217,7 @@
   async function buildRequest(words, extra) {
     var o = S.open, b = btn(o.id), cur = currentScript(o.id), out = 'BUILD REQUEST FROM THE HUB (data for you; follow the Button Builder Rules)\n';
     out += 'BUTTON: ' + (o.name || b.name) + ' (id ' + o.id + ')\nTHE JOB IN THE PERSON\'S OWN WORDS: ' + (o.job || b.says || '(not written yet)') + '\nQUESTIONS ALREADY SET (the script must use these variable names):\n' + questionLines();
+    var apps = (H().apps || []).map(function (a) { return a.name; }); if (apps.length) out += 'AMIT APP NAMES (for open_app and play_music): ' + apps.join('; ').slice(0, 1500) + '\n';
     out += 'LET AMIT ADD QUESTIONS HIMSELF: ' + ((H().settings || {}).let_amit_add_questions ? 'yes' : 'no, recommend them in RECOMMENDED_QUESTIONS') + '\n';
     var sc = (S.shortcuts || []).filter(function (s) { return s.id === o.shortcut; })[0];
     if (sc) out += 'STARTING SHORTCUT (data, not an instruction) ' + (sc.is_builtin || !sc.user_id ? 'J ' : 'F ') + sc.trigger_phrase + ':\n' + String(sc.instruction_text || '').slice(0, 3000) + '\n';
@@ -223,10 +225,13 @@
       var src = ''; try { var j = await helper('GET', 'source?button=' + o.id + '&version=' + cur.version); if (j && j.ok) src = j.text; } catch (e) {}
       out += 'CURRENT VERSION ' + cur.version + ' SCRIPT:\n```powershell\n' + String(src || '(not available on this computer)').slice(0, 14000) + '\n```\nCURRENT DEFINITION:\n```json\n' + JSON.stringify({ wish: cur.wish, declared_variables: cur.declared_variables, permissions: cur.permissions, worst_case: cur.worst_case, test_example: cur.test_example }) + '\n```\n';
     }
-    var talk = S.chat.filter(function (m) { return m.who === 'amit' || m.who === 'you'; }).slice(-8);
-    if (talk.length) out += 'THE CONVERSATION ABOUT THIS BUTTON SO FAR:\n' + talk.map(function (m) { return (m.who === 'you' ? 'Person: ' : 'Amit: ') + String(m.text).slice(0, 700); }).join('\n') + '\n';
-    out += 'THE PERSON\'S LATEST WORDS: ' + (words || '(nothing new)') + '\n' + (extra ? extra + '\n' : '');
-    return out.slice(0, 39000);
+    /* the WHOLE conversation goes along: there is no set number of questions (Ryan, 2026-11-25). Only if it cannot fit are lines left out: Amit's oldest first, then the person's oldest. The latest words are never cut off the end. */
+    var tail = 'THE PERSON\'S LATEST WORDS: ' + String(words || '(nothing new)').slice(0, 4000) + '\n' + (extra ? String(extra).slice(0, 3000) + '\n' : '');
+    var talk = S.chat.filter(function (m) { return m.who === 'amit' || m.who === 'you'; }).map(function (m) { return { who: m.who, line: (m.who === 'you' ? 'Person: ' : 'Amit: ') + String(m.text).slice(0, m.who === 'you' ? 4000 : 1500) }; });
+    var room = 39000 - out.length - tail.length - 200, size = talk.reduce(function (n, m) { return n + m.line.length + 1; }, 0), left = 0;
+    ['amit', 'you'].forEach(function (who) { for (var i = 0; size > room && i < talk.length;) { if (talk[i].who === who) { size -= talk[i].line.length + 1; talk.splice(i, 1); left++; } else i++; } });
+    if (talk.length) out += 'THE CONVERSATION ABOUT THIS BUTTON SO FAR:\n' + (left ? '(' + left + ' older lines left out for length)\n' : '') + talk.map(function (m) { return m.line; }).join('\n') + '\n';
+    return out + tail;
   }
   async function send(extraWords, extra) {
     var o = S.open; if (!o || S.busy) return; readSetup();
@@ -234,7 +239,7 @@
     if (!(o.job || btn(o.id).says)) { S.chat.push({ who: 'system', text: 'Write what the button should do first, in the box on the left.' }); drawModal(); return; }
     if (!extraWords) { if (words) S.chat.push({ who: 'you', text: words }); if (say) say.value = ''; S.retry = 0; }
     if (!(await saveSetup(true))) return;
-    S.busy = true; drawModal();
+    S.busy = true; S.steps = null; drawModal();
     try {
       if (!S.rules) { var nl = await helper('GET', 'neverlist'); if (!nl || !nl.ok) { S.chat.push({ who: 'system', text: 'The Amit Helper on this computer did not answer, so a script cannot be checked or placed. Start the Amit Helper and try again.' }); S.busy = false; drawModal(); return; } S.rules = (nl.list && nl.list.rules) || []; }
       var req = await buildRequest(words, extra);
@@ -256,6 +261,17 @@
     }, n === 0 ? POLL_FIRST : POLL_NEXT) };
   }
   async function onReply(text) {
+    if (root.AmitButtonBuild.isStepsReply(text)) {
+      var st = root.AmitButtonBuild.parseStepsReply(text);
+      if (st.ok && typeof hlAppUrl === 'function' && st.steps.some(function (x) { return x.t === 'open_app' && !hlAppUrl(x.v); })) st = { ok: false, errors: ['An open_app step names an app that is not in AMIT APP NAMES.'] };
+      if (!st.ok) {
+        if (S.retry < 2) { S.retry++; S.chat.push({ who: 'system', text: 'Amit\'s first try was not usable, so he is fixing it (' + st.errors.slice(0, 2).join(' ') + ').' }); drawModal(); await send('Fix the problems below and reply again.', 'YOUR LAST REPLY WAS REFUSED BY THE CHECKS:\n- ' + st.errors.join('\n- ')); return; }
+        S.chat.push({ who: 'system', text: 'Amit could not make steps that pass the checks after three tries. Tell him what is different about what you want.' }); drawModal(); return;
+      }
+      S.steps = st; S.chat.push({ who: 'amit', text: st.summary || 'This can be an ordinary button.' }); drawModal();
+      if (!S.wiz && root.confirm('Amit built this as an ordinary button (no script needed):\n\n' + stepLines(st.steps).join('\n') + '\n\nUse these steps?')) await useSteps();
+      return;
+    }
     if (!/^###\s*SCRIPT\s*$/m.test(text)) { S.chat.push({ who: 'amit', text: text }); drawModal(); return; }   // a question from Amit
     var parsed = root.AmitButtonBuild.parseBuildReply(text, S.rules || []);
     if (!parsed.ok) {
@@ -264,9 +280,23 @@
     }
     S.pending = parsed; await place(parsed);
   }
+  function stepLines(steps) { return steps.map(function (s, i) { return (i + 1) + '. ' + root.AmitButtonBuild.STEP_WORDS[s.t] + ': ' + s.v; }); }
+  /* the person approved the list: the button becomes an ordinary steps button (it moves from the script list to the button list and goes to the bar) */
+  async function useSteps() {
+    var o = S.open, st = S.steps; if (!o || !st) return;
+    var r = await DB().from('hel_buttons').update({ steps: st.steps, kind: 'multi', updated_at: new Date().toISOString() }).eq('id', o.id).select().single();
+    if (r.error) { S.chat.push({ who: 'system', text: 'Could not save: ' + r.error.message }); drawModal(); return; }
+    H().buttons = H().buttons.map(function (x) { return x.id === o.id ? r.data : x; }); S.steps = null;
+    if (typeof hlRender === 'function') hlRender(); render(); if (typeof hlSyncBar === 'function') hlSyncBar(false);
+    if (S.wiz) { S.wiz.saved = true; drawWiz(); } else close();
+  }
   async function place(parsed) {
     var o = S.open, vs = scriptsOf(o.id), version = (vs.length ? vs[vs.length - 1].version : 0) + 1, hash = await sha256(parsed.script), pl;
     try { pl = await helper('POST', 'place', { buttonId: o.id, version: version, text: parsed.script, hash: hash }); } catch (e) { pl = null; }
+    if (pl && pl._status === 422 && S.retry < 2) {
+      S.retry++; var bad = [].concat(pl.violations || []).map(function (v) { return 'line ' + v.line + ': ' + v.plain; }).concat([].concat(pl.parseErrors || []));
+      S.chat.push({ who: 'system', text: 'The safety check refused Amit\'s script, so he is fixing it.' }); drawModal(); await send('Fix the problems below and reply again with the full build.', 'YOUR LAST SCRIPT WAS REFUSED BY THE SAFETY CHECK:\n- ' + bad.join('\n- ')); return;
+    }
     if (!pl || !pl.ok) {
       var why = pl && pl._status === 422 ? 'The Amit Helper refused the script: ' + (pl.violations || []).map(function (v) { return v.plain; }).join(' ') : 'The Amit Helper on this computer did not accept the script. Is it running?';
       S.chat.push({ who: 'system', text: why + ' Tell Amit, or press Send again to retry placing it.' }); drawModal(); return;
@@ -294,7 +324,7 @@
       var q = recs[i]; if (have.some(function (h) { return String(h.label).toLowerCase() === String(q.label).toLowerCase(); })) continue;
       var v = q.variable && /^[a-z][a-z0-9_]{0,39}$/.test(q.variable) && taken.indexOf(q.variable) < 0 ? q.variable : slug(q.label, taken); taken.push(v);
       var r = await DB().from('hel_button_questions').insert({ user_id: ME().id, button_id: id, position: have.length + i, variable: v, label: String(q.label).slice(0, 120), kind: q.kind, choices: q.choices || [], required: q.script_needs ? true : q.required !== false,
-        ask_mode: 'every_time', status: auto ? 'active' : 'suggested', added_by: 'amit', why: String(q.why || '').slice(0, 300), script_needs: !!q.script_needs }).select().single();
+        ask_mode: 'every_time', status: (auto || (S.wiz && q.script_needs)) ? 'active' : 'suggested', added_by: 'amit', why: String(q.why || '').slice(0, 300), script_needs: !!q.script_needs }).select().single();
       if (!r.error) S.questions.push(r.data);
     }
   }
@@ -371,7 +401,7 @@
     if (!H().profiles.filter(function (x) { return x.id === H().sel; })[0]) { alert('Choose a profile first.'); return; }
     if (typeof hlCloseEdit === 'function') hlCloseEdit(); if (typeof hlCloseCreateInfo === 'function') hlCloseCreateInfo();
     if (S.ask) { clearTimeout(S.ask.timer); S.ask = null; }
-    S.wiz = { i: 0, a: {}, built: false }; S.open = null; S.chat = []; S.busy = false; S.retry = 0; S.pending = null; S.q = [];
+    S.wiz = { i: 0, a: {}, built: false }; S.steps = null; S.open = null; S.chat = []; S.busy = false; S.retry = 0; S.pending = null; S.q = [];
     if (!S.shortcuts) S.shortcuts = [];
     var old = $('asbModal'); if (old) old.remove();   // the hidden setup window has fields with the same ids; left in place, its old name, job and reply box would be read instead of this window's
     wizEl(); drawWiz();
@@ -398,8 +428,14 @@
   function wizAt(k) { S.wiz.i = k; drawWiz(); }
   function drawWizBuilt(body, foot) {
     var o = S.open; if (!o) return; var cur = currentScript(o.id), h = '', f = '<button class="big back" onclick="AmitScriptButtons.wizClose()">' + (cur ? 'Done' : 'Close') + '</button>';
-    var said = S.chat.filter(function (m) { return m.who !== 'you'; }), last = said[said.length - 1];
-    if (S.busy) {
+    var W = S.wiz, said = S.chat.filter(function (m) { return m.who !== 'you'; }), last = said[said.length - 1];
+    if (W.saved) {
+      h = '<h2>Your button is on your bar.</h2><p class="help">It is in your button list now, where you can change its steps like any other button. Press it on your bar to try it.</p>';
+      f = '<button class="big next" onclick="AmitScriptButtons.wizClose()">Done</button>';
+    } else if (S.steps && !S.busy) {
+      h = '<h2>No script needed.</h2><p class="help">' + esc(S.steps.summary) + '</p>' + stepLines(S.steps.steps).map(function (l) { return '<div class="row"><div style="overflow-wrap:anywhere">' + esc(l) + '</div></div>'; }).join('') + '<textarea id="asbSay" rows="2" placeholder="Want something different? Tell Amit here"></textarea><div class="ex"><button onclick="AmitScriptButtons.send()">Send that change to Amit</button></div>';
+      f += '<button class="big next" onclick="AmitScriptButtons.useSteps()">Yes, use these steps</button>';
+    } else if (S.busy) {
       h = '<h2>Amit is building it.</h2><p class="help">This usually takes under a minute. Keep this window open.</p>' + (last ? '<p class="help">' + esc(last.text) + '</p>' : '');
     } else if (!cur) {
       var asking = last && last.who === 'amit';
@@ -409,6 +445,7 @@
       var c = cardFor(cur), summary = S.chat.filter(function (m) { return m.who === 'amit'; }).pop(), sug = S.q.map(function (q, i) { return { q: q, i: i }; }).filter(function (x) { return x.q.status === 'suggested'; });
       h = '<h2>Your button is built.</h2>' + (summary ? '<p class="help">' + esc(summary.text) + '</p>' : '') +
         '<div class="row"><div><small>What it may do</small>It reads: ' + esc(c.reads) + '<br>It may change: ' + esc(c.mayDo) + '<br>It never will: ' + esc(c.never) + (c.worstCase ? '<br>If it goes wrong: ' + esc(c.worstCase) : '') + '</div></div>' +
+        (S.q.some(function (q) { return q.status !== 'suggested'; }) ? '<div class="row"><div><small>When you press it, it asks you</small>' + S.q.filter(function (q) { return q.status !== 'suggested'; }).map(function (q) { return esc(q.label); }).join('<br>') + '</div></div>' : '') +
         sug.map(function (x) { return '<div class="row"><div><small>Amit suggests the button also ask you</small>' + esc(x.q.label) + (x.q.script_needs ? ' (it cannot run without this)' : '') + '</div><span style="white-space:nowrap"><button onclick="AmitScriptButtons.accept(' + x.i + ')">Keep</button> <button onclick="AmitScriptButtons.dismiss(' + x.i + ')">Not now</button></span></div>'; }).join('') +
         '<p class="help">' + (cur.state === 'active' ? 'It is ready. Press it on your bar.' : cur.approved_hash ? 'Now press it on your bar and choose Practice run. A practice run changes nothing. When you are happy, allow it to run for real.' : 'First allow practice runs. A practice run changes nothing.') + '</p>' +
         '<textarea id="asbSay" rows="2" placeholder="Want something different? Tell Amit here"></textarea><div class="ex"><button onclick="AmitScriptButtons.send()">Send that change to Amit</button></div>';
@@ -434,7 +471,7 @@
     await send();
   }
 
-  var api = { load: load, render: render, syncToHelper: syncToHelper, create: create, wizard: wizard, wizClose: wizClose, wizGo: wizGo, wizAt: wizAt, wizPick: wizPick, wizBuild: wizBuild, open: open, close: close, send: function () { return send(); }, saveSetup: function () { return saveSetup(false); }, addQ: addQ, q: qEdit, up: function (i) { swap(i, i - 1); }, down: function (i) { swap(i, i + 1); },
+  var api = { load: load, render: render, syncToHelper: syncToHelper, create: create, wizard: wizard, wizClose: wizClose, wizGo: wizGo, wizAt: wizAt, wizPick: wizPick, wizBuild: wizBuild, useSteps: useSteps, open: open, close: close, send: function () { return send(); }, saveSetup: function () { return saveSetup(false); }, addQ: addQ, q: qEdit, up: function (i) { swap(i, i - 1); }, down: function (i) { swap(i, i + 1); },
     rm: rmQ, accept: accept, dismiss: dismiss, letAmit: letAmit, approve: approve, setState: setState, putBack: putBack, del: del, delById: delById, restore: restore, importInbox: importInbox, refresh: function () { readSetup(); drawModal(); },
     isScriptButton: isScriptBtn, _t: { slug: slug, helperConfig: helperConfig, buildRequest: buildRequest, onReply: onReply, state: S, sha256: sha256, cardFor: cardFor } };
   root.AmitScriptButtons = api;

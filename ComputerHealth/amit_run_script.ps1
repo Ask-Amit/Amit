@@ -65,6 +65,12 @@ if ($null -eq $res -or -not $res.ok) {
     exit 0
 }
 
+# a script that opens websites is marked by the check itself; for it, reading files and the clipboard are switched off whatever the button's settings say
+$isWeb = [bool]($res.PSObject.Properties['websites'] -and $res.websites)
+$job | Add-Member -NotePropertyName websiteMode -NotePropertyValue $isWeb -Force
+if ($isWeb) { foreach ($n in @('reads', 'clipboard')) { $job.permissions | Add-Member -NotePropertyName $n -NotePropertyValue $false -Force } }
+[System.IO.File]::WriteAllText($JobPath, ($job | ConvertTo-Json -Depth 12), (New-Object System.Text.UTF8Encoding($false)))
+
 # 3. start the script in a hidden child
 $limit = 60
 if ($job.permissions.PSObject.Properties['maxSeconds'] -and [int]$job.permissions.maxSeconds -gt 0) { $limit = [int]$job.permissions.maxSeconds }

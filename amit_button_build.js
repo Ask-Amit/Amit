@@ -83,6 +83,12 @@
         res.questions = Array.isArray(q) ? q : [];
       }
     }
+    if (script && /\bOpen-AmitWebsite\b/i.test(script)) {
+      var wp = (def && def.permissions) || {};
+      if (wp.opensWebsites !== true) errors.push('A script that opens websites needs permissions.opensWebsites true.');
+      if (!Array.isArray(wp.websites)) errors.push('A script that opens websites needs permissions.websites: the list of site names it opens (it may be empty when the person types the site).');
+      if (wp.reads === true || wp.clipboard === true || /\b(Read-AmitFile|Get-AmitClipboardText|Set-AmitClipboardText)\b/i.test(script)) errors.push('A button that opens websites may not read files or use the clipboard.');
+    }
     res.summary = String(sec.SUMMARY || '').trim();
     if (!res.summary) warnings.push('The reply has no plain-words summary for the person.');
     if (script) {
@@ -93,7 +99,28 @@
     return res;
   }
 
-  var api = { scanScript: scanScript, parseBuildReply: parseBuildReply, KINDS: KINDS };
+  /* ORDINARY STEPS (2026-11-25): when the whole job is things the ordinary buttons already do, Amit replies ### STEPS + ### SUMMARY and no script is written. Same safe types the Hub's paste box allows Amit. */
+  var STEP_WORDS = { open_url: 'Open a website', open_app: 'Open an Amit app', open_program: 'Open a program', play_music: 'Play music', speak: 'Say', ask_amit: 'Ask Amit', wait: 'Wait (seconds)' };
+  function isStepsReply(text) { return /^###\s*STEPS\s*$/m.test(String(text)); }
+  function parseStepsReply(text) {
+    var errors = [], steps = [], parts = String(text).split(/^###\s*(STEPS|SUMMARY)\s*$/m), sec = {}, i, data = null;
+    for (i = 1; i < parts.length; i += 2) sec[parts[i]] = parts[i + 1] || '';
+    try { data = JSON.parse(fenced(sec.STEPS) || String(sec.STEPS || '').trim()); } catch (e) { errors.push('The steps block is not valid JSON.'); }
+    var list = data && (Array.isArray(data) ? data : data.steps);
+    if (data && (!Array.isArray(list) || !list.length || list.length > 12)) errors.push('There must be 1 to 12 steps.');
+    else if (list) list.forEach(function (s, n) {
+      var t = s && s.t, v = s && s.v != null ? String(s.v).trim() : '';
+      if (!Object.prototype.hasOwnProperty.call(STEP_WORDS, t) || !v) { errors.push('Step ' + (n + 1) + ' is not one of the safe steps.'); return; }
+      if (t === 'open_url' && !/^https:\/\/[^\s]+$/i.test(v)) errors.push('Step ' + (n + 1) + ' must be a full website address starting with https://.');
+      if (t === 'wait' && !(Number(v) >= 1 && Number(v) <= 60)) errors.push('Step ' + (n + 1) + ' must wait 1 to 60 seconds.');
+      if (t === 'open_program' && /[:\\\/]|\.(ps1|bat|cmd|vbs|js)\b|\s-{1,2}\w/i.test(v)) errors.push('Step ' + (n + 1) + ' must be a program name as the Start menu shows it.');
+      if (v.length > 300) errors.push('Step ' + (n + 1) + ' is too long.');
+      steps.push({ t: t, v: v });
+    });
+    return { ok: !errors.length && !!steps.length, errors: errors, steps: steps, summary: String(sec.SUMMARY || '').trim() };
+  }
+
+  var api = { scanScript: scanScript, parseBuildReply: parseBuildReply, isStepsReply: isStepsReply, parseStepsReply: parseStepsReply, STEP_WORDS: STEP_WORDS, KINDS: KINDS };
   if (typeof module !== 'undefined' && module.exports) {
     api.fingerprint = function (text) { return require('crypto').createHash('sha256').update(Buffer.from(String(text), 'utf8')).digest('hex').toUpperCase(); };
     module.exports = api;

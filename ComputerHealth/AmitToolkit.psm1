@@ -16,6 +16,8 @@ $script:Job = $null
 $script:R = $null
 $script:Done = @{}
 $script:Draft = 0
+$script:Said = (New-Object System.Collections.ArrayList)
+$script:Opened = 0
 
 function New-AmitError {
     param([string]$Kind, [string]$Plain)
@@ -54,6 +56,8 @@ function Initialize-AmitJob {
     }
     $script:Done = @{}
     $script:Draft = 0
+    $script:Said = (New-Object System.Collections.ArrayList)
+    $script:Opened = 0
     $doneFile = Join-Path $script:Job.dirs.state 'done.json'
     if (Test-Path -LiteralPath $doneFile) {
         try {
@@ -67,7 +71,7 @@ function Initialize-AmitJob {
         mode       = [string]$script:Job.mode
         startedAt  = (Get-Date).ToString('o')
         finishedAt = $null
-        counts     = [ordered]@{ read = 0; drafted = 0; sent = 0; changed = 0; actions = 0 }
+        counts     = [ordered]@{ read = 0; drafted = 0; sent = 0; changed = 0; actions = 0; opened = 0 }
         finished   = (New-Object System.Collections.ArrayList)
         notDone    = (New-Object System.Collections.ArrayList)
         wouldHave  = (New-Object System.Collections.ArrayList)
@@ -131,7 +135,7 @@ function Add-AmitWouldHave {
     $item = [ordered]@{ kind = $Kind; detail = $Detail }
     [void]$script:R.wouldHave.Add($item)
     $script:R.counts.actions = $script:R.counts.actions + 1
-    if ($Kind -eq 'send') { $script:R.counts.sent = $script:R.counts.sent + 1 } elseif ($Kind -eq 'draft') { $script:R.counts.drafted = $script:R.counts.drafted + 1 } else { $script:R.counts.changed = $script:R.counts.changed + 1 }
+    if ($Kind -eq 'open') { $script:R.counts.opened = $script:R.counts.opened + 1 } elseif ($Kind -eq 'send') { $script:R.counts.sent = $script:R.counts.sent + 1 } elseif ($Kind -eq 'draft') { $script:R.counts.drafted = $script:R.counts.drafted + 1 } else { $script:R.counts.changed = $script:R.counts.changed + 1 }
     Save-AmitProgress
 }
 
@@ -226,6 +230,44 @@ function Send-AmitMessage {
     throw (New-AmitError 'no_transport' 'This computer has no connected mail account yet, so nothing was sent. The button can prepare messages for you instead.')
 }
 
+# true when the person typed this site themselves, in an answer to the button at this press
+function Test-AmitSaid {
+    param([string]$HostName)
+    $h = $HostName.ToLower() -replace '^www\.', ''
+    $rx = '(^|[\s/@,;(])(www\.)?' + [regex]::Escape($h) + '($|[\s/:?#,;)])'
+    $all = New-Object System.Collections.ArrayList
+    if ($null -ne $script:Job.answers) { foreach ($p in $script:Job.answers.PSObject.Properties) { [void]$all.Add(([string]$p.Value).ToLower()) } }
+    foreach ($s in $script:Said) { [void]$all.Add(([string]$s).ToLower()) }
+    foreach ($a in $all) { if ([regex]::IsMatch($a, $rx)) { return $true } }
+    return $false
+}
+
+# Opens ONE secure web page in the person's browser. Only https; only a site the person approved on the button's card, or a site they typed themselves at this press.
+function Open-AmitWebsite {
+    param([Parameter(Mandatory = $true)][string]$Url)
+    if (-not [bool](Get-AmitProp $script:Job 'websiteMode' $false)) { throw (New-AmitError 'not_permitted' 'This button was not cleared to open websites.') }
+    if (-not [bool](Get-AmitProp $script:Job.permissions 'opensWebsites' $false)) { throw (New-AmitError 'not_permitted' 'This button was not given permission to open websites.') }
+    $u = ([string]$Url).Trim()
+    if ($u -and $u -notmatch '^[a-zA-Z][a-zA-Z0-9+.\-]*:') { $u = 'https://' + $u }
+    $uri = $null
+    if ($u.Length -gt 2000 -or $u -match '[\s"<>\\^\x60{|}]' -or -not [System.Uri]::TryCreate($u, [System.UriKind]::Absolute, [ref]$uri)) { throw (New-AmitError 'bad_website' ('"' + $Url + '" is not a web address, so it was not opened.')) }
+    $hn = $uri.DnsSafeHost.ToLower()
+    if ($uri.Scheme -ne 'https' -or $uri.UserInfo -or [string]$uri.HostNameType -ne 'Dns' -or $hn -notmatch '\.[a-z]{2,}$' -or $hn -match '\.(local|internal|lan|home)$') { throw (New-AmitError 'bad_website' ('Only ordinary secure websites (https) are opened. "' + $Url + '" was not.')) }
+    $ok = $false
+    foreach ($s in @(Get-AmitProp $script:Job.permissions 'websites' @())) {
+        $a = (([string]$s).ToLower() -replace '^https://', '' -replace '/.*$', '') -replace '^www\.', ''
+        if ($a -match '\.' -and ($hn -eq $a -or $hn.EndsWith('.' + $a))) { $ok = $true }
+    }
+    if (-not $ok -and (Test-AmitSaid $hn)) { $ok = $true }
+    if (-not $ok) { throw (New-AmitError 'website_not_approved' ('This button may not open ' + $hn + '. It opens only the sites you approved, or one you type yourself.')) }
+    Test-AmitLimit
+    if ($script:Opened -ge 10) { throw (New-AmitError 'limit_reached' 'It reached its limit of 10 websites for one press, so it stopped.') }
+    $script:Opened = $script:Opened + 1
+    if (Test-AmitPractice) { Add-AmitWouldHave 'open' ('Open ' + $uri.AbsoluteUri); return }
+    if (-not $env:AMIT_TEST_NO_BROWSER) { Start-Process $uri.AbsoluteUri }
+    Register-AmitAction 'opened' ('Opened ' + $uri.AbsoluteUri)
+}
+
 function Show-AmitNotice {
     param([Parameter(Mandatory = $true)][string]$Text)
     [void]$script:R.notices.Add($Text)
@@ -277,6 +319,7 @@ function Request-AmitAnswer {
             Start-Sleep -Milliseconds 100
             $a = [System.IO.File]::ReadAllText($ans, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
             [System.IO.File]::Delete($ans); [System.IO.File]::Delete($ask)
+            [void]$script:Said.Add([string]$a.answer)
             return [string]$a.answer
         }
         Start-Sleep -Milliseconds 200
@@ -289,6 +332,7 @@ function Get-AmitSummary {
     switch ($script:R.outcome) {
         'done' {
             if ($script:R.mode -eq 'practice') { return 'Practice finished. Nothing was changed or sent. ' + $script:R.wouldHave.Count + ' thing(s) are ready.' }
+            if ($c.opened -gt 0) { return 'Done. Opened ' + $c.opened + ' website(s).' }
             return 'Done. Read ' + $c.read + ', changed ' + $c.changed + ', prepared ' + $c.drafted + ', sent ' + $c.sent + '.'
         }
         'limit_reached' { return 'It stopped at its limit. ' + $c.actions + ' thing(s) were done; nothing more.' }
@@ -309,4 +353,4 @@ function Complete-AmitJob {
     Write-AmitLog ('end ' + $Outcome)
 }
 
-Export-ModuleMember -Function Initialize-AmitJob, Complete-AmitJob, Test-AmitPractice, Get-AmitAnswer, Read-AmitFile, Write-AmitFile, New-AmitDraft, Send-AmitMessage, Show-AmitNotice, Get-AmitClipboardText, Set-AmitClipboardText, Test-AmitDone, Add-AmitDone, Request-AmitAnswer
+Export-ModuleMember -Function Initialize-AmitJob, Complete-AmitJob, Test-AmitPractice, Get-AmitAnswer, Read-AmitFile, Write-AmitFile, New-AmitDraft, Send-AmitMessage, Show-AmitNotice, Get-AmitClipboardText, Set-AmitClipboardText, Test-AmitDone, Add-AmitDone, Request-AmitAnswer, Open-AmitWebsite

@@ -149,12 +149,29 @@ function chatText(){ var c=document.getElementById('asbChat'); return c?c.innerT
     ok(await waitFor(function(){ return /Amit has a question/.test(W())&&/Where should the note be kept/.test(W()); },8000),'a question from Amit shows large with its own answer box');
     var wb=TABLES.hel_buttons[TABLES.hel_buttons.length-1];
     ok(TABLES.hel_buttons.length===nb+1&&wb.name==='Wizard note'&&/Save a quick note/.test(wb.says)&&TABLES.hel_button_questions.some(function(q){ return q.button_id===wb.id&&q.label==='What should the note say?'; }),'Yes saves the button, the job and the press-time question');
-    REPLIES.push(goodReply([])); document.getElementById('asbSay').value='In the work folder.'; await A.send();
+    var said=['In the work folder.'];
+    for(var q=2;q<=7;q++){ REPLIES.push('Question number '+q+'?'); document.getElementById('asbSay').value=said[said.length-1]; await A.send(); await waitFor(function(){ return W().indexOf('Question number '+q+'?')>=0&&document.getElementById('asbSay'); },8000); said.push('Answer number '+q+'.'); }
+    REPLIES.push(goodReply([])); document.getElementById('asbSay').value=said[said.length-1]; await A.send();
     ok(await waitFor(function(){ return /Your button is built/.test(W()); },12000),'after the answer the button is built and the window says so');
-    ok(/Where should the note be kept/.test(REQUESTS[REQUESTS.length-1])&&/In the work folder/.test(REQUESTS[REQUESTS.length-1]),'Amit gets his own question together with the answer');
+    ok(/Where should the note be kept/.test(REQUESTS[REQUESTS.length-1])&&said.every(function(a){ return REQUESTS[REQUESTS.length-1].indexOf(a)>=0; }),'after seven questions Amit still gets the first question and every answer');
     document.querySelector('#asbWiz .foot .next').click();
     ok(await waitFor(function(){ return /Allow it to run for real/.test(document.getElementById('asbWFoot').innerText); },6000),'allowing practice runs moves on to Allow it to run for real');
     A.wizClose(); ok(document.getElementById('asbWiz').style.display==='none','Done closes the window');
+    /* a job the ordinary steps can do: no script is written */
+    A.wizard(); A.wizPick(0); A.wizGo(1); A.wizPick(0); A.wizGo(1); A.wizPick(0); A.wizGo(1); A.wizGo(1); A.wizGo(1);
+    var sn=document.getElementById('asbWIn'); sn.value='startup'; sn.oninput(); A.wizGo(1);
+    var scripts0=TABLES.hel_button_scripts.length;
+    REPLIES.push('### STEPS\n'+'\x60\x60\x60json\n{"steps":[{"t":"open_url","v":"file:///c:/x"}]}\n\x60\x60\x60\n### SUMMARY\nbad');
+    REPLIES.push('### STEPS\n'+'\x60\x60\x60json\n{"steps":[{"t":"open_url","v":"https://www.youtube.com/results?search_query=a"},{"t":"wait","v":"2"},{"t":"open_url","v":"https://example.com/p.jpg"}]}\n\x60\x60\x60\n### SUMMARY\nOpens two websites.');
+    await A.wizBuild();
+    ok(await waitFor(function(){ return /No script needed/.test(W()); },12000),'ordinary steps come back as a list to approve; an unsafe address was sent back to be fixed first');
+    var sb=TABLES.hel_buttons[TABLES.hel_buttons.length-1];
+    ok(sb.steps[0].t==='run_script'&&/Open a website: https:\/\/example\.com\/p\.jpg/.test(W()),'nothing changes until the person says yes');
+    document.querySelector('#asbWiz .foot .next').click();
+    ok(await waitFor(function(){ return /on your bar/.test(W()); },6000),'yes saves the button');
+    sb=TABLES.hel_buttons.filter(function(b){ return b.id===sb.id; })[0];
+    ok(sb.steps.length===3&&sb.steps[0].t==='open_url'&&TABLES.hel_button_scripts.length===scripts0&&!A.isScriptButton(sb),'it is now an ordinary button with three steps and no script');
+    A.wizClose();
   }catch(e){ ok(false,'ERROR: '+e.message+' '+(e.stack||'').split('\n')[1]); }
   window.__done=true;
 })();
