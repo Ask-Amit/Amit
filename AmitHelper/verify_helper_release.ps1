@@ -67,10 +67,10 @@ if ($man) {
   # 6. the updater must allow every file the manifest names, and the installed updater must be the current one
   $ut = Join-Path $watch 'amit_update.ps1'
   if (Test-Path $ut) {
-    $line = ([System.IO.File]::ReadAllLines($ut) | Where-Object { $_ -match '^\$allowed\s*=' } | Select-Object -First 1)
-    $names = @(); if ($line) { $names = [regex]::Matches($line, "'([^']+)'") | ForEach-Object { $_.Groups[1].Value } }
-    $notAllowed = @(); foreach ($e in $man.files) { if ($names -notcontains [string]$e.name) { $notAllowed += [string]$e.name } }
-    if ($names.Count -gt 0 -and $notAllowed.Count -eq 0) { Pass "the updater allows every file the manifest names" } else { Fail ("the updater would REFUSE this manifest, it does not allow: " + ($notAllowed -join ', ') + " (add them to `$allowed in amit_update.ps1 AND copy the updater to the installed folder once by hand)") }
+    $ut2 = [System.IO.File]::ReadAllText($ut)
+    $sn = [regex]::Match($ut2, '(?m)^\$safeName = ''([^'']+)'''); $pn = [regex]::Match($ut2, '(?m)^\$personal = ''([^'']+)''')
+    $notAllowed = @(); foreach ($e in $man.files) { $n = [string]$e.name; if (-not $sn.Success -or -not $pn.Success -or $n -notmatch $sn.Groups[1].Value -or $n -match $pn.Groups[1].Value) { $notAllowed += $n } }
+    if ($sn.Success -and $notAllowed.Count -eq 0) { Pass "the updater allows every file the manifest names (new files need no change to the updater)" } else { Fail ("the updater would REFUSE this manifest, it does not allow: " + ($notAllowed -join ', ')) }
   } else { Fail "amit_update.ps1 not found in the source" }
 }
 

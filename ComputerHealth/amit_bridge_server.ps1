@@ -168,6 +168,16 @@ try {
 # tracker is running. If this bridge is running, Amit Mobile is
 # listening. Nothing else to start by hand.
 $amitMobileStopFlag = "$env:TEMP\amit_mobile_stop.flag"
+# THE HELPER KEEPS ITSELF CURRENT (2026-11-25, Ryan): a small hidden loop runs the updater 90 seconds after this program starts and every 6 hours, whether or not anyone opens the Hub.
+# The updater replaces only what is missing or different, never goes backwards, never interrupts a person who is busy, and puts the old files back if the new ones do not start.
+try {
+    $selfUpdater = Join-Path $watcherDir 'amit_update.ps1'
+    if ((Test-Path $selfUpdater) -and -not $env:AMIT_NO_SELF_UPDATE -and ($watcherDir -like (Join-Path $env:LOCALAPPDATA 'AmitComputerHealth') + '*')) {
+        $loop = "`$parent = " + $PID + "; Start-Sleep -Seconds 90; while (Get-Process -Id `$parent -ErrorAction SilentlyContinue) { & powershell.exe -NoProfile -ExecutionPolicy Bypass -File '" + $selfUpdater.Replace("'", "''") + "'; `$until = (Get-Date).AddHours(6); while ((Get-Date) -lt `$until -and (Get-Process -Id `$parent -ErrorAction SilentlyContinue)) { Start-Sleep -Seconds 60 } }"
+        Start-Process powershell.exe -ArgumentList ('-NoProfile -ExecutionPolicy Bypass -EncodedCommand ' + [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($loop))) -WindowStyle Hidden
+    }
+} catch { Write-Host ('self-update check could not start: ' + $_.Exception.Message) }
+
 $amitMobileWatcherPath = Join-Path $watcherDir "amit_mobile_watcher.ps1"
 try { Remove-Item $amitMobileStopFlag -ErrorAction SilentlyContinue } catch {}
 $alreadyRunning = Get-WmiObject Win32_Process -ErrorAction SilentlyContinue |

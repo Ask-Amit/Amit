@@ -130,3 +130,5 @@ SCOPE NOW: CLAUDE.md's purpose statement and 'Current Status' describe only the 
 - 2026-11-25: standard profiles PUSHED on Ryan’s word (choice 2, with Change my Aurora); Hub v9.19; no Helper rebuild needed (ring menu actions exist since 2.20). Not yet seen on the other computer.
 - 2026-11-25: Aurora profile locked against delete and rename (Hub v9.20; its buttons stay editable). NOT pushed. No database rule added.
 - 2026-11-25: RELEASED on Ryan’s push: Helper 2.30, installer 5.38, Hub v9.20: Aurora profile and its five core buttons cannot be deleted or renamed; the bar adds them on every computer including new installs. Not yet seen on a clean computer.
+- 2026-11-25: UPDATER FIX built (Ryan: must never happen again; few installs, no rescue of old ones needed, reinstall is fine): fixed name list removed (any safe program-file name; never personal files or paths); bridge runs the updater 90 s after start and every 6 h. test_updater.ps1. NOT released (needs Helper 2.31 on Ryan's push).
+- 2026-11-25: RELEASED on Ryan’s word as Helper 2.31, installer 5.39 (self-update fix).

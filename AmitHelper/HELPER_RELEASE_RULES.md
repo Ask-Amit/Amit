@@ -33,6 +33,11 @@ Every computer, wherever it is, updates ITSELF: nobody runs an update. And nothi
 10. Test live: Helper version (`/api/whisper/status`), the routes, the bar button.
 11. Write the notes (see "What this covers").
 
+## The updater must never strand a computer (Ryan, 2026-11-25)
+Helpers older than 2.31 had a fixed list of file names inside the updater and refused EVERY release that added a file, so they stayed old for good (found on a 1.90 computer); those need the installer run once.
+From 2.31 the updater accepts any plain program-file name (never a path, never a person's own settings), replaces whatever is missing or different, and the bridge also runs it 90 seconds after it starts and every 6 hours.
+Never put a fixed list of names back into the updater. A new delivered file still goes into the manifest, status and installer lists.
+
 ## Adding a NEW kind of button step (learned 2026-11-07: it has to be added in ALL of these, or the Hub and the Helper drop it)
 A button's steps travel: Hub editor -> database (`hel_buttons.steps`) -> Hub builds the bar file -> `/api/bar/sync` -> `amit_bar.json` -> the bar (`AmitBar.exe`). The Hub OVERWRITES `amit_bar.json` from the database on every sync, so editing the file by hand does not stick.
 1. DATABASE: only these step types are allowed (`hel_steps_ok`): open_app, open_url, open_program, play_music, speak, ask_amit, wait. A new kind is stored as `open_program` with a coded value (`print:menu`, `audio:{...}`, `settings:id`, `file:token|name`, `preview:open`, `preview:rules`). No database change is needed.

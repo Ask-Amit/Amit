@@ -32,7 +32,12 @@ $stageDir   = Join-Path $amitHome 'update_staging'
 $backupDir  = Join-Path $amitHome 'update_backup'
 
 # the only files this program may ever write, and only into the install folder (no paths, no other names)
-$allowed = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_dictate.html','amit_talk.html','AmitPreview.html','amit_update.ps1','amit_reload.ps1','amit_crash_check.ps1','amit_appcrash.ps1','amit_pad.html','amit_pad_pair.html','AmitBar.cs','AmitToolkit.psm1','never_list.json','amit_script_check.ps1','amit_script_host.ps1','amit_run_script.ps1','amit_script_routes.ps1','AmitScriptPopup.html','amit_claude_run.ps1','amit_claude_hook.ps1','AmitClaudePopup.html')
+# WHICH FILES MAY BE WRITTEN (changed 2026-11-25, Ryan: every Helper must update itself, missing parts and all). A fixed list of names made old helpers refuse EVERY later release that added a file,
+# so they were stuck for good (found: Helper 1.90). Now: any plain program-file name, into the install folder only (no paths), downloaded only from the Amit site and matched to its fingerprint;
+# never a person's own settings or records.
+$safeName = '^[A-Za-z0-9][A-Za-z0-9_.\-]{0,80}\.(ps1|psm1|cs|html|json|js|bat|txt)$'
+$personal = '^(amit_bar|ring_sets|bar_buttons|bar_icons|installed_version|pad_devices|mobile_owner|pad_enabled|preview_versions|update_|device_id|amit_owner|.*config).*'
+function Test-AllowedName([string]$n) { return ($n -match $safeName -and -not $n.Contains('..') -and $n -notmatch $personal) }
 
 function Log([string]$m) { try { Add-Content -Path $logPath -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + ' ' + $m) } catch {} }
 function JsonEsc([string]$s) { if ($null -eq $s) { return '' }; return $s.Replace('\', '\\').Replace('"', '\"').Replace("`r", ' ').Replace("`n", ' ') }
@@ -84,7 +89,7 @@ try {
     if (-not $okBase) { throw 'The published manifest points somewhere that is not the Amit site.' }
     if (-not $baseUrl.EndsWith('/')) { $baseUrl += '/' }
     foreach ($f in $m.files) {
-        if ($allowed -notcontains [string]$f.name -or ([string]$f.name) -notmatch '^[A-Za-z0-9_.\-]+$') { throw ('The manifest names a file this helper never updates: ' + $f.name) }
+        if (-not (Test-AllowedName ([string]$f.name))) { throw ('The manifest names a file this helper never updates: ' + $f.name) }
         if (([string]$f.sha256) -notmatch '^[0-9a-f]{64}$') { throw ('The manifest has no usable fingerprint for ' + $f.name) }
     }
 
