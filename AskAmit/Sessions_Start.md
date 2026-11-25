@@ -71,3 +71,7 @@ Last clean-up: 2026-11-18 16:50 UTC, session f86fc1ad
 - Migration `_049` (Ryan must run it): mode and shot columns, `ask_usage_by_mode`, `ask_usage_by_person`, the bucket and its own-folder policies, `ask_my_history`.
 - Door v1.10 (`door\askamit_visitor_source.js`): `AskAmitDoor.connectSigned(db, userId)` for a signed-in person (history from `ask_my_history`, pictures allowed); visitors see no picture buttons; voice-message and live-transcript buttons hidden for both (the Aurora does dictation). The picture button opens Show Amit through the Helper when it lists `show-amit`, else the picker; Show Amit's pending picture is claimed through the same "seen" mark as the Amit Live window.
 - Helper master edited (`show-amit` menu); NOT released. See to-dos 28 to 32.
+
+
+## 2026-11-24: THE END STATE WAS DECIDED (Ryan)
+Ask Amit is the central engine; the permissions layer lives inside it (Ask_ prefix); everything runs through the person's own Claude with their own plan limits; nothing a person builds can alter the primary side; the button builder is a conversation-first door with a certified, documented build. Full plan and stepping stones: Sessions_Design.md, "THE END STATE AND THE STEPPING STONES". Next: step 1 (survey, then a written design, cost at 1/100/10,000 before any door routes in). Button building stays owner-only until then.

@@ -24,7 +24,7 @@
     if (!/^[a-z]/.test(s)) s = 'q_' + s; s = s.replace(/_+$/, '') || 'q_answer';
     var v = s, n = 2; while (taken.indexOf(v) >= 0) { v = s.slice(0, 36) + '_' + n; n++; } return v;
   }
-  async function sha256(text) { var h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)); return Array.prototype.map.call(new Uint8Array(h), function (x) { return ('0' + x.toString(16)).slice(-2); }).join('').toUpperCase(); }
+  async function sha256(text) { var h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)); return Array.prototype.map.call(new Uint8Array(h), function (x) { return ('0' + x.toString(16)).slice(-2); }).join('').toLowerCase(); }   // lowercase: the database check (hel_button_scripts.file_hash) wants ^[0-9a-f]{64}$; the Helper upper-cases it itself when it compares
   async function helper(method, route, body) {
     var o = { method: method, cache: 'no-store' }; if (body !== undefined) { o.body = JSON.stringify(body); o.headers = { 'Content-Type': 'text/plain' }; }
     var r = await fetch(HELPER + route, o), j = null; try { j = await r.json(); } catch (e) {} if (j) j._status = r.status; return j || { ok: false, error: 'no answer', _status: r.status };
