@@ -140,10 +140,27 @@ function global:As-OpenPopup([string]$id, [string]$token, [string]$pageName = 'A
 # ---- PREMIUM FEATURES: VERIFY THE PERSON'S OWN CLAUDE ACCOUNT (root CLAUDE.md rule, 2026-11-25). Enforced HERE, by the program that runs the feature, never only by the page.
 # The Claude email never leaves this computer: it is compared here and is not returned, written or logged. Only a fingerprint (SHA-256) of the Hub login's own verified email is kept,
 # so a button press (which has no web page) can be checked again against whoever is signed in to Claude at that moment. There is no owner exception.
+# where Claude Code is on this computer: installed on its own, or the copy that comes INSIDE the VS Code extension (a person may have only that one; found missing 2026-11-25). $roots is for the test only.
+function global:As-ClaudeExe($roots = $null) {
+    if ($null -eq $roots) {
+        foreach ($c in @((Join-Path $env:APPDATA 'npm\claude.cmd'), (Join-Path $env:USERPROFILE '.local\bin\claude.exe'))) { if (Test-Path -LiteralPath $c) { return $c } }
+        $g = Get-Command claude -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($g) { return $g.Source }
+        $roots = @((Join-Path $env:USERPROFILE '.vscode\extensions'), (Join-Path $env:USERPROFILE '.vscode-insiders\extensions'))
+    }
+    $found = New-Object System.Collections.ArrayList
+    foreach ($x in $roots) {
+        foreach ($d in @(Get-ChildItem -LiteralPath $x -Directory -Filter 'anthropic.claude-code-*' -ErrorAction SilentlyContinue)) {
+            $e = Join-Path $d.FullName 'resources\native-binary\claude.exe'
+            $v = [version]'0.0.0'; $m = [regex]::Match($d.Name, '^anthropic\.claude-code-([0-9]+\.[0-9]+\.[0-9]+)'); if ($m.Success) { $v = [version]$m.Groups[1].Value }
+            if (Test-Path -LiteralPath $e) { [void]$found.Add(@{ v = $v; p = $e }) }
+        }
+    }
+    if ($found.Count -eq 0) { return $null }
+    return ($found | Sort-Object { $_.v } | Select-Object -Last 1).p
+}
 function global:As-ClaudeStatus {
-    $exe = $null
-    foreach ($c in @((Join-Path $env:APPDATA 'npm\claude.cmd'), (Join-Path $env:USERPROFILE '.local\bin\claude.exe'))) { if (Test-Path -LiteralPath $c) { $exe = $c; break } }
-    if (-not $exe) { $g = Get-Command claude -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1; if ($g) { $exe = $g.Source } }
+    $exe = As-ClaudeExe
     if (-not $exe) { return $null }
     try {
         $psi = New-Object System.Diagnostics.ProcessStartInfo
@@ -252,9 +269,7 @@ function global:As-IsSpiritual([string]$text) {
     return [regex]::IsMatch($text, '(?i)\b(god|gods|yahweh|yhvh|yeshua|jesus|messiah|christ|lord|holy spirit|ruach|scripture|scriptures|bible|biblical|verse|verses|gospel|torah|prophet|prophets|psalm|psalms|genesis|exodus|isaiah|revelation|romans|pray|prays|prayed|praying|prayer|prayers|devotion|devotions|worship|faith|believe|belief|sin|sins|salvation|saved|heaven|hell|sabbath|shabbat|passover|commandment|commandments|hebrew|theology|testimony|church|pastor|spiritual|soul|forgive|forgiven|forgiveness|repent|resurrection|covenant|angel|angels|demon|satan|miracle|grace|mercy|eternal)\b')
 }
 function global:As-ClaudeSay([string]$system, [string]$prompt, [string]$workDir, [string]$model = '') {
-    $exe = $null
-    foreach ($c in @((Join-Path $env:APPDATA 'npm\claude.cmd'), (Join-Path $env:USERPROFILE '.local\bin\claude.exe'))) { if (Test-Path -LiteralPath $c) { $exe = $c; break } }
-    if (-not $exe) { $g = Get-Command claude -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1; if ($g) { $exe = $g.Source } }
+    $exe = As-ClaudeExe
     if (-not $exe) { return @{ ok = $false; text = 'Claude Code was not found.' } }
     if (-not (Test-Path -LiteralPath $workDir)) { [void](New-Item -ItemType Directory -Force -Path $workDir) }
     $sf = Join-Path $workDir ('heart_' + [guid]::NewGuid().ToString('N') + '.md')

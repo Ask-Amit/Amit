@@ -36,6 +36,11 @@ $global:fake = Acct 'stranger@example.com' 'max'; Say ((As-ClaudeAtRun 'user-1')
 $global:hub = @{ id = 'user-1'; email = 'Pat.Person@example.com'; linked = @() }; [void](As-ClaudeChoose 'good')
 $global:fake = Acct 'pat.work@example.com' 'pro'; Say ((As-ClaudeAtRun 'user-1').reason -eq 'email_mismatch') 'after the link is removed and checked again, it is refused'
 $saved = [IO.File]::ReadAllText((Join-Path $root '_claude_check.json')); Say ($saved -notmatch '@') 'still no email written to disk'
+# a computer with only the VS Code extension: the program inside the newest copy is found
+$vs = Join-Path $root 'vsext'
+foreach ($n in 'anthropic.claude-code-2.1.9-win32-x64', 'anthropic.claude-code-2.1.100-win32-x64') { $dir = Join-Path (Join-Path $vs $n) 'resources\native-binary'; [void](New-Item -ItemType Directory -Force $dir); Set-Content -LiteralPath (Join-Path $dir 'claude.exe') -Value x }
+Say ((As-ClaudeExe @($vs)) -match '2\.1\.100') 'Claude inside VS Code is found, newest version'
+Say ($null -eq (As-ClaudeExe @((Join-Path $root 'nothing-here')))) 'no copy anywhere gives nothing'
 ${function:global:As-HubUser} = $realHub
 Say ($null -eq (As-HubUser 'not-a-token') -and $null -eq (As-HubUser 'aaa.bbb.ccc')) 'the real sign-in server refuses a made-up token'
 ${function:global:As-ClaudeStatus} = $realStatus

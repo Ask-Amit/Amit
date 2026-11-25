@@ -5,12 +5,7 @@ param([string]$JobPath)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'amit_script_routes.ps1')
 
-function global:As-ClaudeCommand {
-    foreach ($c in @((Join-Path $env:APPDATA 'npm\claude.cmd'), (Join-Path $env:USERPROFILE '.local\bin\claude.exe'))) { if (Test-Path -LiteralPath $c) { return $c } }
-    $g = Get-Command claude -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($g) { return $g.Source }
-    return $null
-}
+function global:As-ClaudeCommand { return (As-ClaudeExe) }
 function global:As-Turn($state, [string]$status, [string]$text, [int]$n) {
     As-WriteText (Join-Path $state 'turn.json') (As-ToJson (@{ status = $status; text = $text; turn = $n; at = (Get-Date).ToUniversalTime().ToString('o') }))
 }
