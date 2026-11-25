@@ -42,12 +42,25 @@ var AmitOwnClaude = (function () {
     return session(db).then(function (se) {
       if (!se) return false;
       var meta = (se.user && se.user.user_metadata) || {};
+      /* ONCE CONNECTED, ALWAYS THEIRS (Ryan, 2026-11-25): the first full pass switches free answers off for this login in the database; a later failed check never switches them back on */
+      function connectedBefore() {
+        if (meta.own_claude === true) return Promise.resolve(true);
+        return db.from ? db.from('ask_own_accounts').select('user_id').then(function (r) { return !!(r && !r.error && r.data && r.data.length); }, function () { return false; }) : Promise.resolve(false);
+      }
       return call('claude-check', se.access_token, 30000).then(function (j) {
-        if (j === null || j.reason === 'check_failed' || j.reason === 'hub_sign_in') return meta.own_claude === true;   /* no Helper here (a phone), or the check could not be made: what their computer last found */
-        var own = j.allowed === true;
-        if (own !== (meta.own_claude === true) && db.auth.updateUser) db.auth.updateUser({ data: { own_claude: own } }).then(function () {}, function () {});
-        last = { at: Date.now(), own: own, helper: true }; if (own) watch(db);
-        return own;
+        if (j && j.allowed === true) {
+          db.rpc('ask_own_mark').then(function () {}, function () {});
+          if (meta.own_claude !== true && db.auth.updateUser) db.auth.updateUser({ data: { own_claude: true } }).then(function () {}, function () {});
+          last = { at: Date.now(), own: true, helper: true }; watch(db);
+          return true;
+        }
+        return connectedBefore().then(function (before) {
+          /* connected before, but this computer's check fails now: say why. The question waits for their Claude; it is never answered with anyone else's */
+          if (before && j && j.reason !== 'check_failed' && j.reason !== 'hub_sign_in') offer(j.plain);
+          if (j !== null) last = { at: Date.now(), own: before, helper: true };
+          if (before) watch(db);
+          return before;
+        });
       });
     });
   }
@@ -65,7 +78,7 @@ var AmitOwnClaude = (function () {
     o = document.createElement('div'); o.id = 'acxOwnPop'; o.style.cssText = 'position:fixed;inset:0;z-index:100060;background:rgba(4,9,15,.78);display:flex;align-items:center;justify-content:center;padding:14px';
     var box = document.createElement('div'); box.style.cssText = 'background:#fbf6ea;color:#23303c;border-radius:20px;max-width:540px;width:100%;padding:24px 26px;font:21px/1.5 "Segoe UI",system-ui,sans-serif;text-align:left';
     var h = document.createElement('div'); h.textContent = 'Connect my Claude'; h.style.cssText = 'font:700 30px/1.25 "Segoe UI",system-ui,sans-serif;color:#1d3b40;margin-bottom:10px'; box.appendChild(h);
-    var p = document.createElement('div'); p.textContent = String(message || '') + ' With your own paid Claude account connected, there is no Amit limit; your own plan\u2019s limits apply.'; box.appendChild(p);
+    var p = document.createElement('div'); p.textContent = String(message || '') + (/free questions/i.test(String(message || '')) ? ' With your own paid Claude account connected, there is no Amit limit; your own plan\u2019s limits apply.' : ''); box.appendChild(p);
     function b(text, go, fn) { var k = document.createElement('button'); k.type = 'button'; k.textContent = text; k.style.cssText = 'font:650 21px "Segoe UI",sans-serif;border:0;border-radius:14px;padding:13px 22px;cursor:pointer;margin:16px 12px 0 0;background:' + (go ? '#e8964a;color:#231505' : '#e9e1cd;color:#3b4650'); k.onclick = fn; box.appendChild(k); }
     b('Connect my Claude', true, function () { o.remove(); last.at = 0; if (window.AmitScriptButtons && AmitScriptButtons.connectMyClaude) AmitScriptButtons.connectMyClaude(); else window.open(HUB, '_blank', 'noopener'); });
     b('Not now', false, function () { o.remove(); });
@@ -78,7 +91,7 @@ if (typeof window !== 'undefined') window.AmitOwnClaude = AmitOwnClaude;
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.31';
+  var VERSION = 'v0.32';
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
   var SCRIPT_BASE = (function () { var sc = document.currentScript; return sc && sc.src ? sc.src.replace(/[^\/?#]*([?#].*)?$/, '') : ''; })();
 
