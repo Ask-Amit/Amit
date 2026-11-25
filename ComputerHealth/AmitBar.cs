@@ -203,9 +203,34 @@ public class BarForm : Form
     // THE STANDARD BUTTON (Ryan, 2026-11-08): every computer has one standard, locked button, "Amit menu", in the Settings group. It opens the Amit menu and it is what the middle
     // mouse button runs. It is added here, in memory, every time the bar takes in its settings, so it is always there (the Hub's bar file never carries it) and cannot be changed or deleted.
     static List<Step> StdSteps() { List<Step> l = new List<Step>(); Step st = new Step(); st.t = "menu"; st.text = "amit-menu"; l.Add(st); return l; }
+    // THE FIVE AURORA BUTTONS (Ryan, 2026-11-25): the profile "Aurora" with Dictate, Show Amit, Voice, Read and Mobile is on every computer, a new install included, before anyone signs in.
+    // Like "Amit menu" they are added here every time the bar takes in its settings, so they can never be missing. Anything else in the profile is the person's own.
+    static readonly string[][] AuroraCore = new string[][] {
+        new string[] { "ring-dictate", "Dictate", "\uD83C\uDFA4", "Speak and the words are typed where the pointer is." },
+        new string[] { "ring-showamit", "Show Amit", "\uD83D\uDCF8", "Drag over the screen, mark it up and send it to Amit." },
+        new string[] { "ring-voice", "Voice", "\uD83D\uDDE3\uFE0F", "Say a command and Amit runs it." },
+        new string[] { "ring-talk", "Read", "\uD83D\uDD0A", "Amit reads aloud what is selected or copied." },
+        new string[] { "ring-mobile", "Mobile", "\uD83D\uDCF1", "Brings in the photo just sent from your phone." } };
+    static List<Step> MenuSteps(string id) { List<Step> l = new List<Step>(); Step st = new Step(); st.t = "menu"; st.text = id; l.Add(st); return l; }
+    static void EnsureAurora(Cfg c)
+    {
+        Prof a = null; foreach (Prof p in c.profiles) if (String.Equals(OneLine(p.name), "Aurora", StringComparison.OrdinalIgnoreCase)) { a = p; break; }
+        if (a == null) { a = new Prof(); a.name = "Aurora"; a.say = "profile aurora"; c.profiles.Add(a); }
+        for (int i = 0; i < AuroraCore.Length; i++)
+        {
+            string id = AuroraCore[i][0]; bool has = false;
+            foreach (Btn b in a.buttons) if (b.steps != null && b.steps.Count == 1 && b.steps[0].t == "menu" && b.steps[0].text == id) { has = true; break; }
+            if (has) continue;
+            Btn same = null; foreach (Btn b in a.buttons) if (String.Equals(OneLine(b.name), AuroraCore[i][1], StringComparison.OrdinalIgnoreCase)) { same = b; break; }
+            if (same != null) { same.steps = MenuSteps(id); continue; }   // a button with this name that does something else becomes the standard one
+            Btn n = new Btn(); n.name = AuroraCore[i][1]; n.kind = "program"; n.icon = AuroraCore[i][2]; n.desc = AuroraCore[i][3]; n.steps = MenuSteps(id);
+            a.buttons.Insert(Math.Min(i, a.buttons.Count), n);
+        }
+    }
     static void EnsureStandard(Cfg c)
     {
         if (c == null || c.profiles == null) return;
+        EnsureAurora(c);
         Prof s = null; foreach (Prof p in c.profiles) if (OneLine(p.name) == "Settings") { s = p; break; }
         if (s == null) { s = new Prof(); s.name = "Settings"; s.say = "profile settings"; c.profiles.Add(s); }
         foreach (Btn b in s.buttons) if (OneLine(b.name) == "Amit menu") { b.steps = StdSteps(); return; }   // a button someone made with this name becomes the standard one
