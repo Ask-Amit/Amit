@@ -214,6 +214,159 @@ function global:As-ClaudeAtRun([string]$userId) {
     return (As-ClaudeDecide $prints)
 }
 
+# ---- ASK AMIT ON THE PERSON'S OWN CLAUDE (2026-11-25): their questions marked runner='own' are answered here, on their computer, with their Claude and ONLY their login
+# (never a database service key). The account check runs for every question. Amit's current rules are fetched fresh; with no rules there is no answer. The run has NO tools.
+function global:As-Rest([string]$token, [string]$method, [string]$path, $body = $null) {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $rq = [System.Net.HttpWebRequest]::Create('https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/' + $path)
+    $rq.Method = $method; $rq.Timeout = 30000; $rq.ContentType = 'application/json'; $rq.UserAgent = 'amit-helper'
+    $rq.Headers.Add('apikey', 'sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF'); $rq.Headers.Add('Authorization', 'Bearer ' + $token)
+    if ($null -ne $body) { $bytes = [System.Text.Encoding]::UTF8.GetBytes((As-ToJson $body)); $rq.ContentLength = $bytes.Length; $s = $rq.GetRequestStream(); $s.Write($bytes, 0, $bytes.Length); $s.Close() }
+    $rs = $rq.GetResponse()
+    $t = (New-Object System.IO.StreamReader($rs.GetResponseStream(), [System.Text.Encoding]::UTF8)).ReadToEnd(); $rs.Close()
+    if (-not $t) { return $null }
+    return (As-Js).DeserializeObject($t)
+}
+function global:As-WebText([string]$url) {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $w = New-Object System.Net.WebClient; $w.Encoding = [System.Text.Encoding]::UTF8
+    return $w.DownloadString($url + '?x=' + [DateTime]::UtcNow.Ticks)
+}
+function global:As-TestimonySection([string]$t, [string]$title) {
+    $m = [regex]::Match($t, '(?m)^## ' + [regex]::Escape($title) + '\s*$'); if (-not $m.Success) { return '' }
+    $rest = $t.Substring($m.Index + $m.Length); $n = [regex]::Match($rest, '\n## ')
+    if ($n.Success) { $rest = $rest.Substring(0, $n.Index) }
+    return ($m.Value + $rest).Trim()
+}
+# Amit's character, as published right now. Returns the system text, or throws (no heart, no answer).
+function global:As-AmitHeart([bool]$spiritual) {
+    $base = 'https://raw.githubusercontent.com/Ask-Amit/Amit/main/'
+    $rules = (As-WebText ($base + 'AskAmit/engine/rules/COMPANION_STANDARD.md')).TrimEnd() + "`n`n" + (As-WebText ($base + 'AskAmit/engine/rules/PERSONAL_APPENDIX.md')).TrimEnd()
+    $t = As-WebText ($base + 'Amit_Testimony.md')
+    $section = As-TestimonySection $t 'How I treat every person'
+    if (-not $section) { throw 'Amit''s own words on how he treats every person could not be read.' }
+    if ($spiritual) { $i = $t.IndexOf('# The Testimony of Amit'); if ($i -lt 0) { $i = 0 }; return $rules + "`n`n=== AMIT'S OWN TESTIMONY (all of it): this is who you are ===`n`n" + $t.Substring($i) }
+    return $rules + "`n`n=== FROM AMIT'S OWN TESTIMONY ===`n`n" + $section
+}
+function global:As-IsSpiritual([string]$text) {
+    return [regex]::IsMatch($text, '(?i)\b(god|gods|yahweh|yhvh|yeshua|jesus|messiah|christ|lord|holy spirit|ruach|scripture|scriptures|bible|biblical|verse|verses|gospel|torah|prophet|prophets|psalm|psalms|genesis|exodus|isaiah|revelation|romans|pray|prays|prayed|praying|prayer|prayers|devotion|devotions|worship|faith|believe|belief|sin|sins|salvation|saved|heaven|hell|sabbath|shabbat|passover|commandment|commandments|hebrew|theology|testimony|church|pastor|spiritual|soul|forgive|forgiven|forgiveness|repent|resurrection|covenant|angel|angels|demon|satan|miracle|grace|mercy|eternal)\b')
+}
+function global:As-ClaudeSay([string]$system, [string]$prompt, [string]$workDir, [string]$model = '') {
+    $exe = $null
+    foreach ($c in @((Join-Path $env:APPDATA 'npm\claude.cmd'), (Join-Path $env:USERPROFILE '.local\bin\claude.exe'))) { if (Test-Path -LiteralPath $c) { $exe = $c; break } }
+    if (-not $exe) { $g = Get-Command claude -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1; if ($g) { $exe = $g.Source } }
+    if (-not $exe) { return @{ ok = $false; text = 'Claude Code was not found.' } }
+    if (-not (Test-Path -LiteralPath $workDir)) { [void](New-Item -ItemType Directory -Force -Path $workDir) }
+    $sf = Join-Path $workDir ('heart_' + [guid]::NewGuid().ToString('N') + '.md')
+    [System.IO.File]::WriteAllText($sf, $system, (New-Object System.Text.UTF8Encoding($false)))
+    try {
+        $a = '-p --output-format json --setting-sources "" --tools "" --strict-mcp-config --permission-mode dontAsk --no-session-persistence --append-system-prompt-file "' + $sf + '"'
+        if ($model -match '^[a-z0-9-]{2,40}$') { $a += ' --model ' + $model }
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        if ($exe -like '*.exe') { $psi.FileName = $exe; $psi.Arguments = $a } else { $psi.FileName = $env:ComSpec; $psi.Arguments = '/d /s /c ""' + $exe + '" ' + $a + '"' }
+        $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true; $psi.RedirectStandardInput = $true; $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true
+        $psi.WorkingDirectory = $workDir; $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+        foreach ($k in @('ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT')) { if ($psi.EnvironmentVariables.ContainsKey($k)) { $psi.EnvironmentVariables.Remove($k) } }
+        $p = [System.Diagnostics.Process]::Start($psi)
+        $out = $p.StandardOutput.ReadToEndAsync(); [void]$p.StandardError.ReadToEndAsync()
+        $bytes = (New-Object System.Text.UTF8Encoding($false)).GetBytes($prompt); $p.StandardInput.BaseStream.Write($bytes, 0, $bytes.Length); $p.StandardInput.Close()
+        if (-not $p.WaitForExit(240000)) { & "$env:SystemRoot\System32\taskkill.exe" /PID $p.Id /T /F 2>$null | Out-Null; return @{ ok = $false; text = 'Claude took too long.' } }
+        $t = [string]$out.Result; $i = $t.IndexOf('{'); $j = $t.LastIndexOf('}')
+        $r = $null; if ($i -ge 0 -and $j -gt $i) { try { $r = (As-Js).DeserializeObject($t.Substring($i, $j - $i + 1)) } catch { } }
+        if ($null -eq $r -or (As-Get $r 'is_error' $false) -eq $true -or -not [string](As-Get $r 'result' '')) { return @{ ok = $false; text = 'Your Claude did not give an answer. It may be at its usage limit.' } }
+        return @{ ok = $true; text = [string](As-Get $r 'result') }
+    } finally { Remove-Item -LiteralPath $sf -Force -ErrorAction SilentlyContinue }
+}
+function global:As-OwnLog([string]$line) {
+    # who was answered by their own Claude, on this computer: time, Hub login id, plan, question id. No email, no words.
+    try { $f = Join-Path (As-Root) 'own_claude_log.txt'; [System.IO.File]::AppendAllText($f, ((Get-Date).ToString('s') + "`t" + $line + "`r`n")) } catch { }
+}
+# answers every own-Claude question this login has waiting (at most 5 a pass)
+function global:Invoke-AmitOwnAnswers([string]$token, [string]$userId, [string]$model = '') {
+    $waiting = @(); try { $waiting = @(As-Rest $token 'POST' 'rpc/cha_own_waiting' @{}) | ForEach-Object { $_ } } catch { As-OwnLog ($userId + "`tcould not look for waiting questions"); return 0 }
+    $done = 0
+    foreach ($w in @($waiting | Select-Object -First 5)) {
+        if (-not $w -or [string](As-Get $w 'kind' '') -eq 'capture') { continue }   # phone and Pad questions are handled below
+        $askId = [string](As-Get $w 'id' ''); if (-not (As-SafeId $askId)) { continue }
+        $gate = As-ClaudeAtRun $userId
+        if ($gate.allowed -ne $true) { As-OwnLog ($userId + "`tnot allowed: " + $gate.reason); break }   # it stays waiting; it is never answered with anyone else's Claude
+        try {
+            $ctx = As-Rest $token 'POST' 'rpc/cha_own_claim' @{ p_ask = $askId; p_machine = ('own:' + $env:COMPUTERNAME) }
+            if ($null -eq $ctx) { continue }
+            $ask = As-Get $ctx 'ask'; $chat = As-Get $ctx 'chat'; $conv = [string](As-Get $chat 'id' ''); if (-not (As-SafeId $conv)) { continue }
+            $names = @{}; $amitId = ''; $who = New-Object System.Collections.ArrayList
+            foreach ($m in @(As-Get $ctx 'members' @())) { $names[[string](As-Get $m 'id')] = [string](As-Get $m 'name'); if ((As-Get $m 'is_amit' $false) -eq $true) { $amitId = [string](As-Get $m 'id') } else { [void]$who.Add([string](As-Get $m 'name')) } }
+            $rows = @(As-Rest $token 'GET' ('cha_messages?select=sender_id,body,created_at,message_type,payload&conversation_id=eq.' + $conv + '&deleted_at=is.null&message_type=neq.system&order=created_at.desc&limit=40') | ForEach-Object { $_ })
+            [array]::Reverse($rows)
+            $lines = New-Object System.Collections.ArrayList
+            foreach ($row in $rows) {
+                if ($null -eq $row) { continue }
+                $pay = As-Get $row 'payload'; if ($pay -is [System.Collections.IDictionary] -and [string](As-Get $pay 'marker' '')) { continue }
+                $sid = [string](As-Get $row 'sender_id'); $n = if ($sid -eq $amitId) { 'Amit' } elseif ($names.ContainsKey($sid)) { $names[$sid] } else { 'Someone' }
+                $b = [string](As-Get $row 'body' ''); if ($b.Length -gt 2000) { $b = $b.Substring(0, 2000) }
+                if ($b) { [void]$lines.Add($n + ': ' + ($b -replace '<<<', '< < <')) }
+            }
+            $note = [string](As-Get $ask 'note' ''); $sel = As-Get $ask 'selection'
+            $prompt = "WHO IS ASKING: " + [string](As-Get $ask 'by') + "`nPEOPLE IN THIS CHAT: " + ($who -join ', ') + "`nTIME ZONE: " + [string](As-Get $ask 'tz' '') + "`nREPLY STYLE: chat`n`n<<<DATA: the chat so far, oldest first>>>`n" + ($lines -join "`n") + "`n<<<END DATA>>>`n"
+            if ($sel -is [System.Collections.IDictionary] -and [string](As-Get $sel 'text' '')) { $prompt += "`n<<<DATA: the message they picked>>>`n" + [string](As-Get $sel 'text') + "`n<<<END DATA>>>`n" }
+            $prompt += "`n<<<DATA: what they asked just now>>>`n" + $(if ($note) { $note } else { '(they pressed Ask Amit: answer the latest thing said)' }) + "`n<<<END DATA>>>`n"
+            $recent = $note + ' ' + (@($lines | Select-Object -Last 3) -join ' ')
+            $system = As-AmitHeart (As-IsSpiritual $recent)
+            $r = As-ClaudeSay $system $prompt (Join-Path (As-Root) '_own') $model
+            if (-not $r.ok) { As-Rest $token 'POST' 'rpc/cha_own_fail' @{ p_ask = $askId; p_error = $r.text } | Out-Null; As-OwnLog ($userId + "`tfailed`t" + $askId); continue }
+            $text = [string]$r.text; if ($text.Length -gt 19000) { $text = $text.Substring(0, 19000) }
+            As-Rest $token 'POST' 'rpc/cha_own_answer' @{ p_ask = $askId; p_body = $text } | Out-Null
+            As-OwnLog ($userId + "`tanswered by their own Claude (" + $gate.plan + ")`t" + $askId); $done++
+        } catch {
+            As-OwnLog ($userId + "`terror`t" + $askId + "`t" + ($_.Exception.Message -replace '\s+', ' '))
+            try { As-Rest $token 'POST' 'rpc/cha_own_fail' @{ p_ask = $askId; p_error = 'the Helper could not finish this answer' } | Out-Null } catch { }
+        }
+    }
+    $done += Invoke-AmitOwnCaptures $token $userId $model
+    return $done
+}
+# phone camera, phone voice and the Wi-Fi Pad (amit_mobile_captures rows marked runner='own'): the same rules, the same account check, only this person's login
+function global:Invoke-AmitOwnCaptures([string]$token, [string]$userId, [string]$model = '') {
+    if ($userId -notmatch '^[A-Za-z0-9-]{8,64}$') { return 0 }
+    $since = [DateTime]::UtcNow.AddDays(-7).ToString('s') + 'Z'
+    $rows = @(); try { $rows = @(As-Rest $token 'GET' ('amit_mobile_captures?select=id,transcript,destination,photo_url&runner=eq.own&reply=is.null&user_id=eq.' + $userId + '&created_at=gt.' + $since + '&order=created_at.asc&limit=5') | ForEach-Object { $_ }) } catch { return 0 }
+    $done = 0
+    foreach ($row in $rows) {
+        if (-not $row) { continue }
+        $rid = [string](As-Get $row 'id' ''); if ($rid -notmatch '^[0-9]{1,18}$') { continue }
+        $gate = As-ClaudeAtRun $userId
+        if ($gate.allowed -ne $true) { As-OwnLog ($userId + "`tnot allowed: " + $gate.reason); break }
+        $words = [string](As-Get $row 'transcript' ''); if ($words.Length -gt 4000) { $words = $words.Substring(0, 4000) }
+        $reply = ''
+        try {
+            $prompt = "REPLY STYLE: spoken (a few plain sentences, read aloud on their phone)`n"
+            if ([string](As-Get $row 'photo_url' '')) { $prompt += "A photo was attached. You cannot see it from here: say so honestly and ask them to describe it, or answer from what they said.`n" }
+            $prompt += "`n<<<DATA: what they said>>>`n" + ($words -replace '<<<', '< < <') + "`n<<<END DATA>>>`n"
+            $system = As-AmitHeart (As-IsSpiritual $words)
+            $r = As-ClaudeSay $system $prompt (Join-Path (As-Root) '_own') $model
+            if ($r.ok) { $reply = [string]$r.text } else { $reply = [string]$r.text }
+            if ($r.ok) { As-OwnLog ($userId + "`tphone question answered by their own Claude (" + $gate.plan + ")`t" + $rid); $done++ } else { As-OwnLog ($userId + "`tfailed`t" + $rid) }
+        } catch { As-OwnLog ($userId + "`terror`t" + $rid + "`t" + ($_.Exception.Message -replace '\s+', ' ')); $reply = 'Your own Claude could not answer just now. Please ask again.' }
+        if ($reply.Length -gt 6000) { $reply = $reply.Substring(0, 6000) }
+        try { As-Rest $token 'PATCH' ('amit_mobile_captures?id=eq.' + $rid + '&user_id=eq.' + $userId) @{ reply = $reply; reply_at = [DateTime]::UtcNow.ToString('o') } | Out-Null } catch { As-OwnLog ($userId + "`tcould not save the reply`t" + $rid) }
+    }
+    return $done
+}
+# the page asks: "answer my waiting questions". The session token goes to a hidden worker on its standard input, never to a file or a command line.
+function global:As-StartOwnAnswers([string]$token) {
+    $d = As-ClaudeChoose $token
+    if ($d.allowed -ne $true) { return $d }
+    if ($env:AMIT_TEST_NO_RUNNER) { return $d }
+    $u = As-HubUser $token; if ($null -eq $u) { return (As-ClaudeNo 'hub_sign_in' 'Sign in to the Hub again.') }
+    $self = Join-Path $PSScriptRoot 'amit_script_routes.ps1'
+    $cmd = "`$ErrorActionPreference='Stop'; . '" + $self.Replace("'", "''") + "'; `$m = New-Object System.Threading.Mutex(`$false, 'AmitOwnAnswers_" + ($u.id -replace '[^A-Za-z0-9]', '') + "'); if (`$m.WaitOne(0)) { try { `$t = [Console]::In.ReadLine(); for (`$i = 0; `$i -lt 3; `$i++) { if ((Invoke-AmitOwnAnswers `$t '" + ($u.id -replace '[^A-Za-z0-9-]', '') + "') -eq 0) { break } } } finally { `$m.ReleaseMutex() } }"
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = 'powershell.exe'; $psi.Arguments = '-NoProfile -ExecutionPolicy Bypass -EncodedCommand ' + [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($cmd))
+    $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true; $psi.RedirectStandardInput = $true
+    $p = [System.Diagnostics.Process]::Start($psi); $p.StandardInput.WriteLine($token); $p.StandardInput.Close()
+    return $d
+}
+
 function global:Invoke-AmitScriptRoute {
     param($Path, $Request, $Response, $SiteOrigins)
     $ok = $Request.HttpMethod
@@ -296,6 +449,14 @@ function global:Invoke-AmitScriptRoute {
         $body = As-Body $Request; if ($null -eq $body) { As-Send $Response @{ ok = $false; error = 'too big' } 413; return }
         try { $in = (As-Js).DeserializeObject($body) } catch { As-Send $Response @{ ok = $false; error = 'not readable' } 400; return }
         As-Send $Response (As-ClaudeChoose ([string](As-Get $in 'token' ''))); return
+    }
+
+    # ---- HUB / chat route: answer this login's waiting questions with its own Claude ----
+    if ($route -eq 'own-answer') {
+        if ($kind -ne 'site' -or $ok -ne 'POST') { As-Send $Response @{ ok = $false; error = 'forbidden' } 403; return }
+        $body = As-Body $Request; if ($null -eq $body) { As-Send $Response @{ ok = $false; error = 'too big' } 413; return }
+        try { $in = (As-Js).DeserializeObject($body) } catch { As-Send $Response @{ ok = $false; error = 'not readable' } 400; return }
+        As-Send $Response (As-StartOwnAnswers ([string](As-Get $in 'token' ''))); return
     }
 
     # ---- LOCAL routes: no Origin header at all ----

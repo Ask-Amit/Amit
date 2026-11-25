@@ -106,7 +106,7 @@
 <script src="../amit_voice_prefs.js?v=1.00"></script>
 <script src="../amit_owner_contact.js?v=1.01"></script>
 <script src="../amit_speaking_indicator.js?v=4.00"></script>
-<script src="../amit_chat.js?v=0.26"></script>
+<script src="../amit_chat.js?v=0.31"></script>
 <script src="../amit_data_tools.js?v=1.01"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1195,6 +1195,7 @@ async function callAmitBackend(message,mode,photos,pendingBubbleId){
   // a new `photo_urls jsonb` column because it needed zero migration and
   // every existing read/write path only ever touches this one column.
   const photoUrlValue=photoUrls.length?JSON.stringify(photoUrls):null;
+  try{ if(window.AmitOwnClaude) await AmitOwnClaude.decide(db); }catch(e){}
   let row;
   try{
     const{data,error}=await db.from('amit_mobile_captures').insert({
@@ -1207,6 +1208,7 @@ async function callAmitBackend(message,mode,photos,pendingBubbleId){
     }).select().single();
     if(error||!data){
       console.error('amit_mobile_captures insert failed',error);
+      if(error&&/Connect my Claude/i.test(error.message||'')) return error.message+' On your computer, open the Hub, go to About Me, then Security, then Claude emails.';
       return "Amit couldn't save this message to start the conversation — check your connection and try again.";
     }
     row=data;

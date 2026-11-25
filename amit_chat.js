@@ -25,11 +25,60 @@
    Everything the views show comes through a "source" object, so the views never
    touch the database directly. Colors come only from the shared Appearance tokens.
    ════════════════════════════════════════════════════════════════ */
+/* ---------- THE PERSON'S OWN CLAUDE (2026-11-25, root CLAUDE.md "PREMIUM FEATURES"). The Amit Helper on their computer does the real check; this only asks it.
+   On a computer: the Helper says yes or no. On a phone (no Helper): what the person's own computer last found is kept on their account, and the question waits for that computer. ---------- */
+var AmitOwnClaude = (function () {
+  var HELPER = 'http://localhost:8710/api/script/', HUB = 'https://askamit.org/Hub/amit-hub.html?connect=claude';
+  var last = { at: 0, own: false, helper: false }, poller = null;
+  function call(route, token, ms) {
+    var c = typeof AbortController !== 'undefined' ? new AbortController() : null, tm = c ? setTimeout(function () { c.abort(); }, ms) : null;
+    return fetch(HELPER + route, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ token: token }), cache: 'no-store', signal: c ? c.signal : undefined })
+      .then(function (r) { return r.json(); }).then(function (j) { if (tm) clearTimeout(tm); return j && typeof j.allowed === 'boolean' ? j : null; }, function () { if (tm) clearTimeout(tm); return null; });
+  }
+  function session(db) { return db.auth.getSession().then(function (s) { return (s && s.data && s.data.session) || null; }, function () { return null; }); }
+  function decide(db) {
+    if (!db || !db.auth || !db.auth.getSession) return Promise.resolve(false);
+    if (Date.now() - last.at < 60000) return Promise.resolve(last.own);
+    return session(db).then(function (se) {
+      if (!se) return false;
+      var meta = (se.user && se.user.user_metadata) || {};
+      return call('claude-check', se.access_token, 30000).then(function (j) {
+        if (j === null || j.reason === 'check_failed' || j.reason === 'hub_sign_in') return meta.own_claude === true;   /* no Helper here (a phone), or the check could not be made: what their computer last found */
+        var own = j.allowed === true;
+        if (own !== (meta.own_claude === true) && db.auth.updateUser) db.auth.updateUser({ data: { own_claude: own } }).then(function () {}, function () {});
+        last = { at: Date.now(), own: own, helper: true }; if (own) watch(db);
+        return own;
+      });
+    });
+  }
+  /* asks this computer's Helper to answer the person's waiting questions; resolves false where there is no Helper (or it refused) */
+  function run(db) { return session(db).then(function (se) { if (!se) return false; return call('own-answer', se.access_token, 40000).then(function (j) { return !!(j && j.allowed); }); }); }
+  /* a computer with Amit open picks up questions asked from the phone */
+  function watch(db) {
+    if (poller) return;
+    poller = setInterval(function () { db.rpc('cha_own_waiting').then(function (r) { if (r && !r.error && r.data && r.data.length) run(db); }, function () {}); }, 20000);
+  }
+  function start(db) { if (!poller && db && db.auth && /^(https:)/.test(location.protocol) && !/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent || '')) decide(db); }
+  /* the free questions are used up: say so, large, with Connect my Claude (the approved screen: AmitHelper_connectmyclaude_preview.html) */
+  function offer(message) {
+    var o = document.getElementById('acxOwnPop'); if (o) o.remove();
+    o = document.createElement('div'); o.id = 'acxOwnPop'; o.style.cssText = 'position:fixed;inset:0;z-index:100060;background:rgba(4,9,15,.78);display:flex;align-items:center;justify-content:center;padding:14px';
+    var box = document.createElement('div'); box.style.cssText = 'background:#fbf6ea;color:#23303c;border-radius:20px;max-width:540px;width:100%;padding:24px 26px;font:21px/1.5 "Segoe UI",system-ui,sans-serif;text-align:left';
+    var h = document.createElement('div'); h.textContent = 'Connect my Claude'; h.style.cssText = 'font:700 30px/1.25 "Segoe UI",system-ui,sans-serif;color:#1d3b40;margin-bottom:10px'; box.appendChild(h);
+    var p = document.createElement('div'); p.textContent = String(message || '') + ' With your own paid Claude account connected, there is no Amit limit; your own plan\u2019s limits apply.'; box.appendChild(p);
+    function b(text, go, fn) { var k = document.createElement('button'); k.type = 'button'; k.textContent = text; k.style.cssText = 'font:650 21px "Segoe UI",sans-serif;border:0;border-radius:14px;padding:13px 22px;cursor:pointer;margin:16px 12px 0 0;background:' + (go ? '#e8964a;color:#231505' : '#e9e1cd;color:#3b4650'); k.onclick = fn; box.appendChild(k); }
+    b('Connect my Claude', true, function () { o.remove(); last.at = 0; if (window.AmitScriptButtons && AmitScriptButtons.connectMyClaude) AmitScriptButtons.connectMyClaude(); else window.open(HUB, '_blank', 'noopener'); });
+    b('Not now', false, function () { o.remove(); });
+    o.appendChild(box); document.body.appendChild(o);
+  }
+  return { decide: decide, run: run, offer: offer, start: start, forget: function () { last.at = 0; } };
+})();
+if (typeof window !== 'undefined') window.AmitOwnClaude = AmitOwnClaude;
 (function () {
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.30';
+  var VERSION = 'v0.31';
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
   var SCRIPT_BASE = (function () { var sc = document.currentScript; return sc && sc.src ? sc.src.replace(/[^\/?#]*([?#].*)?$/, '') : ''; })();
 
@@ -277,10 +326,20 @@
       },
       summonAmit: function (id) { return db.rpc('cha_summon_amit', { p_conv: id }).then(function (r) { fail(r); return r.data; }); },
       /* one line of a live transcript: an ordinary text message, silent (no unread badge), marked so it shows as a transcript */
-      /* Ask Amit: one press = one row in the steering log. Returns { id, number, ahead, online }. */
+      /* Ask Amit: one press = one row in the steering log. Returns { id, number, ahead, online, own }.
+         2026-11-25 (Ryan): a person with their own paid Claude is answered by THEIRS, from any device; the free 5 a day (the owner's Claude) is only for people without one. */
       ask: function (id, o) {
         o = o || {}; var tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
-        return db.rpc('cha_ask', { p_conv: id, p_app: o.app || 'hub', p_place: o.place || {}, p_selection: o.selection || null, p_note: o.note || null, p_tz: tz || null }).then(function (r) { fail(r); return r.data; });
+        var args = { p_conv: id, p_app: o.app || 'hub', p_place: o.place || {}, p_selection: o.selection || null, p_note: o.note || null, p_tz: tz || null };
+        function free() { return db.rpc('cha_ask', args).then(function (r) { if (r.error && /Connect my Claude/i.test(r.error.message || '')) AmitOwnClaude.offer(r.error.message); fail(r); return r.data; }); }
+        return AmitOwnClaude.decide(db).then(function (own) {
+          if (!own) return free();
+          return db.rpc('cha_ask', Object.assign({ p_own: true }, args)).then(function (r) {
+            if (r.error && /OWN_NOT_ALLOWED/.test(r.error.message || '')) return free();   /* a chat with someone under 18: Amit answers from Amit's side */
+            fail(r);
+            return AmitOwnClaude.run(db).then(function (here) { r.data.online = here || r.data.online; r.data.waitingForComputer = !here; return r.data; });
+          });
+        });
       },
       /* the person's own private chat with Amit (found or made): { id, number, created } */
       helpChat: function (app) { return db.rpc('cha_help_chat', { p_app: app || 'hub' }).then(function (r) { fail(r); return r.data; }); },
@@ -296,7 +355,12 @@
         });
       },
       /* turn "Amit is listening" on or off for this chat (any member); returns { listening, changed, online } */
-      listen: function (id, on, now) { return db.rpc('cha_listen_set', { p_conv: id, p_on: !!on, p_now: !!now }).then(function (r) { fail(r); return r.data; }); },   /* now = true: switching him on also calls him in at once */
+      listen: function (id, on, now) {
+        var self = this, plain = function () { return db.rpc('cha_listen_set', { p_conv: id, p_on: !!on, p_now: !!now }).then(function (r) { fail(r); return r.data; }); };
+        if (!on) return plain();
+        /* listening replies are made by the owner's answering program, so a person with their own Claude is not switched to listening: "come in now" asks THEIR Claude instead */
+        return AmitOwnClaude.decide(db).then(function (own) { if (!own) return plain(); return now ? self.ask(id, {}).then(function (r) { return { listening: false, changed: false, online: r && r.online }; }) : Promise.resolve({ listening: false, changed: false }); });
+      },   /* now = true: switching him on also calls him in at once */
       /* "I am here" (see startPresence); quiet when the presence table is not installed yet */
       ping: function () { return db.rpc('cha_ping').then(function () {}, function () {}); },
       /* the latest press in this chat: { status, ahead, online, listening, listening_by, thinking, others_online, online_names } or null when the Ask Amit tables are not installed yet */
@@ -1644,7 +1708,7 @@
             nd.appendChild(ndb); nb2.firstChild.appendChild(nd); msgsDiv.appendChild(nb2); return;
           }
           var bub = el('div', 'acx-b ' + x.from + (x.removed ? ' removed' : '')); bub.setAttribute('data-mid', x.id);
-          bub.appendChild(el('small', null, x.name + ' \u00B7 ' + x.time + (x.edited ? ' \u00B7 edited' : '') + (x.payload && x.payload.transcribed ? ' \u00B7 live transcript' : '') + (x.from === 'amit' && x.payload && x.payload.via_name ? ' \u00B7 answering through Amit\u2019s helper' : '')));
+          bub.appendChild(el('small', null, x.name + ' \u00B7 ' + x.time + (x.edited ? ' \u00B7 edited' : '') + (x.payload && x.payload.transcribed ? ' \u00B7 live transcript' : '') + (x.from === 'amit' && x.payload && x.payload.own_claude ? ' \u00B7 Amit, through ' + (x.payload.via_name || 'someone') + '\u2019s Claude' : x.from === 'amit' && x.payload && x.payload.via_name ? ' \u00B7 answering through Amit\u2019s helper' : '')));
           if (x.replyTo && !x.removed) {
             var qm = state.msgs.filter(function (m) { return m.id === x.replyTo; })[0];
             bub.appendChild(el('div', 'acx-quote', qm ? '\u21A9 ' + qm.name + ': ' + (qm.removed ? 'Message removed' : (qm.text || '').slice(0, 70)) : '\u21A9 an earlier message'));
@@ -1836,7 +1900,7 @@
         if (txt) p = src.send(convId, txt, state.replyTo && state.replyTo.id, state.silent).then(function () { ta.value = ''; ta.style.height = ''; setReply(null); draft(''); state.silent = false; if (silentBtn) silentBtn.classList.remove('on'); });
         p.then(function () { return src.ask(convId, { app: AmitChat.appName || 'hub', place: askPlace(), selection: sel, note: txt || null }); })
           .then(function (r) {
-            toast(r && r.online === false ? 'Amit has been asked. His computer is offline, so he will answer when it is back.' : 'Amit has been asked.');
+            toast(r && r.own ? (r.waitingForComputer ? 'Your own Claude will answer as soon as your computer is on with Amit open.' : 'Amit has been asked, through your own Claude.') : r && r.online === false ? 'Amit has been asked. His computer is offline, so he will answer when it is back.' : 'Amit has been asked.');
             state.sel = null; markSel(); state.askPending = true; bump();
             return load(false).then(function () { return refreshAsk(); });
           })
@@ -2455,6 +2519,7 @@
       if (AmitChat.live && AmitChat.live.me === userId) return;
       DBG.connects++;
       AmitChat.live = { me: userId, db: db };
+      AmitOwnClaude.forget(); AmitOwnClaude.start(db);   /* a computer with their own Claude also picks up what they ask from a phone */
       AmitChat.useSource(makeLiveSource(db, userId));
       rerenderAll(); AmitChat.refreshUnread(); AmitChat.handleFriendLink();
       startPresence();
