@@ -75,3 +75,6 @@ Last clean-up: 2026-11-18 16:50 UTC, session f86fc1ad
 
 ## 2026-11-24: THE END STATE WAS DECIDED (Ryan)
 Ask Amit is the central engine; the permissions layer lives inside it (Ask_ prefix); everything runs through the person's own Claude with their own plan limits; nothing a person builds can alter the primary side; the button builder is a conversation-first door with a certified, documented build. Full plan and stepping stones: Sessions_Design.md, "THE END STATE AND THE STEPPING STONES". Next: step 1 (survey, then a written design, cost at 1/100/10,000 before any door routes in). Button building stays owner-only until then.
+
+## 2026-11-25: button build mode, as it stands
+Engine v1.08 answers the Hub's button build requests (the first door connected; owner only). Build rules (engine/rulesBUTTON_BUILD_MODE.md, pushed in d1e23f3): ordinary steps first; scripts may open websites only through Open-AmitWebsite; NO SET NUMBER OF QUESTIONS. The running engine reads rules edits at once. Detail: AmitHelper/Sessions_Start.md, RESUME "Custom script buttons".
