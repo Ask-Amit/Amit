@@ -51,54 +51,86 @@
     (buttons || []).forEach(function (x) { var b = document.createElement('button'); b.type = 'button'; b.textContent = x[0]; b.style.cssText = 'font:650 18px "Segoe UI",sans-serif;border:0;border-radius:12px;padding:11px 18px;cursor:pointer;margin:14px 10px 0 0;background:' + (x[2] ? '#e8964a;color:#231505' : '#e9e1cd;color:#3b4650'); b.onclick = x[1]; c.appendChild(b); });
     o.appendChild(c); document.body.appendChild(o);
   }
-  /* ---------- About Me > Security > Claude emails (rule 4): add an address and prove it with a code sent to it. Approved screen: AmitHelper_claudefeature_preview.html tab 3 ---------- */
-  var CE = { step: 'list', email: '', request: '', temp: null, msg: '', busy: false };
+  /* ---------- About Me > Security > Claude emails (rule 4): add an address and prove it with a code sent to it.
+     The large step-by-step pop-up Ryan approved: AmitHelper\Previews\AmitHelper_addclaudeemail_popup_preview.html (markup and sizes ported from it) ---------- */
+  var CE = { email: '', request: '', temp: null, busy: false };
   function ceTemp() {   // a separate, short-lived sign-in just to confirm the code: it never touches the person's own Hub session and is not saved
     return root.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'amit-claude-email-check' } });
   }
-  async function renderClaudeEmails() {
+  async function renderClaudeEmails(note) {
     var el = document.getElementById('amvClaudeEmails'); if (!el || !DB() || !ME()) return;
     var r = await DB().from('hel_claude_emails').select('id,email,verified_at,user_id').eq('user_id', ME().id).order('verified_at');
-    var small = 'color:rgba(var(--amit-text-rgb,240,232,208),.55);font-size:12px;line-height:1.5';
-    var h = '<div style="font-family:var(--amit-font-heading,\'Cinzel\',serif);font-size:11px;letter-spacing:.14em;color:var(--gold);text-transform:uppercase;margin-bottom:4px">Claude emails</div>';
-    if (r.error) { el.innerHTML = h + '<div style="' + small + '">Adding Claude emails is not switched on yet. It needs one database change by the owner.</div>'; return; }
-    h += '<div style="' + small + ';margin-bottom:8px">Premium features run on your own Claude account. Your Hub login (' + esc(ME().email || '') + ') always counts. If your Claude account uses a different email, add it here. It is only for this check: you sign in to the Hub the same way.</div>';
-    h += (r.data || []).map(function (x, i) { return '<div style="display:flex;gap:10px;align-items:center;margin-bottom:6px;flex-wrap:wrap"><b style="overflow-wrap:anywhere">' + esc(x.email) + '</b><button class="btn" type="button" data-ce-remove="' + esc(x.id) + '">Remove</button></div>'; }).join('');
-    if (CE.step === 'list') h += '<input class="fg-input" id="amvCEmail" type="email" placeholder="Your Claude account email" style="margin:4px 0 8px" value="' + esc(CE.email) + '"><button class="btn" type="button" id="amvCSend"' + (CE.busy ? ' disabled' : '') + '>Email me a code</button>';
-    else h += '<div style="' + small + ';margin:6px 0">We sent a code to <b>' + esc(CE.email) + '</b>. Type it here. It works for 15 minutes.</div><input class="fg-input" id="amvCCode" inputmode="numeric" autocomplete="one-time-code" placeholder="Code from the email" style="margin-bottom:8px"><button class="btn" type="button" id="amvCConfirm"' + (CE.busy ? ' disabled' : '') + '>Confirm</button> <button class="btn" type="button" id="amvCCancel">Cancel</button>';
-    h += '<div id="amvCMsg" style="font-size:13px;margin-top:8px">' + esc(CE.msg) + '</div>';
+    var words = 'color:rgba(var(--amit-text-rgb,240,232,208),.85);font-size:16px;line-height:1.55';
+    var h = '<div style="font-family:var(--amit-font-heading,\'Cinzel\',serif);font-size:15px;letter-spacing:.14em;color:var(--gold);text-transform:uppercase;margin-bottom:6px">Claude emails</div>';
+    if (r.error) { el.innerHTML = h + '<div style="' + words + '">Adding Claude emails is not switched on yet. It needs one database change by the owner.</div>'; return; }
+    h += '<div style="' + words + ';margin-bottom:10px">Premium features run on your own Claude account. Your Hub login (' + esc(ME().email || '') + ') always counts. If your Claude account uses a different email, add it here.</div>';
+    h += (r.data || []).map(function (x) { return '<div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap;font-size:18px"><b style="overflow-wrap:anywhere">' + esc(x.email) + '</b><span style="' + words + '">is linked</span><button class="btn" type="button" data-ce-remove="' + esc(x.id) + '">Remove</button></div>'; }).join('');
+    h += '<button class="btn" type="button" id="amvCAdd" style="font-size:15px;padding:12px 18px">Add a Claude email</button>';
+    if (note) h += '<div style="' + words + ';margin-top:8px">' + esc(note) + '</div>';
     el.innerHTML = h;
-    var on = function (id, fn) { var b = document.getElementById(id); if (b) b.onclick = fn; };
-    on('amvCSend', ceSend); on('amvCConfirm', ceConfirm); on('amvCCancel', function () { CE = { step: 'list', email: '', request: '', temp: null, msg: '', busy: false }; renderClaudeEmails(); });
-    [].forEach.call(el.querySelectorAll('[data-ce-remove]'), function (b) { b.onclick = async function () {
+    var add = document.getElementById('amvCAdd'); if (add) add.onclick = function () { CE = { email: '', request: '', temp: null, busy: false }; ceAsk(''); };
+    [].forEach.call(el.querySelectorAll('[data-ce-remove]'), function (x) { x.onclick = async function () {
       if (!root.confirm('Remove this Claude email?')) return;
-      var d = await DB().from('hel_claude_emails').delete().eq('id', b.getAttribute('data-ce-remove'));
-      CE.msg = d.error ? 'Could not remove it: ' + d.error.message : 'Removed.'; if (!d.error) claudeCheck();   // so the Helper on this computer forgets it now
-      renderClaudeEmails();
+      var d = await DB().from('hel_claude_emails').delete().eq('id', x.getAttribute('data-ce-remove'));
+      if (!d.error) claudeCheck();   // so the Helper on this computer forgets it now
+      renderClaudeEmails(d.error ? 'Could not remove it: ' + d.error.message : 'Removed.');
     }; });
   }
+  function cePop(title, body, buttons) {
+    var o = document.getElementById('amvCPop');
+    if (title === null) { if (o) o.remove(); return; }
+    if (!o) { o = document.createElement('div'); o.id = 'amvCPop'; o.style.cssText = 'position:fixed;inset:0;z-index:100040;background:rgba(4,9,15,.78);display:flex;align-items:center;justify-content:center;padding:14px'; document.body.appendChild(o); }
+    o.innerHTML = '<style>#amvCPop .cebox{background:#fbf6ea;color:#23303c;border-radius:20px;max-width:540px;width:100%;max-height:96%;overflow:auto;padding:24px 26px;font:21px/1.5 "Segoe UI",system-ui,sans-serif;text-align:left}' +
+      '#amvCPop h2{margin:0 0 12px;font:700 30px/1.25 "Segoe UI",system-ui,sans-serif;color:#1d3b40;letter-spacing:0;text-transform:none}#amvCPop p{margin:0 0 10px}#amvCPop ol{margin:0 0 14px;padding-left:28px;list-style:decimal}#amvCPop li{margin-bottom:6px}' +
+      '#amvCPop input{width:100%;box-sizing:border-box;font:24px "Segoe UI",sans-serif;padding:14px 16px;border-radius:14px;border:2px solid #cdbf9c;background:#fff;color:#1c2730}#amvCPop input.code{font-size:34px;letter-spacing:.3em;text-align:center}' +
+      '#amvCPop .cemail{background:#fff;border:2px solid #2f6f73;border-radius:14px;padding:12px 16px;margin:0 0 14px;font-weight:700;overflow-wrap:anywhere}#amvCPop .cerow{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}' +
+      '#amvCPop .cerow button{font:650 21px "Segoe UI",sans-serif;border:0;border-radius:14px;padding:13px 22px;cursor:pointer;background:#e9e1cd;color:#3b4650}#amvCPop .cerow button.go{background:#e8964a;color:#231505}#amvCPop .cerow button:disabled{opacity:.5;cursor:default}' +
+      '#amvCPop .cesmall{font-size:17px;color:#6c624d;margin-top:12px}#amvCPop .ceerr{color:#a93a26;font-size:19px;min-height:24px;margin-top:8px}</style><div class="cebox" role="dialog" aria-modal="true"><h2></h2><div class="cebody"></div><div class="cerow"></div></div>';
+    o.querySelector('h2').textContent = title; o.querySelector('.cebody').innerHTML = body;
+    var row = o.querySelector('.cerow');
+    (buttons || []).forEach(function (x) { var k = document.createElement('button'); k.type = 'button'; k.textContent = x[0]; if (x[2]) k.className = 'go'; k.onclick = x[1]; row.appendChild(k); });
+    var i = o.querySelector('input'); if (i) { i.focus(); i.onkeydown = function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); var g = row.querySelector('.go'); if (g && !g.disabled) g.click(); } }; }
+  }
+  function ceError(text) { var e = document.querySelector('#amvCPop .ceerr'); if (e) e.textContent = text || ''; }
+  function ceBusy(on, text) { CE.busy = on; [].forEach.call(document.querySelectorAll('#amvCPop .cerow button.go'), function (k) { k.disabled = on; }); ceError(text); }
+  function ceClose() { CE = { email: '', request: '', temp: null, busy: false }; cePop(null); }
+  function ceAsk(err) {
+    cePop('Add your Claude email', '<p>Here is what is about to happen:</p><ol><li>Type the email you use for Claude.</li><li>We send a code to that email.</li><li>You get the code from your email.</li><li>You come back here and type it in.</li></ol><input id="amvCEmail" type="email" placeholder="Your Claude email" value="' + esc(CE.email) + '"><div class="ceerr"></div>',
+      [['Send my code', ceSend, true], ['Cancel', ceClose]]);
+    ceError(err);
+  }
+  function ceCodeStep() {
+    cePop('Now check your email', '<div class="cemail">' + esc(CE.email) + '</div><ol><li>Open that inbox. Look in spam if you do not see it.</li><li>Find the email from <b>Amit</b>.</li><li><b>Come back here</b> and type the code below.</li></ol><input class="code" id="amvCCode" inputmode="numeric" autocomplete="one-time-code" placeholder="code"><div class="ceerr"></div><div class="cesmall">Keep this window open. The code works for 15 minutes.</div>',
+      [['Link my Claude account', ceConfirm, true], ['Use a different email', function () { ceAsk(''); }], ['Cancel', ceClose]]);
+  }
   async function ceSend() {
-    var i = document.getElementById('amvCEmail'), mail = String(i ? i.value : '').trim().toLowerCase();
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) { CE.msg = 'Type the email of your Claude account.'; CE.email = mail; return renderClaudeEmails(); }
-    CE.busy = true; CE.email = mail; CE.msg = 'Sending...'; await renderClaudeEmails();
+    if (CE.busy) return;
+    var me = CE, i = document.getElementById('amvCEmail'), mail = String(i ? i.value : '').trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) return ceError('Please type your email address.');
+    me.email = mail; ceBusy(true, 'Sending...');
     var s = await DB().rpc('hel_claude_email_start', { p_email: mail });
-    if (s.error) { CE.busy = false; CE.msg = s.error.message; return renderClaudeEmails(); }
-    CE.temp = ceTemp();
-    var o = await CE.temp.auth.signInWithOtp({ email: mail, options: { shouldCreateUser: true, emailRedirectTo: 'https://askamit.org/claude-email-code' } });   // this address is the mark the email template reads to send the CODE-ONLY version (no sign-in button)
-    CE.busy = false;
-    if (o.error) { CE.msg = 'The email could not be sent: ' + o.error.message; return renderClaudeEmails(); }
-    CE.request = s.data; CE.step = 'code'; CE.msg = ''; renderClaudeEmails();
+    if (CE !== me) return;
+    if (s.error) return ceBusy(false, s.error.message);
+    me.temp = ceTemp();
+    var o = await me.temp.auth.signInWithOtp({ email: mail, options: { shouldCreateUser: true, emailRedirectTo: 'https://askamit.org/claude-email-code' } });   // this address is the mark the email template reads to send the CODE-ONLY version (no sign-in button)
+    if (CE !== me) return;
+    if (o.error) return ceBusy(false, 'The email could not be sent: ' + o.error.message);
+    me.request = s.data; me.busy = false; ceCodeStep();
   }
   async function ceConfirm() {
-    var i = document.getElementById('amvCCode'), code = String(i ? i.value : '').replace(/\s+/g, '');
-    if (!/^[0-9]{4,10}$/.test(code)) { CE.msg = 'Type the code from the email.'; return renderClaudeEmails(); }
-    CE.busy = true; CE.msg = 'Checking...'; await renderClaudeEmails();
-    var v = await CE.temp.auth.verifyOtp({ email: CE.email, token: code, type: 'email' });
-    if (v.error) { CE.busy = false; CE.msg = 'That code did not work: ' + v.error.message; return renderClaudeEmails(); }
-    var f = await CE.temp.rpc('hel_claude_email_finish', { p_request: CE.request });
-    try { await CE.temp.auth.signOut({ scope: 'local' }); } catch (e) {}
-    CE = { step: 'list', email: '', request: '', temp: null, busy: false, msg: f.error ? f.error.message : 'Claude email added.' };
-    if (!f.error) claudeCheck();   // tell the Helper on this computer right away
+    if (CE.busy) return;
+    var me = CE, i = document.getElementById('amvCCode'), code = String(i ? i.value : '').replace(/\s+/g, '');
+    if (!/^[0-9]{4,10}$/.test(code)) return ceError('Type the numbers from the email.');
+    ceBusy(true, 'Checking...');
+    var v = await me.temp.auth.verifyOtp({ email: me.email, token: code, type: 'email' });
+    if (CE !== me) return;
+    if (v.error) return ceBusy(false, 'That code did not work: ' + v.error.message);
+    var fin = await me.temp.rpc('hel_claude_email_finish', { p_request: me.request });
+    try { await me.temp.auth.signOut({ scope: 'local' }); } catch (e) {}
+    if (CE !== me) return;
+    if (fin.error) { CE.busy = false; return cePop('It was not linked', '<p>' + esc(fin.error.message) + '</p>', [['Start again', function () { ceAsk(''); }, true], ['Close', ceClose]]); }
+    claudeCheck();   // tell the Helper on this computer right away
+    cePop('Your Claude account is linked', '<div class="cemail">' + esc(me.email) + '</div><p>You can now use premium features with this Claude account. You still sign in to the Hub the same way.</p>', [['Done', function () { ceClose(); renderClaudeEmails(); }, true]]);
     renderClaudeEmails();
   }
 
