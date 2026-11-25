@@ -1405,7 +1405,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v9.18</div>
+      <div class="page-version" id="hubVersionBadge">v9.19</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -6505,6 +6505,46 @@ async function hlSyncBar(keepCurrent){
   }
   finally{ hl.syncing=false; if(hl.again){ hl.again=false; hlSyncBar(false); } }
 }
+// ---- THE PROFILES EVERYONE HAS (Ryan, 2026-11-25): "Aurora" (the ring's choices as buttons, and the button that changes the ring) is standard for everybody; a person with no buttons yet also
+// gets "Start". Nothing a person already has is changed or removed. Because every login then has profiles, the bar on a computer is replaced by the login that is using the Hub.
+const HL_AURORA=[
+ ['Dictate','program','\uD83C\uDFA4','Speak and the words are typed where the pointer is.',{t:'open_program',v:'menu:ring-dictate'}],
+ ['Show Amit','program','\uD83D\uDCF8','Drag over the screen, mark it up and send it to Amit.',{t:'open_program',v:'menu:ring-showamit'}],
+ ['Voice','program','\uD83D\uDDE3\uFE0F','Say a command and Amit runs it.',{t:'open_program',v:'menu:ring-voice'}],
+ ['Read','program','\uD83D\uDD0A','Amit reads aloud what is selected or copied.',{t:'open_program',v:'menu:ring-talk'}],
+ ['Mobile','program','\uD83D\uDCF1','Brings in the photo just sent from your phone.',{t:'open_program',v:'menu:ring-mobile'}],
+ ['Change my Aurora','program','\uD83C\uDFA8','Choose what sits on your Aurora ring.',{t:'open_program',v:'menu:aurora-editor'}]
+];
+const HL_START=[
+ ['Hub','web','\uD83C\uDFE0','Opens your Hub.',{t:'open_url',v:'https://askamit.org/Hub/amit-hub.html'}],
+ ['Ask Amit','ask','\uD83D\uDCAC','Opens Ask Amit.',{t:'ask_amit',v:'Hello Amit'}],
+ ['Calculator','program','\uD83E\uDDEE','Opens the Windows Calculator.',{t:'open_program',v:'Calculator'}],
+ ['Notepad','program','\uD83D\uDCDD','Opens Notepad.',{t:'open_program',v:'Notepad'}]
+];
+async function hlSeedStandard(uid,profiles,buttons){
+  if(hl.seeding) return false;
+  const has=function(n){ return profiles.some(function(p){ return String(p.name||'').trim().toLowerCase()===n.toLowerCase(); }); };
+  const want=[];
+  if(!buttons.length&&!has('Start')) want.push(['Start','profile start',HL_START]);
+  if(!has('Aurora')) want.push(['Aurora','profile aurora',HL_AURORA]);
+  if(!want.length) return false;
+  hl.seeding=true; let added=false;
+  try{
+    let order=profiles.length, current=profiles.some(function(p){ return p.is_current; })&&buttons.length>0;
+    for(const w of want){
+      const makeCurrent=!current&&w[0]==='Start';
+      if(makeCurrent){ await db.from('hel_profiles').update({is_current:false}).eq('user_id',uid); }
+      const r=await db.from('hel_profiles').insert({user_id:uid,name:w[0],voice_phrase:w[1],sort_order:order++,is_current:makeCurrent}).select().single();
+      if(r.error||!r.data) continue;
+      if(makeCurrent) current=true;
+      const rows=w[2].map(function(b,i){ return {user_id:uid,profile_id:r.data.id,name:b[0],kind:b[1],icon:b[2],description:b[3],steps:[b[4]],sort_order:i}; });
+      const ins=await db.from('hel_buttons').insert(rows);
+      if(ins.error){ await db.from('hel_profiles').delete().eq('id',r.data.id); continue; }   // never leave an empty standard profile behind
+      added=true;
+    }
+  }catch(e){ console.warn('standard profiles',e); }
+  hl.seeding=false; return added;
+}
 async function hlLoad(){
   const signed=hlSigned();
   hlEl('hlSignedOut').style.display=signed?'none':''; hlEl('hlForm').style.display=signed?'':'none';
@@ -6521,11 +6561,24 @@ async function hlLoad(){
     hl.profiles=[]; hl.buttons=[]; hlFillSettings(HL_DEFAULTS); hlRender(); return;
   }
   hl.profiles=rs[1].data||[]; hl.buttons=rs[2].data||[];
+  if(await hlSeedStandard(currentUser.id,hl.profiles,hl.buttons)){
+    const again=await Promise.all([db.from('hel_profiles').select('*').eq('user_id',currentUser.id).order('sort_order').order('created_at'),
+      db.from('hel_buttons').select('*').eq('user_id',currentUser.id).is('deleted_at',null).order('sort_order').order('created_at')]);
+    if(!again[0].error&&!again[1].error){ hl.profiles=again[0].data||[]; hl.buttons=again[1].data||[]; const cur=hl.profiles.find(function(p){ return p.is_current; }); if(cur) hl.sel=cur.id; }
+  }
   if(!hl.profiles.some(function(p){ return p.id===hl.sel; })){ const c=hl.profiles.find(function(p){ return p.is_current; })||hl.profiles[0]; hl.sel=c?c.id:null; }
   hl.settings=Object.assign({},HL_DEFAULTS,rs[0].data||{}); hlFillSettings(hl.settings); hlRender(); hlSyncBar(true);
   if(window.AmitScriptButtons&&AmitScriptButtons.loadShortcuts) AmitScriptButtons.loadShortcuts().then(function(){ if(typeof hlRender==='function') hlRender(); });
   if(window.AmitScriptButtons) AmitScriptButtons.load();   // custom script buttons (2026-11-24): their scripts, questions and state, and the settings the Helper needs
 }
+// the person's bar is made ready as soon as they sign in (Ryan, 2026-11-25), not only when the Amit Helper tab is opened: the standard profiles are there and this computer's bar becomes THEIRS
+let hlAutoFor=null;
+setInterval(function(){
+  if(typeof currentUser==='undefined'||!currentUser||!currentUser.id){ hlAutoFor=null; return; }
+  if(!hlSigned()||hlAutoFor===currentUser.id) return;
+  hlAutoFor=currentUser.id;
+  hlLoad().catch(function(e){ console.warn('helper bar at sign-in',e); hlAutoFor=null; });
+},3000);
 function hlFillSettings(s){ hlEl('hlAlways').checked=!!s.always_on; hlEl('hlWiden').checked=!!s.widen_on_click; hlEl('hlIdle').value=String(s.idle_minutes); hlEl('hlRail').value=s.rail_width; }
 // THE STANDARD BUTTON (Ryan, 2026-11-08): "Amit menu" in the Settings group is the same on every computer. The bar program adds it itself, so it is not a row in the database; the editor only SHOWS it, locked.
 const HL_STD_NAME='Amit menu', HL_STD_ICON='\uD83D\uDCCB';
