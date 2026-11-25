@@ -41,7 +41,7 @@ async function start(){
   $('log').innerHTML='';
   if(!CFG.check.allowed){
     if(['not_paid','not_signed_in','no_claude_code'].indexOf(CFG.check.reason)>=0)return freeView();
-    now('<div class="m perm">'+esc(CFG.check.plain)+'</div>');foot(btn('go','Check again',start),btn('soft','Close',function(){window.close()}));return;
+    now('<div class="m perm"><b>Your Claude is not connected yet</b>\n'+esc(CFG.check.plain)+'</div>');foot(connectBtn(),btn('soft','Check again',start),btn('soft','Close',function(){window.close()}));return;
   }
   if(CFG.running){watch();return}
   now('<div class="m done">Your own Claude account is signed in ('+esc(CFG.check.plan)+' plan).<small>This uses your plan\'s limits. Claude works in this button\'s own folder and asks you before it does anything else.</small></div>');
@@ -99,9 +99,15 @@ async function send(){
   log('<div class="m">You answered: '+esc(a)+'</div>');now('<div class="m">Claude is working...</div>');foot(stopBtn());
 }
 /* a free Claude account: nothing is run. The person copies the instructions and pastes them into Claude themselves. */
+/* CONNECT MY CLAUDE: the linking needs the person's Hub login, so the Hub opens straight to it; this window then checks again */
+function connectBtn(){return btn('go','Connect my Claude',function(){
+  window.open('https://askamit.org/Hub/amit-hub.html?connect=claude','_blank','noopener');
+  now('<div class="m ask">The Hub opened in your browser at the Connect my Claude step. Finish there, then come back and press Check again, or press your bar button again.</div>');
+  foot(btn('go','Check again',start),btn('soft','Close',function(){window.close()}));
+})}
 function freeView(){
   now('<div class="m">No paid Claude account was found on this computer. This button can copy the instructions so you can paste them into Claude yourself.<small>With a paid plan, the button runs it for you.</small></div>');
-  foot(btn('go','Copy and open Claude',async function(){
+  foot(connectBtn(),btn('soft','Copy and open Claude',async function(){
     var ok=true;try{await navigator.clipboard.writeText(CFG.shortcutText)}catch(e){ok=false}
     now('<div class="m done">'+(ok?'<b>Copied.</b> Claude opens in your browser.\n1. Click in Claude\'s message box.\n2. Press Ctrl+V.\n3. Press Enter.':'Copy the text below, then paste it into Claude.')+'</div><pre>'+esc(CFG.shortcutText)+'</pre>');
     if(ok)window.open('https://claude.ai/new','_blank','noopener');

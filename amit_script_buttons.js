@@ -93,7 +93,7 @@
   }
   function ceError(text) { var e = document.querySelector('#amvCPop .ceerr'); if (e) e.textContent = text || ''; }
   function ceBusy(on, text) { CE.busy = on; [].forEach.call(document.querySelectorAll('#amvCPop .cerow button.go'), function (k) { k.disabled = on; }); ceError(text); }
-  function ceClose() { CE = { email: '', request: '', temp: null, busy: false }; cePop(null); }
+  function ceClose() { var quit = CE.cancel; CE = { email: '', request: '', temp: null, busy: false }; cePop(null); if (quit) quit(); }
   function ceAsk(err) {
     cePop('Add your Claude email', '<p>Here is what is about to happen:</p><ol><li>Type the email you use for Claude.</li><li>We send a code to that email.</li><li>You get the code from your email.</li><li>You come back here and type it in.</li></ol><input id="amvCEmail" type="email" placeholder="Your Claude email" value="' + esc(CE.email) + '"><div class="ceerr"></div>',
       [['Send my code', ceSend, true], ['Cancel', ceClose]]);
@@ -129,25 +129,66 @@
     try { await me.temp.auth.signOut({ scope: 'local' }); } catch (e) {}
     if (CE !== me) return;
     if (fin.error) { CE.busy = false; return cePop('It was not linked', '<p>' + esc(fin.error.message) + '</p>', [['Start again', function () { ceAsk(''); }, true], ['Close', ceClose]]); }
+    if (me.after) { renderClaudeEmails(); var next = me.after; CE = { email: '', request: '', temp: null, busy: false }; return next(); }
     claudeCheck();   // tell the Helper on this computer right away
     cePop('Your Claude account is linked', '<div class="cemail">' + esc(me.email) + '</div><p>You can now use premium features with this Claude account. You still sign in to the Hub the same way.</p>', [['Done', function () { ceClose(); renderClaudeEmails(); }, true]]);
     renderClaudeEmails();
   }
 
-  /* when a shortcut step is CHOSEN: resolves 'ok' (their own paid Claude), 'free' (they take the copy-and-paste version, which runs nothing) or null (cancel the selection) */
-  async function claudeGate() {
-    ccBox('One moment', 'Checking for your own paid Claude account...', []);
-    var d = await claudeCheck();
-    await loadShortcuts(true);
-    if (d.allowed) { ccBox(null); return 'ok'; }
+  /* ---------- CONNECT MY CLAUDE (Ryan, 2026-11-25): every premium warning offers it, and it leads to the right next step for what is actually wrong.
+     Approved screens: AmitHelper\Previews\AmitHelper_connectmyclaude_preview.html. When it connects, the person carries on where they were. ---------- */
+  var PLANS = 'https://claude.com/pricing';
+  /* resolves 'ok' (their own paid Claude), 'free' (the copy-and-paste version, which runs nothing; only where offered) or null (cancel) */
+  function connectFlow(first, allowFree) {
     return new Promise(function (done) {
-      var end = function (v) { ccBox(null); done(v); };
-      if (FREE_OK.indexOf(d.reason) >= 0) ccBox('This is a premium option', d.plain + ' Your other buttons keep working as they do now. You can also use the free version: the button copies the instructions of the shortcut for you to paste into Claude yourself.', [
-        ['Get my own Claude account', function () { root.open('https://claude.com/pricing', '_blank', 'noopener'); end(null); }, true],
-        ['Use the free copy version', function () { end('free'); }], ['Not now', function () { end(null); }]]);
-      else ccBox('It cannot be added yet', d.plain, [['Close', function () { end(null); }, true]]);
+      var over = false, last = first;
+      function end(v) { if (over) return; over = true; CE = { email: '', request: '', temp: null, busy: false }; cePop(null); done(v); }
+      function free(list) { if (allowFree && FREE_OK.indexOf(last.reason) >= 0) list.splice(list.length - 1, 0, ['Use the free copy version', function () { end('free'); }]); return list; }
+      function connected() { cePop('Your Claude is connected', '<p>Amit checked again and it matches. You can carry on.</p>', [['Continue', function () { end('ok'); }, true]]); }
+      function addEmail() { CE = { email: '', request: '', temp: null, busy: false, after: recheck, cancel: function () { end(null); } }; ceAsk(''); }
+      async function recheck() {
+        cePop('One moment', '<p>Checking your Claude account...</p>', []);
+        var d = await claudeCheck(); if (over) return; await loadShortcuts(true); last = d;
+        if (d.allowed) return connected();
+        if (d.reason === 'email_mismatch') return cePop('One more step', '<p>You are signed in. That Claude account uses a different email than your Hub login, so add it to your account.</p>', [['Add that email', addEmail, true], ['Check again', recheck], ['Cancel', function () { end(null); }]]);
+        if (d.reason === 'not_signed_in') return signIn();
+        if (d.reason === 'not_paid' || d.reason === 'no_claude_code') return getPaid();
+        other(d);
+      }
+      function signIn() { cePop('Sign in to Claude on this computer', '<ol><li>Open Claude Code on this computer.</li><li>Sign in with your own paid Claude account.</li><li>Come back here and press the button below.</li></ol>', free([['I signed in, check again', recheck, true], ['I do not have Claude yet', getPaid], ['Cancel', function () { end(null); }]])); }
+      function getPaid() { cePop('Get your own Claude account', '<ol><li>Get a paid Claude plan that includes Claude Code.</li><li>Install Claude Code on this computer and sign in.</li><li>Come back here and press the button below.</li></ol>', free([['See Claude plans', function () { root.open(PLANS, '_blank', 'noopener'); }, true], ['I am ready, check again', recheck], ['Cancel', function () { end(null); }]])); }
+      function other(d) { cePop('Your Claude is not connected yet', '<p>' + esc(d.plain) + '</p>', [['Check again', recheck, true], ['Close', function () { end(null); }]]); }
+      function start(d) {
+        var why = { email_mismatch: 'The Claude account on this computer uses a different email than your Hub login.', not_signed_in: 'No one is signed in to Claude Code on this computer.', no_claude_code: 'It needs your own paid Claude account in Claude Code on this computer, and Claude Code was not found here.', not_paid: 'It needs your own paid Claude account.' }[d.reason];
+        if (!why) return other(d);
+        var go = d.reason === 'email_mismatch' ? addEmail : d.reason === 'not_signed_in' ? signIn : getPaid;
+        cePop('Your Claude is not connected yet', '<p>This is a premium feature. ' + why + '</p>', free([['Connect my Claude', go, true], ['Not now', function () { end(null); }]]));
+      }
+      start(first);
     });
   }
+  /* when a shortcut step is CHOSEN */
+  async function claudeGate() {
+    cePop('One moment', '<p>Checking for your own paid Claude account...</p>', []);
+    var d = await claudeCheck();
+    await loadShortcuts(true);
+    if (d.allowed) { cePop(null); return 'ok'; }
+    return connectFlow(d, true);
+  }
+  /* opened from the bar window's Connect my Claude button: askamit.org/Hub/amit-hub.html?connect=claude */
+  async function connectMyClaude() {
+    cePop('One moment', '<p>Checking your Claude account...</p>', []);
+    var d = await claudeCheck();
+    var got = d.allowed ? 'ok' : await connectFlow(d, false);
+    if (got === 'ok') { cePop('Your Claude is connected', '<p>Press your button on the bar again.</p>', [['Done', function () { cePop(null); }, true]]); renderClaudeEmails(); }
+  }
+  if (root.location && /[?&]connect=claude(&|$)/.test(root.location.search || '')) {
+    var tries = 0, waitForLogin = root.setInterval(function () {
+      if (ME() && DB()) { root.clearInterval(waitForLogin); try { root.history.replaceState(null, '', root.location.pathname + root.location.hash); } catch (e) {} connectMyClaude(); }
+      else if (++tries > 600) root.clearInterval(waitForLogin);
+    }, 500);
+  }
+
   function scriptsOf(id) { return S.scripts.filter(function (r) { return r.button_id === id; }).sort(function (a, b) { return a.version - b.version; }); }
   function currentScript(id) { var l = scriptsOf(id); for (var i = l.length - 1; i >= 0; i--) if (l[i].is_current) return l[i]; return null; }
   function questionsOf(id) { return S.questions.filter(function (r) { return r.button_id === id; }).sort(function (a, b) { return (a.position || 0) - (b.position || 0); }); }
@@ -612,7 +653,7 @@
   var api = { load: load, render: render, syncToHelper: syncToHelper, create: create, wizard: wizard, wizClose: wizClose, wizGo: wizGo, wizAt: wizAt, wizPick: wizPick, wizBuild: wizBuild, useSteps: useSteps, open: open, close: close, send: function () { return send(); }, saveSetup: function () { return saveSetup(false); }, addQ: addQ, q: qEdit, up: function (i) { swap(i, i - 1); }, down: function (i) { swap(i, i + 1); },
     rm: rmQ, accept: accept, dismiss: dismiss, letAmit: letAmit, approve: approve, setState: setState, putBack: putBack, del: del, delById: delById, restore: restore, importInbox: importInbox, refresh: function () { readSetup(); drawModal(); },
     isScriptButton: isScriptBtn, _t: { slug: slug, helperConfig: helperConfig, buildRequest: buildRequest, onReply: onReply, state: S, sha256: sha256, cardFor: cardFor } };
-  api.renderClaudeEmails = renderClaudeEmails;
+  api.renderClaudeEmails = renderClaudeEmails; api.connectMyClaude = connectMyClaude;
   api.claudeCheck = claudeCheck; api.claudeGate = claudeGate; api.loadShortcuts = loadShortcuts; api.shortcutsOf = shortcutsOf; api.shortcutName = scName;
   api.shortcutById = function (id) { return (S.shortcuts || []).filter(function (s) { return s.id === id; })[0] || null; };
   root.AmitScriptButtons = api;
