@@ -84,7 +84,7 @@
     var s = await DB().rpc('hel_claude_email_start', { p_email: mail });
     if (s.error) { CE.busy = false; CE.msg = s.error.message; return renderClaudeEmails(); }
     CE.temp = ceTemp();
-    var o = await CE.temp.auth.signInWithOtp({ email: mail, options: { shouldCreateUser: true } });
+    var o = await CE.temp.auth.signInWithOtp({ email: mail, options: { shouldCreateUser: true, emailRedirectTo: 'https://askamit.org/claude-email-code' } });   // this address is the mark the email template reads to send the CODE-ONLY version (no sign-in button)
     CE.busy = false;
     if (o.error) { CE.msg = 'The email could not be sent: ' + o.error.message; return renderClaudeEmails(); }
     CE.request = s.data; CE.step = 'code'; CE.msg = ''; renderClaudeEmails();
