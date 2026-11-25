@@ -20,7 +20,7 @@
   /* v1.10 (2026-11-18): the SAME door now also serves a SIGNED-IN person (makeSignedSource / AskAmitDoor.connectSigned): earlier questions come back from ask_my_history, a picture (Show Amit, a photo or a
      file the person chose) is uploaded to the private bucket askamit-shots in their own folder and travels with their next question (the engine measures it, Amit looks at it, then it is deleted). The voice
      message and live-transcript buttons are hidden (dictation and transcription are the Aurora's job), and the picture button opens Show Amit through the Helper when the Helper can, else the file picker. */
-  var VERSION = '1.16', CONV = 'askamit-visitor', MSGKEY = 'askamit_visitor_msgs', GUESTKEY = 'askamit_guest', BUCKET = 'askamit-shots', HELPER = 'http://localhost:8710';
+  var VERSION = '1.17', CONV = 'askamit-visitor', MSGKEY = 'askamit_visitor_msgs', GUESTKEY = 'askamit_guest', BUCKET = 'askamit-shots', HELPER = 'http://localhost:8710';
   var SIGNIN = 'That is for signed-in people. Signing up is free.';
   var SIGNED_GREETING = 'Hello again. I’m Amit. What would you like to ask? You can also send me a picture with the camera button.';
   var GREETING ='Hello, and welcome! I’m Amit. I can tell you about what Amit’s applications do and how they could help you. What would you like to know?';
@@ -155,7 +155,7 @@
         var shot = signed ? pendingShot : null;
         if (shot) { place.shot = { path: shot.path, name: shot.name, title: shot.title, text: shot.text }; if (o.place && o.place.from && o.place.from.attachment) add('me', '📷 ' + shot.name + (shot.title ? ' — ' + shot.title : '') + '\n' + question); }
         return db.rpc('ask_submit', { p_app: o.app || 'unknown', p_place: place, p_style: 'chat', p_question: question, p_tz: tz || null, p_guest: GUEST }).then(function (r) {
-          if (r && r.error) { cur = { id: null, done: true, last: { status: 'answered' } }; add('amit', r.error.message || 'I could not take that question just now.'); return { online: online }; }
+          if (r && r.error) { cur = { id: null, done: true, last: { status: 'answered' } }; add('amit', r.error.message || 'I could not take that question just now.'); if (signed && window.AmitOwnClaude && /Connect my Claude/i.test(r.error.message || '')) window.AmitOwnClaude.offer(r.error.message); return { online: online }; }
           pendingShot = null;                /* the picture left with this question (the engine deletes it when the answer is done) */
           var d = r.data || {}; cur = { id: d.id, done: false, last: { status: 'new', ahead: d.ahead || 0 } }; online = d.online !== false; onlineAt = Date.now();
           return { id: d.id, number: null, ahead: d.ahead || 0, online: online };
@@ -260,8 +260,10 @@
         /* a question in an Ask Amit chat goes to AskAmit; the question and the answer are saved in the chat as they always were. A question that comes with a picture keeps the old route for now. */
         c.ask = function (id, o) {
           var withPicture = !!(o && o.place && o.place.from && o.place.from.attachment);
-          if (D.help[id] && !withPicture) { D.last = true; return d.ask.apply(d, arguments); }
-          D.last = false; return orig.ask.apply(orig, arguments);
+          var args = arguments, chatWay = function () { D.last = false; return orig.ask.apply(orig, args); }, askAmitWay = function () { D.last = true; return d.ask.apply(d, args); };
+          if (!D.help[id] || withPicture) return chatWay();
+          /* 2026-11-25: a person with their own paid Claude is answered by THEIRS (the chat's own route sends it to their computer's Helper); AskAmit on the owner's computer is only for people without one */
+          return (window.AmitOwnClaude ? window.AmitOwnClaude.decide(db) : Promise.resolve(false)).then(function (own) { return own ? chatWay() : askAmitWay(); }, askAmitWay);
         };
         c.askStatus = function (id) { var t = (D.last && D.help[id]) ? d : orig; return t.askStatus.apply(t, arguments); };
         window.AmitChat.useSource(c); return true;
