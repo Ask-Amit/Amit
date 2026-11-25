@@ -17,6 +17,8 @@
 <script src="../amit_chat.js?v=0.30"></script>
 <script src="../amit_data_tools.js?v=1.01"></script>
 <script src="../amit_ch_sync.js?v=1.04"></script>
+<script src="../amit_button_build.js?v=0.1"></script>
+<script src="../amit_script_buttons.js?v=0.1"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1403,7 +1405,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v9.05</div>
+      <div class="page-version" id="hubVersionBadge">v9.07</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2704,6 +2706,7 @@ header{
               <div class="hl-main">
                 <div id="hlProfHead" class="hl-h"></div>
                 <div id="hlTable"></div>
+                <div id="hlScripts"></div>
                 <div id="hlRowTestOut" class="amw-small" style="margin-top:10px;line-height:1.6"></div>
               </div>
             </div>
@@ -6463,6 +6466,7 @@ function hlStepToBar(s){
   else if(s.t==='winact'){ o.t='winact'; o.text=s.wid||''; }   // the bar holds the keys for each id (WinActCtl in AmitBar.cs)
   else if(s.t==='menu'){ o.t='menu'; o.text=s.mid||''; }   // the bar asks the Helper to open this menu by its id; the Helper keeps the list of menus and how each one opens
   else if(s.t==='preview'||s.t==='preview_rules'){ }   // the bar and the helper know these two by their own names; they carry no address and no text (the rules live in the Amit Preview page itself)
+  else if(s.t==='run_script'){ o.text=v; }   // a custom script button: the text is the button's own id; the Helper keeps the script and its questions (Toolkit\amit_script_routes.ps1)
   return o;
 }
 async function hlSyncBar(keepCurrent){
@@ -6478,6 +6482,7 @@ async function hlSyncBar(keepCurrent){
     try{ res=await fetch('http://localhost:8710/api/bar/sync',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)}); }
     catch(e){ hlSyncNote("This computer's Amit helper did not answer, so the bar on this computer was not changed. Either it is not running, or your browser is asking whether this site may reach your computer: choose Allow. It is sent again the next time you change something or open this tab.",true); return; }
     let j=null; try{ j=await res.json(); }catch(e){}
+    if(window.AmitScriptButtons) AmitScriptButtons.syncToHelper();   // the script buttons' settings go to the Helper right behind the bar
     const hh=new Date(), t=('0'+hh.getHours()).slice(-2)+':'+('0'+hh.getMinutes()).slice(-2);
     if(j&&j.ok){ hlSyncNote('Your bar on this computer is up to date ('+j.profiles+' profile'+(j.profiles>1?'s':'')+', '+j.buttons+' button'+(j.buttons===1?'':'s')+', sent at '+t+').'+(j.missing?' '+j.missing+' step'+(j.missing>1?'s need':' needs')+' choosing on this computer (a file or a sound device): open the button and choose it.':''),!!j.missing); }
     else if(j&&j.error&&res.status!==404){ hlSyncNote('This computer did not accept the bar: '+j.error+'.',true); }
@@ -6493,7 +6498,7 @@ async function hlLoad(){
   await Promise.all([hlLoadApps(),hlLoadPrograms()]);
   const rs=await Promise.all([db.from('hel_settings').select('*').eq('user_id',currentUser.id).maybeSingle(),
     db.from('hel_profiles').select('*').eq('user_id',currentUser.id).order('sort_order').order('created_at'),
-    db.from('hel_buttons').select('*').eq('user_id',currentUser.id).order('sort_order').order('created_at')]);
+    db.from('hel_buttons').select('*').eq('user_id',currentUser.id).is('deleted_at',null).order('sort_order').order('created_at')]);
   const bad=rs.find(function(r){ return r.error; });
   if(bad){
     const missing=/does not exist|42P01|PGRST205|schema cache/i.test((bad.error.message||'')+' '+(bad.error.code||''));
@@ -6503,6 +6508,7 @@ async function hlLoad(){
   hl.profiles=rs[1].data||[]; hl.buttons=rs[2].data||[];
   if(!hl.profiles.some(function(p){ return p.id===hl.sel; })){ const c=hl.profiles.find(function(p){ return p.is_current; })||hl.profiles[0]; hl.sel=c?c.id:null; }
   hl.settings=Object.assign({},HL_DEFAULTS,rs[0].data||{}); hlFillSettings(hl.settings); hlRender(); hlSyncBar(true);
+  if(window.AmitScriptButtons) AmitScriptButtons.load();   // custom script buttons (2026-11-24): their scripts, questions and state, and the settings the Helper needs
 }
 function hlFillSettings(s){ hlEl('hlAlways').checked=!!s.always_on; hlEl('hlWiden').checked=!!s.widen_on_click; hlEl('hlIdle').value=String(s.idle_minutes); hlEl('hlRail').value=s.rail_width; }
 // THE STANDARD BUTTON (Ryan, 2026-11-08): "Amit menu" in the Settings group is the same on every computer. The bar program adds it itself, so it is not a row in the database; the editor only SHOWS it, locked.
@@ -6536,12 +6542,14 @@ function hlRender(){
         +'<div class="hl-cell" title="Change the name" onclick="hlOpenEdit('+i+',\'name\')"><div class="hl-wd"><i style="color:'+c+'">'+hlIconHtml(b.icon)+'</i>'+hlEsc(b.name)+'</div></div>'
         +'<div class="hl-cell" title="Change the description" onclick="hlOpenEdit('+i+',\'desc\')">'+(hlEsc(b.description)||'<span style="color:var(--muted)">Add a description</span>')+'</div>'
         +'<div class="hl-cell" title="Change what it does" onclick="hlOpenEdit('+i+',\'does\')">'+hlEsc(hlSummary(b))+'</div>'
-        +'<div style="display:flex;gap:6px"><button class="btn btn-gold" title="Run this button here" onclick="hlRowTest('+i+')">&#9654; Test</button><button class="btn" title="Delete this button" onclick="hlRowDelete('+i+')">Delete</button></div></div>'; }).join('')
+        +'<div style="display:flex;gap:6px">'+(window.AmitScriptButtons&&AmitScriptButtons.isScriptButton(b)?'<button class="btn btn-gold" title="Open this script button" onclick="AmitScriptButtons.open('+i+')">Open</button><button class="btn" title="Delete this button (kept for 30 days)" onclick="AmitScriptButtons.delById('+i+')">Delete</button>':'<button class="btn btn-gold" title="Run this button here" onclick="hlRowTest('+i+')">&#9654; Test</button><button class="btn" title="Delete this button" onclick="hlRowDelete('+i+')">Delete</button>')+'</div></div>'; }).join('')
     +'<div style="margin-top:10px"><span class="hl-addp" onclick="hlOpenEdit(null,\'new\')">+ Add a button</span></div>';
+  if(window.AmitScriptButtons) AmitScriptButtons.render();   // the custom script buttons of this profile, under the table
 }
 function hlSummary(b){
   const st=(b.steps||[]).map(hlDec), v=function(s){ return s.v==null?'':String(s.v); },
     lab=function(s){ return ({open_app:'open '+v(s),open_url:'open the website',open_program:'open '+v(s),open_file:'open '+v(s),audio:'audio setting',settings:'open Windows settings: '+v(s),print:'print from the screen',play_music:'play '+v(s),speak:'say something',ask_amit:'ask Amit',wait:'wait '+v(s)+' s',preview:'open the Amit Preview',preview_rules:'hand out the previewer rules',menu:'open the menu '+v(s)})[s.t]||s.t; };
+  if(st.length===1&&st[0].t==='run_script') return 'Custom script (built by Amit)';
   if(st.length===1){ const s=st[0], n=HL_STEPS[s.t]?HL_STEPS[s.t][0]:s.t; return n+(s.v!==''&&s.v!=null&&s.t!=='ask_amit'?': '+s.v:''); }
   return st.length+' steps: '+st.map(lab).join(', then ');
 }
@@ -6598,8 +6606,10 @@ async function hlDeleteProfile(){
 function hlOpenEdit(id,mode){
   const p=hl.profiles.find(function(x){ return x.id===hl.sel; }); if(!p) return;
   const b=id?hl.buttons.find(function(x){ return x.id===id; }):null;
+  const isScr=!!(b&&(b.steps||[]).some(function(s){ return s&&s.t==='run_script'; }));   // a custom script button has its own editor (amit_script_buttons.js)
+  if(isScr&&(mode||'does')==='does'&&window.AmitScriptButtons){ AmitScriptButtons.open(b.id); return; }
   hl.editId=b?b.id:null; hl.mode=b?(mode||'does'):'new'; hl.icon=b?b.icon:'⭐';
-  hl.steps=b?(b.steps||[]).map(hlDec):[{t:'open_app',v:''}]; hl.recentTried=false; hl.audioTried=false;
+  hl.steps=b?(isScr?[{t:'wait',v:'1'}]:(b.steps||[]).map(hlDec)):[{t:'open_app',v:''}]; hl.recentTried=false; hl.audioTried=false;
   const titles={icon:'Icon for '+(b?b.name:''),name:'Name on the wide bar',desc:'Description',does:'What it does: '+(b?b.name:''),'new':'New button in '+p.name};
   hlEl('hlEditTitle').textContent=titles[hl.mode];
   const m=hl.mode, all=(m==='new');
@@ -8073,11 +8083,17 @@ const MAIL_KEY='amit_mail_email';
 function load(){
   let own=[];
   try{own=JSON.parse(localStorage.getItem(KEY)||'[]');own.forEach(t=>{t.pri=migrateOldPri(t.pri);if(!t.kind){if(t.isExperience)t.kind='experience';else if(t.cat==='memory')t.kind='memory';else t.kind='pursuit';}if(t.kind==='pursuit'&&t.done){t.kind='memory';if(!t._origin)t._origin='pursuit';}});}catch{}
-  if(demoModeHub)return[...demoPursuits,...own]; // Amit's locked entries + user's own editable entries
+  // v9.06: never list the same id twice. Signed in as the demo account, the demo rows ARE the user's own rows,
+  // so the demo list is skipped; otherwise demo + own are merged with own winning on a shared id.
+  const seen=new Set();
+  own=own.filter(t=>{if(seen.has(t.id))return false;seen.add(t.id);return true;});
+  const isDemoOwner=!!(typeof currentUser!=='undefined'&&currentUser&&currentUser.id===AMIT_DEMO_UID);
+  if(demoModeHub&&!isDemoOwner)return[...demoPursuits.filter(t=>!seen.has(t.id)),...own]; // Amit's locked entries + user's own editable entries
   return own;
 }
 
-function persist(d){try{localStorage.setItem(KEY,JSON.stringify(d))}catch{}}
+// v9.06: demo (_isDemo) rows are never saved into the user's own local list, so deletes/edits cannot copy them in.
+function persist(d){try{const seen=new Set();localStorage.setItem(KEY,JSON.stringify((d||[]).filter(t=>{if(t._isDemo||seen.has(t.id))return false;seen.add(t.id);return true;})))}catch{}}
 function uid(){return'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16)});}
 function migrateOldPri(p){const m={'critical':1,'high':3,'normal':5,'low':8};return typeof p==='number'?p:(m[p]||5)}
 

@@ -1,0 +1,29 @@
+{
+  "version": "1.0",
+  "updated": "2026-11-24",
+  "note": "THE NEVER LIST for custom script buttons (Button_Creator_SPEC.md section 11, Button_Builder_Rules_DRAFT.md section 4). One file, delivered by the updater, read by BOTH the Helper (PowerShell scanner, the authority) and the Hub (a lighter JavaScript pre-check). Each rule: id, plain (the sentence the person sees), pattern (a case-insensitive .NET regex run against every non-comment line of the script). A match refuses the script. This catches honest mistakes and careless scripts; it is NOT a sandbox: a determined script can be written to dodge a text scan, which is why scripts must also use the toolkit and why the person approves a permission card.",
+  "rules": [
+    { "id": "delete", "plain": "It deletes files or folders.",
+      "pattern": "(^\\s*|[;|&({]\\s*)(Remove-Item|ri|rm|rmdir|rd|del|erase|Clear-RecycleBin)(\\s|$)|\\[System\\.IO\\.(File|Directory)\\]::Delete|\\.Delete\\(\\)" },
+    { "id": "format_disk", "plain": "It formats or wipes a drive.",
+      "pattern": "Format-Volume|Clear-Disk|Initialize-Disk|Remove-Partition|\\bdiskpart\\b|(^\\s*|[;|&]\\s*)format(\\.com)?\\s+[a-z]:" },
+    { "id": "system_settings", "plain": "It changes system or security settings.",
+      "pattern": "Set-ExecutionPolicy|(Set|New)-ItemProperty\\s+.*(HKLM|HKCU|HKEY_|Registry::)|\\breg(\\.exe)?\\s+(add|delete|import)|\\bbcdedit\\b|\\bnetsh\\b|\\bschtasks\\b|Register-ScheduledTask|New-Service|Set-Service|\\bsc\\.exe\\b|Set-MpPreference|Add-MpPreference|Set-NetFirewall|Enable-PSRemoting|Set-Date|Set-TimeZone|\\bpowercfg\\b|\\bsecedit\\b|\\bsetx\\b|\\[Environment\\]::SetEnvironmentVariable" },
+    { "id": "internet", "plain": "It reaches out to the internet by itself, which this version does not allow.",
+      "pattern": "Invoke-WebRequest|\\biwr\\b|Invoke-RestMethod|\\birm\\b|Net\\.WebClient|DownloadFile|DownloadString|Start-BitsTransfer|\\bcurl(\\.exe)?\\b|\\bwget\\b|System\\.Net\\.Http|\\bbitsadmin\\b" },
+    { "id": "runs_other_code", "plain": "It starts other programs or runs code it builds on the fly.",
+      "pattern": "Invoke-Expression|\\biex\\b|\\bAdd-Type\\b|\\[Reflection\\.Assembly\\]|Invoke-Command|-EncodedCommand|FromBase64String|Start-Process|\\bsaps\\b|Invoke-Item|(^\\s*|[;|&({]\\s*)(ii|start)\\s+|\\bcmd(\\.exe)?\\s+/c|\\bpowershell(\\.exe)?\\b|\\bpwsh\\b|\\bwscript\\b|\\bcscript\\b|\\bmshta\\b|\\brundll32\\b|\\bregsvr32\\b|Invoke-CimMethod|Invoke-WmiMethod|Win32_Process" },
+    { "id": "passwords", "plain": "It handles a password, token or key.",
+      "pattern": "Get-Credential|ConvertTo-SecureString|ConvertFrom-SecureString|\\bSecureString\\b|\\bPSCredential\\b|\\bcmdkey\\b|\\bvaultcmd\\b|\\bpassword\\s*=|\\bpasswd\\b|\\bapi_?key\\s*=|\\btoken\\s*=|Authorization\\s*:|Bearer\\s+[A-Za-z0-9_.-]{10,}" },
+    { "id": "secrets_written_in", "plain": "It has a secret key written into it.",
+      "pattern": "sk-[A-Za-z0-9]{20,}|sb_secret_[A-Za-z0-9_]+|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|ghp_[A-Za-z0-9]{20,}" },
+    { "id": "admin", "plain": "It needs administrator rights.",
+      "pattern": "#Requires\\s+-RunAsAdministrator|-Verb\\s+RunAs|IsInRole|WindowsBuiltInRole|\\bsudo\\b|\\brunas(\\.exe)?\\s" },
+    { "id": "press_keys", "plain": "It presses keys or clicks in other programs.",
+      "pattern": "SendKeys|keybd_event|SendInput|mouse_event|user32\\.dll|SetForegroundWindow|AppActivate" },
+    { "id": "writes_directly", "plain": "It writes files directly instead of through the safe file tool, so no backup would be made.",
+      "pattern": "(^\\s*|[;|&({]\\s*)(Set-Content|Add-Content|Out-File|New-Item|Copy-Item|Move-Item|Rename-Item|Tee-Object|Export-Csv|Export-Clixml|Set-Clipboard|sc|ac|ni|cpi|mi|ren|mv|cp|move|copy)(\\s|$)|\\[System\\.IO\\.File\\]::(Write|Append|Create|Copy|Move|Replace)|^[^#'\"\\r\\n]*\\s>>?\\s*(\\$|\"|'|[A-Za-z]:|\\.\\\\)" },
+    { "id": "sends_mail_itself", "plain": "It sends mail by itself instead of through the safe message tool.",
+      "pattern": "Send-MailMessage|System\\.Net\\.Mail|SmtpClient|Outlook\\.Application|\\bMAPI\\b" }
+  ]
+}

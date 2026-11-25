@@ -1,0 +1,142 @@
+<!doctype html>
+<!-- hub_stub.html (2026-11-24): a stand-in for the Hub page that loads the REAL amit_script_buttons.js and amit_button_build.js against a fake in-memory database and the REAL Helper routes (a test server).
+     Opened by test_hub_module.js in a hidden browser: hub_stub.html?p=<test server port>. It runs the whole story and puts the results in window.__results / window.__done. -->
+<html><head><meta charset="utf-8"><title>Hub stub</title></head>
+<body>
+<div id="hlScripts"></div>
+<script>
+var qs=(function(){var o={},a=location.search.replace(/^\?/,'').split('&'),i,p;for(i=0;i<a.length;i++){p=a[i].split('=');if(p[0])o[p[0]]=decodeURIComponent(p[1]||'');}return o;})();
+window.AMIT_SCRIPT_HELPER_BASE='http://localhost:'+qs.p; window.AMIT_SCRIPT_POLL_FIRST=150; window.AMIT_SCRIPT_POLL_NEXT=150;
+window.__results=[]; window.__done=false;
+function ok(c,l){ window.__results.push((c?'PASS  ':'FAIL  ')+l); }
+function sleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+/* ---- a fake Supabase client: in-memory tables, the chain the module uses, and the two ask_ functions ---- */
+var TABLES={hel_buttons:[],hel_button_scripts:[],hel_button_questions:[],hel_settings:[],amit_shortcuts:[{id:'sc-1',trigger_phrase:'respond to emails',instruction_text:'Read my mail and write replies.',is_builtin:false,user_id:'u1',is_active:true}]};
+var SEQ=0, REPLIES=[], REQUESTS=[], ASKS={};
+function uid(){ SEQ++; return 'id-'+('00000000'+SEQ).slice(-8)+'-aaaa-bbbb'; }
+function Q(t){ this.t=t; this.op='select'; this.f=[]; this.part=null; this.ret=false; this.one=false; this.ord=null; }
+Q.prototype.select=function(){ if(this.op!=='select')this.ret=true; return this; };
+Q.prototype.insert=function(r){ this.op='insert'; this.part=r; return this; };
+Q.prototype.update=function(p){ this.op='update'; this.part=p; return this; };
+Q.prototype.upsert=function(r){ this.op='upsert'; this.part=r; return this; };
+Q.prototype.delete=function(){ this.op='delete'; return this; };
+Q.prototype.eq=function(c,v){ this.f.push(function(r){ return r[c]===v; }); return this; };
+Q.prototype.is=function(c,v){ this.f.push(function(r){ return (r[c]==null)===(v===null); }); return this; };
+Q.prototype.not=function(c,op,v){ this.f.push(function(r){ return !((r[c]==null)===(v===null)); }); return this; };
+Q.prototype.order=function(c){ this.ord=c; return this; };
+Q.prototype.limit=function(){ return this; };
+Q.prototype.maybeSingle=function(){ this.one=true; return this; };
+Q.prototype.single=function(){ this.one=true; return this; };
+Q.prototype.then=function(res,rej){
+  var t=TABLES[this.t], self=this, rows;
+  function match(r){ return self.f.every(function(f){ return f(r); }); }
+  try{
+    if(this.op==='insert'){ var arr=Array.isArray(this.part)?this.part:[this.part]; rows=arr.map(function(r){ var n=Object.assign({id:uid(),created_at:new Date().toISOString(),deleted_at:null},r); t.push(n); return n; }); }
+    else if(this.op==='upsert'){ var u=this.part, ex=t.filter(function(r){ return r.user_id===u.user_id; })[0]; if(ex){ Object.assign(ex,u); rows=[ex]; } else { var n2=Object.assign({},u); t.push(n2); rows=[n2]; } }
+    else if(this.op==='update'){ rows=t.filter(match); rows.forEach(function(r){ Object.assign(r,self.part); }); }
+    else if(this.op==='delete'){ rows=t.filter(match); TABLES[this.t]=t.filter(function(r){ return !match(r); }); }
+    else rows=t.filter(match);
+    if(this.ord) rows=rows.slice().sort(function(a,b){ return (a[self.ord]>b[self.ord])-(a[self.ord]<b[self.ord]); });
+    var out={data:this.one?(rows[0]||null):rows.map(function(r){ return JSON.parse(JSON.stringify(r)); }),error:null};
+    if(this.one&&out.data) out.data=JSON.parse(JSON.stringify(out.data));
+    return Promise.resolve(out).then(res,rej);
+  }catch(e){ return Promise.resolve({data:null,error:{message:e.message}}).then(res,rej); }
+};
+window.db={ from:function(t){ return new Q(t); },
+  rpc:function(name,args){
+    if(name==='ask_submit_build'){ var id=uid(); REQUESTS.push(args.p_question); ASKS[id]={n:0}; return Promise.resolve({data:{id:id,online:true},error:null}); }
+    if(name==='ask_status'){ var a=ASKS[args.p_id]; a.n++; if(a.n<2) return Promise.resolve({data:{status:'working'},error:null}); var rep=REPLIES.shift(); return Promise.resolve({data:{status:'answered',answer:rep},error:null}); }
+    return Promise.resolve({data:null,error:{message:'unknown rpc '+name}});
+  } };
+window.currentUser={id:'u1'};
+window.hl={profiles:[{id:'p1',name:'Office',is_current:true}],buttons:[],sel:'p1',settings:{let_amit_add_questions:false,blocked_recipients:[],script_time_limit_sec:60,send_countdown_seconds:0}};
+window.hlRender=function(){}; window.hlSyncBar=function(){};
+window.alert=function(){}; window.confirm=function(){ return true; };
+</script>
+<script src="../../../amit_button_build.js"></script>
+<script src="../../../amit_script_buttons.js"></script>
+<script>
+function goodReply(extraQ){ return '### SCRIPT\n```powershell\n$who = Get-AmitAnswer -Name \'from_whom\' -Default \'everyone\'\nWrite-AmitFile -Path \'C:\\\\Windows\\\\Temp\\\\x.txt\' -Content (\'who=\' + $who)\n```\n### DEFINITION\n```json\n'+JSON.stringify({wish:'Write a small note with who it is for.',worst_case:'A note file is replaced; a backup is kept.',test_example:{answers:{from_whom:'Sue'},result:'note says who=Sue'},
+  permissions:{reads:true,writes:true,sends:false,spends:false,internet:false,folders:['C:\\Users\\Public'],maxActions:5,maxSeconds:30},declared_variables:[{name:'from_whom',label:'From whom',kinds:['text'],required:false,default:'everyone'}],change_reason:'first version'})+'\n```\n### RECOMMENDED_QUESTIONS\n```json\n'+JSON.stringify(extraQ||[{label:'Which tab?',kind:'choice',choices:['Sales','Costs'],why:'The script reads one tab.',script_needs:true}])+'\n```\n### SUMMARY\nIt writes one small note. It never deletes anything.\n'; }
+function badReply(){ return '### SCRIPT\n```powershell\nRemove-Item \'C:\\x\'\n```\n### DEFINITION\n```json\n{}\n```\n### RECOMMENDED_QUESTIONS\n```json\n[]\n```\n### SUMMARY\nx\n'; }
+async function waitFor(fn,ms){ var end=Date.now()+(ms||8000); while(Date.now()<end){ try{ if(await fn()) return true; }catch(e){} await sleep(100); } return false; }
+function chatText(){ var c=document.getElementById('asbChat'); return c?c.innerText:''; }
+(async function(){
+  try{
+    var A=window.AmitScriptButtons;
+    ok(!!A&&!!window.AmitButtonBuild,'the module and the reply reader load');
+    await A.load(); ok(/None in this profile yet/.test(document.getElementById('hlScripts').innerText),'with no script buttons the panel invites the first one');
+    await A.create();
+    ok(TABLES.hel_buttons.length===1&&TABLES.hel_buttons[0].steps[0].t==='run_script'&&TABLES.hel_buttons[0].steps[0].v===TABLES.hel_buttons[0].id,'creating makes a button whose single step is run_script with its own id');
+    var id=TABLES.hel_buttons[0].id; window.hl.buttons=TABLES.hel_buttons.slice();
+    ok(!!document.getElementById('asbModal')&&/Ask Amit to create/.test(document.getElementById('asbBox').innerText),'the editor opens with Ask Amit to create');
+    document.getElementById('asbName').value='Notes button'; document.getElementById('asbJob').value='Every morning write a short note saying who it is for.';
+    A.addQ(); A.q(0,'label','From whom'); await A.saveSetup();
+    ok(TABLES.hel_button_questions.length===1&&TABLES.hel_button_questions[0].variable==='from_whom'&&TABLES.hel_button_questions[0].label==='From whom','a question is saved with a variable name made from its words');
+    ok(TABLES.hel_buttons[0].name==='Notes button'&&/short note/.test(TABLES.hel_buttons[0].says),'the name and the job in the person\'s own words are saved');
+
+    /* 1. a question from Amit comes back first, with no blocks */
+    REPLIES.push('Who should the note be for, usually?');
+    document.getElementById('asbSay').value='Please start.'; await A.send();
+    ok(await waitFor(function(){ return /Who should the note be for/.test(chatText()); }),'Amit\'s plain question appears in the chat');
+    ok(/BUILD REQUEST/.test(REQUESTS[0])&&/Every morning write/.test(REQUESTS[0])&&/variable "from_whom"/.test(REQUESTS[0])&&/Start from/.test(document.getElementById('asbBox').innerText),'the request carries the job and the questions already set; the shortcut choice is offered');
+
+    /* 2. a refused reply is repaired automatically, then a good one is placed as a trial */
+    REPLIES.push(badReply()); REPLIES.push(goodReply());
+    document.getElementById('asbSay').value='Usually for Sue.'; await A.send();
+    ok(await waitFor(function(){ return TABLES.hel_button_scripts.length===1; },12000),'after one automatic repair the script is placed and saved');
+    var row=TABLES.hel_button_scripts[0];
+    ok(row.version===1&&row.state==='practice_only'&&row.is_current===true&&!row.approved_hash&&/^[0-9A-F]{64}$/.test(row.file_hash),'it is saved as version 1, a trial, not approved, with its fingerprint');
+    ok(/not usable|fixing it/.test(chatText())&&REQUESTS.some(function(r){ return /REFUSED BY THE CHECKS/.test(r); }),'the person was told Amit is fixing it, and Amit was shown exactly what the checks refused');
+    ok(/It writes one small note/.test(chatText())&&/TRIAL/.test(chatText()),'the summary and the trial notice are in the chat');
+    var sug=TABLES.hel_button_questions.filter(function(q){ return q.status==='suggested'; })[0];
+    ok(!!sug&&sug.label==='Which tab?'&&sug.added_by==='amit'&&sug.script_needs===true&&/script reads one tab/.test(sug.why),'the question Amit recommended is saved as a suggestion with its reason');
+    ok(/Amit recommends this/.test(document.getElementById('asbBox').innerText)&&/Not now/.test(document.getElementById('asbBox').innerText),'the suggestion shows with Add and Not now');
+    ok(/What this button may do/.test(document.getElementById('asbBox').innerText)&&/Allow practice runs/.test(document.getElementById('asbBox').innerText),'the permission card shows with Allow practice runs');
+    ok(row.question_snapshot.length===1&&row.question_snapshot[0].variable==='from_whom','the version remembers the question list it had');
+
+    /* 3. the script really is on the computer, and approval reaches the Helper */
+    var src=await (await fetch(window.AMIT_SCRIPT_HELPER_BASE+'/api/script/source?button='+id+'&version=1',{headers:{}})).json();
+    ok(src.ok&&/Get-AmitAnswer/.test(src.text),'the Helper has the script file (read back through its own route)');
+    await A.approve('practice_only'); await sleep(900);
+    ok(TABLES.hel_button_scripts[0].approved_hash===TABLES.hel_button_scripts[0].file_hash,'approving saves the approved fingerprint');
+    window.__btnId=id;   // the test runner (outside the page) asks the Helper what it knows about this button at the very end
+
+    /* 4. accept the suggestion, then the person removes a question, then asks for a change (version 2), then puts version 1 back */
+    var qi=window.AmitScriptButtons._t.state.q.findIndex(function(q){ return q.status==='suggested'; });
+    await A.accept(qi); ok(TABLES.hel_button_questions.some(function(q){ return q.label==='Which tab?'&&q.status==='active'; }),'Add turns the suggestion into a real question');
+    REPLIES.push(goodReply([])); document.getElementById('asbSay').value='Also make the note shorter.'; await A.send();
+    ok(await waitFor(function(){ return TABLES.hel_button_scripts.length===2; },12000),'a change request produces version 2');
+    var cur=TABLES.hel_button_scripts.filter(function(r){ return r.is_current; });
+    ok(cur.length===1&&cur[0].version===2&&cur[0].state==='practice_only'&&!cur[0].approved_hash,'only version 2 is current, back on trial, and needs approval again');
+    ok(REQUESTS[REQUESTS.length-1].indexOf('CURRENT VERSION 1 SCRIPT')>0&&/Also make the note shorter/.test(REQUESTS[REQUESTS.length-1]),'the change request shows Amit the current script and the person\'s words');
+    var qn=TABLES.hel_button_questions.length; var ri=window.AmitScriptButtons._t.state.q.findIndex(function(q){ return q.label==='Which tab?'; }); window.AmitScriptButtons.rm(ri); await A.saveSetup();
+    ok(TABLES.hel_button_questions.length===qn-1,'the person can remove a question');
+    await A.putBack(1);
+    cur=TABLES.hel_button_scripts.filter(function(r){ return r.is_current; });
+    ok(cur.length===1&&cur[0].version===1&&!cur[0].approved_hash&&cur[0].state==='practice_only','putting version 1 back makes it current and asks for approval again');
+    ok(TABLES.hel_button_questions.length===1&&TABLES.hel_button_questions[0].variable==='from_whom','its question list came back with it');
+
+    /* 5. pause, delete (kept 30 days), put it back */
+    await A.approve('practice_only'); await A.setState('paused'); ok(TABLES.hel_button_scripts.filter(function(r){ return r.is_current; })[0].state==='paused','Pause works');
+    await A.del(); ok(TABLES.hel_buttons[0].deleted_at!=null&&!document.getElementById('asbModal').offsetParent,'delete keeps the button (marked deleted) and closes the editor');
+    window.hl.buttons=TABLES.hel_buttons.filter(function(b){ return b.deleted_at==null; }); await A.load();
+    ok(/Recently deleted/.test(document.getElementById('hlScripts').innerText),'the deleted button is offered for putting back');
+    await A.restore(id); ok(TABLES.hel_buttons[0].deleted_at==null,'put back works');
+    await sleep(900);
+
+    /* 6. the second way in: a script the person's OWN Claude left in the Helper's drop folder */
+    var before=TABLES.hel_buttons.length; await A.importInbox();
+    var imp=TABLES.hel_buttons.filter(function(b){ return b.name==='Imported Note'; })[0];
+    ok(TABLES.hel_buttons.length===before+1&&!!imp,'Import from my Claude makes a new script button named after the drop folder');
+    var irow=imp?TABLES.hel_button_scripts.filter(function(r){ return r.button_id===imp.id; })[0]:null;
+    ok(!!irow&&irow.version===1&&irow.state==='practice_only'&&/Writes the answer/.test(irow.wish),'its script went through the same checks and is saved as a trial with the wish from its definition');
+    var gone=await (await fetch(window.AMIT_SCRIPT_HELPER_BASE+'/api/script/inbox')).json();
+    ok(gone.ok&&gone.items.length===0,'the drop folder was emptied after the import');
+    var again=await (async function(){ await A.importInbox(); return /Nothing is waiting/.test(document.getElementById('hlScripts').innerText); })();
+    ok(again,'pressing it again with nothing waiting says so plainly');
+  }catch(e){ ok(false,'ERROR: '+e.message+' '+(e.stack||'').split('\n')[1]); }
+  window.__done=true;
+})();
+</script>
+</body></html>

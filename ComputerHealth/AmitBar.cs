@@ -610,6 +610,32 @@ public class BarForm : Form
         catch (Exception) { Say("Amit Preview", "The Amit Helper is not running, so the preview window could not be opened. Start the Amit Helper and press the button again."); }
     }
 
+    // 2026-11-24: custom script buttons. The bar only asks the Helper to open the button's pop-up; the Helper keeps the script, its questions and its rules (Toolkit\amit_script_routes.ps1).
+    void OpenScriptStep(string id)
+    {
+        if (String.IsNullOrEmpty(id)) return;
+        try
+        {
+            System.Net.HttpWebRequest rq = (System.Net.HttpWebRequest)System.Net.WebRequest.Create("http://localhost:8710/api/script/open?button=" + Uri.EscapeDataString(id));
+            rq.Timeout = 8000;
+            string body = "";
+            try { using (System.Net.WebResponse rs = rq.GetResponse()) using (StreamReader sr = new StreamReader(rs.GetResponseStream())) body = sr.ReadToEnd(); }
+            catch (System.Net.WebException we)
+            {
+                if (we.Response != null) { using (StreamReader sr2 = new StreamReader(we.Response.GetResponseStream())) body = sr2.ReadToEnd(); }
+                else throw;
+            }
+            if (body.IndexOf("\"ok\":true") < 0)
+            {
+                string msg = "This button could not be opened.";
+                int i = body.IndexOf("\"error\":\"");
+                if (i >= 0) { int j = body.IndexOf('"', i + 9); if (j > i + 9) msg = body.Substring(i + 9, j - i - 9); }
+                Say("Script button", msg);
+            }
+        }
+        catch (Exception) { Say("Script button", "The Amit Helper is not running, so this button could not be opened. Start the Amit Helper and press the button again."); }
+    }
+
     // ---------- what a button does: only these safe steps ----------
     void RunButton(Btn b)
     {
@@ -631,6 +657,7 @@ public class BarForm : Form
                     else if (s.t == "winact") { string wm = WinActCtl.Run(s.text); if (wm != null) Say("Windows action", wm); }   // 2026-11-16: a named Windows action (Undo, Open Task View, Lock PC ...) by its id; the keys live in WinActCtl
                     else if (s.t == "menu") { OpenMenuStep(s.text); }   // asks the Helper to open one of ITS menus by id (the Helper keeps the list and knows how each opens)
                     else if (s.t == "preview") { OpenPreviewStep(); }   // opens (or brings forward) the Amit Preview window through the Helper
+                    else if (s.t == "run_script") { OpenScriptStep(s.text); }   // 2026-11-24: a custom script button: the text is the button's id; the Helper opens its pop-up (questions, practice, check, run, Stop)
                     else if (s.t == "note") { }                          // carries written instructions with the button; pressing the button does nothing with it (a program or AI that presses the button through the Helper is handed the text)
                 }
                 catch { }

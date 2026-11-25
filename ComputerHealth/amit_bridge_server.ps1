@@ -251,7 +251,7 @@ $handlerScript = {
     # file the bar reads (amit_bar.json). The bar reloads by itself when the file changes. Every call replaces the whole file, so nothing old survives a delete.
     # Parsed with .NET's JavaScriptSerializer and written by hand: ConvertTo-Json/ConvertFrom-Json can hang on a cold runspace (see ConvertTo-JsonString below).
     function Write-AmitBarConfig([string]$Body, [string]$Path) {
-        $safe = @('open_app','open_url','open_program','play_music','speak','ask_amit','wait','open_file','audio','print','preview','preview_rules','menu','winact')   # preview and preview_rules: the Amit Preview button (2026-11-07); menu: Open a menu (2026-11-08); winact: a named Windows action by id (2026-11-16)
+        $safe = @('open_app','open_url','open_program','play_music','speak','ask_amit','wait','open_file','audio','print','preview','preview_rules','menu','winact','run_script')   # preview and preview_rules: the Amit Preview button (2026-11-07); menu: Open a menu (2026-11-08); winact: a named Windows action by id (2026-11-16); run_script: a custom script button, the text is the button id (2026-11-24)
         $kinds = @('app','web','music','program','multi','ask')
         $fnFail = { param($m) return @{ ok = $false; error = $m } }
         $fnGet = { param($d, $k) if ($d -is [System.Collections.IDictionary] -and $d.ContainsKey($k)) { return $d[$k] } else { return $null } }
@@ -291,6 +291,7 @@ $handlerScript = {
                     if ($st -eq 'print') { $u = $null; $pa = $null; $tx = 'menu' }
                     if ($st -eq 'menu') { $u = $null; $pa = $null; if ([string]$tx -notmatch '^[a-z0-9-]{1,40}$') { return (& $fnFail ("the menu in '" + $bn + "' is not valid")) } }   # the text is the menu's id; the Helper keeps the list and the way each one opens
                     if ($st -eq 'winact') { $u = $null; $pa = $null; if ([string]$tx -notmatch '^[a-z0-9-]{1,40}$') { return (& $fnFail ("the Windows action in '" + $bn + "' is not valid")) } }   # the text is the action's id; the bar keeps the keys for each id
+                    if ($st -eq 'run_script') { $u = $null; $pa = $null; if ([string]$tx -notmatch '^[A-Za-z0-9-]{8,64}$') { return (& $fnFail ("the script button id in '" + $bn + "' is not valid")) } }   # the text is the button's id; the script and its questions are kept by the script routes (Toolkit\amit_script_routes.ps1)
                     if ($st -eq 'open_file') { $u = $null; $pa = $null; $bp = Get-AmitBoundPath ([string](& $fnGet $s 'token')); if ($bp -and (Test-AmitFileOk $bp $true)) { $pa = $bp } else { $missing++ } }
                     [void]$stepJson.Add('{"t":' + (& $fnQuote $st) + ',"url":' + (& $fnQuote $u) + ',"path":' + (& $fnQuote $pa) + ',"text":' + (& $fnQuote $tx) + ',"ms":' + $ms + '}')
                 }
@@ -2034,7 +2035,7 @@ try {
                 # KEEP THE FILE LIST THE SAME AS make_helper_manifest.ps1.
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else {
-                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_dictate.html','amit_talk.html','AmitPreview.html','amit_update.ps1','amit_reload.ps1','amit_crash_check.ps1','amit_appcrash.ps1','amit_pad.html','amit_pad_pair.html','AmitBar.cs')
+                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_dictate.html','amit_talk.html','AmitPreview.html','amit_update.ps1','amit_reload.ps1','amit_crash_check.ps1','amit_appcrash.ps1','amit_pad.html','amit_pad_pair.html','AmitBar.cs','AmitToolkit.psm1','never_list.json','amit_script_check.ps1','amit_script_host.ps1','amit_run_script.ps1','amit_script_routes.ps1','AmitScriptPopup.html')
                     $hsSha = [System.Security.Cryptography.SHA256]::Create()
                     $hsParts = @()
                     foreach ($hsN in $hsNames) {
@@ -3320,6 +3321,14 @@ secret key must never appear here, ever, under any circumstance.
                 # metadata made ConvertTo-Json -Depth 8 hang - why Compare Now never answered.
                 if ($latest) { Send-Json $response @{ found = $true; content = [System.IO.File]::ReadAllText($latest.FullName) } }
                 else { Send-Json $response @{ found = $false } }
+            }
+            # Custom script buttons (2026-11-24): everything under /api/script/ is handled by amit_script_routes.ps1 (source: AmitHelper\Toolkit), loaded only when such a request arrives and kept for the
+            # life of this runspace. Who may call which route is decided inside it (Hub origin, no origin, or a one-time token). See AmitHelper\Button_Creator_SPEC.md section 11.
+            { $_ -like '/api/script/*' } {
+                $asRoutes = Join-Path $watcherDir 'amit_script_routes.ps1'
+                if (-not (Get-Command Invoke-AmitScriptRoute -ErrorAction SilentlyContinue) -and (Test-Path $asRoutes)) { . $asRoutes }
+                if (Get-Command Invoke-AmitScriptRoute -ErrorAction SilentlyContinue) { Invoke-AmitScriptRoute -Path $path -Request $request -Response $response -SiteOrigins $AmitSiteOrigins }
+                else { Send-JsonRaw $response '{"ok":false,"error":"Custom script buttons are not installed on this computer yet."}' 404 }
             }
             default {
                 $response.StatusCode = 404

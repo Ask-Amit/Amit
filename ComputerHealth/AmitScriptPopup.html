@@ -1,0 +1,184 @@
+<!doctype html>
+<!-- The real pop-up of a custom script button (v0.1, 2026-11-24). Built from Previews\AmitHelper_buttonpopup_preview.html (the look Ryan chose) but wired to the Helper's /api/script routes. Opened by the Helper beside the bar: AmitScriptPopup.html?b=<button id>&t=<one-time token>. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Amit Button</title>
+<style>
+:root{--cream:#fbf6ea;--cream2:#f4ecd8;--line:#e3d8bd;--ink:#2b3a42;--mute:#6b7a82;--teal:#2f8f83;--teal2:#e0f1ee;--gold:#e3ab3c;--gold2:#f3c866;--goldink:#3a2a05;--peach:#fde8d3;--peachink:#7a4a1c;--ok:#3c9a62;--okbg:#e4f3e9;--bad:#c85a4a;--badbg:#fbe6e1;--fs:15px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--cream);color:var(--ink);font:var(--fs)/1.45 "Segoe UI",Arial,sans-serif;min-height:100vh}
+body.big{--fs:18px}
+button{font:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid #1c6fb5;outline-offset:2px}
+.wrap{padding:18px 20px 16px;max-width:520px;margin:0 auto}
+.dh{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.brand{font-size:11.5px;font-weight:700;letter-spacing:.12em;color:#9a7421}
+.x{border:0;background:transparent;font-size:24px;line-height:1;color:var(--mute);width:34px;height:34px;border-radius:10px}
+.x:hover{background:var(--cream2)}
+h2{margin:2px 0 4px;font-size:1.35em;color:#1f2f37}
+.sub{margin:0 0 12px;color:var(--mute)}
+.badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;align-items:center}
+.bdg{font-size:12px;padding:3px 10px;border-radius:999px;background:var(--teal2);color:#1d6b62}
+.bdg.warm{background:var(--peach);color:var(--peachink)}
+.lnk{border:0;background:none;color:#1d6b62;text-decoration:underline;font-size:12.5px;padding:2px 4px}
+.perm{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:0 0 12px;font-size:13px}
+.perm div{margin:4px 0;display:flex;gap:10px}.perm b{flex:none;min-width:78px}
+.q{margin:14px 0}
+.q .lab{display:flex;justify-content:space-between;font-weight:600;margin-bottom:6px}
+.q .lab small{font-weight:400;color:var(--mute);font-size:12px}
+.req{color:var(--bad)}
+.pills{display:flex;flex-wrap:wrap;gap:8px}
+.pill{border:2px solid var(--line);background:#fff;color:var(--ink);padding:9px 16px;border-radius:999px;min-height:44px;font-weight:600}
+.pill.on{background:var(--teal);border-color:var(--teal);color:#fff}
+.in{width:100%;border:2px solid var(--line);border-radius:12px;padding:10px 12px;font:inherit;background:#fff;min-height:46px}
+.row2{display:flex;gap:8px}
+.hint{font-size:12.5px;color:var(--peachink);min-height:18px;margin-top:6px}
+.foot{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border-top:1px solid var(--line);margin-top:14px;padding-top:14px}
+.btn{border:2px solid var(--line);background:#fff;color:var(--ink);border-radius:12px;padding:10px 16px;font-weight:700;min-height:46px}
+.btn.go{background:var(--gold);border-color:var(--gold);color:var(--goldink)}
+.btn.go:hover{background:var(--gold2)}
+.btn.stop{background:var(--bad);border-color:var(--bad);color:#fff;width:100%;font-size:1.1em}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.rowb{display:flex;flex-wrap:wrap;gap:8px}
+.fine{font-size:12.5px;color:var(--mute);margin:8px 0 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:10px 0}
+.card h3{margin:0 0 6px;font-size:.95em}
+.card ul{margin:0;padding-left:18px}
+.big-ok{width:54px;height:54px;border-radius:50%;background:var(--okbg);color:var(--ok);display:grid;place-items:center;font-size:30px;margin-bottom:6px}
+.big-bad{background:var(--badbg);color:var(--bad)}
+.bar-prog{height:14px;background:#e9e2cf;border-radius:8px;overflow:hidden;margin:10px 0 6px}
+.bar-prog i{display:block;height:100%;background:var(--teal);width:30%;transition:width .3s}
+.cd{font-size:2.6em;font-weight:800;color:#9a7421;text-align:center;margin:6px 0}
+.irrev{background:var(--peach);color:var(--peachink);border-radius:10px;padding:8px 12px;font-size:13px;margin:10px 0}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><p class="sub">Opening...</p></div>
+<script>
+(function(){
+var qs=(function(){var o={},a=location.search.replace(/^\?/,'').split('&'),i,p;for(i=0;i<a.length;i++){p=a[i].split('=');if(p[0])o[decodeURIComponent(p[0])]=decodeURIComponent(p[1]||'');}return o;})();
+var API='http://localhost:'+(qs.p||'8710')+'/api/script/', B=qs.b||'', T=qs.t||'';
+var S={cfg:null,answers:{},step:'loading',plan:false,result:null,perm:false,msg:'',cd:0,timer:null,poll:null,askShown:'',checkRes:null,lastMode:'practice'};
+function $(i){return document.getElementById(i);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function call(method,route,body){
+  var url=API+route+'?b='+encodeURIComponent(B)+'&t='+encodeURIComponent(T);
+  var o={method:method,cache:'no-store'}; if(body!==undefined){o.body=JSON.stringify(body);o.headers={'Content-Type':'text/plain'};}
+  return fetch(url,o).then(function(r){return r.json().then(function(j){j._status=r.status;return j;});});
+}
+function speak(t){try{if(window.speechSynthesis){window.speechSynthesis.cancel();window.speechSynthesis.speak(new SpeechSynthesisUtterance(t));}}catch(e){}}
+function clearT(){if(S.timer){clearInterval(S.timer);S.timer=null;}if(S.poll){clearInterval(S.poll);S.poll=null;}}
+function qs_(){return (S.cfg&&S.cfg.questions)||[];}
+function visible(q){var v=q.showIfVariable;if(!v)return true;var a=S.answers[v];return String(a==null?'':a)===String(q.showIfValue==null?'':q.showIfValue);}
+function setAns(v,val){S.answers[v]=val;}
+function head(){return '<div class="dh"><span class="brand">AMIT HELPER</span><button class="x" aria-label="Close" onclick="AB.close()">&times;</button></div><h2>'+esc(S.cfg?S.cfg.name:'Button')+'</h2>';}
+function pills(v,opts,val,multi){var h='<div class="pills">';opts.forEach(function(o){var on=multi?(Array.isArray(val)&&val.indexOf(o)>=0):(val===o);h+='<button class="pill'+(on?' on':'')+'" onclick="AB.pick(\''+v+'\','+JSON.stringify(String(o)).replace(/"/g,'&quot;')+','+(multi?'true':'false')+')">'+esc(o)+'</button>';});return h+'</div>';}
+function qHtml(q){
+  var v=q.variable,k=q.kind,val=S.answers[v],rem=(S.cfg.remembered||{})[v],h='<div class="q"><div class="lab"><span>'+esc(q.label)+(q.required!==false?' <span class="req">*</span>':'')+'</span><small>'+(rem!=null&&val===rem?'from last time':(q.askMode==='remember'?'remembered':(q.required===false?'can be left blank':'')))+'</small></div>';
+  if(k==='choice'||k==='yes_no'){h+=pills(v,k==='yes_no'?['Yes','No']:(q.choices||[]),val,false);}
+  else if(k==='multi_choice'){h+=pills(v,q.choices||[],val,true);}
+  else if(k==='date_range'){var d=Array.isArray(val)?val:['',''];h+='<div class="row2"><input class="in" type="date" value="'+esc(d[0])+'" oninput="AB.range(\''+v+'\',0,this.value)"><input class="in" type="date" value="'+esc(d[1])+'" oninput="AB.range(\''+v+'\',1,this.value)"></div>';}
+  else if(k==='number'){h+='<input class="in" type="number" '+(q.numberMin!=null?'min="'+esc(q.numberMin)+'" ':'')+(q.numberMax!=null?'max="'+esc(q.numberMax)+'" ':'')+'value="'+esc(val)+'" oninput="AB.type(\''+v+'\',this.value)">';}
+  else if(k==='date'){h+='<input class="in" type="date" value="'+esc(val)+'" oninput="AB.type(\''+v+'\',this.value)">';}
+  else {h+='<input class="in" type="text" value="'+esc(val)+'" placeholder="'+esc(q.example||(k==='file'?'Type or paste the file\'s location':k==='folder'?'Type or paste the folder\'s location':'Type your answer, or hold your mouse button and speak'))+'" oninput="AB.type(\''+v+'\',this.value)">';}
+  return h+'</div>';
+}
+function missing(){var m=[];qs_().forEach(function(q){if(!visible(q)||q.required===false)return;var a=S.answers[q.variable];var e=(a==null||a===''||(Array.isArray(a)&&(a.length===0||a.every(function(x){return !x;}))));if(e)m.push(q.label);});return m;}
+function render(){
+  var d=$('app'),c=S.cfg,h='';
+  if(S.step==='loading'){d.innerHTML='<p class="sub">Opening...</p>';return;}
+  if(S.step==='error'){d.innerHTML=head()+'<div class="card">'+esc(S.msg)+'</div><div class="foot"><span></span><button class="btn" onclick="AB.close()">Close</button></div>';return;}
+  var practiceOnly=(c.state!=='active');
+  if(S.step==='locked'){
+    h=head()+'<div class="big-bad big-ok">!</div><p class="sub"><b>'+esc(S.msg)+'</b></p><div class="foot"><span></span><button class="btn" onclick="AB.close()">Close</button></div>';
+  } else if(S.step==='form'){
+    h=head()+'<p class="sub">'+esc((c.card&&c.card.wish)||'')+'</p><div class="badges"><span class="bdg">Runs on this computer, no Claude needed</span>'+(practiceOnly?'<span class="bdg warm">Trial: practice only, nothing is sent</span>':'<span class="bdg">Ready</span>')+'<button class="lnk" onclick="AB.perm()">'+(S.perm?'Hide':'What can this button do?')+'</button></div>';
+    if(S.perm){var cd=c.card||{};h+='<div class="perm"><div><b>Reads</b> '+esc(cd.reads||'')+'</div><div><b>May change</b> '+esc(cd.mayDo||'')+'</div><div><b>Never</b> '+esc(cd.never||'deletes anything, changes settings or reads passwords')+'</div><div><b>If it goes wrong</b> '+esc(cd.worstCase||'')+'</div><div><b>Version</b> '+esc(c.version)+'</div></div>';}
+    qs_().forEach(function(q){if(visible(q))h+=qHtml(q);});
+    var mi=missing();
+    h+='<div class="hint">'+(S.msg?esc(S.msg):(mi.length?'Please answer: '+esc(mi.join(', ')):''))+'</div><div class="foot"><button class="lnk" onclick="AB.usual()">Use my usual answers</button><div class="rowb">'+
+       (practiceOnly?'<button class="btn go" '+(mi.length?'disabled':'')+' onclick="AB.practice()">Practice run</button>':'<button class="btn" '+(mi.length?'disabled':'')+' onclick="AB.practice()">Practice run</button><button class="btn go" '+(mi.length?'disabled':'')+' onclick="AB.plan()">Run</button>')+'</div></div>';
+  } else if(S.step==='check'){
+    var wh=(S.checkRes&&S.checkRes.wouldHave)||[],li=wh.map(function(w){return '<li>'+esc(w.detail)+'</li>';}).join('');
+    var irr=wh.some(function(w){return w.kind==='send';});
+    h=head()+'<p class="sub">Check before it goes</p><div class="card"><h3>What it will do</h3>'+(li?'<ul>'+li+'</ul>':'It will read your information and change nothing.')+'</div>'+(irr?'<div class="irrev"><b>Sending cannot be taken back.</b></div>':'<div class="irrev">Anything it changes is backed up first.</div>')+
+       '<div class="foot"><button class="btn" onclick="AB.readback()">Read it to me</button><div class="rowb"><button class="btn" onclick="AB.back()">Back</button><button class="btn go" onclick="AB.go()">Go</button></div></div>';
+  } else if(S.step==='countdown'){
+    h=head()+'<p class="sub">Starting in</p><div class="cd">'+S.cd+'</div><button class="btn stop" onclick="AB.cancelCd()">Cancel</button><p class="fine">Nothing has been done yet.</p>';
+  } else if(S.step==='running'){
+    var pr=S.progress||{},cn=(pr.counts||{});
+    h=head()+'<p class="sub">'+(S.lastMode==='practice'?'Practice run: nothing is changed or sent':'Working')+'</p><div class="card"><b>'+(cn.actions?(cn.actions+' thing(s) done so far'):'Working on it...')+'</b><div class="bar-prog"><i></i></div></div><button class="btn stop" onclick="AB.stop()">Stop</button><p class="fine">Stop ends it at once. Whatever was already done stays done.</p>';
+  } else if(S.step==='ask'){
+    var a=S.ask||{},ch=a.choices||[];
+    h=head()+'<p class="sub">It needs one answer from you</p><div class="card"><b>'+esc(a.question)+'</b></div>'+(ch.length?'<div class="pills">'+ch.map(function(o){return '<button class="pill" onclick="AB.answer('+JSON.stringify(String(o)).replace(/"/g,'&quot;')+')">'+esc(o)+'</button>';}).join('')+'</div>':'<input class="in" id="askin" type="text"><div class="foot"><span></span><button class="btn go" onclick="AB.answer(document.getElementById(\'askin\').value)">Answer</button></div>')+'<div style="margin-top:14px"><button class="btn stop" onclick="AB.stop()">Stop</button></div>';
+  } else if(S.step==='result'){
+    var r=S.result||{},ok=(r.outcome==='done'),prac=(r.mode==='practice'),cnt=r.counts||{};
+    var fin=(r.finished||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join(''),wh2=(r.wouldHave||[]).map(function(w){return '<li>'+esc(w.detail)+'</li>';}).join(''),nt=(r.notices||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('');
+    if(ok){
+      h=head()+'<div class="big-ok">&#10003;</div><p class="sub"><b>'+(prac?'Practice finished. Nothing was changed or sent.':'Done.')+'</b> '+esc(r.summary||'')+'</p>';
+      if(prac)h+='<div class="card"><h3>What it would do</h3>'+(wh2?'<ul>'+wh2+'</ul>':'Nothing to change.')+'</div>'+(practiceOnly?'<div class="card">This button is on trial. When this looks right, open it in the Hub and choose Allow, and you can run it for real.</div>':'');
+      else h+='<div class="card"><h3>What finished</h3>'+(fin?'<ul>'+fin+'</ul>':'Nothing needed changing.')+'</div><div class="card"><h3>What did not happen</h3>Nothing was deleted.'+((r.backups&&r.backups.length)?' A backup of each changed file was saved first.':'')+'</div>';
+      if(nt)h+='<div class="card"><h3>Notes</h3><ul>'+nt+'</ul></div>';
+    } else {
+      h=head()+'<div class="big-ok big-bad">!</div><p class="sub"><b>The button stopped.</b> '+esc(r.error&&r.error.plain?r.error.plain:(r.summary||''))+'</p><div class="card"><h3>What finished</h3>'+(fin?'<ul>'+fin+'</ul>':'Nothing yet.')+'</div><div class="card"><h3>What did not happen</h3>Nothing more was done. Nothing was deleted.</div>';
+    }
+    h+='<div class="foot"><button class="btn" onclick="AB.close()">Close</button><div class="rowb">'+(ok?'':'<button class="btn" onclick="AB.fix()">Ask Amit to fix this</button>')+''+(ok&&prac&&!practiceOnly?'<button class="btn go" onclick="AB.toCheck()">Run it for real</button>':'<button class="btn go" onclick="AB.again()">Run again</button>')+'</div></div>';
+  }
+  d.innerHTML=h;
+}
+function startPoll(next){
+  clearT();
+  S.poll=setInterval(function(){
+    call('GET','result').then(function(j){
+      if(!j||j.ok===false)return;
+      S.progress=j.progress;
+      if(j.ask&&j.ask.question&&S.step==='running'){S.ask=j.ask;S.step='ask';render();return;}
+      if(S.step==='ask'&&!j.ask){S.step='running';}
+      if(!j.running&&j.result){clearT();S.result=j.result;next(j.result);return;}
+      if(S.step==='running')render();
+    }).catch(function(){});
+  },700);
+}
+function run(mode,next){
+  S.msg='';S.lastMode=mode;
+  call('POST','run',{mode:mode,answers:S.answers}).then(function(j){
+    if(!j.ok){S.step='form';S.msg=j.plain||j.error||'It could not start.';render();return;}
+    S.step='running';S.progress=null;render();startPoll(next);
+  }).catch(function(){S.step='form';S.msg='The Amit Helper did not answer.';render();});
+}
+var AB={
+  close:function(){clearT();try{window.close();}catch(e){}},
+  pick:function(v,val,multi){if(multi){var a=Array.isArray(S.answers[v])?S.answers[v].slice():[],i=a.indexOf(val);if(i>=0)a.splice(i,1);else a.push(val);S.answers[v]=a;}else S.answers[v]=val;render();},
+  type:function(v,val){S.answers[v]=val;var m=missing(),b=document.querySelectorAll('.foot .btn');for(var i=0;i<b.length;i++){if(/Practice run|^Run$/.test(b[i].textContent))b[i].disabled=m.length>0;}var h=document.querySelector('.hint');if(h)h.textContent=m.length?'Please answer: '+m.join(', '):'';},
+  range:function(v,i,val){var a=Array.isArray(S.answers[v])?S.answers[v].slice():['',''];a[i]=val;S.answers[v]=a;},
+  perm:function(){S.perm=!S.perm;render();},
+  usual:function(){qs_().forEach(function(q){var r=(S.cfg.remembered||{})[q.variable];if(r!=null)S.answers[q.variable]=r;else if(q.defaultValue!=null&&S.answers[q.variable]==null)S.answers[q.variable]=q.defaultValue;});render();},
+  practice:function(){if(missing().length)return;run('practice',function(r){S.step='result';render();});},
+  plan:function(){if(missing().length)return;run('practice',function(r){S.checkRes=r;if(r.outcome!=='done'){S.step='result';render();return;}S.step='check';render();});},
+  back:function(){S.step='form';render();},
+  toCheck:function(){S.checkRes=S.result;S.step='check';render();},
+  readback:function(){var wh=(S.checkRes&&S.checkRes.wouldHave)||[];speak(wh.length?('It will '+wh.map(function(w){return w.detail;}).join('. ')):'It will read your information and change nothing.');},
+  go:function(){var n=parseInt((S.cfg.settings||{}).sendCountdownSeconds,10);if(isNaN(n))n=5;if(n<=0){run('real',function(){S.step='result';render();});return;}S.cd=n;S.step='countdown';render();S.timer=setInterval(function(){S.cd--;if(S.cd<=0){clearT();run('real',function(){S.step='result';render();});}else render();},1000);},
+  cancelCd:function(){clearT();S.step='check';render();},
+  stop:function(){call('POST','stop',{});},
+  answer:function(a){call('POST','answer',{answer:a}).then(function(){S.step='running';render();});},
+  again:function(){S.step='form';S.result=null;render();},
+  fix:function(){S.msg='Open the Hub and press "Ask Amit to fix this" on this button. Your log is already saved.';S.step='form';render();}
+};
+window.AB=AB;
+call('GET','popup-config').then(function(j){
+  if(!j||j.ok===false){S.step='error';S.msg=(j&&j.error==='forbidden')?'This window is no longer valid. Press the button on the bar again.':'This button could not be opened.';render();return;}
+  S.cfg=j;
+  qs_().forEach(function(q){var r=(j.remembered||{})[q.variable];if(r!=null)S.answers[q.variable]=r;else if(q.defaultValue!=null)S.answers[q.variable]=q.defaultValue;});
+  if(!j.approved){S.step='locked';S.msg='This button needs your approval in the Hub before it can run. Open the Hub, find this button, and choose Allow.';}
+  else if(j.state==='paused'||j.state==='needs_attention'){S.step='locked';S.msg='This button is paused. Turn it back on in the Hub.';}
+  else if(j.running){S.step='running';S.lastMode='real';startPoll(function(){S.step='result';render();});}
+  else S.step='form';
+  render();
+}).catch(function(){S.step='error';S.msg='The Amit Helper did not answer. Start it and press the button again.';render();});
+})();
+</script>
+</body>
+</html>
