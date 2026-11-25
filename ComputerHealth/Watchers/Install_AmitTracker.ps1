@@ -90,14 +90,14 @@ if ($alreadyInstalled) {
         "app_behavior_watcher.ps1", "install_snapshot_watcher.ps1",
         "Run_AmitTracker.ps1", "AmitTracker.exe",      # AmitSensorReader.exe (72 MB) is no longer installed here: Computer Health's Hardware tab adds it on request (helper route /api/sensors/install)
         "process_inbox.bat", "process_inbox_prompt.txt",
-        "amit_whisper.cs", "amit_whisper.html", "amit_dictate.html", "amit_talk.html", "AmitPreview.html", "amit_update.ps1", "amit_reload.ps1", "AmitBar.cs",
+        "amit_whisper.cs", "amit_whisper.html", "amit_dictate.html", "amit_talk.html", "AmitPreview.html", "amit_update.ps1", "amit_reload.ps1", "amit_crash_check.ps1", "amit_appcrash.ps1", "amit_pad.html", "amit_pad_pair.html", "AmitBar.cs", "AmitToolkit.psm1", "never_list.json", "amit_script_check.ps1", "amit_script_host.ps1", "amit_run_script.ps1", "amit_script_routes.ps1", "AmitScriptPopup.html", "amit_claude_run.ps1", "amit_claude_hook.ps1", "AmitClaudePopup.html",
         "amit_icon_whisper.ico", "amit_icon_read.ico", "amit_icon_showamit.ico"
     )
     # NEVER GO BACKWARDS (Ryan, 2026-11-07): this installer must never put an OLDER Amit Helper over a newer one. The Helper's own files (bridge, voice program,
     # bar, previewer page, updater) are kept when the Helper already installed is newer than the one this installer carries; the automatic updater delivers
     # the newer ones to every computer, so an old installer run later must not undo them. The version is the one in amit_whisper.cs.
     function Get-HelperVersion([string]$p) { try { if (Test-Path $p) { $m = [regex]::Match([System.IO.File]::ReadAllText($p), 'public const string Version = "([0-9.]+)"'); if ($m.Success) { return [version]$m.Groups[1].Value } } } catch {}; return $null }
-    $helperOwned = @("amit_bridge_server.ps1", "amit_whisper.cs", "amit_whisper.html", "amit_dictate.html", "amit_talk.html", "AmitPreview.html", "amit_update.ps1", "amit_reload.ps1", "AmitBar.cs")
+    $helperOwned = @("amit_bridge_server.ps1", "amit_whisper.cs", "amit_whisper.html", "amit_dictate.html", "amit_talk.html", "AmitPreview.html", "amit_update.ps1", "amit_reload.ps1", "amit_crash_check.ps1", "amit_appcrash.ps1", "amit_pad.html", "amit_pad_pair.html", "AmitBar.cs", "AmitToolkit.psm1", "never_list.json", "amit_script_check.ps1", "amit_script_host.ps1", "amit_run_script.ps1", "amit_script_routes.ps1", "AmitScriptPopup.html", "amit_claude_run.ps1", "amit_claude_hook.ps1", "AmitClaudePopup.html")
     $vCarried = Get-HelperVersion "$scriptDir\amit_whisper.cs"
     $vInstalled = Get-HelperVersion "$watcherInstallDir\amit_whisper.cs"
     $keepNewerHelper = $false
@@ -323,24 +323,26 @@ IconIndex=0
 # shortcut above, this targets a local .exe, so a real .lnk (WScript.Shell
 # CreateShortcut) is the correct mechanism here - the .lnk-can't-hold-a-web-
 # URL problem noted above doesn't apply to a local file target.
-$trackerShortcutPath = "$desktopPath\Amit Live.lnk"
+$trackerShortcutPath = "$desktopPath\Amit Helper.lnk"
+$oldLiveShortcutPath = "$desktopPath\Amit Live.lnk"   # the name 2026-10-26 to 2026-11-14 (Ryan: Amit Live is now the characters; this is the Helper): replaced, not duplicated
+if (Test-Path $oldLiveShortcutPath) { try { Remove-Item $oldLiveShortcutPath -Force -ErrorAction Stop } catch {} }
 $oldTrackerShortcutPath = "$desktopPath\Amit Tracker.lnk"   # the name this shortcut had before it was called Amit Live: replaced, not duplicated
 if (Test-Path $oldTrackerShortcutPath) { try { Remove-Item $oldTrackerShortcutPath -Force -ErrorAction Stop } catch {} }
 if ((Test-Path $trackerShortcutPath) -and -not $redo) {
-    Write-Host "[3/4] 'Amit Live' desktop shortcut already exists - skipping."
+    Write-Host "[3/4] 'Amit Helper' desktop shortcut already exists - skipping."
 } else {
-    Write-Host "[3/4] Creating 'Amit Live' desktop shortcut..."
+    Write-Host "[3/4] Creating 'Amit Helper' desktop shortcut..."
     try {
         $wshShell = New-Object -ComObject WScript.Shell
         $trackerShortcut = $wshShell.CreateShortcut($trackerShortcutPath)
         $trackerShortcut.TargetPath = $trackerExePath
         $trackerShortcut.WorkingDirectory = $watcherInstallDir
         $trackerShortcut.IconLocation = $iconLocation
-        $trackerShortcut.Description = "Amit Live: starts Amit's helper (Whisper mode and your computer's health check) - no browser involved"
+        $trackerShortcut.Description = "Amit Helper: starts Amit's helper (Whisper mode and your computer's health check) - no browser involved"
         $trackerShortcut.Save()
-        Write-Host "  Shortcut created on your desktop: 'Amit Live' - starts Amit's helper directly."
+        Write-Host "  Shortcut created on your desktop: 'Amit Helper' - starts Amit's helper directly."
     } catch {
-        Write-Host "  Could not create the 'Amit Live' shortcut ($($_.Exception.Message)) - you can still start it from the dashboard's Launch Amit Live button."
+        Write-Host "  Could not create the 'Amit Helper' shortcut ($($_.Exception.Message)) - you can still start it from the dashboard's Launch Amit Helper button."
     }
 }
 
@@ -354,7 +356,7 @@ try {
     # name in the permission dialog rather than this registry description,
     # so this is what makes "Amit Tracker" show up either way.
     New-Item -Path "HKCU:\Software\Classes\amit-tracker" -Force | Out-Null
-    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker" -Name "(Default)" -Value "URL:Amit Live"
+    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker" -Name "(Default)" -Value "URL:Amit Helper"
     Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker" -Name "URL Protocol" -Value ""
     New-Item -Path "HKCU:\Software\Classes\amit-tracker\DefaultIcon" -Force | Out-Null
     Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker\DefaultIcon" -Name "(Default)" -Value $iconDest
@@ -371,10 +373,10 @@ try {
     New-Item -Path "HKCU:\Software\Classes\amit-helper\shell\open\command" -Force | Out-Null
     Set-ItemProperty -Path "HKCU:\Software\Classes\amit-helper\shell\open\command" -Name "(Default)" -Value "`"$trackerExePath`" --tray-only --at-logon"
 } catch {
-    Write-Host "  Could not register the link handler ($($_.Exception.Message)) - the dashboard's Launch Amit Live button won't work yet, but the Amit desktop shortcut and manual tracking still will."
+    Write-Host "  Could not register the link handler ($($_.Exception.Message)) - the dashboard's Launch Amit Helper button won't work yet, but the Amit desktop shortcut and manual tracking still will."
 }
 
 Write-Host ""
 Write-Host "Install complete."
-Write-Host "Double-click 'Amit' on your desktop to open the Hub. From there, Computer Health has its own Launch Amit Live button."
+Write-Host "Double-click 'Amit' on your desktop to open the Hub. From there, Computer Health has its own Launch Amit Helper button."
 Write-Host "Dashboard: $dashboardUrl"

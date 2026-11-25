@@ -120,11 +120,11 @@ function global:As-Remembered([string]$id, $questions) {
     }
     return $out
 }
-function global:As-OpenPopup([string]$id, [string]$token) {
+function global:As-OpenPopup([string]$id, [string]$token, [string]$pageName = 'AmitScriptPopup.html') {
     if ($env:AMIT_TEST_NO_WINDOW) { return $true }
     $exe = $null
     foreach ($c in @((Join-Path ${env:ProgramFiles(x86)} 'Microsoft\Edge\Application\msedge.exe'), (Join-Path $env:ProgramFiles 'Microsoft\Edge\Application\msedge.exe'), (Join-Path $env:ProgramFiles 'Google\Chrome\Application\chrome.exe'), (Join-Path ${env:ProgramFiles(x86)} 'Google\Chrome\Application\chrome.exe'))) { if ($c -and (Test-Path -LiteralPath $c)) { $exe = $c; break } }
-    $page = Join-Path $PSScriptRoot 'AmitScriptPopup.html'
+    $page = Join-Path $PSScriptRoot $pageName
     if (-not $exe -or -not (Test-Path -LiteralPath $page)) { return $false }
     $url = ([Uri]$page).AbsoluteUri + '?b=' + $id + '&t=' + $token
     $w = 480; $h = 760; $x = 40; $y = 30
@@ -135,6 +135,74 @@ function global:As-OpenPopup([string]$id, [string]$token) {
     } catch { }
     Start-Process -FilePath $exe -ArgumentList ('--app="' + $url + '" --window-size=' + $w + ',' + $h + ' --window-position=' + $x + ',' + $y) | Out-Null
     return $true
+}
+
+# ---- PREMIUM FEATURES: VERIFY THE PERSON'S OWN CLAUDE ACCOUNT (root CLAUDE.md rule, 2026-11-25). Enforced HERE, by the program that runs the feature, never only by the page.
+# The Claude email never leaves this computer: it is compared here and is not returned, written or logged. Only a fingerprint (SHA-256) of the Hub login's own verified email is kept,
+# so a button press (which has no web page) can be checked again against whoever is signed in to Claude at that moment. There is no owner exception.
+function global:As-ClaudeStatus {
+    $exe = $null
+    foreach ($c in @((Join-Path $env:APPDATA 'npm\claude.cmd'), (Join-Path $env:USERPROFILE '.local\bin\claude.exe'))) { if (Test-Path -LiteralPath $c) { $exe = $c; break } }
+    if (-not $exe) { $g = Get-Command claude -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1; if ($g) { $exe = $g.Source } }
+    if (-not $exe) { return $null }
+    try {
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        if ($exe -like '*.exe') { $psi.FileName = $exe; $psi.Arguments = 'auth status' } else { $psi.FileName = $env:ComSpec; $psi.Arguments = '/d /s /c ""' + $exe + '" auth status"' }
+        $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true; $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true; $psi.WorkingDirectory = $env:TEMP
+        # an API key in the environment must not stand in for the person's own plan sign-in
+        foreach ($k in @('ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN')) { if ($psi.EnvironmentVariables.ContainsKey($k)) { $psi.EnvironmentVariables.Remove($k) } }
+        $p = [System.Diagnostics.Process]::Start($psi)
+        $out = $p.StandardOutput.ReadToEndAsync(); [void]$p.StandardError.ReadToEndAsync()
+        if (-not $p.WaitForExit(20000)) { try { $p.Kill() } catch { }; return @{ failed = $true } }
+        $t = [string]$out.Result; $i = $t.IndexOf('{'); $j = $t.LastIndexOf('}')
+        if ($i -lt 0 -or $j -le $i) { return @{ loggedIn = $false } }
+        return (As-Js).DeserializeObject($t.Substring($i, $j - $i + 1))
+    } catch { return @{ failed = $true } }
+}
+# who the Hub says this is: the Helper asks Amit's own sign-in server with the person's session token, so a page cannot simply claim an email
+function global:As-HubUser([string]$token) {
+    if ($token -notmatch '^[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+$') { return $null }
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+        $u = Invoke-RestMethod -Uri 'https://hleqtjqojksurvkyqixt.supabase.co/auth/v1/user' -Headers @{ apikey = 'sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF'; Authorization = ('Bearer ' + $token) } -TimeoutSec 15
+        if ($u -and $u.id -and $u.email -and ($u.email_confirmed_at -or $u.confirmed_at)) { return @{ id = [string]$u.id; email = [string]$u.email } }
+    } catch { }
+    return $null
+}
+function global:As-EmailPrint([string]$email) {
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    return ([System.BitConverter]::ToString($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($email.Trim().ToLowerInvariant())))).Replace('-', '')
+}
+function global:As-ClaudeNo([string]$reason, [string]$plain) { return @{ ok = $true; allowed = $false; reason = $reason; plain = $plain } }
+# the one decision, used both when a feature is chosen and every time it runs. $emailPrint = the fingerprint of the Hub login's verified email.
+function global:As-ClaudeDecide([string]$emailPrint) {
+    $s = As-ClaudeStatus
+    if ($null -eq $s) { return (As-ClaudeNo 'no_claude_code' 'This is a premium feature. It needs your own paid Claude account, signed in to Claude Code on this computer. Claude Code was not found here.') }
+    if ((As-Get $s 'failed' $false) -eq $true) { return (As-ClaudeNo 'check_failed' 'The Helper could not ask Claude Code who is signed in. Nothing ran. Try again in a moment.') }
+    if ((As-Get $s 'loggedIn' $false) -ne $true) { return (As-ClaudeNo 'not_signed_in' 'This is a premium feature. Sign in to Claude Code on this computer with your own paid Claude account, then try again.') }
+    $plan = ([string](As-Get $s 'subscriptionType' '')).ToLowerInvariant()
+    if ([string](As-Get $s 'authMethod' '') -ne 'claude.ai' -or @('pro', 'max', 'team', 'enterprise') -notcontains $plan) { return (As-ClaudeNo 'not_paid' 'This is a premium feature. You need a paid Claude plan that includes Claude Code, signed in with your own Claude account.') }
+    $mail = [string](As-Get $s 'email' '')
+    if (-not $mail -or -not $emailPrint -or (As-EmailPrint $mail) -ne $emailPrint) { return (As-ClaudeNo 'email_mismatch' 'Claude Code on this computer is signed in with a different email than your Hub login. Sign in to Claude Code with the same email as your Hub login, then try again.') }
+    return @{ ok = $true; allowed = $true; reason = 'ok'; plan = $plan; plain = 'Your own Claude account is signed in.' }
+}
+function global:As-ClaudeFile { return (Join-Path (As-Root) '_claude_check.json') }
+# when the feature is CHOSEN in the Hub
+function global:As-ClaudeChoose([string]$token) {
+    $u = As-HubUser $token
+    if ($null -eq $u) { return (As-ClaudeNo 'hub_sign_in' 'The Helper could not confirm your Hub login. Sign in to the Hub again, then try once more.') }
+    $print = As-EmailPrint $u.email
+    $d = As-ClaudeDecide $print
+    $all = As-ReadJson (As-ClaudeFile); if ($null -eq $all) { $all = @{} }
+    $all[$u.id] = @{ emailPrint = $print }
+    As-WriteText (As-ClaudeFile) (As-ToJson ($all))
+    return $d
+}
+# every time it RUNS (no web page involved): the Hub login that owns the button against whoever is signed in to Claude right now
+function global:As-ClaudeAtRun([string]$userId) {
+    $all = As-ReadJson (As-ClaudeFile)
+    if ($null -eq $all -or -not $userId -or -not $all.ContainsKey($userId)) { return (As-ClaudeNo 'not_checked' 'Open the Hub on this computer once and save this button again, so the Helper can check your account.') }
+    return (As-ClaudeDecide ([string](As-Get $all[$userId] 'emailPrint' '')))
 }
 
 function global:Invoke-AmitScriptRoute {
@@ -213,6 +281,14 @@ function global:Invoke-AmitScriptRoute {
         As-Send $Response @{ ok = $true; hash = $hash; version = $ver }; return
     }
 
+    # ---- HUB route: may this Hub login use a premium Claude feature on this computer? ----
+    if ($route -eq 'claude-check') {
+        if ($kind -ne 'site' -or $ok -ne 'POST') { As-Send $Response @{ ok = $false; error = 'forbidden' } 403; return }
+        $body = As-Body $Request; if ($null -eq $body) { As-Send $Response @{ ok = $false; error = 'too big' } 413; return }
+        try { $in = (As-Js).DeserializeObject($body) } catch { As-Send $Response @{ ok = $false; error = 'not readable' } 400; return }
+        As-Send $Response (As-ClaudeChoose ([string](As-Get $in 'token' ''))); return
+    }
+
     # ---- LOCAL routes: no Origin header at all ----
     if ($route -eq 'open' -or $route -eq 'stopall' -or $route -eq 'status') {
         if ($kind -ne 'none') { As-Send $Response @{ ok = $false; error = 'forbidden' } 403; return }
@@ -225,6 +301,12 @@ function global:Invoke-AmitScriptRoute {
         $id = As-SafeId ([string]$q['button']); if (-not $id) { As-Send $Response @{ ok = $false; error = 'no such button' } 400; return }
         $b = As-Button $id
         if ($null -eq $b) { As-Send $Response @{ ok = $false; error = 'This button has not been sent to this computer yet. Open the Hub once so it can.' } 404; return }
+        if ([string](As-Get $b 'kind') -eq 'claude') {   # a J or F shortcut run on the person's own Claude: its window does the premium check itself
+            $tok = As-NewToken $id
+            $opened = As-OpenPopup $id $tok 'AmitClaudePopup.html'
+            if ($env:AMIT_TEST_NO_WINDOW) { As-Send $Response @{ ok = $true; token = $tok } } else { As-Send $Response @{ ok = $opened } }
+            return
+        }
         $ver = [int](As-Get $b 'version' 0)
         if ($ver -lt 1 -or -not (Test-Path -LiteralPath (As-ScriptPath $id $ver))) { As-Send $Response @{ ok = $false; error = 'The script for this button is not on this computer. Ask Amit to rebuild it.' } 404; return }
         $tok = As-NewToken $id
@@ -241,6 +323,52 @@ function global:Invoke-AmitScriptRoute {
     if ($null -eq $b) { As-Send $Response @{ ok = $false; error = 'no such button' } 404; return }
     $d = As-Dirs $id; $ver = [int](As-Get $b 'version' 0); $sp = As-ScriptPath $id $ver
     $questions = @((As-Get $b 'questions' @()) | Where-Object { (As-Get $_ 'status' 'active') -eq 'active' })
+
+    # ---- a J or F shortcut button (2026-11-25): the same one-button token as above ----
+    if ($route -like 'claude-*') {
+        if ([string](As-Get $b 'kind') -ne 'claude') { As-Send $Response @{ ok = $false; error = 'not a shortcut button' } 400; return }
+        if ($route -eq 'claude-config') {
+            $gate = As-ClaudeAtRun ([string](As-Get $b 'userId'))
+            As-Send $Response @{ ok = $true; name = (As-Get $b 'name' 'Button'); shortcutName = (As-Get $b 'shortcutName' ''); shortcutText = (As-Get $b 'shortcutText' ''); check = $gate; running = (As-Alive $id) }; return
+        }
+        if ($route -eq 'claude-state') {
+            $turn = As-ReadJson (Join-Path $d.state 'turn.json'); $ask = As-ReadJson (Join-Path $d.state 'perm.json'); $alive = As-Alive $id
+            if (-not $alive) { $ask = $null; if ($null -ne $turn -and ([string]$turn['status']) -eq 'working') { $turn = @{ status = 'failed'; text = 'The run closed without finishing.'; turn = $turn['turn'] } } }
+            As-Send $Response @{ ok = $true; running = $alive; turn = $turn; ask = $ask }; return
+        }
+        if ($ok -ne 'POST') { As-Send $Response @{ ok = $false; error = 'forbidden' } 403; return }
+        $in = $null; try { $in = (As-Js).DeserializeObject((As-Body $Request)) } catch { }
+        if ($null -eq $in) { As-Send $Response @{ ok = $false; error = 'not readable' } 400; return }
+        if ($route -eq 'claude-start') {
+            if (As-Alive $id) { As-Send $Response @{ ok = $false; error = 'already_running'; plain = 'This button is already running.' } 409; return }
+            $gate = As-ClaudeAtRun ([string](As-Get $b 'userId'))
+            if ($gate.allowed -ne $true) { As-Send $Response @{ ok = $false; error = $gate.reason; plain = $gate.plain } 403; return }
+            if (-not [string](As-Get $b 'shortcutText' '')) { As-Send $Response @{ ok = $false; error = 'no_shortcut'; plain = 'The shortcut for this button was not found. Open the Hub and choose it again.' } 404; return }
+            foreach ($x in @($d.state, $d.work)) { if (-not (Test-Path -LiteralPath $x)) { [void](New-Item -ItemType Directory -Force -Path $x) } }
+            foreach ($f in @(Get-ChildItem -LiteralPath $d.state -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq 'turn.json' -or $_.Name -eq 'reply.json' -or $_.Name -eq 'stop.flag' -or $_.Name -like 'perm*.json' })) { [System.IO.File]::Delete($f.FullName) }
+            $jp = Join-Path $d.state 'claude_job.json'
+            As-WriteText $jp (As-ToJson (@{ userId = (As-Get $b 'userId'); stateDir = $d.state; workDir = $d.work; shortcutName = (As-Get $b 'shortcutName' ''); shortcutText = (As-Get $b 'shortcutText' '') }))
+            if (-not $env:AMIT_TEST_NO_RUNNER) {
+                $p = Start-Process -FilePath 'powershell.exe' -ArgumentList ('-NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $PSScriptRoot 'amit_claude_run.ps1') + '" -JobPath "' + $jp + '"') -PassThru -WindowStyle Hidden
+                As-WriteText (Join-Path $d.state 'run.pid') ([string]$p.Id)
+            }
+            As-Send $Response @{ ok = $true }; return
+        }
+        if ($route -eq 'claude-reply') {
+            $turn = As-ReadJson (Join-Path $d.state 'turn.json')
+            $a = [string](As-Get $in 'answer' ''); if ($a.Length -gt 8000) { $a = $a.Substring(0, 8000) }
+            if ($null -eq $turn -or ([string]$turn['status']) -ne 'waiting' -or -not $a.Trim()) { As-Send $Response @{ ok = $false; error = 'nothing is waiting for an answer' } 409; return }
+            As-WriteText (Join-Path $d.state 'reply.json') (As-ToJson (@{ answer = $a })); As-Send $Response @{ ok = $true }; return
+        }
+        if ($route -eq 'claude-perm') {
+            $ask = As-ReadJson (Join-Path $d.state 'perm.json'); $aid = [string](As-Get $in 'id' '')
+            # the answer counts only for the exact request the person was shown
+            if ($null -eq $ask -or $aid -notmatch '^[0-9a-f]{32}$' -or ([string]$ask['id']) -ne $aid) { As-Send $Response @{ ok = $false; error = 'that request is no longer waiting' } 409; return }
+            As-WriteText (Join-Path $d.state ('perm_' + $aid + '.json')) (As-ToJson (@{ allow = ((As-Get $in 'allow' $false) -eq $true) })); As-Send $Response @{ ok = $true }; return
+        }
+        if ($route -eq 'claude-stop') { As-WriteText (Join-Path $d.state 'stop.flag') 'stop'; As-Send $Response @{ ok = $true }; return }
+        As-Send $Response @{ ok = $false; error = 'unknown route' } 404; return
+    }
 
     if ($route -eq 'popup-config') {
         $approved = $false

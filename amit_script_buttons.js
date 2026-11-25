@@ -14,7 +14,57 @@
   var ME = function () { return (typeof currentUser !== 'undefined' && currentUser) ? currentUser : null; };
   var KINDS = [['text', 'Words'], ['choice', 'Pick one'], ['multi_choice', 'Pick several'], ['number', 'A number'], ['date', 'A date'], ['date_range', 'Two dates'], ['yes_no', 'Yes or no'], ['file', 'A file'], ['folder', 'A folder']];
 
-  function isScriptBtn(b) { return !!(b && (b.steps || []).some(function (s) { return s && s.t === 'run_script'; })); }
+  /* a J or F shortcut step is stored as run_script with the value cc-j-<id> or cc-f-<id> (it is NOT a custom script button: it has no script of its own) */
+  var CC = /^cc-([jf])-([A-Za-z0-9-]{4,58})$/;
+  function isScriptBtn(b) { return !!(b && (b.steps || []).some(function (s) { return s && s.t === 'run_script' && !CC.test(String(s.v || '')); })); }
+  function claudeSteps() {
+    var seen = {}, out = [];
+    H().buttons.forEach(function (b) { (b.steps || []).forEach(function (s) { var m = s && s.t === 'run_script' ? CC.exec(String(s.v || '')) : null; if (m && !seen[s.v]) { seen[s.v] = 1; out.push({ id: s.v, name: b.name, sc: m[2] }); } }); });
+    return out;
+  }
+  async function loadShortcuts(again) {
+    if ((again || !S.shortcuts) && DB()) { try { var r = await DB().from('amit_shortcuts').select('id,trigger_phrase,instruction_text,is_builtin,user_id').eq('is_active', true).order('trigger_phrase').limit(300); if (!r.error) S.shortcuts = r.data || []; } catch (e) {} }
+    return S.shortcuts || [];
+  }
+  function shortcutsOf(kind) { var uid = ME() && ME().id; return (S.shortcuts || []).filter(function (s) { return kind === 'j' ? (s.is_builtin || !s.user_id) : (!s.is_builtin && s.user_id === uid); }); }
+  function scName(s) { var p = String(s.trigger_phrase || ''), k = (s.is_builtin || !s.user_id) ? 'J ' : 'F '; return p.toUpperCase().indexOf(k) === 0 ? p : k + p; }
+
+  /* ---------- the premium check: the Helper does it (root CLAUDE.md, "PREMIUM FEATURES"); this page only asks ---------- */
+  async function claudeCheck() {
+    try {
+      var se = await DB().auth.getSession(), tok = se && se.data && se.data.session && se.data.session.access_token;
+      if (!tok) return { ok: true, allowed: false, reason: 'hub_sign_in', plain: 'Sign in to the Hub again, then try once more.' };
+      var j = await helper('POST', 'claude-check', { token: tok });
+      if (!j || typeof j.allowed !== 'boolean') return { ok: false, allowed: false, reason: 'old_helper', plain: 'The Amit Helper on this computer is too old for this. Update it, then try again.' };
+      return j;
+    } catch (e) { return { ok: false, allowed: false, reason: 'no_helper', plain: 'The Amit Helper on this computer did not answer. This feature needs the Helper, on a computer. Start it and try again.' }; }
+  }
+  var FREE_OK = ['not_paid', 'not_signed_in', 'no_claude_code'];
+  function ccBox(title, text, buttons) {
+    var o = document.getElementById('asbCC'); if (o) o.remove();
+    if (title === null) return;
+    o = document.createElement('div'); o.id = 'asbCC';
+    o.style.cssText = 'position:fixed;inset:0;z-index:100050;background:rgba(4,9,15,.72);display:flex;align-items:center;justify-content:center;padding:16px';
+    var c = document.createElement('div'); c.style.cssText = 'background:#fbf6ea;color:#23303c;border-radius:18px;max-width:480px;width:100%;padding:22px 24px;font:19px/1.5 "Segoe UI",sans-serif;max-height:92%;overflow:auto';
+    var h = document.createElement('h2'); h.textContent = title; h.style.cssText = 'margin:0 0 8px;font-size:25px;color:#1d3b40;font-family:"Segoe UI",sans-serif'; c.appendChild(h);
+    var p = document.createElement('p'); p.textContent = text; p.style.margin = '0'; c.appendChild(p);
+    (buttons || []).forEach(function (x) { var b = document.createElement('button'); b.type = 'button'; b.textContent = x[0]; b.style.cssText = 'font:650 18px "Segoe UI",sans-serif;border:0;border-radius:12px;padding:11px 18px;cursor:pointer;margin:14px 10px 0 0;background:' + (x[2] ? '#e8964a;color:#231505' : '#e9e1cd;color:#3b4650'); b.onclick = x[1]; c.appendChild(b); });
+    o.appendChild(c); document.body.appendChild(o);
+  }
+  /* when a shortcut step is CHOSEN: resolves 'ok' (their own paid Claude), 'free' (they take the copy-and-paste version, which runs nothing) or null (cancel the selection) */
+  async function claudeGate() {
+    ccBox('One moment', 'Checking for your own paid Claude account...', []);
+    var d = await claudeCheck();
+    await loadShortcuts(true);
+    if (d.allowed) { ccBox(null); return 'ok'; }
+    return new Promise(function (done) {
+      var end = function (v) { ccBox(null); done(v); };
+      if (FREE_OK.indexOf(d.reason) >= 0) ccBox('This is a premium option', d.plain + ' Your other buttons keep working as they do now. You can also use the free version: the button copies the instructions of the shortcut for you to paste into Claude yourself.', [
+        ['Get my own Claude account', function () { root.open('https://claude.com/pricing', '_blank', 'noopener'); end(null); }, true],
+        ['Use the free copy version', function () { end('free'); }], ['Not now', function () { end(null); }]]);
+      else ccBox('It cannot be added yet', d.plain, [['Close', function () { end(null); }, true]]);
+    });
+  }
   function scriptsOf(id) { return S.scripts.filter(function (r) { return r.button_id === id; }).sort(function (a, b) { return a.version - b.version; }); }
   function currentScript(id) { var l = scriptsOf(id); for (var i = l.length - 1; i >= 0; i--) if (l[i].is_current) return l[i]; return null; }
   function questionsOf(id) { return S.questions.filter(function (r) { return r.button_id === id; }).sort(function (a, b) { return (a.position || 0) - (b.position || 0); }); }
@@ -68,11 +118,16 @@
       out.push({ id: b.id, name: b.name, version: cur.version, approvedHash: cur.approved_hash || '', state: cur.state, sendingUnlocked: !!cur.sending_unlocked, permissions: cur.permissions || {},
         questions: qs.map(function (q) { return qCfg(q, qs); }), settings: settingsCfg(), card: cardFor(cur) });
     });
+    claudeSteps().forEach(function (c) {
+      var sc = (S.shortcuts || []).filter(function (s) { return s.id === c.sc; })[0];
+      out.push({ id: c.id, kind: 'claude', name: c.name, userId: ME().id, shortcutName: sc ? scName(sc) : '', shortcutText: sc ? String(sc.instruction_text || '').slice(0, 20000) : '' });
+    });
     return out;
   }
   function syncToHelper() {
     clearTimeout(S.syncTimer);
     S.syncTimer = setTimeout(async function () {
+      if (claudeSteps().length) { await loadShortcuts(); if (!S.ccChecked) { S.ccChecked = true; claudeCheck(); } }   // so a press on this computer can be checked again against this login
       var cfg = helperConfig(); if (!cfg.length) return;
       try { var j = await helper('POST', 'sync', { buttons: cfg }); S.lastHelper = !!(j && j.ok); } catch (e) { S.lastHelper = false; }
     }, 400);
@@ -474,5 +529,7 @@
   var api = { load: load, render: render, syncToHelper: syncToHelper, create: create, wizard: wizard, wizClose: wizClose, wizGo: wizGo, wizAt: wizAt, wizPick: wizPick, wizBuild: wizBuild, useSteps: useSteps, open: open, close: close, send: function () { return send(); }, saveSetup: function () { return saveSetup(false); }, addQ: addQ, q: qEdit, up: function (i) { swap(i, i - 1); }, down: function (i) { swap(i, i + 1); },
     rm: rmQ, accept: accept, dismiss: dismiss, letAmit: letAmit, approve: approve, setState: setState, putBack: putBack, del: del, delById: delById, restore: restore, importInbox: importInbox, refresh: function () { readSetup(); drawModal(); },
     isScriptButton: isScriptBtn, _t: { slug: slug, helperConfig: helperConfig, buildRequest: buildRequest, onReply: onReply, state: S, sha256: sha256, cardFor: cardFor } };
+  api.claudeCheck = claudeCheck; api.claudeGate = claudeGate; api.loadShortcuts = loadShortcuts; api.shortcutsOf = shortcutsOf; api.shortcutName = scName;
+  api.shortcutById = function (id) { return (S.shortcuts || []).filter(function (s) { return s.id === id; })[0] || null; };
   root.AmitScriptButtons = api;
 })(typeof window !== 'undefined' ? window : this);

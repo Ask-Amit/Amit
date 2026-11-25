@@ -90,14 +90,14 @@ if ($alreadyInstalled) {
         "app_behavior_watcher.ps1", "install_snapshot_watcher.ps1",
         "Run_AmitTracker.ps1", "AmitTracker.exe",      # AmitSensorReader.exe (72 MB) is no longer installed here: Computer Health's Hardware tab adds it on request (helper route /api/sensors/install)
         "process_inbox.bat", "process_inbox_prompt.txt",
-        "amit_whisper.cs", "amit_whisper.html", "amit_dictate.html", "amit_talk.html", "AmitPreview.html", "amit_update.ps1", "amit_reload.ps1", "amit_crash_check.ps1", "amit_appcrash.ps1", "amit_pad.html", "amit_pad_pair.html", "AmitBar.cs", "AmitToolkit.psm1", "never_list.json", "amit_script_check.ps1", "amit_script_host.ps1", "amit_run_script.ps1", "amit_script_routes.ps1", "AmitScriptPopup.html",
+        "amit_whisper.cs", "amit_whisper.html", "amit_dictate.html", "amit_talk.html", "AmitPreview.html", "amit_update.ps1", "amit_reload.ps1", "amit_crash_check.ps1", "amit_appcrash.ps1", "amit_pad.html", "amit_pad_pair.html", "AmitBar.cs", "AmitToolkit.psm1", "never_list.json", "amit_script_check.ps1", "amit_script_host.ps1", "amit_run_script.ps1", "amit_script_routes.ps1", "AmitScriptPopup.html", "amit_claude_run.ps1", "amit_claude_hook.ps1", "AmitClaudePopup.html",
         "amit_icon_whisper.ico", "amit_icon_read.ico", "amit_icon_showamit.ico"
     )
     # NEVER GO BACKWARDS (Ryan, 2026-11-07): this installer must never put an OLDER Amit Helper over a newer one. The Helper's own files (bridge, voice program,
     # bar, previewer page, updater) are kept when the Helper already installed is newer than the one this installer carries; the automatic updater delivers
     # the newer ones to every computer, so an old installer run later must not undo them. The version is the one in amit_whisper.cs.
     function Get-HelperVersion([string]$p) { try { if (Test-Path $p) { $m = [regex]::Match([System.IO.File]::ReadAllText($p), 'public const string Version = "([0-9.]+)"'); if ($m.Success) { return [version]$m.Groups[1].Value } } } catch {}; return $null }
-    $helperOwned = @("amit_bridge_server.ps1", "amit_whisper.cs", "amit_whisper.html", "amit_dictate.html", "amit_talk.html", "AmitPreview.html", "amit_update.ps1", "amit_reload.ps1", "amit_crash_check.ps1", "amit_appcrash.ps1", "amit_pad.html", "amit_pad_pair.html", "AmitBar.cs", "AmitToolkit.psm1", "never_list.json", "amit_script_check.ps1", "amit_script_host.ps1", "amit_run_script.ps1", "amit_script_routes.ps1", "AmitScriptPopup.html")
+    $helperOwned = @("amit_bridge_server.ps1", "amit_whisper.cs", "amit_whisper.html", "amit_dictate.html", "amit_talk.html", "AmitPreview.html", "amit_update.ps1", "amit_reload.ps1", "amit_crash_check.ps1", "amit_appcrash.ps1", "amit_pad.html", "amit_pad_pair.html", "AmitBar.cs", "AmitToolkit.psm1", "never_list.json", "amit_script_check.ps1", "amit_script_host.ps1", "amit_run_script.ps1", "amit_script_routes.ps1", "AmitScriptPopup.html", "amit_claude_run.ps1", "amit_claude_hook.ps1", "AmitClaudePopup.html")
     $vCarried = Get-HelperVersion "$scriptDir\amit_whisper.cs"
     $vInstalled = Get-HelperVersion "$watcherInstallDir\amit_whisper.cs"
     $keepNewerHelper = $false

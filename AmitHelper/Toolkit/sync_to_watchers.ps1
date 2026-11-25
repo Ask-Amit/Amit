@@ -6,7 +6,7 @@
 param([switch]$DryRun)
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $dest = Join-Path (Split-Path -Parent (Split-Path -Parent $here)) 'ComputerHealth\Watchers'
-$files = @('never_list.json', 'AmitToolkit.psm1', 'amit_script_check.ps1', 'amit_script_host.ps1', 'amit_run_script.ps1', 'amit_script_routes.ps1', 'AmitScriptPopup.html')
+$files = @('never_list.json', 'AmitToolkit.psm1', 'amit_script_check.ps1', 'amit_script_host.ps1', 'amit_run_script.ps1', 'amit_script_routes.ps1', 'AmitScriptPopup.html', 'amit_claude_run.ps1', 'amit_claude_hook.ps1', 'AmitClaudePopup.html')
 foreach ($f in $files) {
     $src = Join-Path $here $f
     if (-not (Test-Path $src)) { Write-Host ('MISSING source: ' + $f); continue }

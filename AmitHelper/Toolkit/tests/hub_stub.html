@@ -172,6 +172,27 @@ function chatText(){ var c=document.getElementById('asbChat'); return c?c.innerT
     sb=TABLES.hel_buttons.filter(function(b){ return b.id===sb.id; })[0];
     ok(sb.steps.length===3&&sb.steps[0].t==='open_url'&&TABLES.hel_button_scripts.length===scripts0&&!A.isScriptButton(sb),'it is now an ordinary button with three steps and no script');
     A.wizClose();
+    /* J and F shortcuts: the choice is checked first */
+    window.db.auth=window.db.auth||{}; window.db.auth.getSession=function(){ return Promise.resolve({data:{session:{access_token:'aaa.bbb.ccc'}}}); };
+    var CCT=function(){ var e=document.getElementById('asbCC'); return e?e.innerText:''; };
+    var press=function(label){ var b=[].slice.call(document.querySelectorAll('#asbCC button')).filter(function(x){ return x.textContent===label; })[0]; if(b) b.click(); return !!b; };
+    var g=A.claudeGate();
+    ok(await waitFor(function(){ return /cannot be added yet/.test(CCT())&&/confirm your Hub login/.test(CCT()); },30000),'the real Helper refuses a made-up Hub sign-in, and the window says why');
+    press('Close'); ok((await g)===null,'closing it cancels the selection');
+    var realFetch=window.fetch, answer=null;
+    window.fetch=function(u,o){ if(String(u).indexOf('claude-check')>=0) return Promise.resolve({status:200,json:function(){ return Promise.resolve(answer); }}); return realFetch.apply(this,arguments); };
+    answer={ok:true,allowed:true,reason:'ok',plan:'pro'}; ok((await A.claudeGate())==='ok'&&!CCT(),'their own paid account: the choice goes through with no message');
+    answer={ok:true,allowed:false,reason:'no_claude_code',plain:'This is a premium feature.'}; g=A.claudeGate();
+    ok(await waitFor(function(){ return /premium option/.test(CCT())&&/free copy version/.test(CCT()); },5000),'no paid account: premium message with the free copy version offered');
+    press('Not now'); ok((await g)===null,'Not now cancels the selection');
+    g=A.claudeGate(); await waitFor(function(){ return /premium option/.test(CCT()); },5000); press('Use the free copy version'); ok((await g)==='free','the free copy version can be chosen');
+    answer={ok:true,allowed:false,reason:'email_mismatch',plain:'Different email.'}; g=A.claudeGate();
+    ok(await waitFor(function(){ return /Different email/.test(CCT())&&!/free copy/.test(CCT()); },5000),'a different email: no free option, just what is wrong'); press('Close'); await g;
+    window.fetch=realFetch;
+    var ccid='cc-j-11111111-2222-3333-4444-555555555555';
+    var sb2={id:'ccbtn-1',profile_id:'p1',name:'Review',steps:[{t:'run_script',v:ccid}]};
+    ok(!A.isScriptButton(sb2),'a shortcut button is not mistaken for a custom script button');
+    await A.loadShortcuts(true); window.hl.buttons.push(sb2); A.syncToHelper();
   }catch(e){ ok(false,'ERROR: '+e.message+' '+(e.stack||'').split('\n')[1]); }
   window.__done=true;
 })();

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Amit Shortcut</title>
+<style>
+/* the window for a J or F shortcut button (2026-11-25), ported from the approved preview AmitHelper_claudefeature_preview.html */
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font:19px/1.5 "Segoe UI",system-ui,sans-serif;color:#23303c;background:#fbf6ea;display:flex;flex-direction:column}
+.head{background:#2f6f73;color:#fff;padding:12px 20px}
+.body{flex:1;min-height:0;overflow:auto;padding:16px 20px}
+.foot{padding:12px 20px 16px;display:flex;gap:10px;flex-wrap:wrap}
+.big{font:650 18px "Segoe UI",sans-serif;border:0;border-radius:13px;padding:11px 18px;cursor:pointer}
+.go{background:#e8964a;color:#231505}.soft{background:#e9e1cd;color:#3b4650}.green{background:#3c9a62;color:#fff}.red{background:#c4553f;color:#fff}
+.m{background:#fff;border:2px solid #e4dcc9;border-radius:14px;padding:10px 14px;margin:0 0 10px;overflow-wrap:anywhere;white-space:pre-wrap}
+.m.ask{border-color:#2f6f73}.m.perm{border-color:#c4553f;background:#fff3ef}.m.done{border-color:#3c9a62}
+.m small{display:block;font-size:14px;color:#7a6f59;white-space:normal}
+textarea{font:19px "Segoe UI",sans-serif;width:100%;padding:11px 13px;border-radius:12px;border:2px solid #d8cdb2;background:#fff;margin:0}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;font:15px/1.45 Consolas,monospace;background:#f4ecd9;border-radius:10px;padding:10px;margin:8px 0 0;max-height:240px;overflow:auto}
+</style></head><body>
+<div class="head"><b id="head">Amit</b></div>
+<div class="body"><div id="log"></div><div id="now"></div></div>
+<div class="foot" id="foot"></div>
+<script>
+var P=new URLSearchParams(location.search), B=P.get('b')||'', T=P.get('t')||'', API='http://localhost:8710/api/script/';
+var CFG=null, shown={turn:0,perm:''}, timer=null, ended=false, lastKey='';
+function $(i){return document.getElementById(i)}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function btn(cls,text,fn){var b=document.createElement('button');b.className='big '+cls;b.textContent=text;b.onclick=fn;return b}
+function foot(){var f=$('foot');f.innerHTML='';for(var i=0;i<arguments.length;i++)f.appendChild(arguments[i])}
+function log(h){$('log').insertAdjacentHTML('beforeend',h);scroll()}
+function now(h){$('now').innerHTML=h;scroll()}
+function scroll(){var b=document.querySelector('.body');b.scrollTop=b.scrollHeight}
+async function api(method,route,body){
+  try{var r=await fetch(API+route+'?b='+encodeURIComponent(B)+'&t='+encodeURIComponent(T),{method:method,headers:body?{'Content-Type':'text/plain'}:{},body:body?JSON.stringify(body):undefined,cache:'no-store'});return await r.json()}
+  catch(e){return {ok:false,plain:'The Amit Helper did not answer.'}}
+}
+async function start(){
+  CFG=await api('GET','claude-config');
+  if(!CFG.ok){now('<div class="m">'+esc(CFG.plain||'This window can no longer be used. Press the button on your bar again.')+'</div>');return}
+  document.title=CFG.name;$('head').textContent=CFG.shortcutName||CFG.name;
+  $('log').innerHTML='';
+  if(!CFG.check.allowed){
+    if(['not_paid','not_signed_in','no_claude_code'].indexOf(CFG.check.reason)>=0)return freeView();
+    now('<div class="m perm">'+esc(CFG.check.plain)+'</div>');foot(btn('go','Check again',start),btn('soft','Close',function(){window.close()}));return;
+  }
+  if(CFG.running){watch();return}
+  now('<div class="m done">Your own Claude account is signed in ('+esc(CFG.check.plan)+' plan).<small>This uses your plan\'s limits. Claude works in this button\'s own folder and asks you before it does anything else.</small></div>');
+  foot(btn('go','Start',run),btn('soft','Cancel',function(){window.close()}));
+}
+async function run(){
+  foot();$('log').innerHTML='';now('<div class="m">Starting...</div>');ended=false;shown={turn:0,perm:''};lastKey='';
+  var r=await api('POST','claude-start',{});
+  if(!r.ok&&r.error!=='already_running'){now('<div class="m perm">'+esc(r.plain||'It could not start.')+'</div>');foot(btn('go','Try again',start));return}
+  watch();
+}
+function watch(){clearTimeout(timer);ended=false;lastKey='';poll()}
+async function poll(){
+  var s=await api('GET','claude-state');
+  if(ended)return;
+  if(s.ok)draw(s);
+  if(!ended)timer=setTimeout(poll,800);
+}
+function stopBtn(){return btn('red','Stop',async function(){foot();now('<div class="m">Stopping...</div>');lastKey='stopping';await api('POST','claude-stop',{})})}
+function draw(s){
+  var t=s.turn||{status:'starting'};
+  if(s.ask){
+    if(lastKey!=='p'+s.ask.id&&lastKey!=='stopping'){
+      lastKey='p'+s.ask.id;var id=s.ask.id;
+      now('<div class="m perm"><b>'+esc(s.ask.plain)+'</b><pre>'+esc(s.ask.detail)+'</pre><small>Nothing happens unless you allow it.'+(s.ask.cut?' This is too long to show in full: do not allow it unless you trust it.':'')+'</small></div>');
+      foot(btn('green','Allow this once',function(){perm(id,true)}),btn('soft','Don\'t allow',function(){perm(id,false)}),stopBtn());
+    }
+    return;
+  }
+  var key=t.status+':'+(t.turn||0);
+  if(key===lastKey||(lastKey==='stopping'&&t.status!=='stopped'&&t.status!=='finished'))return;
+  lastKey=key;
+  if(t.status==='working'||t.status==='starting'){now('<div class="m">Claude is working...</div>');foot(stopBtn());return}
+  if(t.status==='waiting'){
+    now('<div class="m ask">'+esc(t.text)+'</div><textarea id="a" rows="3" placeholder="Your answer, or what to do next"></textarea>');
+    foot(btn('go','Send answer',send),btn('green','Finish',async function(){var x=$('log');x.insertAdjacentHTML('beforeend','<div class="m done">'+esc(t.text)+'</div>');foot();now('<div class="m">Finishing...</div>');lastKey='stopping';await api('POST','claude-stop',{})}));
+    $('a').focus();scroll();return;
+  }
+  ended=true;
+  var words={finished:'Finished.',stopped:'Stopped. Nothing more will run.',failed:'',refused:''}[t.status];
+  var said=(t.status==='failed'||t.status==='refused')?t.text:words;
+  now('<div class="m '+(t.status==='finished'?'done':'perm')+'">'+esc(said)+'</div>');
+  foot(btn('soft','Run again',start),btn('soft','Close',function(){window.close()}));
+}
+async function perm(id,allow){
+  foot(stopBtn());log('<div class="m">'+(allow?'Allowed once.':'Not allowed.')+'</div>');now('<div class="m">Claude is working...</div>');
+  await api('POST','claude-perm',{id:id,allow:allow});
+}
+async function send(){
+  var a=$('a').value.trim();if(!a)return;
+  var q=document.querySelector('#now .m.ask');
+  var r=await api('POST','claude-reply',{answer:a});
+  if(!r.ok)return;
+  if(q)log('<div class="m ask">'+esc(q.textContent)+'</div>');
+  log('<div class="m">You answered: '+esc(a)+'</div>');now('<div class="m">Claude is working...</div>');foot(stopBtn());
+}
+/* a free Claude account: nothing is run. The person copies the instructions and pastes them into Claude themselves. */
+function freeView(){
+  now('<div class="m">No paid Claude account was found on this computer. This button can copy the instructions so you can paste them into Claude yourself.<small>With a paid plan, the button runs it for you.</small></div>');
+  foot(btn('go','Copy and open Claude',async function(){
+    var ok=true;try{await navigator.clipboard.writeText(CFG.shortcutText)}catch(e){ok=false}
+    now('<div class="m done">'+(ok?'<b>Copied.</b> Claude opens in your browser.\n1. Click in Claude\'s message box.\n2. Press Ctrl+V.\n3. Press Enter.':'Copy the text below, then paste it into Claude.')+'</div><pre>'+esc(CFG.shortcutText)+'</pre>');
+    if(ok)window.open('https://claude.ai/new','_blank','noopener');
+    foot(btn('soft','Back',start));
+  }),btn('soft','About paid plans',function(){window.open('https://claude.com/pricing','_blank','noopener')}),btn('soft','Check again',start));
+}
+start();
+</script></body></html>

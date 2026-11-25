@@ -18,7 +18,7 @@
 <script src="../amit_data_tools.js?v=1.01"></script>
 <script src="../amit_ch_sync.js?v=1.04"></script>
 <script src="../amit_button_build.js?v=0.2"></script>
-<script src="../amit_script_buttons.js?v=0.4"></script>
+<script src="../amit_script_buttons.js?v=0.5"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1405,7 +1405,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v9.10</div>
+      <div class="page-version" id="hubVersionBadge">v9.11</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -6344,7 +6344,34 @@ async function mmSave(){
 }
 // ---- Communications > Amit Helper (Ryan, 2026-11-01). Own rows only in hel_settings / hel_profiles / hel_buttons (migration 035, safe step types enforced by the database). ----
 const HL_KINDS={app:['Amit app','#c9a84c'],web:['Website','#5b9bd5'],music:['Music','#9b7fd1'],program:['Program','#3fb5a8'],multi:['Several steps','#e0826a'],ask:['Ask Amit','#5cb85c']};
-const HL_STEPS={open_app:['Open an Amit app','app','e.g. AmitBooks'],open_url:['Open a website','web','https://...'],open_program:['Open a program','program','e.g. Notepad'],open_file:['Open a file','program','choose a file'],audio:['Audio setting','program','sound'],settings:['Windows settings page','program','choose a page'],print:['Print from the screen','program','shows a print choice'],play_music:['Play music','music','e.g. Devotions'],speak:['Speak','ask','what Amit says'],ask_amit:['Ask Amit','ask','the question to ask'],wait:['Wait (seconds)','multi','1 to 60'],preview:['Open the Amit Preview','program','opens the previewer window'],preview_rules:['Hand out the previewer rules','program','instructions for whoever presses this'],menu:['Open a menu','program','choose a menu'],winact:['Windows action','program','choose an action']};
+const HL_STEPS={open_app:['Open an Amit app','app','e.g. AmitBooks'],open_url:['Open a website','web','https://...'],open_program:['Open a program','program','e.g. Notepad'],open_file:['Open a file','program','choose a file'],audio:['Audio setting','program','sound'],settings:['Windows settings page','program','choose a page'],print:['Print from the screen','program','shows a print choice'],play_music:['Play music','music','e.g. Devotions'],speak:['Speak','ask','what Amit says'],ask_amit:['Ask Amit','ask','the question to ask'],wait:['Wait (seconds)','multi','1 to 60'],preview:['Open the Amit Preview','program','opens the previewer window'],preview_rules:['Hand out the previewer rules','program','instructions for whoever presses this'],menu:['Open a menu','program','choose a menu'],winact:['Windows action','program','choose an action'],f_short:['F shortcut','ask','choose one of your F shortcuts'],j_short:['J shortcut','ask','choose a J shortcut']};
+// ---- J and F shortcuts (Ryan, 2026-11-25): a premium step that runs on the person's OWN Claude. Stored as run_script with the value cc-j-<shortcut id> or cc-f-<id>
+// (no database change; the bar opens it like a script button and the Amit Helper opens the shortcut window, which checks the account again at every press).
+function hlIsShort(t){ return t==='j_short'||t==='f_short'; }
+function hlShortValue(s){ return 'cc-'+(s.t==='j_short'?'j':'f')+'-'+String(s.scid||''); }
+function hlShortName(id){ const A=window.AmitScriptButtons, sc=A&&A.shortcutById?A.shortcutById(id):null; return sc?A.shortcutName(sc):''; }
+function hlShortControl(s,i){
+  const A=window.AmitScriptButtons; if(!A) return '<div class="hint" style="flex:1">This part of the Hub did not load. Refresh the page.</div>';
+  const list=A.shortcutsOf(s.t==='j_short'?'j':'f');
+  return '<select class="fg-input" style="width:100%" onchange="hlShortPick('+i+',this.value)"><option value="">'+(s.t==='j_short'?'Choose a J shortcut...':'Choose one of your F shortcuts...')+'</option>'
+    +list.map(function(x){ return '<option value="'+hlEsc(x.id)+'"'+(x.id===s.scid?' selected':'')+'>'+hlEsc(A.shortcutName(x))+'</option>'; }).join('')+'</select>'
+    +'<div class="hint" style="margin-top:4px">'+(list.length?'':'You have none of these yet. ')+(s.free?'Free version: when pressed, it copies the instructions for you to paste into Claude yourself.':'Runs through your own Claude account and counts against your own plan limits. Your account is checked again every time you press it.')+'</div>';
+}
+function hlShortPick(i,id){
+  const s=hl.steps[i]; if(!s) return; s.scid=id||''; s.v=id?hlShortName(id):'';
+  if(id&&hl.mode==='new'){ const nm=hlEl('hlName'); if(nm&&!String(nm.value||'').trim()) nm.value=s.v.slice(0,24); }
+  hlRenderSteps();
+}
+// choosing one: the check comes first, and the step only changes if it passes (or the person takes the free copy version)
+async function hlChooseShort(i,val){
+  const s=hl.steps[i]; if(!s) return;
+  hlRenderSteps();   // the list goes back to what it was while the check runs
+  const got=window.AmitScriptButtons?await AmitScriptButtons.claudeGate():null;
+  if(!got||hl.steps[i]!==s) return;
+  delete s.cfg; delete s.token; delete s.name; delete s.sid; delete s.wid; delete s.mid;
+  s.t=val; s.v=''; s.scid=''; s.free=(got==='free');
+  hlRenderSteps();
+}
 const HL_ICONS=['📚','💰','🛒','✉️','📅','🎵','🙏','📖','💻','🔧','🌐','🏠','🏥','🚗','📷','📝','☀️','⭐','🔔','📞','🎯','🧭','🕊️','🛠️','📊','📄','📕','📽️','🖼️','🎬','🔊','🎧','🖨️','⚙️'];
 const HL_DEFAULTS={always_on:false,idle_minutes:2,widen_on_click:true,rail_width:'medium'};
 const HL_BASE='https://askamit.org/';
@@ -6450,6 +6477,7 @@ function hlStepToBar(s){
   else if(s.t==='winact'){ o.t='winact'; o.text=s.wid||''; }   // the bar holds the keys for each id (WinActCtl in AmitBar.cs)
   else if(s.t==='menu'){ o.t='menu'; o.text=s.mid||''; }   // the bar asks the Helper to open this menu by its id; the Helper keeps the list of menus and how each one opens
   else if(s.t==='preview'||s.t==='preview_rules'){ }   // the bar and the helper know these two by their own names; they carry no address and no text (the rules live in the Amit Preview page itself)
+  else if(s.t==='j_short'||s.t==='f_short'){ o.t='run_script'; o.text=hlShortValue(s); }
   else if(s.t==='run_script'){ o.text=v; }   // a custom script button: the text is the button's own id; the Helper keeps the script and its questions (Toolkit\amit_script_routes.ps1)
   return o;
 }
@@ -6492,6 +6520,7 @@ async function hlLoad(){
   hl.profiles=rs[1].data||[]; hl.buttons=rs[2].data||[];
   if(!hl.profiles.some(function(p){ return p.id===hl.sel; })){ const c=hl.profiles.find(function(p){ return p.is_current; })||hl.profiles[0]; hl.sel=c?c.id:null; }
   hl.settings=Object.assign({},HL_DEFAULTS,rs[0].data||{}); hlFillSettings(hl.settings); hlRender(); hlSyncBar(true);
+  if(window.AmitScriptButtons&&AmitScriptButtons.loadShortcuts) AmitScriptButtons.loadShortcuts().then(function(){ if(typeof hlRender==='function') hlRender(); });
   if(window.AmitScriptButtons) AmitScriptButtons.load();   // custom script buttons (2026-11-24): their scripts, questions and state, and the settings the Helper needs
 }
 function hlFillSettings(s){ hlEl('hlAlways').checked=!!s.always_on; hlEl('hlWiden').checked=!!s.widen_on_click; hlEl('hlIdle').value=String(s.idle_minutes); hlEl('hlRail').value=s.rail_width; }
@@ -6590,7 +6619,7 @@ async function hlDeleteProfile(){
 function hlOpenEdit(id,mode){
   const p=hl.profiles.find(function(x){ return x.id===hl.sel; }); if(!p) return;
   const b=id?hl.buttons.find(function(x){ return x.id===id; }):null;
-  const isScr=!!(b&&(b.steps||[]).some(function(s){ return s&&s.t==='run_script'; }));   // a custom script button has its own editor (amit_script_buttons.js)
+  const isScr=!!(b&&(b.steps||[]).some(function(s){ return s&&s.t==='run_script'&&!/^cc-[jf]-/.test(String(s.v||'')); }));   // a custom script button has its own editor (amit_script_buttons.js)
   if(isScr&&(mode||'does')==='does'&&window.AmitScriptButtons){ AmitScriptButtons.open(b.id); return; }
   hl.editId=b?b.id:null; hl.mode=b?(mode||'does'):'new'; hl.icon=b?b.icon:'⭐';
   hl.steps=b?(isScr?[{t:'wait',v:'1'}]:(b.steps||[]).map(hlDec)):[{t:'open_app',v:''}]; hl.recentTried=false; hl.audioTried=false;
@@ -6608,7 +6637,7 @@ function hlRequestText(){
   const p=hl.profiles.find(function(x){ return x.id===hl.sel; });
   const name=hlEl('hlName').value.trim();
   return 'Amit, please build one button for my Amit Helper bar'+(p?' in my profile "'+p.name+'"':'')+(name?', called "'+name+'"':'')+'.\n\nWhat I want it to do, in my words, in order:\n'
-    +hlEl('hlSay').value.trim()+'\n\nUse ONLY these step types: '+Object.keys(HL_STEPS).filter(function(k){ return k!=='open_file'&&k!=='audio'&&k!=='settings'&&k!=='winact'&&k!=='print'&&k!=='preview'&&k!=='preview_rules'&&k!=='menu'; }).map(function(k){ return k+' ('+HL_STEPS[k][0].toLowerCase()+')'; }).join(', ')
+    +hlEl('hlSay').value.trim()+'\n\nUse ONLY these step types: '+Object.keys(HL_STEPS).filter(function(k){ return k!=='open_file'&&k!=='audio'&&k!=='settings'&&k!=='winact'&&k!=='print'&&k!=='preview'&&k!=='preview_rules'&&k!=='menu'&&!hlIsShort(k); }).map(function(k){ return k+' ('+HL_STEPS[k][0].toLowerCase()+')'; }).join(', ')
     +'. A J shortcut or a search I name is an ask_amit step whose v is the question to ask. For open_app, v must be exactly one of these Amit app names'+(hl.apps.length?': '+hl.apps.map(function(a){ return a.name; }).join('; '):' (or a web address)')+'. For open_program, v is the name of the program exactly as the Windows Start menu shows it (for example Calculator), or its file name such as notepad.exe. open_url must start with https://. wait is a number of seconds from 1 to 60. Use at most 12 steps. '
     +'Reply with ONLY this JSON and nothing else: {"steps":[{"t":"open_app","v":"AmitBooks"}]}. If something I asked for cannot be done with those step types, say so in plain words instead.';
 }
@@ -6628,7 +6657,7 @@ function hlReadPaste(){
   if(!Array.isArray(list)||!list.length||list.length>12){ hlEditMsg('Amit\'s answer has no usable steps (1 to 12 are allowed).',true); return; }
   const out=[];
   for(let i=0;i<list.length;i++){
-    const s=list[i]; if(s&&(s.t==='open_file'||s.t==='audio'||s.t==='settings'||s.t==='winact')){ hlEditMsg('Step '+(i+1)+' needs a choice on this computer (a file, a sound device, a settings page or a Windows action). Those are chosen in the step itself, not through Amit, so nothing was changed.',true); return; }
+    const s=list[i]; if(s&&(s.t==='open_file'||s.t==='audio'||s.t==='settings'||s.t==='winact'||hlIsShort(s.t))){ hlEditMsg('Step '+(i+1)+' needs a choice on this computer (a file, a sound device, a settings page or a Windows action). Those are chosen in the step itself, not through Amit, so nothing was changed.',true); return; }
     if(!s||!HL_STEPS[s.t]||s.v==null||String(s.v).trim()===''){ hlEditMsg('Step '+(i+1)+' is not one of the safe steps, so nothing was changed.',true); return; }
     if(s.t==='open_app'&&!hlAppUrl(s.v)){ hlEditMsg('Step '+(i+1)+' names an app I do not know ("'+s.v+'"), so nothing was changed. Ask Amit to use an Amit app name or a web address.',true); return; }
     out.push({t:s.t,v:String(s.v)});
@@ -6680,11 +6709,12 @@ function hlRenderIcons(){ hlEl('hlIcons').innerHTML=(hlIsImg(hl.icon)?'<span cla
 function hlRenderSteps(){
   hlEl('hlSteps').innerHTML=hl.steps.map(function(s,i){
     const sel='<select class="fg-input" style="flex:1 1 170px;min-width:150px;max-width:230px" onchange="hlSetType('+i+',this.value)">'
-      +Object.keys(HL_STEPS).map(function(k){ return '<option value="'+k+'"'+(k===s.t?' selected':'')+'>'+HL_STEPS[k][0]+'</option>'; }).join('')+'</select>';
-    const ctl=(s.t==='open_app'?hlAppControl(s,i):s.t==='open_program'?hlProgControl(s,i):s.t==='open_file'?hlFileControl(s,i):s.t==='audio'?hlAudioControl(s,i):s.t==='settings'?hlSettingsControl(s,i):s.t==='menu'?hlMenuControl(s,i):s.t==='winact'?hlWinactControl(s,i):s.t==='preview'?'<div class="hint" style="flex:1;min-width:0">Opens the Amit Preview window on this computer, the copy with the live link, beside the window you are in.</div>':s.t==='preview_rules'?'<div class="hint" style="flex:1;min-width:0">Does nothing when you press the button on the bar. A program or an AI that activates this button through the Amit Helper is handed the rules for sending a preview: App, Title, Goal, How and Vars are required, or the preview is refused.</div>':s.t==='print'?'<div class="hint" style="flex:1;min-width:0">When pressed on the bar, it asks: print this window, select an area to print, or the whole screen. You see a print preview first; nothing prints until you press Print there.</div>':'<input class="fg-input" style="flex:1;min-width:0" maxlength="300" value="'+hlEsc(s.v)+'" placeholder="'+hlEsc(HL_STEPS[s.t][2])+'" oninput="hl.steps['+i+'].v=this.value">');
+      +Object.keys(HL_STEPS).filter(function(k){ return !hlIsShort(k); }).map(function(k){ return '<option value="'+k+'"'+(k===s.t?' selected':'')+'>'+HL_STEPS[k][0]+'</option>'; }).join('')
+      +'<optgroup label="Your Claude (premium)">'+['f_short','j_short'].map(function(k){ return '<option value="'+k+'"'+(k===s.t?' selected':'')+'>'+HL_STEPS[k][0]+'</option>'; }).join('')+'</optgroup></select>';
+    const ctl=(hlIsShort(s.t)?hlShortControl(s,i):s.t==='open_app'?hlAppControl(s,i):s.t==='open_program'?hlProgControl(s,i):s.t==='open_file'?hlFileControl(s,i):s.t==='audio'?hlAudioControl(s,i):s.t==='settings'?hlSettingsControl(s,i):s.t==='menu'?hlMenuControl(s,i):s.t==='winact'?hlWinactControl(s,i):s.t==='preview'?'<div class="hint" style="flex:1;min-width:0">Opens the Amit Preview window on this computer, the copy with the live link, beside the window you are in.</div>':s.t==='preview_rules'?'<div class="hint" style="flex:1;min-width:0">Does nothing when you press the button on the bar. A program or an AI that activates this button through the Amit Helper is handed the rules for sending a preview: App, Title, Goal, How and Vars are required, or the preview is refused.</div>':s.t==='print'?'<div class="hint" style="flex:1;min-width:0">When pressed on the bar, it asks: print this window, select an area to print, or the whole screen. You see a print preview first; nothing prints until you press Print there.</div>':'<input class="fg-input" style="flex:1;min-width:0" maxlength="300" value="'+hlEsc(s.v)+'" placeholder="'+hlEsc(HL_STEPS[s.t][2])+'" oninput="hl.steps['+i+'].v=this.value">');
     const btns='<button class="btn" onclick="hlTestOne('+i+')" title="Run just this step">&#9654;</button><button class="btn" onclick="hl.steps.splice('+i+',1);hlRenderSteps()" title="Remove this step">&times;</button>';
     // a step with a bigger form (the sound settings, a file) gets its own full-width row under the type and the buttons
-    return (s.t==='audio'||s.t==='open_file'||s.t==='settings'||s.t==='winact')
+    return (hlIsShort(s.t)||s.t==='audio'||s.t==='open_file'||s.t==='settings'||s.t==='winact')
       ?'<div class="hl-step">'+sel+'<span style="flex:1"></span>'+btns+'<div style="flex:0 0 100%;min-width:0">'+ctl+'</div></div>'
       :'<div class="hl-step">'+sel+ctl+btns+'</div>'; }).join('');
   hlRenderTile();
@@ -6695,7 +6725,10 @@ function hlRenderSteps(){
 // a later migration (Database\migration_2026-11-01_036_helper_open_file_DRAFT.sql) makes it a real type. hlDec/hlEnc are the only two places that know this.
 const HL_HELPER='http://localhost:8710';
 function hlDec(s){
-  const v=(s&&s.v!=null)?String(s.v):''; const m=(s&&s.t==='open_program')?v.match(/^file:(f[0-9a-f]{6,16})\|(.*)$/):null;
+  const v=(s&&s.v!=null)?String(s.v):'';
+  const ccm=(s&&s.t==='run_script')?v.match(/^cc-([jf])-([A-Za-z0-9-]{4,58})$/):null;
+  if(ccm) return {t:ccm[1]==='j'?'j_short':'f_short',v:hlShortName(ccm[2])||'shortcut',scid:ccm[2]};
+  const m=(s&&s.t==='open_program')?v.match(/^file:(f[0-9a-f]{6,16})\|(.*)$/):null;
   if(m) return {t:'open_file',v:m[2],token:m[1],name:m[2]};
   if(s&&s.t==='open_file') return {t:'open_file',v:v,token:s.token||'',name:v};   // once the database allows open_file as a real step type
   if(s&&s.t==='open_program'&&v==='print:menu') return {t:'print',v:'Print from the screen'};
@@ -6827,7 +6860,10 @@ function hlMenuControl(s,i){
 }
 function hlPickMenu(i,id){ const s=hl.steps[i]; if(!s) return; s.mid=id; s.v=id?hlMenuName(id):''; hlRenderSteps(); }
 function hlSetType(i,val){
-  const s=hl.steps[i]; if(!s) return; s.t=val; delete s.cfg;
+  const s=hl.steps[i]; if(!s) return;
+  if(hlIsShort(val)){ hlChooseShort(i,val); return; }
+  delete s.scid; delete s.free;
+  s.t=val; delete s.cfg;
   if(val==='open_file'){ s.v=''; s.token=''; s.name=''; } else { delete s.token; delete s.name; }
   if(val==='settings'){ s.v=''; s.sid=''; } else { delete s.sid; }
   if(val==='winact'){ s.v=''; s.wid=''; } else { delete s.wid; }
@@ -6996,6 +7032,7 @@ function hlTestLine(i,msg,bad){
 }
 async function hlTestOne(i){
   const s=hl.steps[i], v=String(s.v==null?'':s.v).trim();
+  if(hlIsShort(s.t)){ hlTestLine(i,'a shortcut runs from the button on your bar. Save the button, then press it there.',true); return false; }
   if(!v){ hlTestLine(i,'fill this step in first.',true); return false; }
   if(s.t==='open_app'||s.t==='open_url'||s.t==='ask_amit'||s.t==='play_music'){
     let u=null;
@@ -7094,6 +7131,7 @@ async function hlSaveButton(){
     if(s.t==='settings'&&!s.sid){ note('Step '+(i+1)+': choose a settings page first.'); return; }
     if(s.t==='winact'&&!s.wid){ note('Step '+(i+1)+': choose a Windows action first.'); return; }
     if(s.t==='menu'&&!s.mid){ note('Step '+(i+1)+': choose a menu first.'); return; }
+    if(hlIsShort(s.t)){ if(!s.scid){ note('Step '+(i+1)+': choose a shortcut first.'); return; } steps.push({t:'run_script',v:hlShortValue(s)}); continue; }
     if(!v){ note('Step '+(i+1)+' needs something filled in.'); return; }
     if(s.t==='open_url'&&!/^https:\/\//i.test(v)){ note('A website link must start with https://'); return; }
     if(s.t==='open_app'&&!hlAppUrl(v)){ note('Step '+(i+1)+': I do not know an app called "'+v+'". Use an Amit app name, or an address starting with https://'); return; }
