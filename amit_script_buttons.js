@@ -97,7 +97,7 @@
         '<div class="hl-cell" style="cursor:default"><span style="color:' + sw[1] + '">&#9679;</span> ' + esc(sw[0]) + (cur ? ' <span class="amw-small">v' + cur.version + '</span>' : '') + '</div>' +
         '<div><button class="btn btn-gold" onclick="AmitScriptButtons.open(\'' + b.id + '\')">Open</button></div></div>';
     }).join('');
-    h += '<div style="margin-top:10px"><span class="hl-addp" onclick="AmitScriptButtons.create()">+ New script button</span> &nbsp; <span class="hl-addp" title="If you made one with your own Claude (J make button), bring it in here" onclick="AmitScriptButtons.importInbox()">Import from my Claude</span></div>';
+    h += '<div style="margin-top:10px"><span class="hl-addp" onclick="AmitScriptButtons.wizard()">+ New script button</span> &nbsp; <span class="hl-addp" title="If you made one with your own Claude (J make button), bring it in here" onclick="AmitScriptButtons.importInbox()">Import from my Claude</span></div>';
     if (S.deleted.length) h += '<div class="amw-small" style="margin-top:12px">Recently deleted (kept for 30 days): ' + S.deleted.map(function (b) { return esc(b.name) + ' <a href="#" onclick="AmitScriptButtons.restore(\'' + b.id + '\');return false">put it back</a>'; }).join(' &middot; ') + '</div>';
     el.innerHTML = h;
   }
@@ -128,6 +128,7 @@
   function field(label, html, hint) { return '<label style="display:block;margin:10px 0 4px;font-weight:600">' + label + '</label>' + html + (hint ? '<div class="amw-small">' + hint + '</div>' : ''); }
   var inp = 'width:100%;padding:9px 11px;border-radius:9px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:inherit;font:inherit';
   function drawModal() {
+    if (S.wiz) { drawWiz(); return; }
     var o = S.open; if (!o) return; var b = btn(o.id); if (!b) return; var cur = currentScript(o.id), sw = stateWords(cur), box = $('asbBox'), h = '';
     h += '<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">Script button: ' + esc(b.name) + '</h3><button class="btn" onclick="AmitScriptButtons.close()">Close</button></div>';
     h += '<div class="amw-small" style="margin:4px 0 10px"><span style="color:' + sw[1] + '">&#9679;</span> ' + esc(sw[0]) + (cur ? ' &middot; version ' + cur.version : '') + (S.lastHelper === false ? ' &middot; <span style="color:#e07a6a">the Amit Helper on this computer is not answering</span>' : '') + '</div>';
@@ -222,6 +223,8 @@
       var src = ''; try { var j = await helper('GET', 'source?button=' + o.id + '&version=' + cur.version); if (j && j.ok) src = j.text; } catch (e) {}
       out += 'CURRENT VERSION ' + cur.version + ' SCRIPT:\n```powershell\n' + String(src || '(not available on this computer)').slice(0, 14000) + '\n```\nCURRENT DEFINITION:\n```json\n' + JSON.stringify({ wish: cur.wish, declared_variables: cur.declared_variables, permissions: cur.permissions, worst_case: cur.worst_case, test_example: cur.test_example }) + '\n```\n';
     }
+    var talk = S.chat.filter(function (m) { return m.who === 'amit' || m.who === 'you'; }).slice(-8);
+    if (talk.length) out += 'THE CONVERSATION ABOUT THIS BUTTON SO FAR:\n' + talk.map(function (m) { return (m.who === 'you' ? 'Person: ' : 'Amit: ') + String(m.text).slice(0, 700); }).join('\n') + '\n';
     out += 'THE PERSON\'S LATEST WORDS: ' + (words || '(nothing new)') + '\n' + (extra ? extra + '\n' : '');
     return out.slice(0, 39000);
   }
@@ -336,7 +339,102 @@
     S.deleted = S.deleted.filter(function (b) { return b.id !== id; }); H().buttons.push(r.data); if (typeof hlRender === 'function') hlRender(); render(); if (typeof hlSyncBar === 'function') hlSyncBar(false);
   }
 
-  var api = { load: load, render: render, syncToHelper: syncToHelper, create: create, open: open, close: close, send: function () { return send(); }, saveSetup: function () { return saveSetup(false); }, addQ: addQ, q: qEdit, up: function (i) { swap(i, i - 1); }, down: function (i) { swap(i, i + 1); },
+  /* ---------- ASK AMIT, ONE QUESTION AT A TIME (2026-11-24): the large window Ryan approved in AmitHelper\Previews\AmitHelper_askamit_onestep_preview.html; markup and CSS are ported from it.
+     Nothing is saved until "Yes, build it". After that it uses the same send / place / approve path as the setup window (drawModal hands over to drawWiz while S.wiz is set). ---------- */
+  var WQ = [
+    { k: 'job', h: 'What do you want me to build for you?', p: 'Tell me in your own words, the way you would tell someone sitting next to you.', ph: 'Type it here', ex: ['Save a quick note for me', 'Summarize my price list', 'Tell me which files are new today'], need: true },
+    { k: 'look', h: 'What does it need to look at?', p: 'A file or a folder, and where it is. If it needs nothing, say "nothing".', ph: 'For example: prices.xlsx in my Documents folder', ex: ['Nothing', 'I will pick the file each time'], need: true },
+    { k: 'make', h: 'When it is done, what should you have?', p: 'A new file, a changed file, a message ready for you to send, or just an answer on the screen.', ph: 'For example: a short summary in a new file', ex: ['A new file', 'Just show me on the screen'], need: true },
+    { k: 'ask', h: 'When you press the button, what should it ask you?', p: 'Write the question now. You answer it later, each time you press the button. One question on each line. Leave it empty if there is nothing to ask.', ph: 'For example: What should the note say?', ex: ['Nothing, just run', 'What should the note say?', 'Which file should I use?'] },
+    { k: 'never', h: 'Is there anything it must never touch?', p: 'Every button is already kept from deleting, changing settings, going online and reading passwords. Add your own limit if you have one.', ph: 'For example: never change my price list', ex: ['No, that covers it'] },
+    { k: 'name', h: 'What should the button be called?', p: 'A short name. This is what you will see on your bar.', ph: 'For example: Quick note', ex: [], need: true, short: true }
+  ];
+  var WCSS = '#asbWiz{position:fixed;inset:0;background:rgba(5,9,14,.78);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;font:20px/1.5 "Segoe UI",system-ui,sans-serif;color:#23303c;text-align:left}' +
+    '#asbWiz *{box-sizing:border-box;letter-spacing:normal;text-transform:none}#asbWiz .card{width:100%;max-width:760px;height:min(660px,100%);background:#fbf6ea;border-radius:22px;box-shadow:0 18px 60px rgba(0,0,0,.5);overflow:hidden;display:flex;flex-direction:column;padding:0;margin:0}' +
+    '#asbWiz .head{background:#2f6f73;color:#fff;padding:16px 26px;display:flex;justify-content:space-between;align-items:center;gap:12px}#asbWiz .head b{font-size:22px}#asbWiz .head button{background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:10px;font:17px "Segoe UI",sans-serif;padding:8px 16px;cursor:pointer}' +
+    '#asbWiz .dots{display:flex;gap:8px;padding:16px 26px 0}#asbWiz .dot{height:9px;flex:1;border-radius:9px;background:#e4dcc9}#asbWiz .dot.on{background:#e8964a}#asbWiz .dot.did{background:#3c9a62}' +
+    '#asbWiz .body{flex:1;overflow:auto;padding:20px 26px 8px}#asbWiz .count{font-size:16px;color:#7a6f59}#asbWiz h2{font:700 30px/1.25 "Segoe UI",sans-serif;margin:6px 0 10px;color:#1d3b40}#asbWiz p.help{font-size:20px;margin:0 0 14px;color:#4b5864;white-space:pre-wrap}' +
+    '#asbWiz textarea,#asbWiz input[type=text]{width:100%;font:22px "Segoe UI",sans-serif;padding:14px 16px;border-radius:14px;border:2px solid #d8cdb2;background:#fff;color:#1c2730}#asbWiz textarea:focus,#asbWiz input:focus{outline:0;border-color:#2f6f73}' +
+    '#asbWiz .ex{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}#asbWiz .ex button{font:18px "Segoe UI",sans-serif;background:#fff;border:2px solid #d8cdb2;border-radius:99px;padding:8px 16px;cursor:pointer;color:#23303c}#asbWiz .ex button:hover{border-color:#e8964a}' +
+    '#asbWiz .foot{display:flex;justify-content:space-between;gap:12px;padding:16px 26px 24px}#asbWiz .big{font:650 21px "Segoe UI",sans-serif;border:0;border-radius:14px;padding:13px 30px;cursor:pointer}#asbWiz .next{background:#e8964a;color:#231505}#asbWiz .back{background:#e9e1cd;color:#3b4650}#asbWiz .big:disabled{opacity:.4;cursor:default}' +
+    '#asbWiz .row{background:#fff;border:2px solid #e4dcc9;border-radius:14px;padding:12px 16px;margin:0 0 10px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start}#asbWiz .row small{display:block;font-size:16px;color:#7a6f59}#asbWiz .row button{font:16px "Segoe UI",sans-serif;border:0;background:#e9e1cd;color:#23303c;border-radius:9px;padding:6px 14px;cursor:pointer}' +
+    '@media(max-width:560px){#asbWiz h2{font-size:25px}#asbWiz .big{padding:12px 18px}}';
+  function wizEl() {
+    var d = $('asbWiz'); if (d) { d.style.display = 'flex'; return d; }
+    var st = document.createElement('style'); st.textContent = WCSS; document.head.appendChild(st);
+    d = document.createElement('div'); d.id = 'asbWiz';
+    d.innerHTML = '<div class="card"><div class="head"><b>Ask Amit to build a button</b><button onclick="AmitScriptButtons.wizClose()">Close</button></div><div class="dots" id="asbWDots"></div><div class="body" id="asbWBody"></div><div class="foot" id="asbWFoot"></div></div>';
+    document.body.appendChild(d); return d;
+  }
+  function wizard() {
+    if (!ME()) { alert('Sign in first.'); return; }
+    if (!H().profiles.filter(function (x) { return x.id === H().sel; })[0]) { alert('Choose a profile first.'); return; }
+    if (typeof hlCloseEdit === 'function') hlCloseEdit(); if (typeof hlCloseCreateInfo === 'function') hlCloseCreateInfo();
+    if (S.ask) { clearTimeout(S.ask.timer); S.ask = null; }
+    S.wiz = { i: 0, a: {}, built: false }; S.open = null; S.chat = []; S.busy = false; S.retry = 0; S.pending = null; S.q = [];
+    if (!S.shortcuts) S.shortcuts = [];
+    var old = $('asbModal'); if (old) old.remove();   // the hidden setup window has fields with the same ids; left in place, its old name, job and reply box would be read instead of this window's
+    wizEl(); drawWiz();
+  }
+  function wizClose() { var d = $('asbWiz'); if (d) { d.style.display = 'none'; $('asbWBody').innerHTML = ''; } var built = S.wiz && S.wiz.built; S.wiz = null; if (built) { if (S.ask) { clearTimeout(S.ask.timer); } S.open = null; S.busy = false; render(); } }
+  function wBtn(cls, label, call, off) { return '<button class="big ' + cls + '"' + (off ? ' disabled' : '') + ' id="asbW_' + cls + '" onclick="AmitScriptButtons.' + call + '">' + label + '</button>'; }
+  function drawWiz() {
+    var W = S.wiz; if (!W) return; var body = $('asbWBody'), foot = $('asbWFoot'), dots = $('asbWDots'), n;
+    var d = ''; for (n = 0; n <= WQ.length; n++) d += '<div class="dot' + (W.built || n < W.i ? ' did' : n === W.i ? ' on' : '') + '"></div>'; dots.innerHTML = d;
+    if (W.built) { drawWizBuilt(body, foot); return; }
+    var back = W.i ? wBtn('back', 'Back', 'wizGo(-1)') : '<span></span>';
+    if (W.i === WQ.length) {
+      body.innerHTML = '<div class="count">Last step</div><h2>Did I get this right?</h2>' + WQ.map(function (s, k) { return '<div class="row"><div><small>' + s.h + '</small>' + (esc(W.a[s.k]) || '(nothing)') + '</div><button onclick="AmitScriptButtons.wizAt(' + k + ')">Change</button></div>'; }).join('');
+      foot.innerHTML = back + wBtn('next', 'Yes, build it', 'wizBuild()'); return;
+    }
+    var s = WQ[W.i], val = esc(W.a[s.k] || '');
+    body.innerHTML = '<div class="count">Question ' + (W.i + 1) + ' of ' + WQ.length + '</div><h2>' + s.h + '</h2><p class="help">' + s.p + '</p>' + (s.short ? '<input type="text" id="asbWIn" maxlength="24" placeholder="' + esc(s.ph) + '" value="' + val + '">' : '<textarea id="asbWIn" rows="3" placeholder="' + esc(s.ph) + '">' + val + '</textarea>') +
+      '<div class="ex">' + s.ex.map(function (e, k) { return '<button onclick="AmitScriptButtons.wizPick(' + k + ')">' + esc(e) + '</button>'; }).join('') + '</div>';
+    foot.innerHTML = back + wBtn('next', 'Next', 'wizGo(1)', !!s.need && !String(W.a[s.k] || '').trim());
+    var el = $('asbWIn'); el.oninput = function () { W.a[s.k] = el.value; $('asbW_next').disabled = !!s.need && !el.value.trim(); }; el.focus();
+  }
+  function wizPick(k) { var el = $('asbWIn'), s = WQ[S.wiz.i]; el.value = s.ex[k]; el.oninput(); }
+  function wizGo(n) { S.wiz.i = Math.max(0, Math.min(WQ.length, S.wiz.i + n)); drawWiz(); }
+  function wizAt(k) { S.wiz.i = k; drawWiz(); }
+  function drawWizBuilt(body, foot) {
+    var o = S.open; if (!o) return; var cur = currentScript(o.id), h = '', f = '<button class="big back" onclick="AmitScriptButtons.wizClose()">' + (cur ? 'Done' : 'Close') + '</button>';
+    var said = S.chat.filter(function (m) { return m.who !== 'you'; }), last = said[said.length - 1];
+    if (S.busy) {
+      h = '<h2>Amit is building it.</h2><p class="help">This usually takes under a minute. Keep this window open.</p>' + (last ? '<p class="help">' + esc(last.text) + '</p>' : '');
+    } else if (!cur) {
+      var asking = last && last.who === 'amit';
+      h = '<h2>' + (asking ? 'Amit has a question.' : 'It did not get built yet.') + '</h2><p class="help">' + esc(last ? last.text : 'Press Try again.') + '</p><textarea id="asbSay" rows="3" placeholder="' + (asking ? 'Answer Amit here' : 'Add anything Amit should know (optional)') + '"></textarea>';
+      f += '<button class="big next" onclick="AmitScriptButtons.send()">' + (asking ? 'Send my answer' : 'Try again') + '</button>';
+    } else {
+      var c = cardFor(cur), summary = S.chat.filter(function (m) { return m.who === 'amit'; }).pop(), sug = S.q.map(function (q, i) { return { q: q, i: i }; }).filter(function (x) { return x.q.status === 'suggested'; });
+      h = '<h2>Your button is built.</h2>' + (summary ? '<p class="help">' + esc(summary.text) + '</p>' : '') +
+        '<div class="row"><div><small>What it may do</small>It reads: ' + esc(c.reads) + '<br>It may change: ' + esc(c.mayDo) + '<br>It never will: ' + esc(c.never) + (c.worstCase ? '<br>If it goes wrong: ' + esc(c.worstCase) : '') + '</div></div>' +
+        sug.map(function (x) { return '<div class="row"><div><small>Amit suggests the button also ask you</small>' + esc(x.q.label) + (x.q.script_needs ? ' (it cannot run without this)' : '') + '</div><span style="white-space:nowrap"><button onclick="AmitScriptButtons.accept(' + x.i + ')">Keep</button> <button onclick="AmitScriptButtons.dismiss(' + x.i + ')">Not now</button></span></div>'; }).join('') +
+        '<p class="help">' + (cur.state === 'active' ? 'It is ready. Press it on your bar.' : cur.approved_hash ? 'Now press it on your bar and choose Practice run. A practice run changes nothing. When you are happy, allow it to run for real.' : 'First allow practice runs. A practice run changes nothing.') + '</p>' +
+        '<textarea id="asbSay" rows="2" placeholder="Want something different? Tell Amit here"></textarea><div class="ex"><button onclick="AmitScriptButtons.send()">Send that change to Amit</button></div>';
+      if (!cur.approved_hash) f += '<button class="big next" onclick="AmitScriptButtons.approve(\'practice_only\')">Allow practice runs</button>';
+      else if (cur.state === 'practice_only') f += '<button class="big next" onclick="AmitScriptButtons.approve(\'active\')">Allow it to run for real</button>';
+    }
+    body.innerHTML = h; foot.innerHTML = f;
+  }
+  async function wizBuild() {
+    var W = S.wiz; if (!W || W.built || W.working) return; W.working = true;
+    var p = H().profiles.filter(function (x) { return x.id === H().sel; })[0]; if (!p) { alert('Choose a profile first.'); W.working = false; return; }
+    var a = W.a, v = function (k) { return String(a[k] || '').trim(); };
+    var name = v('name').slice(0, 24) || 'New script button';
+    var job = (v('job') + '\nIt looks at: ' + (v('look') || 'nothing') + '\nWhen it is done: ' + v('make') + (v('never') ? '\nIt must never touch: ' + v('never') : '')).slice(0, 1000);
+    var r = await DB().from('hel_buttons').insert({ user_id: ME().id, profile_id: p.id, name: name, icon: '\u2699\uFE0F', description: v('job').slice(0, 120), says: job, kind: 'multi', steps: [{ t: 'run_script', v: 'pending' }], sort_order: H().buttons.filter(function (b) { return b.profile_id === p.id; }).length }).select().single();
+    if (r.error) { alert('Could not make the button: ' + r.error.message); W.working = false; return; }
+    var r2 = await DB().from('hel_buttons').update({ steps: [{ t: 'run_script', v: r.data.id }] }).eq('id', r.data.id).select().single();
+    var b = r2.data || r.data; H().buttons.push(b); if (typeof hlRender === 'function') hlRender(); if (typeof hlSyncBar === 'function') hlSyncBar(false);
+    var qs = /^(nothing|no)\b/i.test(v('ask')) ? [] : v('ask').split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
+    S.open = { id: b.id, name: name, job: job };
+    S.q = qs.map(function (label) { return { label: label.slice(0, 120), kind: /\bfile\b/i.test(label) && /\bwhich\b/i.test(label) ? 'file' : 'text', choices: [], required: true, ask_mode: 'every_time', status: 'active', added_by: 'person' }; });
+    S.chat = []; S.retry = 0; W.built = true; drawWiz();
+    await send();
+  }
+
+  var api = { load: load, render: render, syncToHelper: syncToHelper, create: create, wizard: wizard, wizClose: wizClose, wizGo: wizGo, wizAt: wizAt, wizPick: wizPick, wizBuild: wizBuild, open: open, close: close, send: function () { return send(); }, saveSetup: function () { return saveSetup(false); }, addQ: addQ, q: qEdit, up: function (i) { swap(i, i - 1); }, down: function (i) { swap(i, i + 1); },
     rm: rmQ, accept: accept, dismiss: dismiss, letAmit: letAmit, approve: approve, setState: setState, putBack: putBack, del: del, delById: delById, restore: restore, importInbox: importInbox, refresh: function () { readSetup(); drawModal(); },
     isScriptButton: isScriptBtn, _t: { slug: slug, helperConfig: helperConfig, buildRequest: buildRequest, onReply: onReply, state: S, sha256: sha256, cardFor: cardFor } };
   root.AmitScriptButtons = api;

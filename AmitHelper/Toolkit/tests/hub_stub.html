@@ -135,6 +135,26 @@ function chatText(){ var c=document.getElementById('asbChat'); return c?c.innerT
     ok(gone.ok&&gone.items.length===0,'the drop folder was emptied after the import');
     var again=await (async function(){ await A.importInbox(); return /Nothing is waiting/.test(document.getElementById('hlScripts').innerText); })();
     ok(again,'pressing it again with nothing waiting says so plainly');
+  
+    /* the large one-question-at-a-time window */
+    A.close(); A.wizard();
+    var W=function(){ return document.getElementById('asbWBody').innerText; }, nx=function(){ return document.getElementById('asbW_next'); }, nb=TABLES.hel_buttons.length;
+    ok(/What do you want me to build for you/.test(W())&&nx().disabled,'the new window opens on the first question and waits for an answer');
+    A.wizPick(0); A.wizGo(1); A.wizPick(0); A.wizGo(1); A.wizPick(0); A.wizGo(1);
+    var wi=document.getElementById('asbWIn'); wi.value='What should the note say?'; wi.oninput(); A.wizGo(1); A.wizGo(1);
+    var wn=document.getElementById('asbWIn'); wn.value='Wizard note'; wn.oninput(); A.wizGo(1);
+    ok(/Did I get this right/.test(W())&&/Wizard note/.test(W())&&TABLES.hel_buttons.length===nb,'the last screen shows every answer, and nothing is saved before Yes');
+    REPLIES.push('Where should the note be kept?'); var before=REQUESTS.length;
+    await A.wizBuild();
+    ok(await waitFor(function(){ return /Amit has a question/.test(W())&&/Where should the note be kept/.test(W()); },8000),'a question from Amit shows large with its own answer box');
+    var wb=TABLES.hel_buttons[TABLES.hel_buttons.length-1];
+    ok(TABLES.hel_buttons.length===nb+1&&wb.name==='Wizard note'&&/Save a quick note/.test(wb.says)&&TABLES.hel_button_questions.some(function(q){ return q.button_id===wb.id&&q.label==='What should the note say?'; }),'Yes saves the button, the job and the press-time question');
+    REPLIES.push(goodReply([])); document.getElementById('asbSay').value='In the work folder.'; await A.send();
+    ok(await waitFor(function(){ return /Your button is built/.test(W()); },12000),'after the answer the button is built and the window says so');
+    ok(/Where should the note be kept/.test(REQUESTS[REQUESTS.length-1])&&/In the work folder/.test(REQUESTS[REQUESTS.length-1]),'Amit gets his own question together with the answer');
+    document.querySelector('#asbWiz .foot .next').click();
+    ok(await waitFor(function(){ return /Allow it to run for real/.test(document.getElementById('asbWFoot').innerText); },6000),'allowing practice runs moves on to Allow it to run for real');
+    A.wizClose(); ok(document.getElementById('asbWiz').style.display==='none','Done closes the window');
   }catch(e){ ok(false,'ERROR: '+e.message+' '+(e.stack||'').split('\n')[1]); }
   window.__done=true;
 })();
