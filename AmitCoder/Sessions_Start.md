@@ -10,19 +10,39 @@ Read this file first; it is all a new session needs. Read Sessions_ToDo.md only 
 - Backups\AmitCoder\Sessions_backup_2026-11-13.md - byte-for-byte copy of the old Sessions.md.
 - Sessions_Design.md: this project's database tables (first section) and design reference (how it is built); read only when working with the database or on that part of the build.
 
+## AGREED: one Amit at the desk or in the pocket (2026-11-25)
+- Ryan agreed to the design and safety limits for the phone as the full Amit. Not built. Next: step 1, look-up only (AmitBooks jobs, budgets, spending; pursuits; calendar), with web search off whenever records are opened.
+- Full record: Sessions_Design.md, "ONE AMIT, AT THE DESK OR IN THE POCKET". The code lives in the Helper, AskAmit and Amit Mobile.
+
+## RESUME: AmitCoder - working screen (2026-11-25)
+- Ended: designed on paper the way of working inside Amit Coder: build on the running app by pointing and talking, a live test copy of the whole project, development kept apart from Amit while all Amit tools keep working. Looked up the guided Amit Previewer and the sending rules: today the previewer loads one sandboxed HTML file, so it cannot run linked pages or grow a live app. Preview v1 made earlier. Nothing built or pushed.
+- Next: continue the design discussion (sections 10 and 13 to 16): the layout, building on the app itself, live project mode and the protections. Ryan: it must be graphical, grow on itself, and every part, including linked pages, must work while being built. Discuss before changing the preview. Last offer not answered: open the existing guided Previewer so he can try it.
+- Files: Sessions_Design.md section "AMIT CODER WORKING SCREEN AND PLATFORM DIRECTION" (start at 10 and 11); Previews/AmitCoder_Screen_Preview.html (v1, no verdict yet); AmitCoder.html v6.43 and AmitPreview.html v2.17 (both match the repo copy).
+- Decisions waiting: section 11, plus the proposals in sections 13 to 16 (none approved as design; live project mode and the protections are recorded as proposals). Set by Ryan: keep Amit alive; separate from Amit and askamit.org with all Amit tools working.
+- Also set after the clean-up: same principle for everyone, each develops with their own login and credentials (design section 16).
+- Open to-dos: 106 (counted 2026-11-25), none added today.
+
 ## CURRENT STATE
 AmitCoder is the paid, login-gated coding workspace: shortcuts, session history, a starter kit, and (newest) the Amit Preview tool. Product model (agreed 2026-10-31, discussion only): a subscriber gets the same CLAUDE.md / Sessions files mechanics Ryan uses, tailored to them, on their own computer with their own Claude account; the shared Amit file is delivered by a session-start hook; Amit software never reads or stores the person's Claude login. Price is NOT set. Billing is not wired.
-- AmitCoder.html: built off the shared template (Session 58, 2026-07-28); tiles Get Started and Shortcuts; Previewer tab added v6.43 (2026-10-31, local, not pushed at that entry).
+- AmitCoder.html: built off the shared template (Session 58, 2026-07-28); tiles Get Started and Shortcuts; Previewer tab added v6.43 (2026-10-31); on 2026-11-25 the local page matched the repo copy.
 - AmitPreview.html: real tool, page v2.00 pushed 2026-11-06 (99bc3fb), v2.17 released 2026-11-07 with helper 1.69 and installer 4.86. Page carries sender rules and checks every live send; bar button "Amit PreView" opens it.
 - Guided Previewer (Templates\amit_previewer.html v1.00): built, local, NOT pushed at its entry; return path (answers back into the conversation) not built.
 - Starter Kit (Amit_Coder_Starter_Kit.ps1): scaffolding, backups, local server, branch script, migrations convention, a CI workflow not yet verified.
 - Newest decision (2026-11-07): no previewer line goes in the root CLAUDE.md; it lives here and on the Living Testimony.
 - Team-inbox requests R1-R7 and E1 (chat features Ryan asked for, see the log top) are recorded as requests, not built.
 
+## REQUIREMENT: AMIT CODER MUST KEEP AMIT ALIVE (Ryan, 2026-11-25)
+Amit Coder has to keep Amit alive. Without that, the whole platform would be corrupted for the people using it, in how everything works. Subscribers use Amit Coder with Amit or not at all.
+- Proposed way to do it (discussed, not yet approved or built): a hook loads the Amit core at start and after condensing; the program confirms the whole core arrived and does not start without it. A hook alone can be turned off, fail, or have long output cut to a preview.
+
+- Full direction (working screen, saving, keeping Amit, what the person sees, permissions, hosting and the living network), with what is decided and what is only proposed: Sessions_Design.md, section "AMIT CODER WORKING SCREEN AND PLATFORM DIRECTION" (2026-11-25).
+
+- NEXT DISCUSSION (2026-11-25): the working screen's preview and layout need to be different, more interactive instead of chat and respond. Discuss before changing it. Start with sections 10 and 11 of that design section. Preview v1: Previews\AmitCoder_Screen_Preview.html.
+
 ## FILES IN PLAY (under AmitCoder\ unless stated)
 | File | What it is | Version |
 |---|---|---|
-| AmitCoder.html | the workspace page | v6.43 (local at last mention) |
+| AmitCoder.html | the workspace page | v6.43 (matches the repo copy 2026-11-25) |
 | AmitPreview.html | Amit Preview window page | v2.17 |
 | Amit_Coder_Starter_Kit.ps1 | project scaffolding | none |
 | Templates\amit_previewer.html | guided previewer | v1.00 |
@@ -33,9 +53,10 @@ AmitCoder is the paid, login-gated coding workspace: shortcuts, session history,
 | CLAUDE.md | project rules | not read for this record |
 
 ## OPEN TO-DOS
-Open to-dos: 105 items, see Sessions_ToDo.md.
+Open to-dos: 106 items, see Sessions_ToDo.md.
 
 last clean-up: built 2026-11-13 from the old Sessions.md (now in Backups\AmitCoder\Sessions_backup_2026-11-13.md), newest log entry dated 2026-11-07 (Current State) / 2026-11-06 (Log).
+Last clean-up: 2026-11-26T02:54Z, session 958e9ff7-50f6-4a17-a3ac-eca2025120e8
 
 ## ORIGINAL SESSIONS
 Originals were not recorded before 2026-11-13. From the next clean-up on, each entry names its session (name, ID and path under C:\Users\user1\.claude\projects\c--Users-user1-OneDrive-Documents---onedrive-Amit\). Those files expire on Claude's own schedule, which is acceptable because the log is the permanent record.

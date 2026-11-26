@@ -1,4 +1,4 @@
-# show_preview.ps1 v1.20 (2026-11-07) - shows a preview in the AMIT PREVIEW window (the one the voice command "preview" opens: paste box on the left,
+# show_preview.ps1 v1.21 (2026-11-17: Goal, How and Vars may each be 20,000 characters, was 5,000) - shows a preview in the AMIT PREVIEW window (the one the voice command "preview" opens: paste box on the left,
 # the picture on the right) with NOTHING to paste. This is how Amit shows Ryan every visual preview (Ryan, 2026-11-06: "always use that preview").
 # Every preview that is sent is ALSO FILED, with what it is, so it can be found again (Ryan, 2026-11-06: "a title of what's being displayed ... the app,
 # the date, the version number ... so it's trackable in the future ... pull up the views and the history from a menu item"):
@@ -87,9 +87,10 @@ $id = $now.ToString('yyyyMMdd-HHmmss') + '-' + ([guid]::NewGuid().ToString('N').
 $meta = New-Object System.Collections.Specialized.OrderedDictionary
 $meta['id'] = $id; $meta['app'] = $App; $meta['title'] = $Title; $meta['tab'] = $Name; $meta['version'] = [int]$version
 $meta['sentAt'] = $now.ToString('yyyy-MM-ddTHH:mm:sszzz'); $meta['sizeChars'] = [int]$html.Length; $meta['source'] = 'claude'
-if ($Goal) { if ($Goal.Length -gt 500) { $Goal = $Goal.Substring(0, 500) }; $meta['goal'] = $Goal }
-if ($How) { if ($How.Length -gt 1200) { $How = $How.Substring(0, 1200) }; $meta['how'] = $How }
-if ($Vars) { if ($Vars.Length -gt 1500) { $Vars = $Vars.Substring(0, 1500) }; $meta['vars'] = $Vars }
+$maxDetail = 20000   # v1.21 (Ryan, 2026-11-17): Goal, How and Vars may each be up to 20,000 characters, so a Reimagine brief can carry everything about the application
+if ($Goal) { if ($Goal.Length -gt $maxDetail) { $Goal = $Goal.Substring(0, $maxDetail) }; $meta['goal'] = $Goal }
+if ($How) { if ($How.Length -gt $maxDetail) { $How = $How.Substring(0, $maxDetail) }; $meta['how'] = $How }
+if ($Vars) { if ($Vars.Length -gt $maxDetail) { $Vars = $Vars.Substring(0, $maxDetail) }; $meta['vars'] = $Vars }
 $meta['given'] = @($given)
 
 # ---- file it ----

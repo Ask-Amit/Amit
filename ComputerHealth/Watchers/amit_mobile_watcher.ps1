@@ -85,7 +85,7 @@ $configPath = Join-Path (Split-Path -Parent (Split-Path -Parent $watcherDir)) "D
 if (-not (Test-Path $configPath)) {
     # Fallback: this watcher folder is ComputerHealth\Watchers — the Amit
     # root is two levels up from there.
-    $configPath = "C:\Users\user1\OneDrive\Documents - onedrive\Amit\Database\supabase_config.md"
+    $configPath = Join-Path $env:USERPROFILE "OneDrive\Documents - onedrive\Amit\Database\supabase_config.md"
 }
 
 function Get-SupabaseSecretKey {
@@ -177,7 +177,7 @@ function Invoke-Claude($prompt) {
 # shells out to curl.exe instead of using Invoke-RestMethod, since that's
 # what's actually proven to work in this real environment.
 function Get-UnansweredCaptures {
-    $uri = "$SUPABASE_URL/rest/v1/amit_mobile_captures?reply=is.null&order=created_at.asc&limit=10"
+    $uri = "$SUPABASE_URL/rest/v1/amit_mobile_captures?reply=is.null&runner=eq.amit&order=created_at.asc&limit=10"
     try {
         $json = & curl.exe -s $uri -H "apikey: $SECRET_KEY" -H "Authorization: Bearer $SECRET_KEY"
         if (-not $json) { return @() }

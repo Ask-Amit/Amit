@@ -10,12 +10,14 @@
 # Version of the shared directive package this script writes into a new
 # project's CLAUDE.md (Pursuit Attribution, the SHORTCUTS and CLEAN UP pointers,
 # Login-Based Profile, the file layout) and the files it ships beside it
-# (Shortcuts_Activation.md, Cleanup_Procedure.md, cleanup_extract.js, rename_session.js).
+# (Shortcuts_Activation.md, Cleanup_Procedure.md, cleanup_extract.js, rename_session.js, save_session.js).
 # 2.0 (2026-11-14): shortcuts and clean-up moved out of the CLAUDE.md into those files.
+# 3.0 (2026-11-15): history is a Daily Sessions folder (one text file per session, saved by save_session.js; no Sessions_Log.md);
+#   a new session starts by topic, piece and scope; the clean-up is one short end-of-day routine.
 # Bump this by hand whenever a clause below is added or changed,
 # and update the matching dev_playbook row (topic_key=amit_coder_directive_package)
 # so installed copies can detect they are behind.
-$DIRECTIVE_VERSION = "2.0"
+$DIRECTIVE_VERSION = "3.0"
 
 Write-Host ""
 Write-Host "=== Amit Coder Starter Kit ===" -ForegroundColor Yellow
@@ -46,6 +48,12 @@ Write-Host "This project's canonical name is: $appName - every pursuit created f
 $templatesPath = Join-Path $projectRoot "Templates"
 if (-not (Test-Path $templatesPath)) {
     New-Item -ItemType Directory -Path $templatesPath -Force | Out-Null
+}
+
+# 2a. Daily Sessions folder - the history: one text file per session, saved by save_session.js. Never loaded by default.
+$dailySessionsPath = Join-Path $projectRoot "Daily Sessions"
+if (-not (Test-Path $dailySessionsPath)) {
+    New-Item -ItemType Directory -Path $dailySessionsPath -Force | Out-Null
 }
 
 # 2b. AmitCoder subfolder - mirrors Ryan's own two-level structure: the root
@@ -126,8 +134,8 @@ versioned, and treats you as a partner, not a support ticket.
 - Where things live (follow this when creating or changing anything):
   - A project's CLAUDE.md: only purpose, current scope, its standing rules
     and procedures, and a pointer to the Sessions files.
-  - A project's Sessions_Start.md, Sessions_ToDo.md, Sessions_Log.md: current
-    state, to-dos, and history.
+  - A project's Sessions_Start.md and Sessions_ToDo.md, and its Daily Sessions
+    folder: current state, to-dos, and history (one text file per session).
   - A project's Sessions_Design.md: its database tables (first section) and
     how it is built.
   - This root CLAUDE.md: rules that apply across everything. A rule used by
@@ -141,11 +149,12 @@ versioned, and treats you as a partner, not a support ticket.
 When the person starts a new project, create a subfolder for it and:
 1. Copy Templates/Project_CLAUDE_Template.md into it as CLAUDE.md and fill it in
    (purpose and current scope; no status, to-dos or history in that file).
-2. Create four Sessions files in it: Sessions_Start.md (how to read, directory,
+2. Create three Sessions files in it: Sessions_Start.md (how to read, directory,
    current state marked freshly created, files in play, open to-do count,
-   "Last clean-up: none yet"), Sessions_ToDo.md, Sessions_Log.md (one dated
-   entry noting the project was created and its purpose) and Sessions_Design.md
-   (a Tables section first).
+   "Last clean-up: none yet", and a dated line noting the project was created and
+   its purpose), Sessions_ToDo.md and Sessions_Design.md (a Tables section
+   first), plus an empty Daily Sessions folder (the history: one text file per
+   session).
 3. Add the project to the Current Projects list below.
 
 ## START A PROJECT BY ITS NAME
@@ -162,6 +171,18 @@ from this folder (if the write is refused, remind the person once to type
 ask which one in one short question. A first message that is a real request is
 handled as a request.
 
+## SESSION START: TOPIC, PIECE, SCOPE
+
+Applies to the first message of every new session, whether it names a project exactly, a topic ("I'm working on the login page today") or very little ("let's get started"). The person often does not remember which folder holds something: never ask them where anything lives. Where they name a project exactly, the reads in "START A PROJECT BY ITS NAME" still apply; the steps below decide what else is loaded and how the session is titled.
+
+1. Find it. Search the Sessions_Start.md, Sessions_ToDo.md, Sessions_Design.md and CLAUDE.md files across this folder: headings and names first, then session titles in the Daily Sessions folders, body text only if those are thin. Widen their words yourself. Never read history files or whole files to find it. Keep the results to about 30 lines; if there are many hits, ask one narrowing question instead of listing them.
+2. Show where it lives. Give at most about five places, one line each: what it is, which folder, where it stands. Say plainly what you set aside as unrelated. If they gave little, list their last four sessions (newest first, from the file names in the Daily Sessions folders) as numbered options. If nothing is found and it is new, follow the New Project Directive. Ask which one they are working on.
+3. Load only the one they pick: that piece's section of its Sessions_Start.md, its matching to-dos and only the pointed part of its design file, never whole files. Read code only when the work starts, and before reading anything large say which files and about how many KB.
+4. Name the session, then open. Title it with the scope of the work, "Project - piece" (no date; the saved file carries the date), by running `node rename_session.js "<title>"` from this folder. Then reply in about six lines: where we left off; the to-dos for this piece with their count (say "none" plainly); the decisions waiting; a "Saving to:" line (the project's Sessions_Start.md under that piece's heading, the to-dos in its Sessions_ToDo.md, the session text in its Daily Sessions folder); then ask: to-dos, context, or something else?
+5. Ask nothing else to get ready.
+
+Where history lives: each project has a Daily Sessions folder with one text file per session. It is never loaded by default; search it only when the person asks what was said about something, or when the notes are thin.
+
 ## SHORTCUTS
 
 When a message starts with J or F followed by a phrase, or mentions shortcuts,
@@ -172,11 +193,13 @@ about shortcuts is fetched at session start.
 
 ## CLEAN UP
 
-When the person says "clean up" (or "clean up the cleanup"), or right after the
+When the person says "clean up" (any spelling), or right after the
 conversation has been compacted, read Cleanup_Procedure.md (in this folder)
-first and follow it for every project folder the session worked in. It updates
-each folder's Sessions files and keeps its CLAUDE.md scope current. Nothing
-about it is loaded otherwise.
+first and follow it. It is the end-of-day routine: a script saves the session as
+a text file in the project's Daily Sessions folder, then the project's
+Sessions_Start.md (and design file, if it changed) are brought up to date and
+possible to-dos are offered, never added by itself. Nothing about it is loaded
+otherwise.
 
 ## Pursuit Attribution - Permanent
 
@@ -300,55 +323,46 @@ Header: apikey: sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF
 ```
 (and the person's own F names the same way, with `activation_key=eq.F&user_id=eq.[their account id]`). If the request matches a shortcut already, say so before doing the work by hand.
 
-2. **Repetition detection across the last three sessions.** Look at the newest entries of the project's `Sessions_Log.md` (and `Sessions_Start.md`). When the same or a similar instruction recurs, name the pattern plainly with the real count and suggest creating a shortcut for it. Always propose it as an F (custom) shortcut, never J. Suggest, never create unprompted: the person decides.
+2. **Repetition detection across the last three sessions.** Look at the titles of the newest files in the project's `Daily Sessions` folder (and `Sessions_Start.md`). When the same or a similar instruction recurs, name the pattern plainly with the real count and suggest creating a shortcut for it. Always propose it as an F (custom) shortcut, never J. Suggest, never create unprompted: the person decides.
 '@
 $shortcutsActivationContentPath = Join-Path $projectRoot "Shortcuts_Activation.md"
 if (-not (Test-Path $shortcutsActivationContentPath)) { [System.IO.File]::WriteAllText($shortcutsActivationContentPath, $shortcutsActivationContent, $utf8NoBom); Write-Host "Wrote Shortcuts_Activation.md" -ForegroundColor Green } else { Write-Host "Shortcuts_Activation.md already exists - left untouched" -ForegroundColor Yellow }
 
 $cleanupProcedureContent = @'
-# Cleanup procedure ("clean up")
+# Clean up: the end-of-day routine
 
-Read this file ONLY when the person says "clean up" (or "clean up the cleanup"), or right after the conversation has been compacted. The root CLAUDE.md has the one-line rule that points here. Nothing here is pushed to GitHub unless the person says "push".
+Read this file ONLY when the person says "clean up" (any spelling, or "clean up the cleanup"), or right after the conversation has been compacted. The root CLAUDE.md has the short rule that points here. A script saves every session as a text file, so the clean-up is short. Nothing here is pushed to GitHub unless the person says "push".
 
 ## What it is for
-A project's CLAUDE.md says what the project is. Everything that changes (state, to-dos, history, tables, design) lives in that project's Sessions files. "Clean up" keeps those files true, so that when the person opens a new session and says a project name, the session reads the root CLAUDE.md, that project's CLAUDE.md and its `Sessions_Start.md`, and is ready to work. Claude's own copies of sessions expire after about 30 days; the project log is the permanent record.
+A project's CLAUDE.md says what the project is. What changes lives in its Sessions files: `Sessions_Start.md` (current state), `Sessions_ToDo.md` (to-dos), `Sessions_Design.md` (tables and how it is built). History is the project's `Daily Sessions` folder: one text file per session, never loaded by default. The clean-up keeps those true, so a new session that is told a topic can start from them (see "SESSION START" in the root CLAUDE.md). Claude's own copies of sessions expire after about 30 days; the Daily Sessions files are the permanent record.
 
-## Stage 1 - Trigger and folders
-- Triggers: the person says "clean up", OR the conversation has just been compacted (the session file still holds every message, so nothing is lost).
-- Folders: every project subfolder the session worked in. Find them by script: `node cleanup_extract.js <this session's .jsonl> --files` lists the files written or edited; the first folder name under this project root is the project. Skip any folder whose Sessions_Start.md says ARCHIVED. A folder with no Sessions_Start.md: say so and offer to create the Sessions files. Tell the person the list before starting.
+## The steps
 
-## Stage 2 - The session and its name
-- The session file is the newest `.jsonl` in `%USERPROFILE%\.claude\projects\<this folder's encoded name>\`. Record its ID (file name), its location and the date.
-- Title the session with the project name: `node rename_session.js "<project name>"` from the root folder. If the write is refused, remind the person once to type `/rename <project name>`.
+**1. Save the session text (a script, no model reading).**
+Run from the root folder: `node save_session.js --find "<a distinctive phrase from this conversation, such as a recent message of the person's>"`
+- It finds THIS session's file by that phrase (never "the newest"; a resumed or old session may not be), strips tool calls, tool output and system text, and writes `YYYY-MM-DD <id8> <title>.txt` into the `Daily Sessions` folder of the project named in the session's title ("Project - piece"). With no title it uses the project whose files the session edited most; if none, `Daily Sessions (unsorted)` in the root. `--project <folder>` forces a folder (`--project root` for the root folder). `--title "<title>"` sets the title when the session has none.
+- Running it again replaces the same session's file (it never keeps a shorter copy over a longer one). Keys and tokens it recognizes are replaced with `(private detail omitted)`.
+- Tell the person the path it printed. A session that worked on several projects is saved once, under the project in its title.
 
-## Stage 3 - The log (new items only, word for word)
-- Read `Last clean-up:` in `F\Sessions_Start.md` (a timestamp). Run `node cleanup_extract.js <session.jsonl> <that timestamp>`.
-- Insert at the TOP of the log part of `F\Sessions_Log.md` (newest first) a heading `## <date> - session <ID> (<path>)` and the extract: the person's messages and Amit's replies, word for word. No tool calls, tool output or system text. If the session covered several projects, keep only what concerns F.
-- Replace any key, password, token, personal detail or financial detail with `(private detail omitted)`: these files may be pushed publicly.
+**2. Refresh the Start file of each piece worked on.**
+- Read the old `Sessions_Start.md` first and update it FORWARD to where the session ended; do not rewrite it from scratch and do not drop what is still true.
+- Keep it short. For each piece worked on keep a short "Resume" block under that piece's heading (about five lines): where we ended, what is next, the files in play with their REAL current version numbers (read from the files, never guess), decisions waiting, and the open to-do count. A new session reads this block instead of design files.
+- Count the open to-dos by counting the file. Re-read the descriptive lines (header, "HOW TO READ", "DIRECTORY") and make them true now.
+- End with the line `Last clean-up: <UTC time of the last message saved>, session <ID>`.
 
-## Stage 4 - The start file (update from the old version)
-- FIRST read the old `F\Sessions_Start.md`: it records where things stood when the last clean-up ended. Update it forward to where the session ended; do not rewrite from scratch and do not drop what is still true.
-- Keep it short: current state, live versus local, blocked, newest decision, files in play with their REAL current version numbers (read them from the files), the open to-do count, and `Last clean-up: <UTC timestamp of the last message just logged>, session <ID>`.
+**3. Design.** If tables or how something is built changed, update `Sessions_Design.md` (Tables first). Any pointer you leave ("see X") must be true: open X and confirm it holds what it promises.
 
-## Stage 5 - To-dos
-- In `F\Sessions_ToDo.md`: add new to-dos from the session; move finished ones to Resolved with the date; delete nothing unfinished; one entry per real to-do.
-- Mirroring to-dos as Hub pursuits is not part of this installed copy yet.
+**4. To-dos (the clean-up adds none on its own; it only asks).**
+While refreshing the Start file, note anything that looks like OPEN work that is not already in `Sessions_ToDo.md` and is not finished. At the very END, after the report, say: "Going through this I identified N things that could be added to the To Do List. Do you want me to add any of them?" and show a NUMBERED list, one plain line each. The person answers with numbers, "all" or "none". Write NOTHING to `Sessions_ToDo.md` until they answer; then add only the ones they name, one line each with its source date. If you found nothing, say so in one line. Offer only what they could plausibly want (no tests they did not ask for, wishes, maybes or finished work). An item moves to Resolved only when the person says it is done. They can also say "add to the to-do list: ..." at any time.
 
-## Stage 6 - Design and scope
-- If tables or how something is built changed, update `F\Sessions_Design.md` (Tables first).
-- If the work grew the project beyond its CLAUDE.md "CURRENT SCOPE", update that paragraph and tell the person exactly what changed. CLAUDE.md never receives status, to-dos, history, tables or design.
+**5. Report (short).** Say: where the session text was saved (the path), what changed in the Start file (one or two lines), whether design changed, how many to-dos were offered and the answer, and anything unsure. Then check as a new session would: re-read only the project's CLAUDE.md and Start file and say in two lines what state the project is in and what is next. If a claim does not match the real files, fix it.
 
-## Stage 7 - Repetition check
-If the same kind of request came up in each of the last three clean-ups, say so with the real count and suggest an F shortcut. Suggest only; never create one.
-
-## Stage 8 - Verify the folder is ready for the next session
-Review F's `CLAUDE.md` and Sessions files together: CLAUDE.md holds only purpose, scope, standing rules and pointers; Sessions_Start.md is consistent with the to-do file (count), the log (its marker matches the newest heading) and the real files (versions); every pointer and file name exists; no duplicate to-dos; no private details; no empty or truncated file. A new session told the project name must be able to work from the root CLAUDE.md, F's CLAUDE.md and F's Sessions_Start.md alone. Fix plain errors; list anything uncertain. Then report in plain words: folders cleaned, messages logged per folder, what changed, what was verified, anything unsure.
-
-## "Clean up the cleanup"
-When the person asks, or when a Sessions_Log.md passes about 150 KB: entries older than about 30 days are folded into short dated summaries at the END of that `Sessions_Log.md` under `## Older entries (summarized)` (decisions, version numbers and still-open items kept; the word-for-word text dropped). Never remove an open to-do or a decision.
+## Only when the person asks
+- "Check the folder": scan the project's CLAUDE.md for text that is really design, status, to-dos or history and move it to the right Sessions file, leaving a one-line pointer; check every pointer.
+- If the same kind of request came up in the last three sessions (read the titles of the newest files in Daily Sessions), say so with the real count and suggest an F shortcut. Suggest only; never create one.
 
 ## Safety
-Do not make backups unless the person asks (then in a Backups folder, under the project name). Edit with Node or the Edit tool and check the file size afterward. Never push.
+Do not make backups unless the person asks (then in a Backups folder, under the project name). Edit with Node or the Edit tool and check the file size afterward. Never push. Nothing the person said is paraphrased in the saved session text.
 '@
 $cleanupProcedureContentPath = Join-Path $projectRoot "Cleanup_Procedure.md"
 if (-not (Test-Path $cleanupProcedureContentPath)) { [System.IO.File]::WriteAllText($cleanupProcedureContentPath, $cleanupProcedureContent, $utf8NoBom); Write-Host "Wrote Cleanup_Procedure.md" -ForegroundColor Green } else { Write-Host "Cleanup_Procedure.md already exists - left untouched" -ForegroundColor Yellow }
@@ -445,6 +459,108 @@ console.log('titled ' + id + ' as "' + name + '"');
 $renameSessionContentPath = Join-Path $projectRoot "rename_session.js"
 if (-not (Test-Path $renameSessionContentPath)) { [System.IO.File]::WriteAllText($renameSessionContentPath, $renameSessionContent, $utf8NoBom); Write-Host "Wrote rename_session.js" -ForegroundColor Green } else { Write-Host "rename_session.js already exists - left untouched" -ForegroundColor Yellow }
 
+$saveSessionContent = @'
+// save_session.js - part of the end-of-day routine (see Cleanup_Procedure.md in this folder).
+// Saves ONE Claude session as a plain text file in the project's "Daily Sessions" folder. It only READS the session file.
+// The text is your messages and Amit's replies, word for word, with tool calls, tool output and system text removed
+// (it uses cleanup_extract.js). Run again later and it REPLACES the same session's file (named with the session id).
+//
+// Usage (from the project root folder):
+//   node save_session.js --find "<a distinctive phrase from this conversation>"   find this session by content
+//   node save_session.js --id <session id or first 8 characters>                  or name it directly
+//   optional: --project <folder>   force the project folder ("root" = the Amit root folder)
+//             --title "<title>"    use this title when the session has none
+//             --dry                show what it would do, write nothing
+// Folder choice: the project named in the session title ("Project - piece"); else the project whose files the session
+// edited most; else "Daily Sessions (unsorted)" in the root folder.
+const fs = require('fs'), path = require('path'), cp = require('child_process'), os = require('os');
+const ROOT = __dirname;
+const PROJ = path.join(os.homedir(), '.claude', 'projects');
+const EXTRACT = path.join(ROOT, 'cleanup_extract.js');
+const SKIP = /^(Backups|node_modules|\.git|Previews|Daily Sessions.*|\.claude|Reference)$/;
+const arg = (n) => { const i = process.argv.indexOf('--' + n); return i > -1 ? (process.argv[i + 1] || '') : null; };
+const has = (n) => process.argv.includes('--' + n);
+const find = arg('find'), idArg = arg('id'), forceProj = arg('project'), forceTitle = arg('title'), dry = has('dry');
+if (!find && !idArg) { console.error('usage: node save_session.js --find "<phrase>"  |  --id <session id>   [--project <folder>] [--title "<t>"] [--dry]'); process.exit(1); }
+
+// 1. locate the session file
+// Claude Code names each project's session folder after its path (every character that is not a letter or digit becomes "-").
+const prefix = ROOT.replace(/[^A-Za-z0-9]/g, '-').toLowerCase();
+const dirs = fs.readdirSync(PROJ).filter((d) => d.toLowerCase().startsWith(prefix)).map((d) => path.join(PROJ, d));
+let files = [];
+for (const d of dirs) for (const f of fs.readdirSync(d)) if (f.endsWith('.jsonl')) { const p = path.join(d, f); files.push({ p, id: f.replace('.jsonl', ''), m: fs.statSync(p).mtimeMs }); }
+files.sort((a, b) => b.m - a.m);
+let hit = null;
+if (idArg) hit = files.find((x) => x.id.startsWith(idArg));
+else for (const x of files) { if (fs.readFileSync(x.p, 'utf8').includes(find)) { hit = x; break; } }
+if (!hit) { console.error('No session found' + (find ? ' containing that phrase.' : ' with that id.')); process.exit(2); }
+
+// 2. read it: title, date, text, files edited
+const raw = fs.readFileSync(hit.p, 'utf8');
+let title = '', first = '';
+for (const line of raw.split('\n')) {
+  if (!line.trim()) continue; let o; try { o = JSON.parse(line); } catch { continue; }
+  if (o.type === 'custom-title' && o.customTitle) title = o.customTitle;
+  if (!first && o.timestamp) first = o.timestamp;
+}
+if (!title && forceTitle) title = forceTitle;
+const run = (extra) => cp.execFileSync('node', [EXTRACT, hit.p, ...extra], { maxBuffer: 1 << 30, stdio: ['ignore', 'pipe', 'ignore'] }).toString('utf8');
+let text = run([]);
+const scrub = (s) => s
+  .replace(/sb_secret_[A-Za-z0-9_]+/g, '(private detail omitted)')
+  .replace(/\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, '(private detail omitted)')
+  .replace(/\bsk-[A-Za-z0-9_-]{20,}/g, '(private detail omitted)')
+  .replace(/\bghp_[A-Za-z0-9]{20,}/g, '(private detail omitted)');
+text = scrub(text);
+
+// 3. choose the folder
+const n = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+const folders = fs.readdirSync(ROOT, { withFileTypes: true }).filter((e) => e.isDirectory() && !SKIP.test(e.name)).map((e) => e.name);
+let target = null, why = '';
+if (forceProj) { target = forceProj.toLowerCase() === 'root' ? ROOT : path.join(ROOT, forceProj); why = 'forced by --project'; }
+if (!target && title) {
+  const proj = n(title.split(' - ')[0]);
+  const f = folders.find((x) => n(x) === proj) || folders.find((x) => n(x) === 'amit' + proj) || folders.find((x) => n(x).replace(/^amit/, '') === proj);
+  if (f) { target = path.join(ROOT, f); why = 'project named in the title'; }
+  else if (proj === 'root' || proj === n(path.basename(ROOT))) { target = ROOT; why = 'the title names the root folder (work across the whole system)'; }
+}
+if (!target) {
+  const counts = {};
+  for (const l of run(['--files']).split('\n')) {
+    const rel = path.relative(ROOT, l.trim()); if (!l.trim() || rel.startsWith('..') || path.isAbsolute(rel)) continue;
+    const seg = rel.split(/[\\/]/)[0]; if (!seg || seg.includes('.') || SKIP.test(seg)) continue;
+    counts[seg] = (counts[seg] || 0) + 1;
+  }
+  const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  if (best) { target = path.join(ROOT, best[0]); why = 'the folder whose files it edited most (' + best[1] + ' edits); the title does not name a project'; }
+}
+let unsorted = false;
+if (!target) { target = ROOT; unsorted = true; why = 'no project could be told from the title or the files edited'; }
+const outDir = unsorted ? path.join(ROOT, 'Daily Sessions (unsorted)') : path.join(target, 'Daily Sessions');
+
+// 4. write
+const date = new Date(first || hit.m).toLocaleDateString('sv-SE');
+const id8 = hit.id.slice(0, 8);
+const clean = (s) => String(s).replace(/[\\/:*?"<>|\r\n`]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 70);
+const name = date + ' ' + id8 + ' ' + (clean(title) || '(untitled)') + '.txt';
+const head = 'Session: ' + hit.id + '\nDate: ' + date + '\nTitle: ' + (title || '(untitled)') + '\nSaved: ' + new Date().toISOString() + '\n(Your messages and Amit\'s replies word for word; tool calls, tool output and system text removed.)\n\n';
+console.log('Session ' + hit.id + '\nTitle: ' + (title || '(untitled)') + '\nFolder: ' + outDir + '   (' + why + ')\nFile: ' + name + '\nSize: ' + Math.round(Buffer.byteLength(text) / 1024) + ' KB');
+if (dry) { console.log('(dry run: nothing written)'); process.exit(0); }
+fs.mkdirSync(outDir, { recursive: true });
+// Never replace a saved copy with a SHORTER one: the end-of-session hook can run before the transcript has its last lines.
+const newBytes = Buffer.byteLength(head + text);
+for (const f of fs.readdirSync(outDir)) if (f.includes(' ' + id8 + ' ') && f.endsWith('.txt') && fs.statSync(path.join(outDir, f)).size > newBytes) { console.log('Kept the longer saved copy already there (' + f + '); nothing replaced.'); process.exit(0); }
+let replaced = [];
+for (const d of [outDir, path.join(ROOT, 'Daily Sessions (unsorted)')]) {
+  if (!fs.existsSync(d)) continue;
+  for (const f of fs.readdirSync(d)) if (f.includes(' ' + id8 + ' ') && f.endsWith('.txt') && !(d === outDir && f === name)) { fs.unlinkSync(path.join(d, f)); replaced.push(d.replace(ROOT, '.') + '\\' + f); }
+}
+fs.writeFileSync(path.join(outDir, name), head + text, 'utf8');
+console.log(replaced.length ? 'Replaced earlier copy: ' + replaced.join('; ') : 'Saved (new file).');
+'@
+$saveSessionContentPath = Join-Path $projectRoot "save_session.js"
+if (-not (Test-Path $saveSessionContentPath)) { [System.IO.File]::WriteAllText($saveSessionContentPath, $saveSessionContent, $utf8NoBom); Write-Host "Wrote save_session.js" -ForegroundColor Green } else { Write-Host "save_session.js already exists - left untouched" -ForegroundColor Yellow }
+
 $projectTemplateContent = @'
 <!-- TEMPLATE. Copy this file into a new project's subfolder as CLAUDE.md, fill in every [bracket], then delete this comment.
      A project CLAUDE.md holds ONLY: purpose, current scope, the standing rules for that folder, the session record pointer, and connections.
@@ -461,7 +577,7 @@ If you are reading this file, you are in the project's own subfolder. All [PROJE
 [3 to 8 lines: what the project does NOW. The clean-up keeps this true as the project grows; update it, never add status here.]
 
 ## SESSION RECORD
-Current state, to-dos and history live in this folder's Sessions files, not here. A new session reads Sessions_Start.md first (short). Read Sessions_ToDo.md only when asked about to-dos; read Sessions_Log.md or the original Claude session only when asked; Sessions_Design.md (tables first, then how it is built) only when working with the database or on that part of the build.
+Current state, to-dos and history live in this folder's Sessions files, not here. A new session reads Sessions_Start.md first (short). Read Sessions_ToDo.md only when asked about to-dos; read the Daily Sessions folder or the original Claude session only when asked; Sessions_Design.md (tables first, then how it is built) only when working with the database or on that part of the build.
 
 ## Rules and procedures for this folder
 [Standing rules a session must follow here, each a short bullet. Delete this section if there are none yet.]

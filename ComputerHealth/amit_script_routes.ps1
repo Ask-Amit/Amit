@@ -401,7 +401,7 @@ function global:As-Spoken([string]$text) {
 function global:Invoke-AmitOwnCaptures([string]$token, [string]$userId, [string]$model = '') {
     if ($userId -notmatch '^[A-Za-z0-9-]{8,64}$') { return 0 }
     $since = [DateTime]::UtcNow.AddDays(-7).ToString('s') + 'Z'
-    $rows = @(); try { $rows = @(As-Rest $token 'GET' ('amit_mobile_captures?select=id,transcript,destination,photo_url&destination=not.in.(to_computer,delivered)&runner=eq.own&reply=is.null&user_id=eq.' + $userId + '&created_at=gt.' + $since + '&order=created_at.asc&limit=5') | ForEach-Object { $_ }) } catch { return 0 }
+    $rows = @(); try { $rows = @(As-Rest $token 'GET' ('amit_mobile_captures?select=id,transcript,destination,photo_url&or=(destination.is.null,destination.not.in.(to_computer,delivered))&runner=eq.own&reply=is.null&user_id=eq.' + $userId + '&created_at=gt.' + $since + '&order=created_at.asc&limit=5') | ForEach-Object { $_ }) } catch { return 0 }
     $done = 0
     foreach ($row in $rows) {
         if (-not $row) { continue }

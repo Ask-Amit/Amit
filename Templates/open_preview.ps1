@@ -18,6 +18,7 @@
 # Plain ASCII on purpose (PowerShell 5.1).
 param(
   [string]$Path = "",
+  [string]$Spec = "",
   [int]$LeftPercent = 50,
   [switch]$NoSplit,
   [switch]$Restore,
@@ -126,6 +127,8 @@ if ($Restore) {
 if (-not $Path) { throw "give -Path <the preview file>" }
 $full = (Resolve-Path -LiteralPath $Path).Path
 $url = ([System.Uri]$full).AbsoluteUri
+# -Spec <file>: the reusable previewer page (Templates\amit_previewer.html) reads its questions and drawing from this spec file
+if ($Spec) { $specFull = (Resolve-Path -LiteralPath $Spec).Path; $url += "?spec=" + [uri]::EscapeDataString(([System.Uri]$specFull).AbsoluteUri) }
 
 # 1. find the person's window FIRST, while it is still the front one
 $vs = [AmitWin]::FindCurrent()

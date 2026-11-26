@@ -65,7 +65,7 @@
   // well he judges when to roll or bank. Every move costs time out of the roll's clock; if it runs out he banks only what is covered.
   // CLOCKS (2026-10-16): each clock is about 4x the ASSUMED seconds a player at that level needs to find and place one cover
   // (L2 25s, L3 20s, L4 16s, L5 13s, L6 11s, L7 9s, L8 8s - guesses, not measured). Full reasoning and the tuning rule are in
-  // Sessions.md, entry "Card numbers and clocks - the chart and the logic". The game records real roll times so these can be tuned.
+  // Sessions_Log.md, entry "Card numbers and clocks - the chart and the logic". The game records real roll times so these can be tuned.
   // TOP CARD NUMBERS, ADDITION (Ryan, 2026-10-16): level 1 tops out at 9 and every level adds one: 9, 10, 11, 12, 13, 14, 15, 16 - capped at 16.
   // Ryan dropped the earlier "only numbers that can be made from matching dice" idea: the tops just climb, which adds a level of
   // complexity. The other stages have their own tops (STAGE_TOPS below).
@@ -135,7 +135,7 @@
   };
   const STAGE_ORDER = ['addition', 'subtraction', 'multiplication', 'division'];
   const NEG_FROM_LEVEL = 5;
-  // STAGE_TOPS and STAGE_PACE: see the entry "stages beyond addition" in Sessions.md for how they were chosen.
+  // STAGE_TOPS and STAGE_PACE: see the entry "stages beyond addition" in Sessions_Log.md for how they were chosen.
   const STAGE_TOPS = {
     addition:       [9, 10, 11, 12, 13, 14, 15, 16],
     subtraction:    [12, 14, 16, 18, 20, 22, 24, 26],

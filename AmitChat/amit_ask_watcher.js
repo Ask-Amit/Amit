@@ -565,7 +565,7 @@ async function phoneTick() {
   phoneBusy = true;
   try {
     const since = new Date(Date.now() - 3600000).toISOString();
-    const r = await fetch(U + '/rest/v1/amit_mobile_captures?select=id,user_id,transcript,photo_url&destination=not.in.(to_computer,delivered)&runner=eq.amit&reply=is.null&created_at=gt.' + since + '&order=created_at.asc&limit=5', { headers: H, signal: AbortSignal.timeout(15000) });
+    const r = await fetch(U + '/rest/v1/amit_mobile_captures?select=id,user_id,transcript,photo_url&or=(destination.is.null,destination.not.in.(to_computer,delivered))&runner=eq.amit&reply=is.null&created_at=gt.' + since + '&order=created_at.asc&limit=5', { headers: H, signal: AbortSignal.timeout(15000) });
     const rows = await r.json(); if (!Array.isArray(rows)) throw new Error('could not read phone questions');
     const row = rows.find(x => !phoneTried.has(x.id));
     if (row) {

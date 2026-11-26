@@ -5,12 +5,12 @@ READ THIS FIRST, then `Sessions_Start.md` in this folder: the block called "RESU
 ## Where things stand (one minute)
 - Helper 2.23 and installer 5.31 are pushed and live. Ryan's computer is on 2.23.
 - The first real button, "Quick note", is built, approved and on Ryan's bar. It is not yet confirmed that Ryan pressed it.
-- NOT PUSHED yet (push only when Ryan or Robin says "push"): the fingerprint fix in `amit_script_buttons.js`, Hub v9.08, the test fix, migration 055's file, the notes, Living Testimony v1.72. Until pushed, the Hub's "Ask Amit to create" fails at the save step. The repo copies of `amit_script_buttons.js` and `Hub\amit-hub.html` are the OLD ones: copy the local files over, check `git diff --cached --name-only`, commit, push once.
+- PUSHED AND LIVE 2026-11-24 (commit dfd8480): the fingerprint fix, Hub v9.08, the test fix, migration 055 (run), the notes and Living Testimony v1.72. Nothing from this work is waiting to be pushed.
 - Migrations 051 to 055 are all run.
 
 ## First things to do, in order
 1. Ask Ryan or Robin whether the Quick note pop-up worked (press the tile on the bar: practice run, then run).
-2. Push the unpushed items together when told "push", then check Hub v9.08 is live.
+2. (done) The fix is live.
 3. Build your first real button from the Hub (Helper tab, Custom script buttons, + New script button). The spreadsheet job still needs the file's location, the tab and the second value.
 
 ## The plan, and where it is written

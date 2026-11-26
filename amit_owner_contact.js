@@ -238,7 +238,7 @@ function resolveVoiceFromContact(voices, contact, fallbackPicker){
   (TTS engines already give commas a brief natural pause as part of their
   own prosody, whereas sentence-to-sentence pacing is where a real,
   noticeable "let me think" gap actually lives). Named honestly in
-  Sessions.md rather than silently promised as full punctuation-level
+  Sessions_Log.md rather than silently promised as full punctuation-level
   control.
 */
 function _splitIntoSentences(text){

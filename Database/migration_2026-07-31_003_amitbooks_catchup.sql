@@ -59,6 +59,13 @@ create policy "item_category_templates_read_all" on item_category_templates for 
 alter table items add column if not exists cost_type text check (cost_type in ('labor','material','subcontractor','equipment','permit_fee','other'));
 alter table invoice_bill_lines add column if not exists cost_type text check (cost_type in ('labor','material','subcontractor','equipment','permit_fee','other'));
 
+-- A third, open-ended classification toggle, reserved for future use per
+-- Ryan's direct request 2026-07-31 — deliberately free text, not a fixed
+-- list, since its real purpose isn't decided yet.
+alter table items add column if not exists secondary_class text;
+alter table invoice_bill_lines add column if not exists secondary_class text;
+alter table item_category_templates add column if not exists secondary_class text;
+
 -- One row per real-world category group (Framing, Concrete, Electrical...)
 -- — never split by cost type. The same "Framing" item covers your own
 -- crew's labor, framing lumber bought directly, or a framing sub, all

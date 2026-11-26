@@ -130,7 +130,7 @@ td.nm{white-space:nowrap}.btn.red{background:#5a2323;border-color:var(--red)}
     <b>Keyboard:</b><select id="devPick" title="Which keyboard"></select>
     <span class="pill g" id="activePill"></span>
     <span id="pretendBox" hidden><span class="n2">Which keyboard I just used:</span><select id="pretend" title="The Amit Helper tells me this by itself when it is connected. Until then you choose it."></select></span>
-    <span class="pill" id="pageVer" title="Version of this Amit Keyboard page">v1.13</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser until your login answers.</span>
+    <span class="pill" id="pageVer" title="Version of this Amit Keyboard page">v1.14</span><span class="n2" id="dbState" style="margin-left:8px">Kept in this browser until your login answers.</span>
     <button class="btn gold" id="smOpen" title="Write a secure message, read one you were sent, and share codes with friends">&#128274; Secure message</button>
     <div class="sw"><span>Keyboard sets are</span><div class="tog on" id="master" title="Turn all keyboard sets off or on. On the keyboard: Ctrl+Alt+Shift+M does the same from anywhere."></div><span id="masterTxt">on</span></div>
   </header>
@@ -758,11 +758,12 @@ function cellsHtml(arr){
   return'<div style="display:flex;flex-wrap:wrap;gap:2px;font:14px ui-monospace,Consolas,monospace">'+arr.map(function(e){return'<div style="min-width:24px;padding:0 2px;text-align:center"><div style="color:var(--mute);font-size:'+(e.p.length>1?'10':'14')+'px">'+vis(e.p)+'</div><div style="color:var(--gold);font-weight:700;background:rgba(255,255,255,.05);border-radius:4px">'+vis(e.c)+'</div><div style="color:var(--teal);font-size:11px">'+(e.n||'')+'</div></div>'}).join('')+'</div>';
 }
 function decodeText(d,startId,text){
-  var curSet=setOf(d,startId),out=[],i,ch,k,id,j,u;
+  var curSet=setOf(d,startId),out=[],i,ch,k,id,j,u,cache={};
+  /* one lookup per set (output character to the key that types it), built once, so a long message is fast */
+  function revMap(st){var m={},uu=universe(st),kk,jj,ii;for(kk=0;kk<uu.length;kk++){ii=uu[kk];jj=jobOf(st,ii);if(jj&&!jj.only&&!jj.bad&&m[jj.out]===undefined)m[jj.out]=ii}return m}
   for(i=0;i<text.length;i++){
     ch=text.charAt(i);if(/[a-z]/.test(ch))ch=ch.toUpperCase();
-    u=universe(curSet);var found=null;
-    for(k=0;k<u.length;k++){id=u[k];j=jobOf(curSet,id);if(j&&!j.only&&!j.bad&&j.out===ch){found=id;break}}
+    var rm=cache[curSet.id]||(cache[curSet.id]=revMap(curSet)),found=(rm[ch]!==undefined?rm[ch]:null);
     if(!found){out.push({p:text.charAt(i),c:text.charAt(i),n:''});continue}
     out.push({p:inLabel(found),c:ch,n:curSet.num});
     j=jobOf(curSet,found);if(j&&j.sw){var t=setOf(d,j.sw);if(t&&t.id===j.sw)curSet=t}
@@ -933,9 +934,10 @@ function exportSetList(list){
 }
 $('cExp').onclick=function(){
   var d=cur;
-  var out=exportSetList(d.sets.filter(function(x){return x.num!==1}));
+  var held=d.sets.filter(function(x){return x.secure}).length;   /* secure codes never leave as readable text: only the password-protected path (Secure message window, Share codes) sends them */
+  var out=exportSetList(d.sets.filter(function(x){return x.num!==1&&!x.secure}));
   $('cShare').value=JSON.stringify({amitKeyboardSets:1,sets:out});
-  $('cShareMsg').textContent=out.length?('Exported '+out.length+' set'+(out.length===1?'':'s')+' (Set 1 is never shared). Copy the text and send it.'):'There are no sets to share yet (Set 1 is never shared).';
+  $('cShareMsg').textContent=(out.length?('Exported '+out.length+' set'+(out.length===1?'':'s')+' (Set 1 is never shared). Copy the text and send it.'):'There are no ordinary sets to share yet (Set 1 is never shared).')+(held?' Your '+held+' secure set'+(held===1?' is':'s are')+' NOT included: a secure code only leaves protected by a password (Secure message window, Share codes tab).':'');
 };
 /* a code's fingerprint: its tables, with jumps written as "goes to the 2nd set of the code", so the same code under different set numbers matches */
 function sigOf(tables){var idx={};tables.forEach(function(t,i){idx[t.key]=i});return JSON.stringify(tables.map(function(t){return Object.keys(t.map).sort().map(function(k){var p=t.map[k].p;return k+'='+p.v+(p.t==='keyswitch'?'>'+idx[p.v2]:'')})}))}
@@ -1091,16 +1093,18 @@ function smTranslate(g,text){var un=$('smUndo')&&$('smUndo').checked,t=un?undoMo
 /* a long message pasted from an email or chat: line breaks added by wrapping are not part of the code, so they are dropped */
 function smClean(t){return String(t||'').replace(/[\r\n]+/g,'').replace(/^\s+|\s+$/g,'')}
 /* decipher at once: use the code that fits the whole message best (fewest characters that do not fit), then translate */
+/* Every secure code uses all the same symbols, so every code "fits" every message. The only way to tell the right code is that its answer looks like words: mostly letters and spaces. */
+function smScore(r){var p=r.plain||'';return p.length?p.replace(/[^A-Z ]/g,'').length/p.length:0}
 function smAutoRead(){
   var gs=secGroups(cur),text=smClean($('smPaste').value);
   if(!text){return}
   if(!gs.length){$('smDecOut').innerHTML='<div class="n2">You have no codes yet. Add a friend’s code on the Share codes tab, or make your own on the Secure code tab.</div>';return}
-  var best=null,bm=1e9;
-  gs.forEach(function(g){var r=smTranslate(g,text);if(r.miss<bm){bm=r.miss;best=g}});
-  var cur2=gFind($('smFrom').value);
-  if(cur2){var rc=smTranslate(cur2,text);if(rc.miss<=bm){best=cur2}}
-  if(best){smFillSel($('smFrom'),gs,best.key);$('smFrom').value=best.key}
+  var sc=gs.map(function(g){return{g:g,sc:smScore(smTranslate(g,text))}}).sort(function(a,b){return b.sc-a.sc});
+  var sure=text.length>=12&&sc[0].sc>=0.6&&(!sc[1]||sc[0].sc-sc[1].sc>=0.15);
+  var pick=sure?sc[0].g:(gFind($('smFrom').value)||sc[0].g);
+  smFillSel($('smFrom'),gs,pick.key);$('smFrom').value=pick.key;
   $('smDec').onclick();
+  if(!sure&&gs.length>1&&$('smRead'))$('smDecOut').insertAdjacentHTML('afterbegin','<div class="tip" style="margin:6px 0">I could not tell for certain which code this is. It was read with <b>'+esc(gName(pick))+'</b>. If it does not look like words, choose the right person in “The code is from”, or press “Not sure? Try every code”.</div>');
 }
 $('smPaste').addEventListener('paste',function(){setTimeout(smAutoRead,0)});
 $('smPasteRead').onclick=function(){
@@ -1116,9 +1120,9 @@ $('smDec').onclick=function(){
 $('smTry').onclick=function(){
   var gs=secGroups(cur),text=smClean($('smPaste').value);
   if(!text){$('smDecOut').innerHTML='<div class="n2">Paste the message first.</div>';return}
-  var rs=gs.map(function(g){var r=smTranslate(g,text);r.g=g;return r}).sort(function(a,b){return a.miss-b.miss});
+  var rs=gs.map(function(g){var r=smTranslate(g,text);r.g=g;r.sc=smScore(r);return r}).sort(function(a,b){return a.miss-b.miss||b.sc-a.sc});
   if(!rs.length){$('smDecOut').innerHTML='<div class="n2">You have no codes yet.</div>';return}
-  smSecureShow(rs.map(function(r,i){return'<div class="use" style="margin:4px 0"><b>'+esc(gName(r.g))+'</b> <span class="n2">'+(r.miss?r.miss+' character'+(r.miss===1?'':'s')+' did not fit':'every character fits')+'</span>'+(i===0&&!r.miss?' <span class="badge">best match</span>':'')+'<div style="font:16px ui-monospace,Consolas,monospace;word-break:break-word;color:'+(r.miss?'var(--mute)':'var(--green)')+'">'+esc(r.plain.slice(0,300))+'</div></div>'}).join(''));
+  smSecureShow(rs.map(function(r,i){return'<div class="use" style="margin:4px 0"><b>'+esc(gName(r.g))+'</b> <span class="n2">'+(r.miss?r.miss+' character'+(r.miss===1?'':'s')+' did not fit':'every character fits')+'</span>'+(i===0&&!r.miss&&text.length>=12&&r.sc>=0.6&&(!rs[1]||r.sc-rs[1].sc>=0.15)?' <span class="badge">best match</span>':'')+' <span class="n2">('+Math.round(r.sc*100)+'% of it looks like words)</span>'+'<div style="font:16px ui-monospace,Consolas,monospace;word-break:break-word;color:'+(r.miss?'var(--mute)':'var(--green)')+'">'+esc(r.plain.slice(0,300))+'</div></div>'}).join(''));
 };
 function smSecureShow(html){
   $('smDecOut').innerHTML='<div class="secbox"><div class="sechd"><span class="seclk">🔒 SECURE MESSAGE</span><span class="n2">Shown only on this device. It is never saved and never sent anywhere.</span><button class="btn red" id="smRead" title="This will eliminate this message from all history">Read</button></div>'+html+'</div>';

@@ -51,6 +51,9 @@ FILES=(
   amit_run_script.ps1
   amit_script_routes.ps1
   AmitScriptPopup.html
+  amit_claude_run.ps1
+  amit_claude_hook.ps1
+  AmitClaudePopup.html
   ComputerHealth_Dashboard.html
 )
 

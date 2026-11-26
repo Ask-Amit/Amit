@@ -58,7 +58,7 @@ Say ($bad.Count -eq 0 -and $global:asked.Count -eq 0) 'a photo outside this pers
 $global:captureWaiting = $true; $global:capPhoto = '["user-me-0001/123-abc.png"]'; $global:capWords = 'What colour is the shape, and what words do you see? One sentence, and do not search.'; $global:capReply = $null
 $n = Invoke-AmitOwnCaptures 'tok' 'user-me-0001' 'haiku'
 Say ($n -eq 1 -and $global:capReply -match '(?i)red' -and $global:capReply -match '4821') ('their own Claude sees the photo: ' + (([string]$global:capReply) -replace '\s+', ' '))
-Say (@($global:calls | Where-Object { $_ -like 'GET amit_mobile_captures*not.in.(to_computer,delivered)*' }).Count -ge 1) 'Send to computer photos are left alone'
+Say (@($global:calls | Where-Object { $_ -like 'GET amit_mobile_captures*destination.is.null,destination.not.in.(to_computer,delivered)*' }).Count -ge 1) 'Send to computer photos are left alone'
 $global:captureWaiting = $true; $global:capPhoto = $null; $global:capReply = $null
 $global:capWords = 'Search the web: what does a new Honda Grom motorcycle list for in the United States right now? Give the price and say where you found it.'
 $n = Invoke-AmitOwnCaptures 'tok' 'user-me-0001' 'haiku'

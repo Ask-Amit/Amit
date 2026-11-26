@@ -15,6 +15,7 @@ How to read: short current-state page built from root CLAUDE.md (unchanged). Per
 - AmitCoder starter kit updated locally to directive package 3.0 (parses with 0 errors; the embedded save_session.js passes a syntax check; NOT run as a full install; NOT shipped: the `dev_playbook` row and the GitHub push remain).
 - Root CLAUDE.md cut: measured only, in `Reference\Root_Cut_Proposal.md` (about 130 KB: roughly 30 KB core, 65 KB on demand, 22 KB Permanent Directives to split, 14 KB to review). Waiting for Ryan.
 - Left over, nothing deleted: the old workspace folders AmitPersonal, Overflow, AmitCorrespondence, AmitLog and test.
+- Earlier on 2026-11-14/15 the session titled "Amit" (id 61919fde, saved as `Daily Sessions\2026-11-10 61919fde Amit.txt`) built the first version of the clean-up (run on AmitFix and AmitHelper), changed the rules so the clean-up never adds to-dos on its own, held the components discussion and wrote the brief for outside AIs that led to the redesign above. Its "HANDOFF 2026-11-15" section in Sessions_ToDo.md is partly out of date: it describes Sessions_Log.md and an undecided components plan, both superseded by the redesign. Its open-items list (items 1 to 7 there) still stands unless done here.
 - Not pushed since commit 7797921 (plus the local commit b14414b). Everything else is local: root and project CLAUDE.md and Sessions files, the scripts, the hooks.
 
 ## Projects (one-line state, from the CLAUDE.md path table)
@@ -45,5 +46,8 @@ How to read: short current-state page built from root CLAUDE.md (unchanged). Per
 | AmitAssembly | estimating, change-order and bidding platform rebuilt from an old Access system; designed, not built; see AmitAssembly\Sessions_Start.md |
 | AmitFix | troubleshooting and removal site; v1.08 pushed; 17 open to-dos; see AmitFix\Sessions_Start.md |
 | Games | AmitGames page with AmitRoll and Dog Racing buttons, v1.00; see Games\Sessions_Start.md |
+| AskAmit | created 2026-11-17: the one global Ask Amit module, built isolated first; plan and map of today's four Ask Amit paths only, nothing built or linked; see AskAmit\Sessions_Start.md |
 | AmitHelper | the Windows bar and Helper pieces (Mouse, Keyboard, Aurora, installer); see AmitHelper\Sessions_Start.md |
 | Amit Live | created 2026-11-10, nothing built |
+
+Last clean-up: 2026-11-17T03:28Z, session 61919fde-4d5e-4ffe-8e9e-cbeeca40c72e
