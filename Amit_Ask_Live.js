@@ -556,7 +556,9 @@ This conversation was started from AmitCoder — the paid, login-gated coding si
 
 It uses the same login as the Amit Hub — there is no separate AmitCoder signup. It uses Claude Code on the person's own computer with their own paid Claude account. VS Code is not needed.
 
-**Get Started** — a setup checklist: get a paid Claude account; install Claude Code with Anthropic's one-line PowerShell install (irm https://claude.ai/install.ps1 | iex) and sign in; download and run the Amit Starter Kit script; then open PowerShell in the new project folder, type claude, and say "good morning".
+The left side has two pages: Overview and Shortcuts. Amit's Builds is the last tab on Overview. The first two tabs on Overview are Introduction and Get Started.
+
+**Get Started** (a tab on Overview) — a setup checklist: get a paid Claude account; install Claude Code with Anthropic's one-line PowerShell install (irm https://claude.ai/install.ps1 | iex) and sign in; download and run the Amit Starter Kit script; then open PowerShell in the new project folder, type claude, and say "good morning".
 
 **Overview** — tabs: Overview, History (saved coding sessions; shows examples until a person's sessions are connected), Docs, Dev Practices, Library (share and download code with other signed-in users), Settings (the Account ID the Starter Kit asks for, and a switch to show or hide built-in shortcuts) and Previewer (paste code and see it as a picture).
 

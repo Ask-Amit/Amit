@@ -1,0 +1,406 @@
+/* amit_coder_screen.js v0.01 (2026-11-26) - the working screen of Amit Coder (the Coding page).
+   Carried over from the round-trip test (RoundTripTest\page.html). The one difference: it talks to the person's computer only
+   through AmitCoderLink (amit_coder_link.js), which goes through the shared Amit Helper.
+   AmitCoderScreen.mount(element) puts the screen on a page. The same screen is moved if the page is rebuilt, so nothing is lost. */
+(function () {
+  'use strict';
+  if (window.AmitCoderScreen) return;
+
+  var CSS = `
+#cd{flex:1;min-height:0;display:flex;flex-direction:column;position:relative;font-size:15px;line-height:1.5;color:var(--amit-text,#f0e8d0)}
+#cd button,#cd select,#cd textarea,#cd input{font:inherit;color:inherit}
+#cd button,#cd select{background:#0f2338;border:1px solid rgba(201,168,76,.55);border-radius:6px;padding:4px 11px;cursor:pointer}
+#cd button:disabled{opacity:.4;cursor:default}
+#cd .gold{background:#c9a84c;color:#09141f;font-weight:700}
+#cd .cd-top{background:#0f2338;padding:7px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-bottom:1px solid rgba(201,168,76,.4)}
+#cd-info{font-size:12.5px;opacity:.75;width:100%}
+#cd-meter{width:100%;display:flex;gap:18px;flex-wrap:wrap;align-items:center;font-size:13.5px}
+#cd .m{display:flex;gap:8px;align-items:center}
+#cd .m u{display:inline-block;width:130px;height:9px;border-radius:5px;background:#09141f;overflow:hidden;text-decoration:none}
+#cd .m u i{display:block;height:100%;width:0;background:#50d78c}
+#cd .m small,#cd-age{opacity:.6;font-size:12px}
+#cd-sess,#cd-where{width:100%;font-size:13.5px}
+#cd-where{display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:#9be8bf}
+#cd-where.ask-name{color:#ffd36b}
+#cd .combo{position:relative}
+#cd-drop{position:absolute;left:0;top:100%;z-index:8;min-width:240px;max-height:300px;overflow:auto;background:#0f2338;border:1px solid #c9a84c;border-radius:6px;color:#f0e8d0}
+#cd-drop div{padding:4px 10px;cursor:pointer}
+#cd-drop div.on,#cd-drop div:hover{background:#2a4a6e}
+#cd-project,#cd-find,#cd-topic{background:#050b12;border:1px solid rgba(201,168,76,.55);border-radius:6px;padding:3px 8px}
+#cd-topic{width:220px}
+#cd-tip{display:none;width:100%;gap:12px;align-items:center;flex-wrap:wrap;background:#33280f;border:1px solid #e8be46;border-radius:8px;padding:6px 10px;font-size:13.5px}
+#cd-log{flex:1;min-height:120px;overflow:auto;padding:12px;background:#09141f}
+#cd-past{position:absolute;inset:0;background:rgba(4,10,18,.97);z-index:9;display:flex;flex-direction:column;padding:14px}
+#cd [hidden]{display:none!important}
+#cd-past-bar{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;align-items:center}
+#cd-list{flex:1;overflow:auto;margin-top:10px}
+#cd-list button{display:block;width:100%;text-align:left;margin-bottom:6px;padding:8px 12px}
+#cd-list small{display:block;opacity:.65;font-size:12px}
+#cd .row{display:flex;gap:9px;margin-bottom:7px}
+#cd .what{flex:1;min-width:0}
+#cd .you{background:#14304c;border-radius:8px;padding:7px 11px;white-space:pre-wrap}
+#cd .say{white-space:pre-wrap;word-break:break-word}
+#cd .think{white-space:pre-wrap;opacity:.65;font-style:italic;border-left:3px solid #6b6f86;padding-left:9px}
+#cd .quiet{font-size:12.5px;opacity:.65}
+#cd .err{color:#ff9d8a;font:12.5px Consolas,monospace;white-space:pre-wrap}
+#cd details{background:#0d1d2f;border:1px solid #1f3a56;border-radius:8px;padding:5px 10px}
+#cd summary{cursor:pointer;word-break:break-all}
+#cd pre{white-space:pre-wrap;word-break:break-word;font:12.5px/1.45 Consolas,monospace;background:#050b12;padding:7px;border-radius:5px;margin-top:6px;max-height:320px;overflow:auto}
+#cd .permit{border:2px solid #e8c56a;border-radius:10px;padding:10px;background:#201d12}
+#cd .permit button{margin:8px 8px 0 0}
+#cd .done{font-size:12.5px;opacity:.7;white-space:pre-wrap}
+#cd .work-btn{display:inline-flex;align-items:center;gap:9px;font:13.5px Consolas,monospace;color:#e8c56a}
+#cd .work-btn i{width:16px;height:16px;border:2px solid #e8c56a;border-radius:50%;position:relative}
+#cd .work-btn i::after{content:"";position:absolute;left:5px;top:1px;width:2px;height:5px;background:#e8c56a;transform-origin:50% 100%;animation:cdhand 1s linear infinite}
+#cd .work-btn.finished i{display:none}
+@keyframes cdhand{to{transform:rotate(360deg)}}
+#cd .behind{margin:0 0 9px;border-left:3px solid #2b4a6b;padding-left:10px}
+#cd .extras{border-top:1px solid rgba(201,168,76,.4);padding:7px 12px 0;display:flex;gap:8px;flex-wrap:wrap}
+#cd .extras button.used{background:#3a3320;border-color:#e8c56a}
+#cd .compose{padding:7px 70px 9px 12px;display:flex;gap:9px;align-items:flex-end}
+#cd-box{flex:1;background:#050b12;border:1px solid rgba(201,168,76,.55);border-radius:8px;padding:8px;height:70px;resize:vertical}
+`;
+
+  var HTML = `
+<div class="cd-top">
+  <label>Model <select id="cd-model"><option value="">my default</option><option value="opus">opus</option><option value="claude-sonnet-5-5">Sonnet 5.5</option><option value="sonnet">sonnet</option><option value="haiku">haiku</option></select></label>
+  <label>Effort <select id="cd-effort"><option value="">my default</option><option>low</option><option>medium</option><option>high</option></select></label>
+  <label>Setup <select id="cd-hooks"><option value="light">light (buttons)</option><option value="full">my full setup</option></select></label>
+  <button id="cd-new">New session</button><button id="cd-past-open" title="Open or continue an earlier session">📂 Sessions</button><button id="cd-resume">Resume last</button>
+  <div id="cd-meter"><span class="m" id="cd-m-five_hour"><b>5-hour</b><u><i></i></u><span>waiting for the first message</span><small></small></span><span class="m" id="cd-m-seven_day"><b>Week</b><u><i></i></u><span>waiting</span><small></small></span><span id="cd-age"></span></div>
+  <div id="cd-where"><b>Project</b><span class="combo"><input id="cd-project" placeholder="type to find a project" autocomplete="off"><div id="cd-drop" hidden></div></span><b>Topic</b><input id="cd-topic" placeholder="optional, like Amit Pad, then Enter" title="The part of the project you are working on. It is added to the session name."><span id="cd-where-text"></span></div>
+  <div id="cd-sess"></div>
+  <div id="cd-tip"><span></span><button id="cd-tip-new" class="gold" title="Saves and wraps up (this uses Claude), then opens a new session">Save and start new session</button></div>
+  <div id="cd-info">Looking for your computer…</div>
+</div>
+<div id="cd-log"></div>
+<div id="cd-past" hidden><div><b style="color:#e8c56a">Earlier sessions</b> <button id="cd-past-close">Close</button></div><div id="cd-past-bar"><input id="cd-find" placeholder="find by name or words"><label>Sort <select id="cd-sort"><option value="new">newest first</option><option value="name">by project name</option></select></label></div><div id="cd-list"></div></div>
+<div class="extras">
+  <button data-b="save" data-label="Save and wrap up" title="The program saves the text; Claude then updates your project notes. This can change files.">💾 Save and wrap up</button>
+  <button data-b="scripture" data-label="Study Scripture" title="Loads the Scripture research standard. Type your question first, or press it and then ask.">📖 Study Scripture</button>
+  <button data-b="amit" data-label="Talk with Amit" title="Brings Amit forward as companion">🤝 Talk with Amit</button>
+  <button data-b="apps" data-label="What apps are there?" title="Looks up the list of applications">🗂 What apps are there?</button>
+  <button data-b="release" data-label="Helper release rules (loads the rules only)" title="Developer. It only loads the rules.">🛠 Helper release rules (developer)</button>
+</div>
+<div class="compose">
+  <textarea id="cd-box" placeholder="Type here and press Enter (Shift+Enter for a new line)"></textarea>
+  <button id="cd-send" class="gold">Send</button><button id="cd-stop" disabled>■ Stop</button>
+</div>`;
+
+  var root = null;
+
+  function build() {
+    var style = document.createElement('style'); style.textContent = CSS; document.head.appendChild(style);
+    root = document.createElement('div'); root.id = 'cd'; root.innerHTML = HTML;
+    var q = function (id) { return root.querySelector('#cd-' + id); };
+    var link = function () { return window.AmitCoderLink; };
+    var extras = function () { return Array.prototype.slice.call(root.querySelectorAll('.extras button')); };
+    var run = null, blocks = {}, tools = {}, ready = false, wantNew = false, openedAt = Date.now();
+    var secs = function (ms) { return (ms / 1000).toFixed(ms < 1000 ? 3 : 1); };
+    var opts = function () { return { model: q('model').value, effort: q('effort').value, hooks: q('hooks').value }; };
+    var store = function (k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem(k)); localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} return null; };
+
+    function controls() {
+      var busy = !!(run && !run.over);
+      q('send').disabled = !ready || busy; q('stop').disabled = !busy;
+      extras().forEach(function (b) { b.disabled = !ready || busy; });
+      ['new', 'resume', 'past-open'].forEach(function (id) { q(id).disabled = !ready; });
+    }
+    function row(cls, text, t, onForm) {
+      var l = q('log'), into = (!onForm && run && run.panel) ? run.panel : l, stick = l.scrollHeight - l.scrollTop - l.clientHeight < 60;
+      var r = document.createElement('div'), w = document.createElement('div');
+      r.className = 'row'; w.className = 'what ' + (cls || ''); if (text != null) w.textContent = text;
+      r.appendChild(w); into.appendChild(r); if (stick) l.scrollTop = l.scrollHeight; return w;
+    }
+    // The form shows what was typed and the result. Everything in between sits behind one button with a running timer.
+    function detailsButton() {
+      var w = row('', null, 0, true), b = document.createElement('button'), i = document.createElement('i'), s = document.createElement('span'), p = document.createElement('div');
+      b.className = 'work-btn'; s.textContent = 'Working… 0.0s'; b.append(i, s); p.className = 'behind'; p.hidden = true; b.title = 'Show or hide what happened behind the scenes'; b.onclick = function () { p.hidden = !p.hidden; };
+      w.appendChild(b); q('log').appendChild(p); run.btn = b; run.label = s; run.panel = p; q('log').scrollTop = q('log').scrollHeight;
+    }
+    function follow() { var l = q('log'); if (l.scrollHeight - l.scrollTop - l.clientHeight < 140) l.scrollTop = l.scrollHeight; }
+    function fold(title, body, t, open) { var w = row('', null, t), d = document.createElement('details'), s = document.createElement('summary'), p = document.createElement('pre'); s.textContent = title; p.textContent = body; d.open = !!open; d.append(s, p); w.appendChild(d); return { s: s, p: p, d: d }; }
+    setInterval(function () { if (run && !run.over && run.label) run.label.textContent = 'Working… ' + ((performance.now() - run.p0) / 1000).toFixed(1) + 's' + (run.open ? '  (waiting for your click)' : ''); }, 100);
+
+    function send(button) {
+      var typed = q('box').value.trim();
+      if (!ready || (!typed && !button) || (run && !run.over)) return;
+      var label = button ? '[Button: ' + button.dataset.label + ']' : '', text = [label, typed].filter(Boolean).join('  ');
+      run = { p0: performance.now(), open: 0, text: text }; blocks = {};
+      q('box').value = ''; row('you', text, 0, true); detailsButton(); controls();
+      link().send(typed, Object.assign({ button: button ? button.dataset.b : '' }, opts())).then(function (ok) {
+        if (ok) { if (button) button.classList.add('used'); return; }
+        row('err', 'The message could not be delivered.' + (link().lastError() ? ' ' + link().lastError() : ''), 0, true);
+        if (!q('box').value) q('box').value = typed;
+        end();
+      });
+    }
+    function end() {
+      if (!run || run.over) return;
+      run.done = performance.now() - run.p0; run.over = true;
+      if (run.btn) { run.btn.classList.add('finished'); run.label.textContent = 'Details · ' + secs(run.done) + 's'; }
+      controls();
+    }
+    var short = function (s, n) { s = String(s).replace(/\s+/g, ' '); return s.length > n ? s.slice(0, n) + '…' : s; };
+    var argOf = function (i) { return (i && (i.file_path || i.command || i.pattern || i.query || i.url || i.description || i.prompt)) || ''; };
+    function resultText(c) { if (typeof c === 'string') return c; if (Array.isArray(c)) return c.map(function (x) { return x.type === 'text' ? x.text : '[' + x.type + ']'; }).join('\n'); return JSON.stringify(c, null, 2); }
+    function permission(o, t) {
+      var req = o.request, w = row('', null, t, true), d = document.createElement('div'); d.className = 'permit';
+      var h = document.createElement('b'); h.textContent = 'Claude Code asks permission to use ' + req.tool_name;
+      var p = document.createElement('pre'); p.textContent = JSON.stringify(req.input, null, 2); d.append(h, p);
+      if (run) run.open++;
+      [['Allow', true], ['Deny', false]].forEach(function (pair) {
+        var b = document.createElement('button'); b.textContent = pair[0]; if (pair[1]) b.className = 'gold';
+        b.onclick = function () {
+          link().permission(o.request_id, pair[1]).then(function (ok) {
+            d.querySelectorAll('button').forEach(function (x) { x.remove(); });
+            var s = document.createElement('div'); s.textContent = ok ? 'You pressed ' + pair[0] + '.' : 'This request is no longer waiting.'; d.appendChild(s);
+            if (run && run.open) run.open--;
+            if (ok && run && run.panel) run.panel.appendChild(w.parentNode);
+          });
+        };
+        d.appendChild(b);
+      });
+      w.appendChild(d); follow();
+    }
+
+    /* ── plan use, as Claude Code reports it with its replies; shown as received ── */
+    var kept = store('amit_coder_meter') || {}, meter = kept.meter || {}, meterAt = kept.at || 0;
+    function drawMeter() {
+      ['five_hour', 'seven_day'].forEach(function (key) {
+        var w = meter[key]; if (!w) return;
+        var el = q('m-' + key), pct = Math.round(w.utilization * 100), reset = w.resetsAt * 1000, past = reset < Date.now(), bar = el.querySelector('i');
+        bar.style.width = past ? '0' : Math.min(100, pct) + '%'; bar.style.background = pct >= 90 ? '#ff6b5a' : pct >= 70 ? '#e8be46' : '#50d78c';
+        el.querySelector('span').textContent = past ? 'has reset, waiting for a new reading' : pct + '% used';
+        var d = new Date(reset), mins = Math.max(0, Math.round((reset - Date.now()) / 60000)), clock = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        el.querySelector('small').textContent = past ? '' : mins < 1440 ? 'resets ' + clock + ' (in ' + Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm)' : 'resets ' + d.toLocaleDateString([], { weekday: 'short' }) + ' ' + clock;
+      });
+      if (meterAt) { var a = Math.floor((Date.now() - meterAt) / 60000); q('age').textContent = a < 1 ? 'read just now' : 'read ' + a + ' min ago'; }
+    }
+    setInterval(drawMeter, 15000);
+
+    /* ── session cost and forecast. Tokens are counted as Claude Code reports them; the share of the 5-hour limit is learned, so it is rough ── */
+    var S, jobN, lastPct = null, lastPctAt = 0;
+    var learned = store('amit_coder_learned') || { pct: 0, units: 0 }, fresh0 = store('amit_coder_freshsize') || 0;
+    function newJob() { jobN = { requests: 0, from: null, to: null }; }
+    function newTally(id) { S = { id: id, tokens: 0, units: 0, base: { tokens: 0, units: 0 }, jobs: 0, requests: 0, ctx: 0, win: 0, reply: 0, lastAt: 0, pct: 0, first: true }; newJob(); }
+    newTally(null);
+    var fmt = function (n) { return n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1000 ? Math.round(n / 1000) + 'k' : String(Math.round(n)); };
+    var share = function (units) { return learned.pct >= 0.03 && learned.units > 0 ? units * learned.pct / learned.units * 100 : null; };
+    var pctText = function (p) { return p < 1 ? 'under 1%' : 'about ' + Math.round(p) + '%'; };
+    function track(o, t) {
+      if (o.type === 'system' && o.subtype === 'init' && o.session_id !== S.id) { if (S.id === null) S.id = o.session_id; else newTally(o.session_id); }
+      if (o.type === 'rate_limit_event') {
+        var w = o.rate_limit_info && o.rate_limit_info.unifiedWindows && o.rate_limit_info.unifiedWindows.five_hour;
+        if (w) { var now = { u: w.utilization, r: w.resetsAt }; if (!jobN.from) jobN.from = lastPct && t - lastPctAt < 120000 ? lastPct : now; jobN.to = now; lastPct = now; lastPctAt = t; }
+      }
+      if (o.type === 'stream_event' && !o.parent_tool_use_id && o.event.type === 'message_start') {
+        var u = o.event.message.usage || {}, size = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+        S.ctx = size; jobN.requests++;
+        if (S.first && size) { S.first = false; if (S.jobs === 0) { fresh0 = size; store('amit_coder_freshsize', size); } }
+      }
+      if (o.type === 'result') {
+        var tok = 0, units = 0, out = 0;
+        Object.values(o.modelUsage || {}).forEach(function (m) {
+          tok += m.inputTokens + m.outputTokens + m.cacheReadInputTokens + m.cacheCreationInputTokens; out += m.outputTokens;
+          units += m.inputTokens + 0.1 * m.cacheReadInputTokens + 2 * m.cacheCreationInputTokens + 5 * m.outputTokens; if (m.contextWindow) S.win = m.contextWindow;
+        });
+        if (units < S.last) S.base = { tokens: S.tokens, units: S.units };
+        var jobUnits = S.base.units + units - S.units;
+        S.tokens = S.base.tokens + tok; S.units = S.base.units + units; S.last = units; S.jobs++; S.requests += jobN.requests; S.reply = out / Math.max(1, S.requests); S.lastAt = t;
+        if (jobN.from && jobN.to && jobN.from.r === jobN.to.r && jobUnits > 0) {
+          var d = Math.max(0, jobN.to.u - jobN.from.u); S.pct += d; learned.pct += d; learned.units += jobUnits;
+          if (Date.now() - t < 60000) store('amit_coder_learned', learned);
+        }
+        newJob(); drawSession();
+      }
+    }
+    function drawSession() {
+      var line = q('sess'), tip = q('tip');
+      if (!S.jobs) { line.textContent = 'This session: nothing used yet'; tip.style.display = 'none'; return; }
+      var perJob = Math.max(1, S.requests / S.jobs), cold = Date.now() - S.lastAt > 60 * 60000;
+      var warm = perJob * (0.1 * S.ctx + 5 * S.reply), next = cold ? warm + 1.9 * S.ctx : warm, used = share(S.units), np = share(next);
+      line.textContent = 'This session: ' + fmt(S.tokens) + ' tokens' + (used === null ? '' : ', ' + pctText(used) + ' of the 5-hour limit') +
+        '  ·  Next message: ' + (np === null ? fmt(S.ctx) + ' of history goes with it (a % appears once the meter has moved enough to learn from)' : pctText(np) + ' of the 5-hour limit (rough)') +
+        (S.win ? '  ·  Session ' + Math.round(S.ctx / S.win * 100) + '% full' : '');
+      var advice = '';
+      if (fresh0 && S.ctx > fresh0 * 1.2) {
+        var startCost = 2 * fresh0, saved = 0.1 * (S.ctx - fresh0), after = Math.ceil(startCost / saved);
+        if (cold && 2 * S.ctx > startCost) advice = 'This session has been quiet over an hour, so continuing means saving its whole history again. Starting fresh is likely cheaper.';
+        else if (after <= 10) advice = 'This session is getting heavy. A fresh one should pay for itself after about ' + after + ' requests (about ' + Math.max(1, Math.round(after / perJob)) + ' messages like yours).';
+      }
+      if (S.win && S.ctx / S.win >= 0.7) advice = 'This session is nearly full and will soon be condensed. Save it and start a new one.';
+      tip.style.display = advice ? 'flex' : 'none'; tip.querySelector('span').textContent = advice;
+    }
+    setInterval(drawSession, 30000);
+
+    /* ── what Claude Code reports ── */
+    function claude(o, t) {
+      if (o.type === 'rate_limit_event') {
+        var w = o.rate_limit_info && o.rate_limit_info.unifiedWindows;
+        if (w && t >= meterAt) { for (var k in w) if (w[k] && typeof w[k].utilization === 'number') meter[k] = w[k]; meterAt = t; store('amit_coder_meter', { meter: meter, at: t }); drawMeter(); }
+        return;
+      }
+      if (o.type === 'system') {
+        if (o.subtype === 'init') {
+          q('info').textContent = 'Model: ' + o.model + ' · permission mode: ' + o.permissionMode + ' · API key in use: ' + (o.apiKeySource === 'none' ? 'no (your sign-in)' : o.apiKeySource);
+          fold('Session ready: ' + o.model, JSON.stringify(o, null, 2), t);
+        } else if (o.subtype === 'hook_response' && o.outcome && o.outcome !== 'success') fold('A hook had a problem: ' + (o.hook_name || o.hook_event) + ' (' + o.outcome + ')', o.output || o.stderr || o.stdout || '(no output)', t);
+        return;
+      }
+      if (o.type === 'stream_event') {
+        var e = o.event, key = (o.parent_tool_use_id || '') + ':' + e.index;
+        if (e.type === 'content_block_start') {
+          var c = e.content_block;
+          if (c.type === 'text') blocks[key] = { el: row('say', '', t), kind: 'text' };
+          else if (c.type === 'thinking' || c.type === 'redacted_thinking') blocks[key] = { el: row('think', 'Thinking… ', t), kind: 'think' };
+          else if (c.type === 'tool_use') { var f = fold('🔧 ' + c.name + ' (preparing)', '', t); tools[c.id] = { f: f, name: c.name }; blocks[key] = { kind: 'tool', f: f, json: '' }; }
+        } else if (e.type === 'content_block_delta') {
+          var b = blocks[key], dl = e.delta; if (!b) return;
+          if (dl.type === 'text_delta') b.el.textContent += dl.text;
+          else if (dl.type === 'thinking_delta') b.el.textContent += dl.thinking;
+          else if (dl.type === 'input_json_delta') { b.json += dl.partial_json; b.f.p.textContent = b.json; }
+          follow();
+        }
+        return;
+      }
+      if (o.type === 'assistant') {
+        (o.message.content || []).forEach(function (c) {
+          if (c.type !== 'tool_use') return;
+          var x = tools[c.id] || (tools[c.id] = { f: fold('', '', t), name: c.name });
+          x.f.s.textContent = '🔧 ' + c.name + '  ' + short(argOf(c.input), 120); x.f.p.textContent = 'SENT TO THE TOOL:\n' + JSON.stringify(c.input, null, 2); x.start = t;
+        });
+        return;
+      }
+      if (o.type === 'user') {
+        var content = o.message && o.message.content;
+        if (Array.isArray(content)) content.forEach(function (r) {
+          if (r.type !== 'tool_result') return;
+          var x = tools[r.tool_use_id], body = resultText(r.content), took = x && x.start ? ' in ' + secs(t - x.start) + 's' : '';
+          fold((r.is_error ? '✖ Problem from ' : '✔ Result from ') + (x ? x.name : 'tool') + took + ': ' + short(body, 90), body, t);
+        });
+        return;
+      }
+      if (o.type === 'control_request' && o.request.subtype === 'can_use_tool') { permission(o, t); return; }
+      if (o.type === 'result') {
+        end(); var u = o.usage || {};
+        row('done', (o.is_error ? 'Ended with a problem (' + o.subtype + ')' : 'Finished') + ' · your stopwatch ' + (run ? secs(run.done) : '–') + 's · Claude Code\'s own count ' + secs(o.duration_ms || 0) + 's · ' + o.num_turns + ' turn(s)\nTokens: new input ' + (u.input_tokens || 0) + ', written to cache ' + (u.cache_creation_input_tokens || 0) + ', read from cache ' + (u.cache_read_input_tokens || 0) + ', output ' + (u.output_tokens || 0), t);
+        if (o.is_error) row('err', o.result || 'The job ended early (' + o.subtype + ').', t, true); else row('say', o.result || '(no reply text)', t, true);
+        q('log').scrollTop = q('log').scrollHeight;
+        if (wantNew) { wantNew = false; if (!o.is_error) setTimeout(function () { fresh(false); }, 2500); }
+      }
+    }
+
+    function showWhere(d) {
+      q('where-text').textContent = d && d.title ? 'Working on: ' + d.title + '  ·  Saving to: ' + d.folder : (d && d.ask ? 'Which project is this? Choose it so it saves in the right place.' : 'Not named yet');
+      q('where').classList.toggle('ask-name', !!(d && d.ask));
+      projectShown(d && d.title);
+    }
+    function onEvent(e) {
+      if (e.kind === 'session') { showWhere(e.data); return; }
+      if (e.t && e.t < openedAt - 3000) return;                    // what happened before this page was opened is not replayed
+      if (e.kind === 'history') {
+        run = null; q('log').textContent = ''; extras().forEach(function (b) { b.classList.remove('used'); }); controls();
+        row('quiet', 'Opened an earlier session. Type to continue it.' + (e.data.older ? ' (' + e.data.older + ' earlier message(s) are not shown, but they are still part of the session.)' : ''), 0, true);
+        (e.data.turns || []).forEach(function (t) { row('you', t.you, 0, true); if (t.reply) row('say', t.reply, 0, true); });
+        q('log').scrollTop = q('log').scrollHeight; return;
+      }
+      if (e.kind === 'claude') { track(e.data, e.t); claude(e.data, e.t); return; }
+      if (e.kind === 'stderr') { row('err', e.data.msg, e.t); return; }
+      row('quiet', e.data.msg, e.t); if (e.data.ended) { if (run && !run.over) row('err', e.data.msg, e.t, true); end(); }
+    }
+
+    function fresh(resume) {
+      wantNew = false; end(); run = null; q('log').textContent = ''; extras().forEach(function (b) { b.classList.remove('used'); });
+      if (!resume) { newTally(null); drawSession(); showWhere(null); }
+      link().newSession(Object.assign({ resume: !!resume }, opts())).then(function (ok) { if (!ok) row('err', 'That could not be started. ' + link().lastError(), 0, true); controls(); });
+    }
+
+    /* ── earlier sessions ── */
+    var every = [];
+    function showList() {
+      var l = q('list'), find = q('find').value.toLowerCase(), byName = q('sort').value === 'name'; l.textContent = '';
+      every.filter(function (s) { return (s.title + ' ' + s.first).toLowerCase().includes(find); })
+        .sort(function (x, y) { return byName ? ((x.title || '￿').localeCompare(y.title || '￿') || y.at - x.at) : y.at - x.at; })
+        .forEach(function (s) {
+          var b = document.createElement('button'), t = document.createElement('b'), m = document.createElement('small'), busy = Date.now() - s.at < 10 * 60000, sure = false;
+          t.textContent = s.title || s.first || '(no title)';
+          m.textContent = new Date(s.at).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' · ' + s.where + ' · ' + s.messages + ' message(s)' + (busy ? ' · used in the last 10 minutes' : '') + (s.title ? ' · began: ' + s.first : '');
+          b.append(t, m);
+          b.onclick = function () {
+            if (run && !run.over) { m.textContent = 'Wait for the current job to finish first.'; return; }
+            if (busy && !sure) { sure = true; m.textContent = 'This one may still be open somewhere. Using it in two places at once can tangle it. Press again to open it anyway.'; return; }
+            q('past').hidden = true; newTally(null); drawSession(); link().open(s.id, opts()).then(function (ok) { if (!ok) row('err', 'That session could not be opened. ' + link().lastError(), 0, true); });
+          };
+          l.appendChild(b);
+        });
+      if (!l.children.length) l.textContent = 'No session matches.';
+    }
+    q('past-open').onclick = function () {
+      q('past').hidden = false; q('list').textContent = 'Loading…';
+      link().sessions().then(function (all) { if (!Array.isArray(all)) { q('list').textContent = 'The list could not be read.'; return; } every = all; showList(); });
+    };
+    q('past-close').onclick = function () { q('past').hidden = true; };
+    q('find').oninput = showList; q('sort').onchange = showList;
+
+    /* ── project menu: type to narrow it; only existing projects can be chosen ── */
+    var inp = q('project'), drop = q('drop'), all = [], at = 0, chosen = '';
+    var plain = function (s) { return s.toLowerCase().replace(/[^a-z0-9]/g, ''); };
+    function loadProjects(then) { if (!ready) return; link().projects().then(function (p) { if (Array.isArray(p)) all = p.slice().sort(function (a, b) { return a.localeCompare(b); }); if (then) then(); }); }
+    var matches = function () { return all.filter(function (p) { return plain(p).includes(plain(inp.value === chosen ? '' : inp.value)); }); };
+    function draw() {
+      var m = matches(); at = Math.max(0, Math.min(at, m.length - 1)); drop.textContent = '';
+      m.forEach(function (p, i) { var d = document.createElement('div'); d.textContent = p; if (i === at) d.className = 'on'; d.onmousedown = function (e) { e.preventDefault(); pick(p); }; drop.appendChild(d); });
+      if (!m.length) { var d = document.createElement('div'); d.textContent = 'No project matches. (New project is not built yet.)'; drop.appendChild(d); }
+      drop.hidden = false; var on = drop.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
+    }
+    function pick(p) {
+      drop.hidden = true;
+      link().name(p, q('topic').value).then(function (ok) { if (ok) { chosen = p; inp.value = p; inp.blur(); } else { inp.value = chosen; q('where-text').textContent = 'That could not be saved as the name.'; } });
+    }
+    function projectShown(title) {
+      var parts = String(title || '').split(' - '); chosen = title ? parts[0] : '';
+      if (document.activeElement !== inp) inp.value = chosen;
+      if (document.activeElement !== q('topic')) q('topic').value = parts.slice(1).join(' - ');
+    }
+    inp.onfocus = function () { inp.select(); at = 0; if (all.length) draw(); else loadProjects(draw); };
+    inp.oninput = function () { at = 0; draw(); };
+    inp.onblur = function () { drop.hidden = true; inp.value = chosen; };
+    inp.onkeydown = function (e) {
+      if (e.key === 'ArrowDown') { at++; draw(); e.preventDefault(); } else if (e.key === 'ArrowUp') { at--; draw(); e.preventDefault(); }
+      else if (e.key === 'Enter') { var m = matches(); if (m[at]) pick(m[at]); e.preventDefault(); } else if (e.key === 'Escape') inp.blur();
+    };
+    q('topic').onkeydown = function (e) { if (e.key === 'Enter' && chosen) { pick(chosen); e.target.blur(); } };
+
+    /* ── buttons ── */
+    q('send').onclick = function () { send(); };
+    extras().forEach(function (b) { b.onclick = function () { send(b); }; });
+    q('box').onkeydown = function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
+    q('stop').onclick = function () { row('quiet', '■ Stop pressed', 0, true); link().stop(); };
+    q('new').onclick = function () { fresh(false); }; q('resume').onclick = function () { fresh(true); };
+    q('tip-new').onclick = function () { if (run && !run.over) return; wantNew = true; send(root.querySelector('.extras button[data-b="save"]')); };
+    q('model').onchange = q('effort').onchange = q('hooks').onchange = function () { row('quiet', 'The new setting applies after New session or Resume last.', 0, true); };
+
+    /* ── the connection ── */
+    function connection(x) {
+      var was = ready; ready = x.code === 'local-ready';
+      if (ready) { if (!was) { q('info').textContent = 'Connected to ' + x.computer + '. Claude Code reports its details after your first message.'; loadProjects(); } }
+      else {
+        if (was && run && !run.over) { row('err', 'The connection to your computer was lost.', 0, true); end(); }
+        q('info').textContent = x.code === 'checking' ? 'Checking the connection…' : x.code === 'signed-out' ? 'Sign in to connect to your computer.' : 'Not connected. ' + (x.missing || []).join(' ');
+      }
+      controls();
+    }
+    link().onState(connection); link().onEvent(onEvent);
+    showWhere(null); drawSession(); drawMeter(); connection(link().state()); link().refresh();
+  }
+
+  window.AmitCoderScreen = {
+    version: '0.01',
+    mount: function (host) {
+      if (!host || !window.AmitCoderLink) return;
+      if (!root) build();
+      if (root.parentNode !== host) host.appendChild(root);
+    }
+  };
+})();

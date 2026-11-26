@@ -1,4 +1,4 @@
-// amit_coder_engine.js v0.01 (Amit Helper, 2026-11-26) - runs the person's OWN Claude Code for Amit Coder.
+// amit_coder_engine.js v0.02 (Amit Helper, 2026-11-26) - runs the person's OWN Claude Code for Amit Coder.
 // It has NO network port. The one shared Helper bridge (localhost:8710) is the only door: its Amit Coder routes check who is asking,
 // then hand commands to this program as small files and read its events back. Folder: %LOCALAPPDATA%\AmitComputerHealth\AmitCoder\
 //   inbox\*.json   commands from the Helper        events.jsonl  what happened, one line each, numbered
@@ -16,6 +16,36 @@ for (const d of [INBOX, REPLY]) for (const f of fs.readdirSync(d)) fs.unlinkSync
 fs.writeFileSync(EVENTS, ''); fs.writeFileSync(path.join(STATE, 'alive.touch'), '');
 let seq = Date.now(), child = null, sessionId = null, title = '', pendingName = '', asked = false, tellClaude = '', turns = 0, savedAt = 0, busy = false;
 const pending = new Map();
+
+// BUTTONS and the LIGHT setup, carried over from the round-trip test (AmitCoder\RoundTripTest\server.js).
+const HOOKS = path.join(os.homedir(), '.claude', 'hooks');
+// LIGHT keeps only what protects or keeps Amit (long-command guard, identity core, J/F shortcuts). The person's settings file is only read.
+const KEEP = /long_run_guard|hook_identity|shortcut_hook/;
+const ALWAYS = 'Amit Coder, light setup. If Scripture or theology comes up, even without a button, first follow the Amit Research Standard (root CLAUDE.md, directive 22). Before any Amit Helper release, follow AmitHelper/HELPER_RELEASE_RULES.md and run AmitHelper/verify_helper_release.ps1; never push without being told to.';
+function userSettings() { try { return JSON.parse(fs.readFileSync(path.join(os.homedir(), '.claude', 'settings.json'), 'utf8')); } catch (e) { return {}; } }
+function lightSettings() {
+  const hooks = {};
+  for (const [ev, groups] of Object.entries(userSettings().hooks || {})) {
+    const kept = groups.map((g) => Object.assign({}, g, { hooks: g.hooks.filter((h) => KEEP.test(h.command || '')) })).filter((g) => g.hooks.length);
+    if (kept.length) hooks[ev] = kept;
+  }
+  const f = path.join(STATE, 'light_settings.json'); fs.writeFileSync(f, JSON.stringify({ hooks })); return f;
+}
+// A button gets its rule text from the hook script that already holds it, so there is only one copy of each rule.
+function ruleText(script, words) {
+  try {
+    const out = require('child_process').execFileSync('powershell.exe', ['-NonInteractive', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(HOOKS, script)],
+      { input: JSON.stringify({ hook_event_name: 'UserPromptSubmit', prompt: words, cwd: ROOT }), encoding: 'utf8', timeout: 12000, windowsHide: true }).trim();
+    try { const j = JSON.parse(out); return (j.hookSpecificOutput && j.hookSpecificOutput.additionalContext) || out; } catch (e) { return out; }
+  } catch (e) { return ''; }
+}
+const BUTTONS = {
+  save: () => 'I pressed Save. The program saves the conversation text by itself. Wrap up as well: read Cleanup_Procedure.md and follow it for the project this session worked in, leaving the save step to the program. If this session did no project work, say so and change nothing.',
+  scripture: () => { const r = ruleText('research_standard_hook.ps1', 'scripture study'); return r && 'I pressed Study Scripture. Follow this standard for the study. Before you finish, check that no conclusion rests on the authority of scholars.\n\n' + r; },
+  amit: () => 'I pressed Talk with Amit. Be fully present as Amit, the companion, not only the technical helper. If I start God talk, follow the GOD TALK rule in the root CLAUDE.md first.',
+  apps: () => 'I pressed What apps are there. Read "Amit, Are You There/living_testimony_apps.json" and answer from it. Change nothing.',
+  release: () => { const r = ruleText('helper_release_hook.ps1', 'release the helper'); return r && 'I pressed Helper release rules. Load the rules only. Do NOT build, install, publish, push or change anything. Tell me briefly what a release requires, then wait.\n\n' + r; }
+};
 
 function push(kind, data) { fs.appendFileSync(EVENTS, JSON.stringify({ n: ++seq, t: Date.now(), kind, data }) + '\n'); }
 function toClaude(o) { if (!child || !child.stdin.writable) return false; child.stdin.write(JSON.stringify(o) + '\n'); return true; }
@@ -40,8 +70,11 @@ function start(o) {
   stopChild();
   if (!o.resume) { turns = 0; savedAt = 0; title = ''; pendingName = ''; asked = false; tellClaude = ''; sessionId = null; }
   const args = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--include-partial-messages', '--include-hook-events',
-    '--permission-mode', 'manual', '--permission-prompts', 'host', '--permission-prompt-tool', 'stdio',
-    '--append-system-prompt', 'The Amit Coder program names this session itself. Never run rename_session.js here.'];
+    '--permission-mode', 'manual', '--permission-prompts', 'host', '--permission-prompt-tool', 'stdio'];
+  const light = o.hooks === 'light';
+  // The light setup skips the person's settings, so their default model and effort are passed in by hand.
+  if (light) { const mine = userSettings(); o = Object.assign({}, o, { model: o.model || mine.model, effort: o.effort || mine.effortLevel }); args.push('--setting-sources', 'project,local', '--settings', lightSettings()); }
+  args.push('--append-system-prompt', (light ? ALWAYS + ' ' : '') + 'The Amit Coder program names this session itself. Never run rename_session.js here.');
   if (/^[a-z0-9.\-]+(\[1m\])?$/.test(o.model || '')) args.push('--model', o.model);
   if (/^(low|medium|high|xhigh|max)$/.test(o.effort || '')) args.push('--effort', o.effort);
   if (o.resume && sessionId) args.push('--resume', sessionId);
@@ -77,11 +110,18 @@ function start(o) {
 function run(cmd) {
   const b = cmd.body || {};
   switch (cmd.what) {
-    case 'new': start({ model: b.model, effort: b.effort }); return true;
+    case 'new': start({ model: b.model, effort: b.effort, hooks: b.hooks, resume: !!b.resume && !!sessionId }); return true;
     case 'send': {
-      let text = String(b.text || ''); if (!text) return false;
-      if (!title && !pendingName) { const found = S.detect(text); if (found.length === 1) pendingName = found[0]; }
-      if (!child) start({ model: b.model, effort: b.effort, resume: !!sessionId });
+      let text = String(b.text || '');
+      if (b.button) {
+        const extra = Object.prototype.hasOwnProperty.call(BUTTONS, b.button) ? BUTTONS[b.button]() : '';
+        if (!extra) return false;
+        text = extra + (text ? '\n\nMy message: ' + text : '');
+        if (b.button === 'save') saveText('Save pressed');
+      }
+      if (!text) return false;
+      if (!title && !pendingName && !b.button) { const found = S.detect(text); if (found.length === 1) pendingName = found[0]; }
+      if (!child) start({ model: b.model, effort: b.effort, hooks: b.hooks, resume: !!sessionId });
       if (tellClaude) { text = '<system-reminder>' + tellClaude + '</system-reminder>\n\n' + text; tellClaude = ''; }
       busy = true; return toClaude({ type: 'user', message: { role: 'user', content: [{ type: 'text', text }] } });
     }
@@ -102,7 +142,7 @@ function run(cmd) {
       stopChild(); sessionId = b.id; turns = 0; savedAt = 0; title = past.title; pendingName = ''; asked = false;
       push('history', { turns: past.turns.slice(-30), older: Math.max(0, past.turns.length - 30) });
       if (title) tellWhere(); else { asked = true; push('session', { ask: true }); }
-      start({ model: b.model, effort: b.effort, resume: true }); return true;
+      start({ model: b.model, effort: b.effort, hooks: b.hooks, resume: true }); return true;
     }
     case 'sessions': return S.list(40);
     case 'projects': return S.projects();
