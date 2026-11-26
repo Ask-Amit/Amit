@@ -2045,7 +2045,7 @@ try {
                 # KEEP THE FILE LIST THE SAME AS make_helper_manifest.ps1.
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else {
-                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_dictate.html','amit_talk.html','AmitPreview.html','amit_update.ps1','amit_reload.ps1','amit_crash_check.ps1','amit_appcrash.ps1','amit_pad.html','amit_pad_pair.html','AmitBar.cs','AmitToolkit.psm1','never_list.json','amit_script_check.ps1','amit_script_host.ps1','amit_run_script.ps1','amit_script_routes.ps1','AmitScriptPopup.html','amit_claude_run.ps1','amit_claude_hook.ps1','AmitClaudePopup.html')
+                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_dictate.html','amit_talk.html','AmitPreview.html','amit_update.ps1','amit_reload.ps1','amit_crash_check.ps1','amit_appcrash.ps1','amit_pad.html','amit_pad_pair.html','AmitBar.cs','AmitToolkit.psm1','never_list.json','amit_script_check.ps1','amit_script_host.ps1','amit_run_script.ps1','amit_script_routes.ps1','amit_coder_routes.ps1','amit_coder_engine.js','amit_coder_sessions.js','AmitScriptPopup.html','amit_claude_run.ps1','amit_claude_hook.ps1','AmitClaudePopup.html')
                     $hsSha = [System.Security.Cryptography.SHA256]::Create()
                     $hsParts = @()
                     foreach ($hsN in $hsNames) {
@@ -3339,6 +3339,15 @@ secret key must never appear here, ever, under any circumstance.
                 if (-not (Get-Command Invoke-AmitScriptRoute -ErrorAction SilentlyContinue) -and (Test-Path $asRoutes)) { . $asRoutes }
                 if (Get-Command Invoke-AmitScriptRoute -ErrorAction SilentlyContinue) { Invoke-AmitScriptRoute -Path $path -Request $request -Response $response -SiteOrigins $AmitSiteOrigins }
                 else { Send-JsonRaw $response '{"ok":false,"error":"Custom script buttons are not installed on this computer yet."}' 404 }
+            }
+            # Amit Coder (2026-11-26): everything under /api/coder/ is handled by amit_coder_routes.ps1, which uses the account checks in amit_script_routes.ps1. Loaded only when asked for.
+            { $_ -like '/api/coder/*' } {
+                $asRoutes = Join-Path $watcherDir 'amit_script_routes.ps1'
+                $acRoutes = Join-Path $watcherDir 'amit_coder_routes.ps1'
+                if (-not (Get-Command Invoke-AmitScriptRoute -ErrorAction SilentlyContinue) -and (Test-Path $asRoutes)) { . $asRoutes }
+                if (-not (Get-Command Invoke-AmitCoderRoute -ErrorAction SilentlyContinue) -and (Test-Path $acRoutes)) { . $acRoutes }
+                if (Get-Command Invoke-AmitCoderRoute -ErrorAction SilentlyContinue) { Invoke-AmitCoderRoute -Path $path -Request $request -Response $response -SiteOrigins $AmitSiteOrigins -WatcherDir $watcherDir }
+                else { Send-JsonRaw $response '{"ok":false,"error":"The coding connection is not installed on this computer yet."}' 404 }
             }
             default {
                 $response.StatusCode = 404

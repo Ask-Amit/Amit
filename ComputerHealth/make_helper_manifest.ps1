@@ -17,7 +17,7 @@ $names = @(
     "amit_bridge_server.ps1", "ComputerHealth_Dashboard.html",
     "activity_watcher2.ps1", "resource_watcher.ps1", "diagnostics_watcher.ps1", "app_behavior_watcher.ps1", "install_snapshot_watcher.ps1",
     "Run_AmitTracker.ps1", "process_inbox.bat", "process_inbox_prompt.txt",
-    "amit_whisper.cs", "amit_whisper.html", "amit_dictate.html", "amit_talk.html", "AmitPreview.html", "amit_update.ps1", "amit_reload.ps1", "amit_crash_check.ps1", "amit_appcrash.ps1", "amit_pad.html", "amit_pad_pair.html", "AmitBar.cs", "AmitToolkit.psm1", "never_list.json", "amit_script_check.ps1", "amit_script_host.ps1", "amit_run_script.ps1", "amit_script_routes.ps1", "AmitScriptPopup.html", "amit_claude_run.ps1", "amit_claude_hook.ps1", "AmitClaudePopup.html"
+    "amit_whisper.cs", "amit_whisper.html", "amit_dictate.html", "amit_talk.html", "AmitPreview.html", "amit_update.ps1", "amit_reload.ps1", "amit_crash_check.ps1", "amit_appcrash.ps1", "amit_pad.html", "amit_pad_pair.html", "AmitBar.cs", "AmitToolkit.psm1", "never_list.json", "amit_script_check.ps1", "amit_script_host.ps1", "amit_run_script.ps1", "amit_script_routes.ps1", "amit_coder_routes.ps1", "amit_coder_engine.js", "amit_coder_sessions.js", "AmitScriptPopup.html", "amit_claude_run.ps1", "amit_claude_hook.ps1", "AmitClaudePopup.html"
 )
 # where the helper downloads the changed files from (the Amit site; the updater refuses any other address)
 $baseUrl = "https://ask-amit.github.io/Amit/ComputerHealth/"

@@ -1,4 +1,12 @@
 # Amit Computer Health - Local Bridge Server
+# Version v1.20 (2026-11-22, Ryan): imported button icons: /api/icons/save (a small PNG kept as icons\<id>.png, the button's icon field holds img:<id>) and /api/icons/get.
+# Version v1.19 (2026-11-18, Ryan): /api/menu/open passes ?origin= to the Helper (Helper 2.11: Show Amit sends its picture back to the chat that opened it).
+# Version v1.18 (2026-11-17, Ryan): THE NEW HOME ADDRESS. One list of the Amit site's addresses ($AmitSiteOrigins, top of the handler): askamit.org, www.askamit.org
+#   and ask-amit.github.io. The five Amit Preview origin checks and the hardware-sensor download check use it, so pages served from the new domain are not refused.
+# Version v1.17 (2026-11-15, Ryan): THE HANDLER IS PARSED ONCE. Every request used to re-parse the whole 3000-line handler (it was passed to the worker as text), so a page calling 8 times a second made this program churn hundreds of MB a second and its memory pauses froze the mouse hook inside the same process (a jerky pointer, "Mouse hook stopped answering"). The handler now lives as one function (Invoke-AmitBridgeHandler) in the pool's runspaces and each request calls it by name. Also a request counter: more than 240 calls in a minute writes the busiest routes and the calling page to bridge_requests.log.
+# Version v1.16 (2026-11-15, Ryan): APP CRASH CAPTURE. At every start the bridge makes sure the small Windows task "Amit crash catcher" exists (no administrator rights: it only reads logs): every 5 minutes, hidden, it runs amit_appcrash.ps1 -AcTask, which writes an evidence package (data\appcrash\) for any program that crashed or hung and notes when this Helper stops answering. It runs whether or not Watch mode is on; Watch mode only adds the detailed trace to the package. The one-time sensor permission also switches on Windows crash dumps for the Amit programs (a Windows setting that needs the administrator OK given there once). Card wording updated to say so.
+# Version v1.15 (2026-11-14, Ryan): new route /api/crash-notice (GET = "we noticed a Windows crash" for the Hub's pop-up, POST ?ack=<id> = answered); amit_crash_check.ps1 v1.01 writes the notice at every start after an unclean shutdown, Watch mode or not.
+# Version v1.14 (2026-11-14, Ryan): WATCH MODE. New route /api/watch-mode (GET = state, POST ?on=1|0 = switch). While it is on there is NO idle stop (the timer and /api/idle-stop both stand down), the recorder keeps a permanent daily trace (resource_watcher.ps1 v1.02), and at every start of this bridge amit_crash_check.ps1 runs: after an unclean shutdown it packages the trace + Windows events into data\pending\zcrash_*.json for the Hub / Computer Health page to save. /api/pending-session-done accepts those file names.
 # Version v1.13 (2026-10-31): new routes /amit-icon-whisper.ico and /amit-icon-read.ico (each part of Amit has its own icon; same circle and ring, only the symbol changes).
 # Version v1.10 (2026-10-30)
 # v1.10: new route /amit-icon.ico (the Amit icon for the offline Amit Live page).
@@ -107,6 +115,45 @@ try {
 # temp folder survive a restart of the computer, so a leftover marker from an earlier run is cleared here (v1.03).
 try { Remove-Item "$env:TEMP\amit_idle_stop.flag", "$env:TEMP\amit_rotate.flag" -ErrorAction SilentlyContinue } catch {}
 
+# WATCH MODE crash check (v1.14, 2026-11-14, Ryan): the first thing that happens at sign-in. A hidden script that does nothing unless
+# Watch mode is on AND Windows logged an unclean shutdown for this start; then it packages the recorded trace and opens Computer Health once.
+try {
+    $crashCheckPath = Join-Path $watcherDir "amit_crash_check.ps1"
+    if (Test-Path $crashCheckPath) {
+        Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", ('"' + $crashCheckPath + '"') -WindowStyle Hidden
+    }
+} catch {}
+
+# APP CRASH CAPTURE (v1.16, 2026-11-15, Ryan): make sure the "Amit crash catcher" task exists. It is a plain per-user Windows task (no administrator rights,
+# it only reads logs) that runs amit_appcrash.ps1 -AcTask every 5 minutes through conhost --headless (no window), independent of this bridge, so a crash of
+# THIS program is still noticed. Done by a separate hidden PowerShell so starting the bridge never waits. Safe to repeat: nothing changes if the task is right.
+try {
+    $acCatchPath = Join-Path $watcherDir "amit_appcrash.ps1"
+    if ((Test-Path $acCatchPath) -and -not $env:AMIT_BRIDGE_PORT) {   # a test bridge on a test port never touches the real Windows task
+        $acCatchScript = @'
+$ErrorActionPreference = 'Stop'
+try {
+    $name = 'Amit crash catcher'
+    $script = '__PATH__'
+    $arg = '--headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File "' + $script + '" -AcTask'
+    $t = Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
+    if ($t -and $t.Actions[0].Arguments -eq $arg -and $t.Actions[0].Execute -like '*conhost.exe') { exit 0 }
+    $a = New-ScheduledTaskAction -Execute (Join-Path $env:SystemRoot 'System32\conhost.exe') -Argument $arg
+    $who = $env:USERDOMAIN + '\' + $env:USERNAME
+    $tr = New-ScheduledTaskTrigger -AtLogOn -User $who
+    $tr.Repetition = (New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 3650)).Repetition
+    $p = New-ScheduledTaskPrincipal -UserId $who -LogonType Interactive -RunLevel Limited
+    $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 3) -MultipleInstances IgnoreNew
+    Register-ScheduledTask -TaskName $name -Action $a -Trigger $tr -Principal $p -Settings $s -Description 'Notes when an Amit program or any other program crashes or hangs, and keeps the evidence to find out why. Reads Windows logs and Amit logs on this computer only; nothing is sent anywhere.' -Force | Out-Null
+    Start-ScheduledTask -TaskName $name
+} catch {}
+'@
+        $acCatchScript = $acCatchScript.Replace('__PATH__', $acCatchPath.Replace("'", "''"))
+        $acCatchEnc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($acCatchScript))
+        Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-EncodedCommand", $acCatchEnc -WindowStyle Hidden
+    }
+} catch {}
+
 # ── Amit Mobile listener — auto-start (2026-09-05) ──
 # Per root CLAUDE.md's SINGLE LOCAL CONNECTION STANDARD: Amit Mobile's
 # "desktop is thinking and replying" capability does NOT get its own
@@ -121,6 +168,16 @@ try { Remove-Item "$env:TEMP\amit_idle_stop.flag", "$env:TEMP\amit_rotate.flag" 
 # tracker is running. If this bridge is running, Amit Mobile is
 # listening. Nothing else to start by hand.
 $amitMobileStopFlag = "$env:TEMP\amit_mobile_stop.flag"
+# THE HELPER KEEPS ITSELF CURRENT (2026-11-25, Ryan): a small hidden loop runs the updater 90 seconds after this program starts and every 6 hours, whether or not anyone opens the Hub.
+# The updater replaces only what is missing or different, never goes backwards, never interrupts a person who is busy, and puts the old files back if the new ones do not start.
+try {
+    $selfUpdater = Join-Path $watcherDir 'amit_update.ps1'
+    if ((Test-Path $selfUpdater) -and -not $env:AMIT_NO_SELF_UPDATE -and ($watcherDir -like (Join-Path $env:LOCALAPPDATA 'AmitComputerHealth') + '*')) {
+        $loop = "`$parent = " + $PID + "; Start-Sleep -Seconds 90; while (Get-Process -Id `$parent -ErrorAction SilentlyContinue) { & powershell.exe -NoProfile -ExecutionPolicy Bypass -File '" + $selfUpdater.Replace("'", "''") + "'; `$until = (Get-Date).AddHours(6); while ((Get-Date) -lt `$until -and (Get-Process -Id `$parent -ErrorAction SilentlyContinue)) { Start-Sleep -Seconds 60 } }"
+        Start-Process powershell.exe -ArgumentList ('-NoProfile -ExecutionPolicy Bypass -EncodedCommand ' + [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($loop))) -WindowStyle Hidden
+    }
+} catch { Write-Host ('self-update check could not start: ' + $_.Exception.Message) }
+
 $amitMobileWatcherPath = Join-Path $watcherDir "amit_mobile_watcher.ps1"
 try { Remove-Item $amitMobileStopFlag -ErrorAction SilentlyContinue } catch {}
 $alreadyRunning = Get-WmiObject Win32_Process -ErrorAction SilentlyContinue |
@@ -183,7 +240,7 @@ try {
 $amitTrackingDisabledFlag = "$env:TEMP\amit_tracking_disabled.flag"
 if (-not (Test-Path $amitTrackingDisabledFlag)) {
     try {
-        $autoStartCmd = "Start-Sleep -Seconds 2; try { Invoke-RestMethod -Uri 'http://localhost:$port/api/start-tracking' -Method Get -TimeoutSec 25 -ErrorAction Stop | Out-Null } catch {}"
+        $autoStartCmd = "Start-Sleep -Seconds 2; try { Invoke-RestMethod -Uri 'http://localhost:$port/api/start-tracking' -Method Get -TimeoutSec 25 -ErrorAction Stop | Out-Null } catch {}; try { Invoke-RestMethod -Uri 'http://localhost:$port/api/sensors/card-open?logon=1' -Method Get -TimeoutSec 15 -ErrorAction Stop | Out-Null } catch {}"
         Start-Process powershell.exe -ArgumentList "-NoProfile -WindowStyle Hidden -Command `"$autoStartCmd`"" -WindowStyle Hidden -ErrorAction Stop
         Write-Host "Performance tracking will auto-start (default) in a couple seconds - use Stop Tracking in the dashboard to turn it off (stays off across restarts until Start Tracking is used again)."
     } catch {
@@ -196,11 +253,15 @@ if (-not (Test-Path $amitTrackingDisabledFlag)) {
 $handlerScript = {
     param($context, $watcherDir, $dashboardPath, $deviceId, $deviceName, $bridgeState)
 
+    # THE AMIT SITE'S ADDRESSES (2026-11-17, v1.18): askamit.org is the new home; ask-amit.github.io stays trusted during the move. Add or retire an address HERE only
+    # (it must match AmitSiteOrigins in amit_whisper.cs and the trusted list in amit_update.ps1).
+    $AmitSiteOrigins = @('https://askamit.org','https://www.askamit.org','https://ask-amit.github.io')
+
     # Amit Helper bar (2026-11-01, Ryan): the Hub (which holds the login) sends the person's WHOLE bar down; this checks it against the safe step list and writes the
     # file the bar reads (amit_bar.json). The bar reloads by itself when the file changes. Every call replaces the whole file, so nothing old survives a delete.
     # Parsed with .NET's JavaScriptSerializer and written by hand: ConvertTo-Json/ConvertFrom-Json can hang on a cold runspace (see ConvertTo-JsonString below).
     function Write-AmitBarConfig([string]$Body, [string]$Path) {
-        $safe = @('open_app','open_url','open_program','play_music','speak','ask_amit','wait','open_file','audio','print')
+        $safe = @('open_app','open_url','open_program','play_music','speak','ask_amit','wait','open_file','audio','print','preview','preview_rules','menu','winact','run_script')   # preview and preview_rules: the Amit Preview button (2026-11-07); menu: Open a menu (2026-11-08); winact: a named Windows action by id (2026-11-16); run_script: a custom script button, the text is the button id (2026-11-24)
         $kinds = @('app','web','music','program','multi','ask')
         $fnFail = { param($m) return @{ ok = $false; error = $m } }
         $fnGet = { param($d, $k) if ($d -is [System.Collections.IDictionary] -and $d.ContainsKey($k)) { return $d[$k] } else { return $null } }
@@ -238,6 +299,9 @@ $handlerScript = {
                     $mv = & $fnGet $s 'ms';   if ($null -ne $mv) { $ms = [int][Math]::Max(0, [Math]::Min(60000, [double]$mv)) }
                     if ($st -eq 'audio') { $u = $null; $pa = $null; $ac = Get-AmitAudioCfg ([string](& $fnGet $s 'text')); if ($null -eq $ac) { return (& $fnFail ("the audio setting in '" + $bn + "' is not valid")) }; $tx = $ac; foreach ($lm in [regex]::Matches($ac, '"l":"([^"]*)"')) { if (-not (Get-AmitAudioBoundId $lm.Groups[1].Value)) { $missing++; break } } }
                     if ($st -eq 'print') { $u = $null; $pa = $null; $tx = 'menu' }
+                    if ($st -eq 'menu') { $u = $null; $pa = $null; if ([string]$tx -notmatch '^[a-z0-9-]{1,40}$') { return (& $fnFail ("the menu in '" + $bn + "' is not valid")) } }   # the text is the menu's id; the Helper keeps the list and the way each one opens
+                    if ($st -eq 'winact') { $u = $null; $pa = $null; if ([string]$tx -notmatch '^[a-z0-9-]{1,40}$') { return (& $fnFail ("the Windows action in '" + $bn + "' is not valid")) } }   # the text is the action's id; the bar keeps the keys for each id
+                    if ($st -eq 'run_script') { $u = $null; $pa = $null; if ([string]$tx -notmatch '^[A-Za-z0-9-]{8,64}$') { return (& $fnFail ("the script button id in '" + $bn + "' is not valid")) } }   # the text is the button's id; the script and its questions are kept by the script routes (Toolkit\amit_script_routes.ps1)
                     if ($st -eq 'open_file') { $u = $null; $pa = $null; $bp = Get-AmitBoundPath ([string](& $fnGet $s 'token')); if ($bp -and (Test-AmitFileOk $bp $true)) { $pa = $bp } else { $missing++ } }
                     [void]$stepJson.Add('{"t":' + (& $fnQuote $st) + ',"url":' + (& $fnQuote $u) + ',"path":' + (& $fnQuote $pa) + ',"text":' + (& $fnQuote $tx) + ',"ms":' + $ms + '}')
                 }
@@ -820,6 +884,59 @@ $handlerScript = {
     $sensorReaderPath = Join-Path $watcherDir "AmitSensorReader.exe"
     $sensorDataPath = "$env:TEMP\amit_sensor_data.json"
 
+    # ---- Sensor permission (2026-11-10, Robin): the old way asked Windows for administrator rights through a bare PowerShell box on EVERY sign-in.
+    # Now the Amit card explains first and asks ONCE; that one OK creates a Windows scheduled task (run with the highest rights, started on demand),
+    # and every later sign-in starts the reader through the task with no prompt at all. The reader is copied into Program Files (only an administrator
+    # can change it there) so that nothing running as a normal user can swap it for something else and get administrator rights for free. ----
+    $sensorTaskName = "AmitSensorReader"
+    $amitDataDir = Split-Path $watcherDir -Parent
+    $sensorDeclinedFlag = Join-Path $amitDataDir "sensors_declined.flag"
+    $sensorEnableResult = "$env:TEMP\amit_sensor_enable.txt"
+    # The task counts as set up only when it runs the reader through conhost.exe --headless (no black console window). An older task that
+    # starts the reader directly would show a console window at every sign-in, so it is treated as not set up and the card asks again once.
+    function Test-SensorTask() {
+        try {
+            $st = Get-ScheduledTask -TaskName $sensorTaskName -ErrorAction Stop
+            return ([string]$st.Actions[0].Execute -like '*conhost.exe')
+        } catch { return $false }
+    }
+    function Start-SensorTask() {
+        try { & schtasks.exe /run /tn $sensorTaskName *> $null; return ($LASTEXITCODE -eq 0) } catch { return $false }
+    }
+    function Stop-SensorTask() {
+        try { & schtasks.exe /end /tn $sensorTaskName *> $null } catch {}
+    }
+    # "No" is remembered for 30 days, then Amit asks again (a person who said not now may want it later)
+    function Test-SensorDeclined() {
+        try { return ((Test-Path $sensorDeclinedFlag) -and (((Get-Date) - (Get-Item $sensorDeclinedFlag).LastWriteTime).TotalDays -lt 30)) } catch { return $false }
+    }
+    # ---- The welcome sequence checks (2026-11-10, Robin): each answers at once with ok, fail or pending; the card page asks again until it is ok or fail.
+    # "Show the full welcome at every sign-in" is ON unless the file welcome_full.off exists (then the checks run silently and the card opens only if one fails). ----
+    $welcomeOffFlag = Join-Path $amitDataDir "welcome_full.off"
+    function Get-WelcomeHealth() {
+        # (the request handlers do not see top-level variables: the flag's full path is written out, like the stop/start tracking routes do)
+        $tr = Get-TrackerStatus
+        if (-not $tr.running) {
+            # not running: it is "your choice" only when the person really turned tracking off (the flag); otherwise it is still starting
+            if (Test-Path "$env:TEMP\amit_tracking_disabled.flag") { return '{"state":"ok","detail":"Monitoring is turned off (your choice)"}' }
+            return '{"state":"pending","detail":"the monitor is starting"}'
+        }
+        if (Test-SensorTask) {
+            $fresh = $false
+            try { $fresh = (Test-Path $sensorDataPath) -and (((Get-Date) - (Get-Item $sensorDataPath).LastWriteTime).TotalSeconds -lt 15) } catch {}
+            if ($fresh) { return '{"state":"ok","detail":"Monitor connected"}' }
+            if (-not (Get-Process -Name "AmitSensorReader" -ErrorAction SilentlyContinue)) { Start-SensorTask | Out-Null }
+            return '{"state":"pending","detail":"waiting for the first sensor reading"}'
+        }
+        return '{"state":"ok","detail":"Monitor connected (hardware sensors off)"}'
+    }
+    # which card to show: 'wake' (Amit is waking up) or 'ask' (the one-time permission, only when the reader is installed and no OK was given)
+    function Get-SensorCardMode() {
+        if (Test-SensorTask) { return 'wake' }
+        if ((Test-Path $sensorReaderPath) -and -not (Test-SensorDeclined)) { return 'ask' }
+        return 'wake'
+    }
+
     function Get-TrackerStatus() {
         $running = $false
         $pids = @()
@@ -1034,26 +1151,25 @@ $handlerScript = {
             # directly when signaled. No new elevation ever needed again
             # after this one initial approval, and stopping is a plain,
             # always-reliable file write instead of a second UAC gamble.
-            try {
+            # 2026-11-10: no bare Windows prompt any more (see the sensor permission block above). With the one-time OK given, the Windows task starts the reader.
+            if (Test-SensorTask) {
                 Remove-Item $lhmStopFlag -ErrorAction SilentlyContinue
                 Remove-Item $sensorDataPath -ErrorAction SilentlyContinue
-                $lhmWatcherScript = @"
-try {
-    `$readerProc = Start-Process -FilePath '$sensorReaderPath' -ArgumentList '"$sensorDataPath"','"$lhmStopFlag"' -WindowStyle Hidden -PassThru -ErrorAction Stop
-    while (-not (Test-Path '$lhmStopFlag')) {
-        Start-Sleep -Seconds 1
-        `$readerProc.Refresh()
-        if (`$readerProc.HasExited) { break }
-    }
-    if (-not `$readerProc.HasExited) { Stop-Process -Id `$readerProc.Id -Force -ErrorAction SilentlyContinue }
-    Remove-Item '$lhmStopFlag' -ErrorAction SilentlyContinue
-} catch {}
-"@
-                $lhmEncoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($lhmWatcherScript))
-                Start-Process powershell.exe -Verb RunAs -WindowStyle Hidden -ArgumentList "-NoProfile -EncodedCommand $lhmEncoded"
-            } catch {
-                $warnings += "Sensor reader needs admin approval to run (UAC) - sensor readings (temps/voltages/fans) won't be available this session. Resource and diagnostic tracking still work."
+                if (-not (Start-SensorTask)) {
+                    $warnings += "The sensor reader could not be started by its Windows task. Resource and diagnostic tracking still work."
+                }
+            } elseif (-not (Test-SensorDeclined)) {
+                $warnings += "Hardware sensors need a one-time OK. Amit is asking with its welcome card. Resource and diagnostic tracking still work."
+                if (-not $global:AmitSensorCardAsked) {
+                    $global:AmitSensorCardAsked = $true
+                    try { [AmitWhisper]::OpenListedMenu('sensor-welcome') | Out-Null } catch {}
+                }
+            } else {
+                $warnings += "Hardware sensors are off (the one-time OK was not given). Amit will ask again later. Resource and diagnostic tracking still work."
             }
+        } else {
+            # 2026-11-05: the sensor reader (about 72 MB) is no longer inside the installer; it is added on request from the Hardware tab (/api/sensors/install)
+            $warnings += "Hardware sensors (temperatures, fans, voltages) are not added on this computer yet. Open the Hardware tab and press Add hardware sensors. Resource and diagnostic tracking still work."
         }
 
         $activityAlready = Test-WatcherScriptRunning "activity_watcher2.ps1"
@@ -1196,9 +1312,8 @@ try {
                 foreach ($p in $stillRunning) {
                     try { Stop-Process -Id $p.Id -Force -ErrorAction Stop }
                     catch {
-                        try {
-                            Start-Process powershell -Verb RunAs -WindowStyle Hidden -ArgumentList "-NoProfile -Command `"Stop-Process -Name AmitSensorReader -Force -ErrorAction SilentlyContinue`""
-                        } catch {}
+                        # 2026-11-10: the reader runs with administrator rights through its Windows task, so ask the task to end it (no Windows prompt)
+                        Stop-SensorTask
                     }
                 }
             }
@@ -1305,6 +1420,463 @@ try {
             }            "/api/whisper/learn" {
                 if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else { Send-JsonRaw $response ([AmitWhisper]::StartLearn()) }
+            }
+            # ---- Amit Preview, live (2026-11-06): Claude saves the preview it wants to show in preview_current.html (Templates\show_preview.ps1); the Amit Preview
+            # window asks for it here every second or two and shows it by itself, so nothing has to be pasted. Read-only: nothing is written by this route.
+            # /api/preview/current may be asked by the page itself (file:// page = Origin "null", or the Amit site); /api/preview/open only by a local script (no Origin).
+            "/api/preview/current" {
+                $pvOrigin = $request.Headers['Origin']
+                if ($pvOrigin -and $pvOrigin -ne 'null' -and ($AmitSiteOrigins -notcontains $pvOrigin)) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $pvFile = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\preview_current.html'
+                    if (Test-Path $pvFile) {
+                        $pvStamp = [string](Get-Item $pvFile).LastWriteTimeUtc.Ticks
+                        if ($request.QueryString["since"] -eq $pvStamp) { Send-JsonRaw $response ('{"stamp":"' + $pvStamp + '","same":true}') }
+                        else {
+                            # the name of the version this preview belongs to (written by show_preview.ps1; "Amit" when none)
+                            $pvNameFile = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\preview_current.name'
+                            $pvName = 'Amit'; if (Test-Path $pvNameFile) { $pvN = ([System.IO.File]::ReadAllText($pvNameFile, [System.Text.Encoding]::UTF8)).Trim(); if ($pvN.Length -gt 0 -and $pvN.Length -le 24) { $pvName = $pvN } }
+                            # the details of this preview (app, title, version, date), written by show_preview.ps1
+                            $pvMetaFile = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\preview_current.meta.json'
+                            $pvMeta = 'null'; if (Test-Path $pvMetaFile) { $pvM = ([System.IO.File]::ReadAllText($pvMetaFile, [System.Text.Encoding]::UTF8)).Trim(); if ($pvM.StartsWith('{')) { $pvMeta = $pvM } }
+                            Send-JsonRaw $response ('{"stamp":"' + $pvStamp + '","name":' + (ConvertTo-JsonString $pvName) + ',"meta":' + $pvMeta + ',"html":' + (ConvertTo-JsonString ([System.IO.File]::ReadAllText($pvFile, [System.Text.Encoding]::UTF8))) + '}')
+                        }
+                    }
+                    else { Send-JsonRaw $response '{"stamp":"","html":""}' }
+                }
+            }
+            # The history of every preview Claude sent (show_preview.ps1 files each one in preview_history\ with its app, title, version and date). Read-only; same Origin rule.
+            "/api/preview/history" {
+                $pvHO = $request.Headers['Origin']
+                if ($pvHO -and $pvHO -ne 'null' -and ($AmitSiteOrigins -notcontains $pvHO)) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $pvHF = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\preview_history\index.json'
+                    $pvHT = '[]'; if (Test-Path $pvHF) { $pvHR = ([System.IO.File]::ReadAllText($pvHF, [System.Text.Encoding]::UTF8)).Trim(); if ($pvHR.StartsWith('[')) { $pvHT = $pvHR } }
+                    Send-JsonRaw $response ('{"items":' + $pvHT + '}')
+                }
+            }
+            "/api/preview/item" {
+                $pvIO = $request.Headers['Origin']
+                $pvId = [string]$request.QueryString["id"]
+                if ($pvIO -and $pvIO -ne 'null' -and ($AmitSiteOrigins -notcontains $pvIO)) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                elseif ($pvId -notmatch '^[0-9A-Za-z-]{6,40}$') { Send-JsonRaw $response '{"error":"bad id"}' 400 }
+                else {
+                    $pvIDir = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\preview_history'
+                    $pvIH = Join-Path $pvIDir ($pvId + '.html'); $pvIJ = Join-Path $pvIDir ($pvId + '.json')
+                    if (-not (Test-Path $pvIH)) { Send-JsonRaw $response '{"error":"not found"}' 404 }
+                    else {
+                        $pvIM = 'null'; if (Test-Path $pvIJ) { $pvIMr = ([System.IO.File]::ReadAllText($pvIJ, [System.Text.Encoding]::UTF8)).Trim(); if ($pvIMr.StartsWith('{')) { $pvIM = $pvIMr } }
+                        Send-JsonRaw $response ('{"meta":' + $pvIM + ',"html":' + (ConvertTo-JsonString ([System.IO.File]::ReadAllText($pvIH, [System.Text.Encoding]::UTF8))) + '}')
+                    }
+                }
+            }
+            # The Amit Preview page keeps the person's versions (one per AI's answer) on this computer and sends a copy here, so Claude can read them when asked
+            # ("I like version 3's look and version 1's functionality"). Written only by the page itself (Origin "null" or the Amit site); nothing is ever read back out to a web page.
+            "/api/preview/save" {
+                $pvSO = $request.Headers['Origin']
+                if ($request.HttpMethod -ne 'POST' -or ($pvSO -and $pvSO -ne 'null' -and ($AmitSiteOrigins -notcontains $pvSO))) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $pvSR = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $pvSB = $pvSR.ReadToEnd(); $pvSR.Dispose()
+                    if ($pvSB.Length -gt 8000000) { Send-JsonRaw $response '{"error":"too big"}' 413 }
+                    else {
+                        $pvSDir = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth'
+                        # ?archive=N keeps a finished set as its own file (preview_set_N.json); otherwise the current set is saved as preview_versions.json
+                        $pvArch = 0; [void][int]::TryParse([string]$request.QueryString["archive"], [ref]$pvArch)
+                        $pvSName = if ($pvArch -gt 0 -and $pvArch -lt 100000) { "preview_set_$pvArch.json" } else { 'preview_versions.json' }
+                        [System.IO.File]::WriteAllText((Join-Path $pvSDir $pvSName), $pvSB, (New-Object System.Text.UTF8Encoding($false)))
+                        Send-JsonRaw $response '{"ok":true}'
+                    }
+                }
+            }
+            "/api/preview/open" {
+                if ($request.Headers['Origin']) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::OpenPreviewWindow()) }
+            }
+            # What the Amit Preview page decided about a send (page v2.17 on): it checks that the preview came with its details and reports here, stamped with the
+            # send's stamp. The page writes it (POST: Origin "null" or the Amit site); only a local script reads it back (GET, no Origin), so show_preview.ps1 can tell the sender.
+            "/api/preview/status" {
+                $pvStO = $request.Headers['Origin']
+                $pvStF = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\preview_status.json'
+                if ($request.HttpMethod -eq 'POST') {
+                    if ($pvStO -and $pvStO -ne 'null' -and ($AmitSiteOrigins -notcontains $pvStO)) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                    else {
+                        $pvStR = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                        $pvStB = $pvStR.ReadToEnd(); $pvStR.Dispose()
+                        if ($pvStB.Length -gt 20000 -or -not $pvStB.TrimStart().StartsWith('{')) { Send-JsonRaw $response '{"error":"bad"}' 400 }
+                        else { [System.IO.File]::WriteAllText($pvStF, $pvStB, (New-Object System.Text.UTF8Encoding($false))); Send-JsonRaw $response '{"ok":true}' }
+                    }
+                }
+                elseif ($pvStO) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $pvStT = '{}'; if (Test-Path $pvStF) { $pvStX = ([System.IO.File]::ReadAllText($pvStF, [System.Text.Encoding]::UTF8)).Trim(); if ($pvStX.StartsWith('{')) { $pvStT = $pvStX } }
+                    Send-JsonRaw $response $pvStT
+                }
+            }
+            # Press an Amit Helper bar button from a program or an AI (not with the mouse): GET /api/bar/press?profile=Amit%20Coder&button=Amit%20PreView.
+            # Only local callers (no Origin). It runs the button's "preview" step (opens the Amit Preview window) and RETURNS the text of its "note" steps, so whoever pressed the
+            # button is handed the instructions that belong to it (for the preview button: how to send a preview, and what details are required). Any other kind of step is
+            # not run here (the bar itself does those when a person presses the button); they are listed under "skipped".
+            "/api/bar/press" {
+                if ($request.Headers['Origin']) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $bpP = [string]$request.QueryString["profile"]; $bpB = [string]$request.QueryString["button"]
+                    $bpFile = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\amit_bar.json'
+                    Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+                    $bpJs = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+                    $bpBtn = $null
+                    if (Test-Path $bpFile) {
+                        try {
+                            $bpCfg = $bpJs.DeserializeObject([System.IO.File]::ReadAllText($bpFile, [System.Text.Encoding]::UTF8))
+                            foreach ($bpPr in @($bpCfg['profiles'])) { if ([string]$bpPr['name'] -ieq $bpP) { foreach ($bpBt in @($bpPr['buttons'])) { if ([string]$bpBt['name'] -ieq $bpB) { $bpBtn = $bpBt } } } }
+                        } catch { $bpBtn = $null }
+                    }
+                    if (-not $bpBtn) { Send-JsonRaw $response '{"ok":false,"error":"no such button"}' 404 }
+                    else {
+                        $bpNotes = New-Object System.Collections.ArrayList; $bpDid = New-Object System.Collections.ArrayList; $bpSkip = New-Object System.Collections.ArrayList
+                        foreach ($bpSt in @($bpBtn['steps'])) {
+                            $bpK = [string]$bpSt['t']
+                            if ($bpK -eq 'preview') { [void][AmitWhisper]::OpenPreviewWindow(); [void]$bpDid.Add('preview') }
+                            elseif ($bpK -eq 'note') { [void]$bpNotes.Add([string]$bpSt['text']) }
+                            elseif ($bpK -eq 'preview_rules') {
+                                # the rules for sending a preview live in ONE place, the first block of the Amit Preview page itself; this step hands them out (the sync keeps a step's text to 300 characters, so they are never stored in the button)
+                                $bpPg = Join-Path $watcherDir 'AmitPreview.html'
+                                if (Test-Path $bpPg) {
+                                    $bpRm = [regex]::Match([System.IO.File]::ReadAllText($bpPg, [System.Text.Encoding]::UTF8), '<script type="text/plain" id="pvRules">\s*(.*?)\s*</script>', 'Singleline')
+                                    if ($bpRm.Success) { [void]$bpNotes.Add($bpRm.Groups[1].Value.Trim()); [void]$bpDid.Add('preview_rules') }
+                                }
+                            }
+                            elseif ($bpK -ne 'wait') { [void]$bpSkip.Add($bpK) }
+                        }
+                        $bpOut = New-Object 'System.Collections.Generic.Dictionary[string,object]'
+                        $bpOut['ok'] = $true; $bpOut['button'] = [string]$bpBtn['name']; $bpOut['did'] = @($bpDid); $bpOut['notes'] = @($bpNotes); $bpOut['skipped'] = @($bpSkip)
+                        Send-JsonRaw $response ($bpJs.Serialize($bpOut))
+                    }
+                }
+            }
+            # ---- Dictate (v1.56): the Dictate window (page amit_dictate.html). The words are heard in the page itself; Place waits here for the next left click on a text box and types the message there. ----
+            "/dictate" {
+                # Gets this run's secret only when opened directly (same rule as /whisper and /talk).
+                $dictPage = Join-Path $watcherDir "amit_dictate.html"
+                if (Test-Path $dictPage) {
+                    $dTok = ''
+                    if (-not $request.Headers['Origin']) { $dTok = [AmitWhisper]::Token() }
+                    Send-Html $response ([System.IO.File]::ReadAllText($dictPage, [System.Text.Encoding]::UTF8).Replace('__WHISPER_TOKEN__', $dTok).Replace('__START__', [AmitWhisper]::StartId()))
+                }
+                else { $response.StatusCode = 404; Send-Html $response "The Dictate page is not installed." }
+            }
+            # ---- Amit welcome card (2026-11-10): "Amit is waking up" at sign-in, and the ONE-TIME sensor permission. Same secret rule as /dictate. ----
+            "/sensors-welcome" {
+                $swTok = ''
+                if (-not $request.Headers['Origin']) { $swTok = [AmitWhisper]::Token() }
+                $swHtml = @'
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Amit initializing</title><link rel="icon" href="data:image/x-icon;base64,__ICON__">
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{font:14px/1.45 "Segoe UI",system-ui,sans-serif;background:#161c28;color:#e8ecf3;border:2px solid #c9a24a;padding:16px;display:flex;flex-direction:column;overflow:hidden}
+body.err{border-color:#e0605a}
+#root{flex:1;position:relative;display:flex;flex-direction:column;min-height:0}
+.hd{display:flex;gap:12px;align-items:center;margin-bottom:8px}
+.logo{width:42px;height:42px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#f2d98a,#b8862b);display:grid;place-items:center;color:#2a1c00;font-weight:700;font-size:22px;flex:none}
+.logo.pulse{animation:pl 1.4s ease-in-out infinite}@keyframes pl{50%{box-shadow:0 0 0 8px #c9a24a33}}
+.ti{font-weight:600;font-size:16px}
+p{margin:6px 0;color:#cdd6e4}
+ul{list-style:none;padding:0;margin:8px 0}li{padding:2px 0;color:#cdd6e4}li.d::before{content:"\2713  ";color:#8fd19e}
+.btns{display:flex;gap:8px;margin-top:auto;padding-top:10px}
+button{flex:1;padding:10px;border-radius:8px;border:1px solid #2c3750;background:#1f2838;color:#e8ecf3;cursor:pointer;font:inherit}
+button.go{background:#c9a24a;color:#1a1405;border-color:#c9a24a;font-weight:600}
+.step{display:flex;gap:10px;align-items:flex-start;padding:7px 0}
+.ic{width:22px;height:22px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:13px;font-weight:700;border:2px solid #3a4560;color:#9aa6b8;margin-top:1px}
+.ic.wk{border-color:#c9a24a;border-top-color:transparent;animation:sp .8s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
+.ic.ok{background:#2e7d4f;border-color:#2e7d4f;position:relative}.ic.no{background:#c0443d;border-color:#c0443d;position:relative}
+.ic.ok::before{content:"";position:absolute;left:6px;top:2px;width:5px;height:10px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg)}
+.ic.no::before,.ic.no::after{content:"";position:absolute;left:8px;top:3px;width:2.5px;height:12px;background:#fff;border-radius:1px}
+.ic.no::before{transform:rotate(45deg)}.ic.no::after{transform:rotate(-45deg)}
+.st b{display:block;font-weight:600}.st span{font-size:12.5px;color:#9aa6b8}.st span.g{color:#8fd19e}.st span.r{color:#ff9a94}
+.word2{align-self:center;margin:18px 0 8px;transform:rotate(-8deg) scale(.85);font-size:28px;font-weight:800;letter-spacing:.05em;color:#f2d98a;text-shadow:0 3px 12px #000;opacity:0;transition:.4s;white-space:nowrap}
+.word2.on{opacity:1;transform:rotate(-8deg) scale(1)}
+.fade{transition:opacity .8s;opacity:0}
+</style></head><body><div id="root"></div>
+<script>
+var TOK='__TOKEN__',root=document.getElementById('root'),run=0;
+function sl(ms){return new Promise(function(r){setTimeout(r,ms)})}
+function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]})}
+function hd(c,t){return '<div class="hd"><div class="ti">'+t+'</div></div>'}
+function closeSoon(ms){setTimeout(function(){root.className='fade';setTimeout(function(){try{window.close()}catch(e){}},900)},ms)}
+var STEPS=[
+ {t:"Your computer monitor",failName:"Your computer monitor did not initialize",to:18000,fix:"http://localhost:8710/",fixName:"Open your computer monitor"},
+ {t:"Connecting your helper",failName:"Your helper did not initialize",to:10000,fix:"https://ask-amit.github.io/Amit/AmitFix/AmitFix.html",fixName:"Open Amit Fix"},
+ {t:"Initializing Amit Helper",failName:"Amit Helper did not initialize",to:9000,fix:"https://ask-amit.github.io/Amit/AmitFix/AmitFix.html",fixName:"Open Amit Fix"}];
+// the window opens only as big as what it shows: the page measures itself and asks the Helper to resize the window (its bottom-right corner stays put)
+var fitT=0,lastFit='';
+function fit(){
+ var w=document.body.className==='err'?400:(root.querySelector('.step')?340:420);
+ try{
+  document.body.style.width=w+'px';root.style.flex='none';
+  var h=root.offsetHeight+36;
+  root.style.flex='';document.body.style.width='';
+  var dpr=window.devicePixelRatio||1;
+  var ow=Math.round((w+(window.outerWidth-window.innerWidth))*dpr),oh=Math.round((h+(window.outerHeight-window.innerHeight))*dpr);
+  var key=ow+'x'+oh;if(key===lastFit)return;lastFit=key;
+  fetch('/api/welcome/size?w='+ow+'&h='+oh+'&k='+TOK,{method:'POST'}).catch(function(){});
+ }catch(e){}
+}
+new MutationObserver(function(){clearTimeout(fitT);fitT=setTimeout(fit,30)}).observe(root,{childList:true});function draw(st,dt,title,foot,word,pulse){
+ var h=hd(pulse?'pulse':'',title);
+ STEPS.forEach(function(s,i){var x=st[i]||'';var ic='';var cls=x=='wk'?'ic wk':x=='ok'?'ic ok':x=='no'?'ic no':'ic';
+  var sub=x=='ok'?'<span class="g">'+esc(dt[i])+'</span>':x=='no'?'<span class="r">'+esc(dt[i])+'</span>':x=='wk'?'<span>Checking\u2026</span>':'<span>Waiting</span>';
+  h+='<div class="step"><div class="'+cls+'">'+ic+'</div><div class="st"><b>'+s.t+'</b>'+sub+'</div></div>'});
+ root.innerHTML=h+(foot||'')+(word?'<div class="word2" id="w2">INITIALIZED</div>':'');
+}
+// each check answers quickly (ok, fail or still starting); this asks again until it is ok or fail, or the time for that step is up
+async function poll(n,me){
+ var t0=Date.now(),first=1,last={state:'pending',detail:''};
+ while(Date.now()-t0<STEPS[n-1].to){
+  try{var r=await fetch('/api/welcome/step?n='+n+'&first='+first+'&k='+TOK,{method:'POST'});last=await r.json();first=0;if(last.state!=='pending')return last}catch(e){}
+  await sl(600);if(me!=run)return {state:'stale'};
+ }
+ return {state:'fail',detail:'Did not start in time'+(last.detail?' ('+last.detail+')':'')};
+}
+async function sequence(){
+ var me=++run,st=[],dt=[];
+ document.body.className='';
+ draw(st,dt,'Initializing','',false,true);
+ for(var i=0;i<3;i++){
+  st[i]='wk';draw(st,dt,'Initializing','',false,true);
+  var hold=sl(1300);
+  var res=await poll(i+1,me);await hold;if(me!=run)return;
+  if(res.state==='ok'){st[i]='ok';dt[i]=res.detail||'Ready';draw(st,dt,'Initializing','',false,true);await sl(400);if(me!=run)return}
+  else{st[i]='no';dt[i]=res.detail||'This did not start';failure(i,st,dt);return}
+ }
+ draw(st,dt,'Everything is up and running','',true,false);
+ await sl(60);var w=document.getElementById('w2');if(w)w.className='word2 on';
+ await sl(2300);if(me!=run)return;
+ closeSoon(100);
+}
+function failure(i,st,dt){
+ document.body.className='err';
+ var foot='<div class="btns"><button class="go" id="fx">'+esc(STEPS[i].fixName)+'</button><button id="rt">Try again</button><button id="cl">Close</button></div>';
+ draw(st,dt,STEPS[i].failName,foot,false,false);
+ document.getElementById('fx').onclick=function(){try{window.open(STEPS[i].fix,'_blank')}catch(e){}};
+ document.getElementById('rt').onclick=function(){sequence()};
+ document.getElementById('cl').onclick=function(){try{window.close()}catch(e){}};
+}
+function ask(){
+ root.innerHTML=hd('pulse',"Let Amit watch over your computer's health")+
+ '<p>Amit can keep an eye on how hard your computer is working and how hot it is running, so you hear about a problem <b>before it becomes one</b>.</p>'+
+ '<ul><li class="d">Catches overheating before it slows or freezes your computer</li><li class="d">Helps find the real reason when something runs slow or crashes</li><li class="d">Helps your computer last longer</li></ul>'+
+ '<p>Windows needs your OK for this <b>one time</b>. Its box may say <i>PowerShell</i>; that is just how Windows asks. Amit only reads, and it all stays on your computer. The same OK also lets Windows keep a small record if one of Amit\'s programs ever crashes, so the reason can be found.</p>'+
+ '<div class="btns"><button id="no">Not now</button><button class="go" id="yes">Yes, watch over my computer</button></div>';
+ var watch=setInterval(function(){fetch('/api/sensors/welcome').then(function(r){return r.json()}).then(function(s){if(s.taskExists&&document.getElementById('yes')){clearInterval(watch);sequence()}}).catch(function(){})},2000);
+ document.getElementById('no').onclick=function(){clearInterval(watch);fetch('/api/sensors/decline?k='+TOK,{method:'POST'}).catch(function(){});sequence()};
+ document.getElementById('yes').onclick=function(){
+  clearInterval(watch);
+  root.innerHTML=hd('pulse','Waiting for Windows\u2026')+'<p>Windows is asking for your OK. Please answer Yes in its box.</p>';
+  fetch('/api/sensors/enable?k='+TOK,{method:'POST'}).catch(function(){});
+  var n=0,t=setInterval(function(){n++;
+   fetch('/api/sensors/welcome').then(function(r){return r.json()}).then(function(s){
+    if(s.taskExists){clearInterval(t);fetch('/api/sensors/start?k='+TOK,{method:'POST'}).catch(function(){});sequence()}
+    else if(s.enable==='declined'){clearInterval(t);sequence()}
+    else if(s.enable==='done'&&n>3){clearInterval(t);root.innerHTML=hd('','That did not finish')+'<p>Windows did not finish setting this up. Amit will ask again next time.</p>';setTimeout(sequence,3500)}
+   }).catch(function(){});
+   if(n>150){clearInterval(t);sequence()}
+  },1000)}
+}
+fetch('/api/sensors/welcome').then(function(r){return r.json()}).then(function(s){if(s.mode==='ask')ask();else sequence()}).catch(function(){sequence()});
+</script></body></html>
+'@
+                $swIcon = ''; try { $swIcon = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes((Join-Path $watcherDir 'amit_icon.ico'))) } catch {}
+                Send-Html $response ($swHtml.Replace('__TOKEN__', $swTok).Replace('__ICON__', $swIcon))
+            }
+            "/api/sensors/welcome" {
+                $swMode = Get-SensorCardMode
+                $swTask = Test-SensorTask
+                $swEn = ''
+                try { if (Test-Path $sensorEnableResult) { $swEn = ([System.IO.File]::ReadAllText($sensorEnableResult)).Trim() } } catch {}
+                if ($swEn -eq 'declined') { try { 'declined' | Set-Content -Path $sensorDeclinedFlag -Encoding ASCII } catch {} }
+                Send-JsonRaw $response ('{"mode":"' + $swMode + '","taskExists":' + $swTask.ToString().ToLower() + ',"enable":"' + $swEn + '"}')
+            }
+            "/api/welcome/step" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $wsN = 0; [void][int]::TryParse([string]$request.QueryString["n"], [ref]$wsN)
+                    $wsFirst = ($request.QueryString["first"] -eq "1")
+                    $wsOut = '{"state":"fail","detail":"Unknown step"}'
+                    # self-test hook: a file holding a step number makes that step fail on purpose (to see the failure screen); nothing else uses it
+                    $wsTf = ''
+                    try { $tfp = "$env:TEMP\amit_welcome_testfail.txt"; if (Test-Path $tfp) { $wsTf = ([System.IO.File]::ReadAllText($tfp)).Trim() } } catch {}
+                    try {
+                        if ($wsTf -eq [string]$wsN) { $wsOut = '{"state":"fail","detail":"Test failure on purpose"}' }
+                        elseif ($wsN -eq 1) { $wsOut = Get-WelcomeHealth }
+                        elseif ($wsN -eq 2) { $wsOut = [AmitWhisper]::WelcomeBar($wsFirst, $true) }
+                        elseif ($wsN -eq 3) { $wsOut = [AmitWhisper]::WelcomeLive($wsFirst, $true) }
+                    } catch {
+                        $wsMsg = ([string]$_.Exception.Message) -replace '[\r\n"\\]', ' '
+                        if ($wsMsg.Length -gt 110) { $wsMsg = $wsMsg.Substring(0, 110) }
+                        $wsOut = '{"state":"fail","detail":"The check itself failed (' + $wsMsg + ')"}'
+                    }
+                    Send-JsonRaw $response $wsOut
+                }
+            }
+            "/api/welcome/size" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $szW = 0; $szH = 0
+                    [void][int]::TryParse([string]$request.QueryString["w"], [ref]$szW); [void][int]::TryParse([string]$request.QueryString["h"], [ref]$szH)
+                    Send-JsonRaw $response ([AmitWhisper]::WelcomeSize($szW, $szH))
+                }
+            }
+            "/api/welcome/quiet-check" {
+                # read-only version for the silent sign-in (switch OFF): nothing is shown; the Helper bar is only made sure to be running
+                $qOk = $false
+                try {
+                    $q1 = Get-WelcomeHealth; $q2 = [AmitWhisper]::WelcomeBar($true, $false); $q3 = [AmitWhisper]::WelcomeLive($false, $false)
+                    $qOk = ($q1 -like '*"state":"ok"*') -and ($q2 -like '*"state":"ok"*') -and ($q3 -like '*"state":"ok"*')
+                } catch {}
+                Send-JsonRaw $response ('{"ok":' + $qOk.ToString().ToLower() + '}')
+            }
+            "/api/welcome/setting" {
+                if ($request.HttpMethod -eq 'POST') {
+                    if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                    else {
+                        if ($request.QueryString["full"] -eq "0") { try { 'off' | Set-Content -Path $welcomeOffFlag -Encoding ASCII } catch {} }
+                        else { Remove-Item $welcomeOffFlag -ErrorAction SilentlyContinue }
+                        Send-JsonRaw $response ('{"full":' + (-not (Test-Path $welcomeOffFlag)).ToString().ToLower() + '}')
+                    }
+                } else { Send-JsonRaw $response ('{"full":' + (-not (Test-Path $welcomeOffFlag)).ToString().ToLower() + '}') }
+            }
+            "/api/sensors/start" {
+                # The card calls this once the one-time OK exists: start the reader now (through its Windows task) instead of waiting for the next sign-in.
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $swStarted = $false
+                    try {
+                        if ((Test-SensorTask) -and -not (Get-Process -Name "AmitSensorReader" -ErrorAction SilentlyContinue)) {
+                            Remove-Item $lhmStopFlag -ErrorAction SilentlyContinue
+                            Remove-Item $sensorDataPath -ErrorAction SilentlyContinue
+                            $swStarted = Start-SensorTask
+                        }
+                    } catch {}
+                    Send-JsonRaw $response ('{"started":' + $swStarted.ToString().ToLower() + '}')
+                }
+            }
+            "/api/sensors/card-open" {
+                # Called once at sign-in by the auto-start. 'wake' only right after sign-in (never after an update restart); 'ask' is opened by Start-Tracking itself.
+                $swOpen = $false
+                try {
+                    $swMode2 = Get-SensorCardMode
+                    $explorerAge = 9999
+                    $ex = Get-Process -Name explorer -ErrorAction SilentlyContinue | Sort-Object StartTime | Select-Object -First 1
+                    if ($ex) { $explorerAge = ((Get-Date) - $ex.StartTime).TotalMinutes }
+                    if ($swMode2 -eq 'wake' -and $explorerAge -lt 5) {
+                        $port = $request.Url.Port
+                        if (Test-Path $welcomeOffFlag) {
+                            # switch OFF: check quietly in a hidden PowerShell; the card opens only if something does not come up
+                            $quietCmd = "Start-Sleep -Seconds 4; `$bad=`$true; for(`$i=0;`$i -lt 20;`$i++){ try { `$r=Invoke-RestMethod -Uri 'http://localhost:$port/api/welcome/quiet-check' -TimeoutSec 8; if(`$r.ok){`$bad=`$false;break} } catch {}; Start-Sleep -Seconds 2 }; if(`$bad){ try { Invoke-RestMethod -Uri 'http://localhost:$port/api/menu/open?id=sensor-welcome' -TimeoutSec 8 | Out-Null } catch {} }"
+                            Start-Process powershell.exe -ArgumentList "-NoProfile -WindowStyle Hidden -Command `"$quietCmd`"" -WindowStyle Hidden -ErrorAction SilentlyContinue
+                        } else { $swOpen = $true }
+                    }
+                    elseif ($swMode2 -eq 'ask' -and -not $global:AmitSensorCardAsked) { $global:AmitSensorCardAsked = $true; $swOpen = $true }
+                    if ($swOpen) { [AmitWhisper]::OpenListedMenu('sensor-welcome') | Out-Null }
+                } catch {}
+                Send-JsonRaw $response ('{"opened":' + $swOpen.ToString().ToLower() + '}')
+            }
+            "/api/sensors/decline" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    try { 'declined' | Set-Content -Path $sensorDeclinedFlag -Encoding ASCII } catch {}
+                    Send-JsonRaw $response '{"ok":true}'
+                }
+            }
+            "/api/sensors/enable" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                elseif (-not (Test-Path $sensorReaderPath)) { Send-JsonRaw $response '{"ok":false,"error":"The hardware sensors are not added on this computer yet."}' }
+                else {
+                    Remove-Item $sensorEnableResult -ErrorAction SilentlyContinue
+                    Remove-Item $sensorDeclinedFlag -ErrorAction SilentlyContinue
+                    $q = { param($s) ([string]$s).Replace("'", "''") }
+                    $regScript = @'
+$ErrorActionPreference='Stop'
+$src='__SRC__'
+$dstDir=Join-Path $env:ProgramFiles 'Amit'
+New-Item -ItemType Directory -Force -Path $dstDir | Out-Null
+$dst=Join-Path $dstDir 'AmitSensorReader.exe'
+Copy-Item -LiteralPath $src -Destination $dst -Force
+$a=New-ScheduledTaskAction -Execute (Join-Path $env:SystemRoot 'System32\conhost.exe') -Argument ('--headless "' + $dst + '" "__DATA__" "__FLAG__"')
+$p=New-ScheduledTaskPrincipal -UserId '__USER__' -LogonType Interactive -RunLevel Highest
+$s=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
+Register-ScheduledTask -TaskName '__TASK__' -Action $a -Principal $p -Settings $s -Description 'Starts the Amit hardware sensor reader (temperatures, fans, voltages) with the permission given once. It only reads.' -Force | Out-Null
+# Crash dumps (v1.16): the same one OK also asks Windows to keep a small crash record when one of the Amit programs crashes, so the reason can be found.
+# Windows' own "LocalDumps" setting (administrator only); it writes into this person's own AmitComputerHealth\data\appcrash\dumps folder, 3 files per program. Never blocks the sensors.
+try {
+    $ld='HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps'
+    foreach ($pn in 'powershell.exe','node.exe','AmitBar.exe','AmitTracker.exe') {
+        $k = Join-Path $ld $pn
+        New-Item -Path $k -Force | Out-Null
+        New-ItemProperty -Path $k -Name 'DumpFolder' -PropertyType ExpandString -Value '%LOCALAPPDATA%\AmitComputerHealth\data\appcrash\dumps' -Force | Out-Null
+        New-ItemProperty -Path $k -Name 'DumpCount' -PropertyType DWord -Value 3 -Force | Out-Null
+        New-ItemProperty -Path $k -Name 'DumpType' -PropertyType DWord -Value 1 -Force | Out-Null
+    }
+} catch {}
+'@
+                    $regScript = $regScript.Replace('__SRC__', (& $q $sensorReaderPath)).Replace('__DATA__', (& $q $sensorDataPath)).Replace('__FLAG__', (& $q $lhmStopFlag)).Replace('__USER__', (& $q ([Environment]::UserDomainName + '\' + [Environment]::UserName))).Replace('__TASK__', $sensorTaskName)
+                    $regEnc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($regScript))
+                    # The Windows question blocks whoever asks it, so a separate hidden PowerShell asks it; this bridge stays free to answer the page.
+                    $outerScript = "try { Start-Process powershell.exe -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile -EncodedCommand $regEnc'; 'done' | Set-Content -Path '" + (& $q $sensorEnableResult) + "' -Encoding ASCII } catch { 'declined' | Set-Content -Path '" + (& $q $sensorEnableResult) + "' -Encoding ASCII }"
+                    $outerEnc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($outerScript))
+                    try {
+                        Start-Process powershell.exe -ArgumentList "-NoProfile -EncodedCommand $outerEnc" -WindowStyle Hidden -ErrorAction Stop
+                        Send-JsonRaw $response '{"ok":true}'
+                    } catch { Send-JsonRaw $response '{"ok":false}' }
+                }
+            }
+            "/api/dictate/place" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $dReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $dBody = $dReader.ReadToEnd(); $dReader.Dispose()
+                    Send-JsonRaw $response ([AmitWhisper]::DictatePlace($dBody))
+                }
+            }
+            "/api/dictate/listen" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::DictateListen()) }
+            }
+            "/api/dictate/pause" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::DictatePause()) }
+            }
+            "/api/dictate/words" {
+                # The Dictate window asks "anything new?" and is held here (up to 20 s) until the listening page has words for it.
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $dwSince = -1
+                    try { $dwSince = [long]$request.QueryString["seq"] } catch {}
+                    Send-JsonRaw $response ([AmitWhisper]::DictateWait($dwSince, 20000))
+                }
+            }
+            "/api/dictate/handoff" {
+                # v1.76: words that had nowhere to go (no text box had the focus while the person kept speaking) are handed to the Dictate window, once.
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::DictateTakeHandoff()) }
+            }
+            "/api/dictate/autoplace" {
+                # v1.77: a Dictate window that opened by itself sends its message here when the person has clicked into a text box; it is typed there.
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $apReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $apBody = $apReader.ReadToEnd(); $apReader.Dispose()
+                    Send-JsonRaw $response ([AmitWhisper]::DictateAutoPlace($apBody))
+                }
+            }
+            "/api/dictate/test-handoff" {
+                # tests only: opens the Dictate window as if the person had left a text box (words in ?words=); nodict=1 = do not start typing dictation afterwards
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::DictateTestHandoff([string]$request.QueryString["words"], ($request.QueryString["nodict"] -eq '1'))) }
+            }
+            "/api/dictate/cancel" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::DictateCancel()) }
             }
             # ---- Talk (v1.12): the speaking half of the "Talk" choice in the Amit Live ring. The words and the speaker on the screen live in amit_whisper.cs; these routes only carry messages. ----
             "/talk" {
@@ -1441,6 +2013,15 @@ try {
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else { Send-JsonRaw $response ([AmitWhisper]::ShotPendingJson()) }
             }
+            "/api/amitlive/dictate" {
+                # v1.58: the Amit Live window has put the cursor in its message box; this switches dictation on there (after Amit has finished speaking). Amit site only, POST only.
+                if ($request.HttpMethod -ne 'POST' -or -not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $adx = 0; $ady = 0
+                    [void][int]::TryParse([string]$request.QueryString['x'], [ref]$adx); [void][int]::TryParse([string]$request.QueryString['y'], [ref]$ady)
+                    Send-JsonRaw $response ([AmitWhisper]::ChatDictateReady($adx, $ady))
+                }
+            }
             "/api/showamit/pending.png" {
                 # v1.11: the picture itself, only while it is the pending one (the id must match), only to the Amit site.
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
@@ -1464,7 +2045,7 @@ try {
                 # KEEP THE FILE LIST THE SAME AS make_helper_manifest.ps1.
                 if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else {
-                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_talk.html','amit_update.ps1','amit_reload.ps1','AmitBar.cs')
+                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_dictate.html','amit_talk.html','AmitPreview.html','amit_update.ps1','amit_reload.ps1','amit_crash_check.ps1','amit_appcrash.ps1','amit_pad.html','amit_pad_pair.html','AmitBar.cs','AmitToolkit.psm1','never_list.json','amit_script_check.ps1','amit_script_host.ps1','amit_run_script.ps1','amit_script_routes.ps1','amit_coder_routes.ps1','amit_coder_engine.js','amit_coder_sessions.js','AmitScriptPopup.html','amit_claude_run.ps1','amit_claude_hook.ps1','AmitClaudePopup.html')
                     $hsSha = [System.Security.Cryptography.SHA256]::Create()
                     $hsParts = @()
                     foreach ($hsN in $hsNames) {
@@ -1477,7 +2058,7 @@ try {
                     }
                     $hsSha.Dispose()
                     $hsCan = (Test-Path (Join-Path $watcherDir 'amit_update.ps1')).ToString().ToLowerInvariant()
-                    Send-JsonRaw $response ('{"ok":true,"helperVersion":"' + [AmitWhisper]::Version + '","canUpdate":' + $hsCan + ',"files":[' + ($hsParts -join ',') + ']}')
+                    Send-JsonRaw $response ('{"ok":true,"helperVersion":"' + [AmitWhisper]::Version + '","computer":"' + [System.Environment]::MachineName + '","canUpdate":' + $hsCan + ',"files":[' + ($hsParts -join ',') + ']}')
                 }
             }
             "/api/helper/update" {
@@ -1540,6 +2121,87 @@ try {
                         if ($bsRes.ok) { Send-JsonRaw $response ('{"ok":true,"profiles":' + $bsRes.profiles + ',"buttons":' + $bsRes.buttons + ',"missing":' + $bsRes.missing + '}') }
                         else { Send-JsonRaw $response ('{"ok":false,"error":"' + ([string]$bsRes.error).Replace('\', '\\').Replace('"', '\"') + '"}') }
                     } catch { Send-JsonRaw $response '{"ok":false,"error":"could not write the bar"}' }
+                }
+            }
+            "/api/menus" {
+                # the list of every menu and pop-up the Helper can open, and how (Helper 1.80). Only the Amit site or a local program may ask.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::MenusJson()) }
+            }
+            "/api/menu/open" {
+                # a button asks the Helper to open a menu by id or name: ?id=amit-menu. The Helper calls it alive with the mechanism in its list.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::OpenListedMenu([string]$request.QueryString["id"], [string]$request.QueryString["origin"])) }   # Helper 2.11: ?origin= names the page that asked (Show Amit sends its picture back there)
+            }
+            "/api/icons/save" {
+                # IMPORTED BUTTON ICONS (Helper 2.21, 2026-11-22): the Hub sends a small PNG (base64) the person picked for a button. It is kept here as icons\<id>.png where id = first 8 hex of its SHA-1, and the button's icon field holds "img:<id>" (12 characters, the bar's limit). The bar and the Aurora ring read the file from this folder.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $icReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $icBody = $icReader.ReadToEnd(); $icReader.Dispose()
+                    try {
+                        Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+                        $icJs = New-Object System.Web.Script.Serialization.JavaScriptSerializer; $icJs.MaxJsonLength = 600000
+                        $icIn = $icJs.DeserializeObject($icBody)
+                        $icB64 = [string]$icIn['png']; if ($icB64 -match '^data:image/png;base64,') { $icB64 = $icB64.Substring(22) }
+                        $icBytes = [Convert]::FromBase64String($icB64)
+                        if ($icBytes.Length -lt 60 -or $icBytes.Length -gt 120000 -or $icBytes[0] -ne 0x89 -or $icBytes[1] -ne 0x50 -or $icBytes[2] -ne 0x4E -or $icBytes[3] -ne 0x47) { Send-JsonRaw $response '{"ok":false,"error":"that is not a small PNG picture"}' }
+                        else {
+                            $icSha = [System.Security.Cryptography.SHA1]::Create(); $icHash = (($icSha.ComputeHash($icBytes) | ForEach-Object { $_.ToString('x2') }) -join '').Substring(0, 8)
+                            $icDir = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\icons'; if (-not (Test-Path $icDir)) { New-Item -ItemType Directory -Path $icDir -Force | Out-Null }
+                            [System.IO.File]::WriteAllBytes((Join-Path $icDir ($icHash + '.png')), $icBytes)
+                            Send-JsonRaw $response ('{"ok":true,"icon":"img:' + $icHash + '"}')
+                        }
+                    } catch { Send-JsonRaw $response '{"ok":false,"error":"could not keep the picture"}' }
+                }
+            }
+            "/api/icons/get" {
+                # an imported icon back to the Hub (?id=img:xxxxxxxx or xxxxxxxx), as base64 PNG, so the Hub can draw it
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $igId = ([string]$request.QueryString["id"]) -replace '^img:', ''
+                    if ($igId -notmatch '^[0-9a-f]{8}$') { Send-JsonRaw $response '{"ok":false,"error":"no such icon"}' }
+                    else {
+                        $igPath = Join-Path $env:LOCALAPPDATA ('AmitComputerHealth\icons\' + $igId + '.png')
+                        if (Test-Path $igPath) { Send-JsonRaw $response ('{"ok":true,"png":"' + [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($igPath)) + '"}') }
+                        else { Send-JsonRaw $response '{"ok":false,"error":"this computer does not have that picture"}' }
+                    }
+                }
+            }
+            "/api/mouse/sync" {
+                # Amit Mouse (Helper 1.71): the page sends the person's mice and sets; the Helper keeps them (mouse_config.json) and runs them. Only the Amit site or a local program may send.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $msReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $msBody = $msReader.ReadToEnd(); $msReader.Dispose()
+                    try { Send-JsonRaw $response ([AmitWhisper]::MouseSync($msBody)) } catch { Send-JsonRaw $response '{"ok":false,"error":"could not keep the setup"}' }
+                }
+            }
+            "/api/mouse/status" {
+                # which mouse and which control, just now (Windows raw input), for the Amit Mouse page. ?since=N returns only newer events.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $msSince = 0; [void][long]::TryParse([string]$request.QueryString["since"], [ref]$msSince)
+                    try { Send-JsonRaw $response ([AmitWhisper]::MouseStatusJson($msSince)) } catch { Send-JsonRaw $response '{"ok":false}' }
+                }
+            }
+            "/api/keyboard/sync" {
+                # Amit Keyboard (Helper 1.88): the page sends the person's keyboards and sets; the Helper keeps them (keyboard_config.json) and runs them. Only the Amit site or a local program may send.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $kbReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $kbBody = $kbReader.ReadToEnd(); $kbReader.Dispose()
+                    try { Send-JsonRaw $response ([AmitWhisper]::KeyboardSync($kbBody)) } catch { Send-JsonRaw $response '{"ok":false,"error":"could not keep the setup"}' }
+                }
+            }
+            "/api/keyboard/status" {
+                # the keyboards and sets running now. ?learn=1 (the page asks every few seconds while it is learning) also returns which key on which keyboard; with no learn flag NO key is reported.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $kbSince = 0; [void][long]::TryParse([string]$request.QueryString["since"], [ref]$kbSince)
+                    $kbLearn = ([string]$request.QueryString["learn"]) -eq '1'
+                    $kbSwallow = ([string]$request.QueryString["swallow"]) -eq '1'
+                    try { Send-JsonRaw $response ([AmitWhisper]::KeyboardStatusJson($kbSince, $kbLearn, $kbSwallow)) } catch { Send-JsonRaw $response '{"ok":false}' }
                 }
             }
             "/api/programs" {
@@ -1701,6 +2363,91 @@ try {
                             }
                         }
                     } catch { Send-JsonRaw $response '{"ok":false,"error":"could not save that choice"}' }
+                }
+            }
+            "/api/mobile/pull" {
+                # The "Mobile" ring slice (2026-11-05, stage 1, Ryan): the phone puts a photo in the database (amit_mobile_captures, destination 'to_computer'); pressing Mobile on the
+                # computer lands here, fetches whatever is new for THIS computer's owner, saves it in Pictures\Show Amit and marks it delivered. Called only by the Amit Live program on
+                # this computer (POST, and no Origin header, so a web page cannot start it). Stage 1 reads with the same local-only key file the Amit Mobile watcher uses; a computer
+                # without that file (or without mobile_owner.txt, the signed-in owner's id) answers "not_connected". Stage 2 replaces the key with a per-computer pairing.
+                if ($request.HttpMethod -ne 'POST' -or $request.Headers['Origin']) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    try {
+                        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]3072
+                        Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+                        $mdir = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth'
+                        $ownerFile = Join-Path $mdir 'mobile_owner.txt'
+                        $cfgPath = Join-Path (Split-Path -Parent (Split-Path -Parent $watcherDir)) 'Database\supabase_config.md'
+                        if (-not (Test-Path $cfgPath)) { $cfgPath = Join-Path $env:USERPROFILE 'OneDrive\Documents - onedrive\Amit\Database\supabase_config.md' }
+                        $owner = ''; if (Test-Path $ownerFile) { $owner = (Get-Content $ownerFile -Raw).Trim() }
+                        $mkey = $null; if (Test-Path $cfgPath) { $mm = [regex]::Match((Get-Content $cfgPath -Raw), 'sb_secret_[A-Za-z0-9_]+'); if ($mm.Success) { $mkey = $mm.Value } }
+                        if ($owner -notmatch '^[0-9a-fA-F-]{36}$' -or -not $mkey) { Send-JsonRaw $response '{"ok":false,"reason":"not_connected"}' }
+                        else {
+                            $mbase = 'https://hleqtjqojksurvkyqixt.supabase.co'
+                            $mser = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+                            $mwc = New-Object System.Net.WebClient; $mwc.Encoding = [System.Text.Encoding]::UTF8
+                            $mwc.Headers.Add('apikey', $mkey); $mwc.Headers.Add('Authorization', "Bearer $mkey"); $mwc.Headers.Add('User-Agent', 'supabase-js/2.0')
+                            $mtxt = $mwc.DownloadString("$mbase/rest/v1/amit_mobile_captures?user_id=eq.$owner&destination=eq.to_computer&select=id,created_at,photo_url,transcript&order=created_at.asc&limit=10")
+                            $mrows = $mser.DeserializeObject($mtxt)
+                            $mpics = [Environment]::GetFolderPath('MyPictures'); if (-not $mpics) { $mpics = Join-Path $env:USERPROFILE 'Pictures' }
+                            $mfolder = Join-Path $mpics 'Show Amit'; if (-not (Test-Path $mfolder)) { New-Item -ItemType Directory -Path $mfolder -Force | Out-Null }
+                            $mout = New-Object System.Collections.ArrayList
+                            foreach ($mrow in $mrows) {
+                                $mid = [int64]$mrow['id']; $mpaths = @()
+                                $mraw = [string]$mrow['photo_url']
+                                if ($mraw.TrimStart().StartsWith('[')) { $mpaths = @($mser.DeserializeObject($mraw)) } elseif ($mraw) { $mpaths = @($mraw) }
+                                $mstamp = ([DateTime]::Parse([string]$mrow['created_at'])).ToLocalTime().ToString('yyyy-MM-dd HH.mm.ss')
+                                $mok = $true; $mn = 0; $mgot = New-Object System.Collections.ArrayList
+                                foreach ($mp in $mpaths) {
+                                    $mp = [string]$mp
+                                    if ($mp -notmatch '^[A-Za-z0-9_./ -]+$' -or $mp.Contains('..')) { $mok = $false; continue }
+                                    $mext = [System.IO.Path]::GetExtension($mp).ToLowerInvariant(); if ($mext -notin @('.jpg', '.jpeg', '.png', '.webp')) { $mext = '.jpg' }
+                                    $mn++; $mname = 'Phone photo ' + $mstamp + $(if ($mn -gt 1) { " ($mn)" } else { '' })
+                                    $mdest = Join-Path $mfolder ($mname + $mext); $mk = 2
+                                    while (Test-Path $mdest) { $mdest = Join-Path $mfolder ($mname + " ($mk)" + $mext); $mk++ }
+                                    $mseg = ($mp -split '/' | ForEach-Object { [System.Uri]::EscapeDataString($_) }) -join '/'
+                                    $mwc2 = New-Object System.Net.WebClient; $mwc2.Headers.Add('apikey', $mkey); $mwc2.Headers.Add('Authorization', "Bearer $mkey"); $mwc2.Headers.Add('User-Agent', 'supabase-js/2.0')
+                                    try { $mwc2.DownloadFile("$mbase/storage/v1/object/amitmobile-captures/$mseg", $mdest); [void]$mgot.Add($mdest) } catch { $mok = $false }
+                                }
+                                if ($mok -and $mgot.Count -gt 0) {
+                                    $mwc3 = New-Object System.Net.WebClient; $mwc3.Encoding = [System.Text.Encoding]::UTF8
+                                    $mwc3.Headers.Add('apikey', $mkey); $mwc3.Headers.Add('Authorization', "Bearer $mkey"); $mwc3.Headers.Add('User-Agent', 'supabase-js/2.0'); $mwc3.Headers.Add('Content-Type', 'application/json'); $mwc3.Headers.Add('Prefer', 'return=minimal')
+                                    [void]$mwc3.UploadString("$mbase/rest/v1/amit_mobile_captures?id=eq.$mid", 'PATCH', '{"destination":"delivered"}')
+                                    $mnote = [string]$mrow['transcript']; if ($mnote.Length -gt 600) { $mnote = $mnote.Substring(0, 600) }
+                                    $mnoteJson = $mser.Serialize($mnote)      # v1.60: the caption typed on the phone travels with the photo (properly quoted)
+                                    foreach ($mg in $mgot) { [void]$mout.Add('{"id":' + $mid + ',"file":"' + ($mg.Replace('\', '\\').Replace('"', '\"')) + '","note":' + $mnoteJson + '}') }
+                                }
+                            }
+                            Send-JsonRaw $response ('{"ok":true,"photos":[' + ($mout -join ',') + ']}')
+                        }
+                    } catch { $mErr = ([string]$_.Exception.Message -replace '[^\x20-\x7E]', '?'); $mErr = $mErr.Replace('\', '/').Replace('"', "'"); if ($mErr.Length -gt 200) { $mErr = $mErr.Substring(0, 200) }; Send-JsonRaw $response ('{"ok":false,"reason":"error","msg":"' + $mErr + '"}') }
+                }
+            }
+            "/api/mobile/note" {
+                # the note spoken or typed about a phone photo goes back onto that photo's row (its transcript column), only for this computer's owner; same caller rules as /api/mobile/pull
+                if ($request.HttpMethod -ne 'POST' -or $request.Headers['Origin']) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    try {
+                        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]3072
+                        Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+                        $nReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8); $nBody = $nReader.ReadToEnd(); $nReader.Close()
+                        $nser = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+                        $nobj = $nser.DeserializeObject($nBody)
+                        $nid = [int64]$nobj['id']; $ntext = [string]$nobj['note']
+                        if ($ntext.Length -gt 20000) { $ntext = $ntext.Substring(0, 20000) }
+                        $ndir = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth'
+                        $nowner = ''; $nof = Join-Path $ndir 'mobile_owner.txt'; if (Test-Path $nof) { $nowner = (Get-Content $nof -Raw).Trim() }
+                        $ncfg = Join-Path (Split-Path -Parent (Split-Path -Parent $watcherDir)) 'Database\supabase_config.md'
+                        if (-not (Test-Path $ncfg)) { $ncfg = Join-Path $env:USERPROFILE 'OneDrive\Documents - onedrive\Amit\Database\supabase_config.md' }
+                        $nkey = $null; if (Test-Path $ncfg) { $nm = [regex]::Match((Get-Content $ncfg -Raw), 'sb_secret_[A-Za-z0-9_]+'); if ($nm.Success) { $nkey = $nm.Value } }
+                        if ($nowner -notmatch '^[0-9a-fA-F-]{36}$' -or -not $nkey -or $nid -le 0) { Send-JsonRaw $response '{"ok":false,"reason":"not_connected"}' }
+                        else {
+                            $nwc = New-Object System.Net.WebClient; $nwc.Encoding = [System.Text.Encoding]::UTF8
+                            $nwc.Headers.Add('apikey', $nkey); $nwc.Headers.Add('Authorization', "Bearer $nkey"); $nwc.Headers.Add('User-Agent', 'supabase-js/2.0'); $nwc.Headers.Add('Content-Type', 'application/json'); $nwc.Headers.Add('Prefer', 'return=minimal')
+                            [void]$nwc.UploadString("https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/amit_mobile_captures?id=eq.$nid&user_id=eq.$nowner", 'PATCH', $nser.Serialize(@{ transcript = $ntext }))
+                            Send-JsonRaw $response '{"ok":true}'
+                        }
+                    } catch { $mErr = ([string]$_.Exception.Message -replace '[^\x20-\x7E]', '?'); $mErr = $mErr.Replace('\', '/').Replace('"', "'"); if ($mErr.Length -gt 200) { $mErr = $mErr.Substring(0, 200) }; Send-JsonRaw $response ('{"ok":false,"reason":"error","msg":"' + $mErr + '"}') }
                 }
             }
             "/api/print/open" {
@@ -2191,7 +2938,45 @@ secret key must never appear here, ever, under any circumstance.
                     $response.OutputStream.Write($bytes, 0, $bytes.Length)
                     $response.OutputStream.Close()
                 } catch {
-                    Send-Json $response @{ error = "Sensor data not available yet - the tracker may still be starting, or admin approval (UAC) for sensor access wasn't granted this session." } 502
+                    if (-not (Test-Path $sensorReaderPath)) {
+                        Send-JsonRaw $response '{"error":"Hardware sensors are not added on this computer yet.","notInstalled":true,"sizeMb":72}' 502
+                    } else {
+                        Send-Json $response @{ error = "Sensor data not available yet - the tracker may still be starting, or admin approval (UAC) for sensor access wasn't granted this session." } 502
+                    }
+                }
+            }
+            "/api/sensors/install" {
+                # 2026-11-05 (Ryan): the 72 MB sensor reader is not in the installer any more. The Hardware tab's "Add hardware sensors" button posts here. It downloads the file from the
+                # Amit site and only keeps it when its size AND SHA-256 match the fingerprint in the published helper manifest (it runs with admin rights, so it is never trusted unchecked).
+                # POST only, Amit site or this computer only. Takes a minute or two; the tab waits.
+                if ($request.HttpMethod -ne 'POST' -or -not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    try {
+                        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]3072
+                        if ((Test-Path $sensorReaderPath) -and ((Get-Item $sensorReaderPath).Length -gt 1000000)) { Send-JsonRaw $response '{"ok":true,"already":true}' }
+                        else {
+                            Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+                            $sMan = (New-Object System.Web.Script.Serialization.JavaScriptSerializer).DeserializeObject((New-Object System.Net.WebClient).DownloadString('https://ask-amit.github.io/Amit/ComputerHealth/amit_helper_manifest.json'))
+                            $sInfo = $sMan['sensorReader']
+                            # the download may only come from one of the Amit site's addresses (the github.io site keeps its /Amit/ folder; the new domain has none)
+                            $sOkUrls = @($AmitSiteOrigins | ForEach-Object { if ($_ -like '*github.io') { $_ + '/Amit/ComputerHealth/AmitSensorReader.exe' } else { $_ + '/ComputerHealth/AmitSensorReader.exe' } })
+                            if (-not $sInfo -or $sInfo['name'] -ne 'AmitSensorReader.exe' -or ($sOkUrls -notcontains [string]$sInfo['url']) -or [string]$sInfo['sha256'] -notmatch '^[0-9a-f]{64}$') {
+                                Send-JsonRaw $response '{"ok":false,"reason":"The published list does not offer the hardware sensors right now."}'
+                            } else {
+                                $sPart = $sensorReaderPath + '.part'
+                                Remove-Item $sPart -Force -ErrorAction SilentlyContinue
+                                $sWc = New-Object System.Net.WebClient; $sWc.Headers.Add('User-Agent', 'amit-helper')
+                                $sWc.DownloadFile([string]$sInfo['url'], $sPart)
+                                $sOk = ((Get-Item $sPart).Length -eq [int64]$sInfo['bytes'])
+                                if ($sOk) { $sHash = (Get-FileHash -Algorithm SHA256 -Path $sPart).Hash.ToLowerInvariant(); $sOk = ($sHash -eq [string]$sInfo['sha256']) }
+                                if ($sOk) { Move-Item $sPart $sensorReaderPath -Force; Send-JsonRaw $response '{"ok":true}' }
+                                else { Remove-Item $sPart -Force -ErrorAction SilentlyContinue; Send-JsonRaw $response '{"ok":false,"reason":"The download did not match its fingerprint, so it was thrown away. Nothing was installed."}' }
+                            }
+                        }
+                    } catch {
+                        $sErr = ([string]$_.Exception.Message -replace '[^\x20-\x7E]', '?').Replace('\', '/').Replace('"', "'"); if ($sErr.Length -gt 160) { $sErr = $sErr.Substring(0, 160) }
+                        Send-JsonRaw $response ('{"ok":false,"reason":"' + $sErr + '"}')
+                    }
                 }
             }
             "/api/ask-watcher-status" {
@@ -2231,6 +3016,61 @@ secret key must never appear here, ever, under any circumstance.
                 $limitMin = $bridgeState.LimitMinutes
                 Send-JsonRaw $response ('{"secondsSincePageContact":' + $idleSec + ',"limitMinutes":' + $limitMin + ',"lastPage":' + (ConvertTo-JsonString $bridgeState.LastPage) + ',"lastRoute":' + (ConvertTo-JsonString $bridgeState.LastRoute) + ',"rotateHours":' + $bridgeState.RotateHours + ',"idleStopped":' + $(if (Test-Path "$env:TEMP\amit_idle_stop.flag") {'true'} else {'false'}) + ',"tracking":' + $(if ((Get-TrackerStatus).running) {'true'} else {'false'}) + '}')
             }
+            "/api/watch-mode" {
+                # WATCH MODE (v1.14, 2026-11-14, Ryan): the switch the person turns on while the computer is having crashes.
+                # GET = the state. POST ?on=1 / ?on=0 = switch it. While on: no idle stop, the recorder keeps a permanent daily trace
+                # (resource_watcher.ps1) and a hard crash is packaged at the next sign-in (amit_crash_check.ps1). Normal mode is unchanged.
+                $wmFile = "$env:LOCALAPPDATA\AmitComputerHealth\watch_mode.json"
+                $wmDir = "$env:LOCALAPPDATA\AmitComputerHealth\data\watch"
+                $wm = $null
+                try { if (Test-Path $wmFile) { $wm = [System.IO.File]::ReadAllText($wmFile) | ConvertFrom-Json } } catch {}
+                if ($request.HttpMethod -eq 'POST') {
+                    $want = $request.QueryString["on"]
+                    if ($want -eq '1' -or $want -eq '0') {
+                        $wmSince = if ($want -eq '1') { (Get-Date).ToString('o') } elseif ($wm -and $wm.since) { [string]$wm.since } else { '' }
+                        $wmKeep = if ($wm -and $wm.retentionDays) { [int]$wm.retentionDays } else { 14 }
+                        $newWm = '{"on":' + $(if ($want -eq '1') {'true'} else {'false'}) + ',"since":"' + $wmSince + '","retentionDays":' + $wmKeep + ',"crashWindowHours":24}'
+                        [System.IO.File]::WriteAllText($wmFile, $newWm)
+                        if ($want -eq '1') {
+                            # turning Watch on means "record" - clear a leftover stop so tracking really runs
+                            try { Remove-Item "$env:TEMP\amit_tracking_disabled.flag", "$env:TEMP\amit_idle_stop.flag" -ErrorAction SilentlyContinue } catch {}
+                            if (-not (Get-TrackerStatus).running) { [void](Start-TrackingOnce) }
+                        }
+                        try { $wm = $newWm | ConvertFrom-Json } catch {}
+                    }
+                }
+                $wmOnNow = [bool]($wm -and $wm.on)
+                $tFiles = @(Get-ChildItem $wmDir -Filter 'trace_*.jsonl' -File -ErrorAction SilentlyContinue)
+                $tBytes = ($tFiles | Measure-Object Length -Sum).Sum
+                if (-not $tBytes) { $tBytes = 0 }
+                $lastRead = ''
+                $newestT = $tFiles | Sort-Object Name -Descending | Select-Object -First 1
+                if ($newestT) { try { $ll = Get-Content $newestT.FullName -Tail 3 | Where-Object { $_ -match '"t":"' } | Select-Object -Last 1; if ($ll -match '"t":"([^"]+)"') { $lastRead = $Matches[1] } } catch {} }
+                $crashPending = @(Get-ChildItem "$env:LOCALAPPDATA\AmitComputerHealth\data\pending" -Filter 'zcrash_*.json' -File -ErrorAction SilentlyContinue).Count
+                $wmKeepOut = if ($wm -and $wm.retentionDays) { [int]$wm.retentionDays } else { 14 }
+                Send-JsonRaw $response ('{"on":' + $(if ($wmOnNow) {'true'} else {'false'}) + ',"since":' + (ConvertTo-JsonString ([string]$wm.since)) + ',"retentionDays":' + $wmKeepOut + ',"traceFiles":' + $tFiles.Count + ',"traceMB":' + [math]::Round($tBytes / 1MB, 1) + ',"lastReading":' + (ConvertTo-JsonString $lastRead) + ',"crashPending":' + $crashPending + ',"tracking":' + $(if ((Get-TrackerStatus).running) {'true'} else {'false'}) + '}')
+            }
+            "/api/crash-notice" {
+                # (v1.15, 2026-11-14, Ryan) "We noticed a Windows crash". The Hub asks at sign-in. amit_crash_check.ps1 writes crash_notice.json at every
+                # start that followed an unclean shutdown, Watch mode or not. GET = the notice (if the person has not answered it yet) plus the Watch state.
+                # POST ?ack=<id> = the person answered it; it is not shown again.
+                $cnFile = "$env:LOCALAPPDATA\AmitComputerHealth\crash_notice.json"
+                $cn = $null
+                try { if (Test-Path $cnFile) { $cn = [System.IO.File]::ReadAllText($cnFile) | ConvertFrom-Json } } catch {}
+                if ($request.HttpMethod -eq 'POST' -and $cn) {
+                    $ackId = $request.QueryString["ack"]
+                    if ($ackId -and $ackId -eq [string]$cn.id) {
+                        try { $cn.acked = $true; $cn.ackedAt = (Get-Date).ToString('o'); [System.IO.File]::WriteAllText($cnFile, ($cn | ConvertTo-Json -Compress)) } catch {}
+                    }
+                }
+                $cnWatchOn = $false
+                try { $cnWm = "$env:LOCALAPPDATA\AmitComputerHealth\watch_mode.json"; if (Test-Path $cnWm) { $cnWatchOn = [bool](([System.IO.File]::ReadAllText($cnWm) | ConvertFrom-Json).on) } } catch {}
+                if ($cn -and -not [bool]$cn.acked) {
+                    Send-JsonRaw $response ('{"pending":true,"watchOn":' + $(if ($cnWatchOn) {'true'} else {'false'}) + ',"notice":' + ($cn | ConvertTo-Json -Compress) + '}')
+                } else {
+                    Send-JsonRaw $response ('{"pending":false,"watchOn":' + $(if ($cnWatchOn) {'true'} else {'false'}) + '}')
+                }
+            }
             "/api/idle-stop" {
                 # Called ONLY by the bridge's own idle timer (v1.02), never by a page. Stops the three monitor
                 # watchers and leaves a marker so the tray program knows this is a quiet idle stop (no dashboard
@@ -2238,7 +3078,10 @@ secret key must never appear here, ever, under any circumstance.
                 # Does nothing while an App Behavior session is running: that was started on purpose.
                 $s = Get-TrackerStatus
                 $behaviorRunning = [bool](Test-WatcherScriptRunning "app_behavior_watcher.ps1" -NoRetry)
-                if ($s.running -and -not $behaviorRunning) {
+                # Watch mode (v1.14): never idle-stop while the person is watching for crashes
+                $wmOnIdle = $false
+                try { $wmfIdle = "$env:LOCALAPPDATA\AmitComputerHealth\watch_mode.json"; if (Test-Path $wmfIdle) { $wmOnIdle = [bool](([System.IO.File]::ReadAllText($wmfIdle) | ConvertFrom-Json).on) } } catch {}
+                if ($s.running -and -not $behaviorRunning -and -not $wmOnIdle) {
                     New-Item "$env:TEMP\amit_idle_stop.flag" -ItemType File -Force | Out-Null
                     [void](Stop-Tracking -KeepSensorReader)
                     Send-JsonRaw $response '{"idleStopped":true}'
@@ -2447,7 +3290,7 @@ secret key must never appear here, ever, under any circumstance.
                 # The Hub calls this after a pending session is safely in the database (or was deliberately dismissed).
                 # Only a file name in the exact pending-queue shape is accepted, so it can never delete anything else.
                 $pName = $request.QueryString["name"]
-                if ($request.HttpMethod -eq 'POST' -and $pName -match '^(tracker|behavior)_\d{14}\.json$') {
+                if ($request.HttpMethod -eq 'POST' -and $pName -match '^(tracker|behavior|zcrash)_\d{14}\.json$') {
                     $pTarget = "$env:LOCALAPPDATA\AmitComputerHealth\data\pending\$pName"
                     $pGone = $false
                     if (Test-Path $pTarget) { try { Remove-Item $pTarget -Force -ErrorAction Stop; $pGone = $true } catch {} }
@@ -2489,6 +3332,23 @@ secret key must never appear here, ever, under any circumstance.
                 if ($latest) { Send-Json $response @{ found = $true; content = [System.IO.File]::ReadAllText($latest.FullName) } }
                 else { Send-Json $response @{ found = $false } }
             }
+            # Custom script buttons (2026-11-24): everything under /api/script/ is handled by amit_script_routes.ps1 (source: AmitHelper\Toolkit), loaded only when such a request arrives and kept for the
+            # life of this runspace. Who may call which route is decided inside it (Hub origin, no origin, or a one-time token). See AmitHelper\Button_Creator_SPEC.md section 11.
+            { $_ -like '/api/script/*' } {
+                $asRoutes = Join-Path $watcherDir 'amit_script_routes.ps1'
+                if (-not (Get-Command Invoke-AmitScriptRoute -ErrorAction SilentlyContinue) -and (Test-Path $asRoutes)) { . $asRoutes }
+                if (Get-Command Invoke-AmitScriptRoute -ErrorAction SilentlyContinue) { Invoke-AmitScriptRoute -Path $path -Request $request -Response $response -SiteOrigins $AmitSiteOrigins }
+                else { Send-JsonRaw $response '{"ok":false,"error":"Custom script buttons are not installed on this computer yet."}' 404 }
+            }
+            # Amit Coder (2026-11-26): everything under /api/coder/ is handled by amit_coder_routes.ps1, which uses the account checks in amit_script_routes.ps1. Loaded only when asked for.
+            { $_ -like '/api/coder/*' } {
+                $asRoutes = Join-Path $watcherDir 'amit_script_routes.ps1'
+                $acRoutes = Join-Path $watcherDir 'amit_coder_routes.ps1'
+                if (-not (Get-Command Invoke-AmitScriptRoute -ErrorAction SilentlyContinue) -and (Test-Path $asRoutes)) { . $asRoutes }
+                if (-not (Get-Command Invoke-AmitCoderRoute -ErrorAction SilentlyContinue) -and (Test-Path $acRoutes)) { . $acRoutes }
+                if (Get-Command Invoke-AmitCoderRoute -ErrorAction SilentlyContinue) { Invoke-AmitCoderRoute -Path $path -Request $request -Response $response -SiteOrigins $AmitSiteOrigins -WatcherDir $watcherDir }
+                else { Send-JsonRaw $response '{"ok":false,"error":"The coding connection is not installed on this computer yet."}' 404 }
+            }
             default {
                 $response.StatusCode = 404
                 Send-Html $response "Not found"
@@ -2499,7 +3359,13 @@ secret key must never appear here, ever, under any circumstance.
     }
 }
 
-$pool = [runspacefactory]::CreateRunspacePool(1, 8)
+# v1.17 (2026-11-15, Ryan: the mouse was jerky while a Computer Health page was open): the handler used to be handed to every request as TEXT
+# ($ps.AddScript($handlerScript)), so PowerShell re-parsed the whole ~3000-line handler (about 250 KB) for EVERY call. A page calling 8 times a second
+# made the bridge build and throw away hundreds of MB a second, and the collector's pauses froze the mouse hook that lives in this same process.
+# Now the handler is defined ONCE as a function inside the pool's runspaces and each request just calls it by name. Nothing about what it does changes.
+$handlerIss = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
+$handlerIss.Commands.Add((New-Object System.Management.Automation.Runspaces.SessionStateFunctionEntry('Invoke-AmitBridgeHandler', $handlerScript.ToString())))
+$pool = [runspacefactory]::CreateRunspacePool(1, 8, $handlerIss, $Host)
 # WMI/CIM cmdlets are COM-based underneath and need an STA apartment to
 # marshal correctly. A runspace pool defaults to MTA, so the first WMI call
 # made inside one of this pool's worker runspaces deadlocks waiting on COM
@@ -2582,7 +3448,21 @@ function Test-Rotate {
     $script:rotateCallAt = Get-Date
     Invoke-BridgeSelf '/api/rotate-tracking'
 }
+# WATCH MODE (v1.14): while the person has it switched on (watch_mode.json, written by /api/watch-mode) the computer is being
+# watched for crashes, so the monitor must never idle-stop. Re-read at most every 10 seconds.
+$watchModeFile = "$env:LOCALAPPDATA\AmitComputerHealth\watch_mode.json"
+$watchCheckAt = [datetime]::MinValue
+$watchOnCached = $false
+function Test-WatchOn {
+    if (((Get-Date) - $script:watchCheckAt).TotalSeconds -lt 10) { return $script:watchOnCached }
+    $script:watchCheckAt = Get-Date
+    $v = $false
+    try { if (Test-Path $watchModeFile) { $v = [bool](([System.IO.File]::ReadAllText($watchModeFile) | ConvertFrom-Json).on) } } catch {}
+    $script:watchOnCached = $v
+    return $v
+}
 function Test-IdleStop {
+    if (Test-WatchOn) { return }
     $limit = $idleMinutes
     try { if (Test-Path $idleOverrideFile) { $v = [double]((Get-Content $idleOverrideFile -Raw).Trim()); if ($v -gt 0) { $limit = $v } } } catch {}
     $bridgeState.LimitMinutes = $limit
@@ -2610,6 +3490,7 @@ function Remove-FinishedOrStuckHandlers {
     }
 }
 
+$script:reqCounts = @{}; $script:reqPages = @{}; $script:reqTotal = 0; $script:reqWindowStart = Get-Date
 while ($listener.IsListening) {
     $ctxTask = $listener.GetContextAsync()
     $gotContext = $false
@@ -2619,6 +3500,23 @@ while ($listener.IsListening) {
         }
     } catch { break }
     $context = $ctxTask.Result
+
+    # Request counter (v1.17): when more than 240 calls arrive in one minute (4 a second, far more than any page needs) the busiest routes and the page that
+    # calls them most are written to bridge_requests.log, so a flood names itself. Costs one hashtable update per call.
+    try {
+        $rcPath = $context.Request.Url.AbsolutePath
+        $script:reqCounts[$rcPath] = 1 + [int]$script:reqCounts[$rcPath]
+        $script:reqTotal++
+        $rcRef = [string]$context.Request.Headers['Referer']
+        if ($rcRef) { $script:reqPages[$rcPath] = $rcRef }
+        if (((Get-Date) - $script:reqWindowStart).TotalSeconds -ge 60) {
+            if ($script:reqTotal -gt 240) {
+                $rcTop = ($script:reqCounts.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 6 | ForEach-Object { $_.Key + '=' + $_.Value + $(if ($script:reqPages[$_.Key]) { ' (from ' + $script:reqPages[$_.Key] + ')' } else { '' }) }) -join '; '
+                Add-Content -Path "$env:LOCALAPPDATA\AmitComputerHealth\bridge_requests.log" -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + ' ' + $script:reqTotal + ' calls in the last minute: ' + $rcTop)
+            }
+            $script:reqCounts = @{}; $script:reqPages = @{}; $script:reqTotal = 0; $script:reqWindowStart = Get-Date
+        }
+    } catch {}
 
     $origin = $null
     try { $origin = $context.Request.Headers['Origin'] } catch {}
@@ -2651,7 +3549,7 @@ while ($listener.IsListening) {
 
     $ps = [powershell]::Create()
     $ps.RunspacePool = $pool
-    [void]$ps.AddScript($handlerScript).AddArgument($context).AddArgument($watcherDir).AddArgument($dashboardPath).AddArgument($deviceId).AddArgument($deviceName).AddArgument($bridgeState)
+    [void]$ps.AddCommand('Invoke-AmitBridgeHandler').AddArgument($context).AddArgument($watcherDir).AddArgument($dashboardPath).AddArgument($deviceId).AddArgument($deviceName).AddArgument($bridgeState)
     $handle = $ps.BeginInvoke()
     [void]$running.Add(@{ PS = $ps; Handle = $handle; Ctx = $context; Started = (Get-Date) })
 }
