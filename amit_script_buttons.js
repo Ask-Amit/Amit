@@ -422,19 +422,29 @@
     try {
       if (!S.rules) { var nl = await helper('GET', 'neverlist'); if (!nl || !nl.ok) { S.chat.push({ who: 'system', text: 'The Amit Helper on this computer did not answer, so a script cannot be checked or placed. Start the Amit Helper and try again.' }); S.busy = false; drawModal(); return; } S.rules = (nl.list && nl.list.rules) || []; }
       var req = await buildRequest(words, extra);
-      var r = await DB().rpc('ask_submit_build', { p_place: { b: o.id }, p_question: req, p_tz: (Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC') });
-      if (r.error) { S.chat.push({ who: 'system', text: 'Amit could not be reached: ' + r.error.message }); S.busy = false; drawModal(); return; }
-      if (r.data && r.data.online === false) S.chat.push({ who: 'system', text: 'Amit is not online on the owner\'s computer right now. He will answer when it is on.' });
-      poll(r.data.id, 0);
+      /* creating a button is premium: the Helper checks the account, then the person's OWN Claude builds it on their computer (never anyone else's) */
+      var r = await startBuild(req);
+      if (r.allowed === false) {
+        if (await connectFlow(r, false) !== 'ok') { S.chat.push({ who: 'system', text: 'Nothing was built. Building a button runs on your own paid Claude account.' }); S.busy = false; drawModal(); return; }
+        r = await startBuild(req);
+      }
+      if (!r.job) { S.chat.push({ who: 'system', text: r.plain || 'Amit could not start the build. Try again.' }); S.busy = false; drawModal(); return; }
+      poll(r.job, 0);
     } catch (e) { S.chat.push({ who: 'system', text: 'Something went wrong sending to Amit: ' + e.message }); S.busy = false; drawModal(); }
+  }
+  async function startBuild(req) {
+    var se = await DB().auth.getSession(), tok = se && se.data && se.data.session && se.data.session.access_token;
+    if (!tok) return { plain: 'Sign in to the Hub again, then try once more.' };
+    var j = await helper('POST', 'own-build', { token: tok, request: req });
+    if (j && (j.job || typeof j.allowed === 'boolean')) return j;
+    return { plain: 'The Amit Helper on this computer is too old to build buttons. Update it, then try again.' };
   }
   function poll(id, n) {
     S.ask = { id: id, timer: setTimeout(async function () {
       var o = S.open; if (!o) return;
-      var r = await DB().rpc('ask_status', { p_id: id });
-      var d = r.data || {};
+      var d; try { d = await helper('POST', 'own-build-state', { job: id }); } catch (e) { d = { status: 'working' }; }
       if (d.status === 'answered') { S.busy = false; await onReply(String(d.answer || '')); return; }
-      if (d.failed || r.error) { S.busy = false; S.chat.push({ who: 'system', text: 'Amit could not answer this time' + (r.error ? ': ' + r.error.message : '') + '. Try again.' }); drawModal(); return; }
+      if (d.status === 'failed') { S.busy = false; S.chat.push({ who: 'system', text: (d.plain || 'Amit could not answer this time.') + ' Try again.' }); drawModal(); return; }
       if (n > 300) { S.busy = false; S.chat.push({ who: 'system', text: 'Amit is taking too long. Try again in a little while.' }); drawModal(); return; }
       poll(id, n + 1);
     }, n === 0 ? POLL_FIRST : POLL_NEXT) };

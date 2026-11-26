@@ -44,10 +44,15 @@ Q.prototype.then=function(res,rej){
 };
 window.db={ from:function(t){ return new Q(t); },
   rpc:function(name,args){
-    if(name==='ask_submit_build'){ var id=uid(); REQUESTS.push(args.p_question); ASKS[id]={n:0}; return Promise.resolve({data:{id:id,online:true},error:null}); }
-    if(name==='ask_status'){ var a=ASKS[args.p_id]; a.n++; if(a.n<2) return Promise.resolve({data:{status:'working'},error:null}); var rep=REPLIES.shift(); return Promise.resolve({data:{status:'answered',answer:rep},error:null}); }
     return Promise.resolve({data:null,error:{message:'unknown rpc '+name}});
   } };
+/* the person's own Claude, pretended: the Helper's build routes. Everything else goes to the real test Helper. */
+window.db.auth={getSession:function(){ return Promise.resolve({data:{session:{access_token:'aaa.bbb.ccc'}}}); }};
+var BUILD_NO=null, netFetch=window.fetch.bind(window);
+window.fetch=function(u,o){ var s=String(u), j=function(x){ return Promise.resolve({status:200,json:function(){ return Promise.resolve(x); }}); };
+  if(/own-build$/.test(s)){ if(BUILD_NO) return j(BUILD_NO); var b=JSON.parse(o.body), id=uid(); REQUESTS.push(b.request); ASKS[id]={n:0}; return j({ok:true,allowed:true,job:id}); }
+  if(/own-build-state$/.test(s)){ var a=ASKS[JSON.parse(o.body).job]; a.n++; if(a.n<2) return j({ok:true,status:'working'}); return j({ok:true,status:'answered',answer:REPLIES.shift()}); }
+  return netFetch(u,o); };
 window.currentUser={id:'u1'};
 window.hl={profiles:[{id:'p1',name:'Office',is_current:true}],buttons:[],sel:'p1',settings:{let_amit_add_questions:false,blocked_recipients:[],script_time_limit_sec:60,send_countdown_seconds:0}};
 window.hlRender=function(){}; window.hlSyncBar=function(){};

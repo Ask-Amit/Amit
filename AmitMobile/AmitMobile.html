@@ -387,7 +387,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.58</div>
+<div class="amversion" id="pageVersion">v1.59</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -1228,9 +1228,9 @@ async function callAmitBackend(message,mode,photos,pendingBubbleId){
 // function so it can be re-run fresh from amLoadThreadHistory() any time
 // the app resyncs against the real database, instead of trusting one single
 // in-memory loop to survive an unpredictable background/foreground cycle.
-// Poll this one row for its reply. 2.5s interval, 90s cap (36 tries).
+// Poll this one row for its reply. 2.5s interval, 4 minute cap (96 tries): looking at a photo and searching takes longer.
 async function amPollRowForReply(rowId,pendingBubbleId){
-  const POLL_MS=2500, MAX_TRIES=36;
+  const POLL_MS=2500, MAX_TRIES=96;
   for(let i=0;i<MAX_TRIES;i++){
     await new Promise(r=>setTimeout(r,POLL_MS));
     try{
@@ -1244,7 +1244,7 @@ async function amPollRowForReply(rowId,pendingBubbleId){
       if(el) el.textContent='Amit is thinking'+'.'.repeat((i%3)+1);
     }
   }
-  return "Amit's desktop isn't listening right now — make sure the desktop bridge is running and your computer isn't asleep. (Your message was saved — Amit will still answer it once the bridge is back, and you can check your history later.)";
+  return "No answer yet. With your own Claude, your computer has to be on, with the Amit Helper running and the Hub open. (Your message was saved, and you can check your history later.)";
 }
 
 // Auto-play attempt on arrival, kept as a best-effort convenience — but
@@ -1392,9 +1392,11 @@ async function amUploadPendingPhotos(photos){
   const paths=[];
   for(const p of photos){
     try{
-      const ext=(p.file.name.split('.').pop()||'jpg').toLowerCase();
+      // shrunk and turned upright first (the same step Send to computer uses), so Amit's Claude can look at it; if that fails, the original goes up
+      let body=p.file, ext=(p.file.name.split('.').pop()||'jpg').toLowerCase(), type=p.file.type||'image/jpeg';
+      try{ const small=await amStcToJpeg(p.file); if(small){ body=small; ext='jpg'; type='image/jpeg'; } }catch(e){ console.error(e); }
       const path=`${currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2,7)}.${ext}`;
-      const{error}=await db.storage.from('amitmobile-captures').upload(path,p.file,{contentType:p.file.type||'image/jpeg'});
+      const{error}=await db.storage.from('amitmobile-captures').upload(path,body,{contentType:type});
       if(error){ console.error('amitmobile-captures upload failed',error); continue; }
       paths.push(path);
     }catch(e){ console.error(e); }
