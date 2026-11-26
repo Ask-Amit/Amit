@@ -34,14 +34,17 @@
        - <title>Template</title>            (this line)
        - #pageTitle text, currently "Template" (~line 90)
        - the copied file itself: save as Disco.html, not template.html
-       - askAmitLive('TEMPLATE_NOT_CONFIGURED') → askAmitLive('yourRealKey'),
-         and write that key's real context into ../Amit_Ask_Live.js's
-         PAGE_CONTEXTS — do not skip this, see the comment above that line
-     CHAT (already in this template): the Ask Amit button opens the real AmitChat when the
-     person is signed in, and the Chats item under it is the chat box. Both come from
-     ../Amit_Ask_Live.js, which loads the chat on demand. A new app needs nothing extra; it
-     only has to keep the <script src="../Amit_Ask_Live.js?v=..."> line and its own sign-in
-     (the `db` client above). Written 2026-10-23.
+     CONNECTIONS (already in this template, nothing to wire): ../amit_master.js is the
+     shared connection layer (2026-11-26). It gives every app built from this file Ask Amit
+     and AmitChat (voice from About Me, speaking icon, birth date, full screen, ?ask=amit),
+     the Watcher eye (owner only), the Helper light, Help, the sign-in window, the middle
+     header title, and theme colors on shared pop-ups and imported layouts. Keep the
+     <script src="../Amit_Ask_Live.js?v=..."> and <script src="../amit_master.js?v=...">
+     lines and the page's own `db` client. Ask Amit works from the app's title alone; when
+     the app is ready, write its real description into PAGE_CONTEXTS in
+     ../Amit_Ask_Live.js under the title in lower case without spaces (until then Amit is
+     told honestly that no description exists yet). A global change goes into
+     amit_master.js, not into each app's copy. Optional settings: see that file's header.
 
      Use the app's real display name consistently in all three spots —
      never a variant spelling, never re-derived per file.
@@ -89,10 +92,11 @@
      pages/details themselves. See Templates\CLAUDE.md for why.
      ══════════════════════════════════════════════ -->
 <title>Template</title>
-<link rel="icon" type="image/x-icon" href="amit_icon.ico">
+<link rel="icon" type="image/x-icon" href="../amit_icon.ico">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../Amit_Ask_Live.js?v=6.19"></script>
+<script src="../Amit_Ask_Live.js?v=6.21"></script>
+<script src="../amit_master.js?v=0.01"></script>
 <script src="../amit_appearance.js?v=1.06"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -108,7 +112,7 @@
   --dim:var(--amit-dim,rgba(var(--amit-text-rgb,240,232,208),0.42));
 }
 html,body{height:100%;overflow:hidden}
-body{background:var(--bg);font-family:var(--amit-font-body,'Crimson Pro',Georgia,serif);color:var(--text);display:flex;flex-direction:column}
+body{background:var(--bg);font-family:var(--amit-font-body,'Crimson Pro',Georgia,serif);font-weight:var(--amit-font-body-weight,400);color:var(--text);display:flex;flex-direction:column}
 
 body::before{
   content:'';
@@ -116,7 +120,7 @@ body::before{
   top:50%;left:50%;
   transform:translate(-50%,-50%);
   width:60vmin;height:60vmin;
-  background:url('amit_icon.ico') center/contain no-repeat;
+  background:url('../amit_icon.ico') center/contain no-repeat;
   opacity:var(--amit-watermark-opacity,.035);
   pointer-events:none;
   z-index:0;
@@ -147,7 +151,7 @@ header{
 .brand-logo-link{display:flex;align-items:center;gap:14px;cursor:pointer;text-decoration:none}
 .brand-sub{font-style:italic;color:rgba(var(--amit-text-rgb,240,232,208),.55);font-size:12px}
 .hdr-right{text-align:right}
-.greeting{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;color:var(--amit-text,#fff);font-weight:600}
+.greeting{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;color:var(--amit-text,#fff);font-weight:var(--amit-font-heading-weight,600)}
 .datetime{font-size:12px;color:var(--muted);margin-top:2px}
 .help-btn{width:22px;height:22px;border-radius:50%;border:1px solid rgba(var(--amit-text-rgb,240,232,208),.3);color:rgba(var(--amit-text-rgb,240,232,208),.6);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .15s}
 .help-btn:hover{border-color:var(--gold);color:var(--gold)}
@@ -196,7 +200,7 @@ header{
 @keyframes plugBadgeFill{0%,100%{transform:scale(0)}50%{transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){.page-icon.plug-badge.disconnected::before{animation:none;transform:scale(1)}}
 .page-info{flex:1;min-width:0}
-.page-name{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;color:var(--amit-text,#fff);letter-spacing:.04em;font-weight:600}
+.page-name{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;color:var(--amit-text,#fff);letter-spacing:.04em;font-weight:var(--amit-font-heading-weight,600)}
 .page-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ── MAIN AREA ── */
@@ -219,7 +223,7 @@ header{
   border-bottom:2px solid var(--border);
   flex-shrink:0;
 }
-.detail-heading{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
+.detail-heading{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:var(--amit-font-heading-weight,700)}
 .detail-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(var(--amit-text-rgb,240,232,208),.25);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
 
 /* ── POPUP — canonical DESTINATION, not a layout type. Generic overlay
@@ -293,11 +297,11 @@ header{
 <body>
 
 <header>
-  <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
-    <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
+  <a class="brand brand-logo-link" href="../Hub/amit-hub.html" title="Back to the Amit Hub">
+    <img src="../amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Template</div>
-      <div class="page-version" id="pageVersion">v1.01</div>
+      <div class="page-version" id="pageVersion">v1.02</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -481,22 +485,28 @@ const TEMPLATE_VIEWS_ICON_MAP={
   'Inbox View':'📥','Drawer View':'🗄️','Tree View':'🌳','Breadcrumb View':'🍞','Day View':'☀️'
 };
 
+// Reads and writes go through the page's own signed-in client (db), so the
+// database knows whose pages they are. A page remembered in this browser but
+// not found in the database is kept, never wiped.
 async function loadCustomPages(){
   const cacheKey='amit_pages_'+PROJECT_KEY;
   const owner=currentUser?currentUser.id:null;
+  let cached=[];
+  try{ cached=JSON.parse(localStorage.getItem(cacheKey)||'[]'); }catch(e){}
   if(owner&&db){
     try{
-      const res=await fetch(`${SB_URL}/rest/v1/template_pages?user_id=eq.${owner}&project_key=eq.${encodeURIComponent(PROJECT_KEY)}&order=page_order.asc`,{
-        headers:{apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`,Accept:'application/json'}
-      });
-      if(res.ok){
-        const rows=await res.json();
+      const {data,error}=await db.from('template_pages').select('*')
+        .eq('user_id',owner).eq('project_key',PROJECT_KEY).order('page_order',{ascending:true});
+      if(!error&&data){
+        const same=(a,b)=>a.page_order===b.page_order&&a.detail_layout_type===b.detail_layout_type;
+        const rows=data.concat(cached.filter(c=>!data.some(r=>same(r,c))))
+          .sort((a,b)=>a.page_order-b.page_order);
         localStorage.setItem(cacheKey,JSON.stringify(rows));
         return rows;
       }
     }catch(e){}
   }
-  try{ return JSON.parse(localStorage.getItem(cacheKey)||'[]'); }catch(e){ return []; }
+  return cached;
 }
 
 async function saveCustomPage(pageName,layoutKey,order){
@@ -504,11 +514,8 @@ async function saveCustomPage(pageName,layoutKey,order){
   const row={project_key:PROJECT_KEY,page_name:pageName,detail_layout_type:layoutKey,page_order:order};
   if(owner&&db){
     try{
-      await fetch(`${SB_URL}/rest/v1/template_pages`,{
-        method:'POST',
-        headers:{apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`,'Content-Type':'application/json',Prefer:'return=minimal'},
-        body:JSON.stringify({...row,user_id:owner})
-      });
+      const {error}=await db.from('template_pages').insert({...row,user_id:owner});
+      if(error)console.warn('Page kept in this browser only: '+error.message);
     }catch(e){}
   }
   const cacheKey='amit_pages_'+PROJECT_KEY;
@@ -604,7 +611,7 @@ function finalizeBuilderMode(){
 function previewLayoutInNewTab(e,layoutKey){
   e.stopPropagation();
   const pageNum=TEMPLATE_VIEWS_PAGE_MAP[layoutKey];
-  window.open('TemplateViews.html'+(pageNum?'#page='+pageNum:''),'_blank');
+  window.open('../Templates/TemplateViews.html'+(pageNum?'#page='+pageNum:''),'_blank');
 }
 
 function openLayoutPicker(){
@@ -648,8 +655,8 @@ async function confirmAddPage(layoutKey){
   // RIGHT RAIL — Ask Amit / Sign In-Sync / Demo Mode, permanent, global.
   const rail=document.getElementById('rightRail');
   if(rail){
-    rail.innerHTML=`<div class="page-nav" id="rail-ask-amit" onclick="askAmitLive('TEMPLATE_NOT_CONFIGURED')" data-tip="Ask Amit">
-      <div class="page-icon"><img src="amit_icon.ico" alt="Amit" style="width:100%;height:100%;object-fit:contain"></div>
+    rail.innerHTML=`<div class="page-nav" id="rail-ask-amit" onclick="railAskAmit()" data-tip="Ask Amit">
+      <div class="page-icon"><img src="../amit_icon.ico" alt="Amit" style="width:100%;height:100%;object-fit:contain"></div>
       <div class="page-info">
         <div class="page-name">Ask Amit</div>
         <div class="page-sub">Walk alongside</div>
@@ -750,6 +757,7 @@ function showChTab(detailNum,n){
   detail.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('ch-tab-'+detailNum+'-'+n).classList.add('active');
   clickedBtn.classList.add('active');
+  if(window.AmitMaster)AmitMaster.navigated();
 }
 
 // Builds a real, working Tabbed View's inner markup for a given detail id —
@@ -820,7 +828,7 @@ const LAYOUT_IMPORT_MANIFEST={
 let _tvSource=null;
 async function _fetchTemplateViewsSource(){
   if(_tvSource) return _tvSource;
-  const res=await fetch('TemplateViews.html');
+  const res=await fetch('../Templates/TemplateViews.html'); // from any app folder under Amit
   if(!res.ok) throw new Error('HTTP '+res.status);
   _tvSource=await res.text();
   return _tvSource;
@@ -833,8 +841,13 @@ function _injectTemplateViewsCss(src){
   if(!m) return;
   const tag=document.createElement('style');
   tag.id='tv-imported-css';
-  tag.textContent=m[1];
-  document.head.appendChild(tag);
+  // The catalog's CSS also carries its own fixed :root colors and frame rules.
+  // It goes BEFORE this page's own <style> so the page's themed rules always
+  // win, and amit_master.js rewrites its fixed colors to the theme tokens.
+  tag.textContent=window.AmitMaster?AmitMaster.themeCss(m[1]):m[1];
+  const own=document.querySelector('head style:not([id]):not([data-amit-appearance-font])');
+  if(own)own.parentNode.insertBefore(tag,own);
+  else document.head.appendChild(tag);
   _tvCssInjected=true;
 }
 
@@ -903,6 +916,13 @@ async function hydrateImportedLayout(detailNum,layoutKey){
   catch(e){ mount.innerHTML=`<div class="detail-empty">"${layoutKey}" loaded but hit an error running it: ${e.message}</div>`; }
 }
 
+// Ask Amit: handled by ../amit_master.js. If that file could not load, the
+// shared Amit_Ask_Live.js is still asked directly.
+function railAskAmit(){
+  if(window.AmitMaster){ AmitMaster.ask(); return; }
+  askAmitLive((PROJECT_KEY||'page').toLowerCase().replace(/[^a-z0-9]/g,''));
+}
+
 function toggleRail(){
   document.getElementById('rightRail').classList.toggle('expanded');
 }
@@ -944,12 +964,13 @@ function goToHub(){
 }
 
 function openPage(n){
-  document.querySelectorAll('.page-nav').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('#sidebarPages .page-nav').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.detail').forEach(p=>p.classList.remove('active'));
   const page=document.getElementById('page-'+n);
   const detail=document.getElementById('detail-'+n);
   if(page)page.classList.add('active');
   if(detail)detail.classList.add('active');
+  if(window.AmitMaster)AmitMaster.navigated();
 }
 
 function toggleSidebar(){
@@ -980,7 +1001,7 @@ function popupClose(){
 // only: knows who is signed in. No data reads/writes beyond that.
 // ══════════════════════════════════════════════
 if(db){
-  db.auth.onAuthStateChange(async (event,session)=>{
+  db.auth.onAuthStateChange((event,session)=>{
     currentUser=session?session.user:null;
     _updateSyncUI();
     // Appearance (2026-10-01): pull this login's saved theme (or clear it on
@@ -990,8 +1011,8 @@ if(db){
     // re-pull this project's pages under the now-current owner, so a
     // signed-in user's real Supabase page list replaces whatever the
     // signed-out localStorage cache was showing
-    customPages=await loadCustomPages();
-    renderAllPages();
+    // deferred for the same reason as above: this reads through db
+    setTimeout(async()=>{ customPages=await loadCustomPages(); renderAllPages(); },0);
   });
 }
 
