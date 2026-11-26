@@ -98,6 +98,7 @@ $SUPABASE_URL = 'https://hleqtjqojksurvkyqixt.supabase.co'
 $SECRET_KEY = Get-SupabaseSecretKey
 
 $CLAUDE_CLI = "$env:APPDATA\npm\claude.cmd"
+if (-not (Test-Path -LiteralPath $CLAUDE_CLI)) { $CLAUDE_CLI = "$env:USERPROFILE\.local\bin\claude.exe" }
 $NEUTRAL_CWD = $env:TEMP
 
 $AMIT_IDENTITY = @"
@@ -177,7 +178,7 @@ function Invoke-Claude($prompt) {
 # shells out to curl.exe instead of using Invoke-RestMethod, since that's
 # what's actually proven to work in this real environment.
 function Get-UnansweredCaptures {
-    $uri = "$SUPABASE_URL/rest/v1/amit_mobile_captures?reply=is.null&order=created_at.asc&limit=10"
+    $uri = "$SUPABASE_URL/rest/v1/amit_mobile_captures?reply=is.null&runner=eq.amit&order=created_at.asc&limit=10"
     try {
         $json = & curl.exe -s $uri -H "apikey: $SECRET_KEY" -H "Authorization: Bearer $SECRET_KEY"
         if (-not $json) { return @() }

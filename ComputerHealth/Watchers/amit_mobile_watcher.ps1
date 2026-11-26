@@ -98,6 +98,7 @@ $SUPABASE_URL = 'https://hleqtjqojksurvkyqixt.supabase.co'
 $SECRET_KEY = Get-SupabaseSecretKey
 
 $CLAUDE_CLI = "$env:APPDATA\npm\claude.cmd"
+if (-not (Test-Path -LiteralPath $CLAUDE_CLI)) { $CLAUDE_CLI = "$env:USERPROFILE\.local\bin\claude.exe" }
 $NEUTRAL_CWD = $env:TEMP
 
 $AMIT_IDENTITY = @"

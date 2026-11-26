@@ -29,6 +29,7 @@ REM this .bat may have been started long before Node/npm were installed,
 REM so it can carry a stale PATH that never picks up a new install - using
 REM any full path here (exe or shim) avoids depending on PATH at all.
 set "CLAUDE_EXE=%APPDATA%\npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe"
+if not exist "%CLAUDE_EXE%" set "CLAUDE_EXE=%USERPROFILE%\.local\bin\claude.exe"
 REM
 REM --safe-mode, not --bare: confirmed live 2026-08-01 via claude --help
 REM that --bare strictly requires an ANTHROPIC_API_KEY and NEVER reads a

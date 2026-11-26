@@ -1,4 +1,4 @@
-/* amit_coder_link.js v0.02 (2026-11-26) - the ONE connection layer of Amit Coder.
+/* amit_coder_link.js v0.03 (2026-11-26) - the ONE connection layer of Amit Coder.
    The coding screen talks only to AmitCoderLink. How the messages travel is a ROUTE behind it:
      local : this computer, through the shared Amit Helper at http://localhost:8710 (routes /api/coder/*)
      away  : another device reaching your computer over the internet (version 2, NOT BUILT)
@@ -37,6 +37,17 @@
       var client = AmitCoderLink.client || (typeof db !== 'undefined' ? db : null);
       var r = await client.auth.getSession(); return (r && r.data && r.data.session && r.data.session.access_token) || null;
     } catch (e) { return null; }
+  }
+  // While the coding connection is being built it is for the owner only. For anyone else this page looks for no Helper and sends nothing.
+  var ownerMemo = { token: null, yes: false };
+  async function isOwner(tok) {
+    if (ownerMemo.token === tok) return ownerMemo.yes;
+    try {
+      var client = AmitCoderLink.client || (typeof db !== 'undefined' ? db : null);
+      var r = await client.rpc('cha_is_owner');
+      if (r.error) return false;
+      ownerMemo = { token: tok, yes: r.data === true }; return ownerMemo.yes;
+    } catch (e) { return false; }
   }
   function set(code, extra) {
     var x = Object.assign({ code: code, route: null, computer: '', missing: [] }, extra || {});
@@ -98,6 +109,7 @@
   async function lookNow() {
     var tok = await token();
     if (!tok) { disconnect(); return set('signed-out'); }
+    if (!(await isOwner(tok))) { disconnect(); return set('signed-out'); }
     if (stateNow.code === 'signed-out') set('checking');
     for (var i = 0; i < ROUTES.length; i++) {
       if (route && route === ROUTES[i] && session) {   // already connected: only make sure it still answers
@@ -136,7 +148,7 @@
   async function post(what, body) { return route && session ? route.post(what, body) : false; }
   async function get(what) { return route && session ? route.get(what) : null; }
   window.AmitCoderLink = {
-    version: '0.02', client: null,
+    version: '0.03', client: null,
     refresh: refresh, state: function () { return stateNow; }, lastError: function () { return lastError; },
     onState: function (f) { stateFns.push(f); }, onEvent: function (f) { eventFns.push(f); },
     newSession: function (o) { return post('new', o); },

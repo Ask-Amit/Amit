@@ -2521,7 +2521,7 @@ try {
                 #     OWN expiry has passed, is reported as not connected.
                 try {
                     $claudeCmdPath = "$env:APPDATA\npm\claude.cmd"
-                    $installed = [bool](Get-Command claude -ErrorAction SilentlyContinue) -or (Test-Path $claudeCmdPath)
+                    $installed = [bool](Get-Command claude -ErrorAction SilentlyContinue) -or (Test-Path $claudeCmdPath) -or (Test-Path "$env:USERPROFILE\.local\bin\claude.exe")
 
                     $connected = $false
                     $credPath = "$env:USERPROFILE\.claude\.credentials.json"

@@ -23,7 +23,7 @@
 # directly from GitHub instead, since nothing else exists locally yet.
 
 # -WithClaude (added 2026-11-11, Ryan's direct instruction): Steps 1b and 1c (Node.js, the Claude Code CLI and the offer to connect a Claude account)
-# are OFF by default. The Helper (bar, voice, Read, Show Amit, the updater) needs none of them; for now the receipt processing, the phone watcher and
+# are OFF by default (the installer program turns them ON again from 5.43, 2026-11-26). The Helper (bar, voice, Read, Show Amit, the updater) needs none of them; for now the receipt processing, the phone watcher and
 # Ask Amit answering all run through Ryan's own Claude account. The steps are kept, not deleted, so a later release can ask the person to set them up.
 param([switch]$Force, [switch]$NoAutoStart, [switch]$WithClaude, [string]$InstallerVersion = "")
 
@@ -134,52 +134,47 @@ if (-not $WithClaude) {
     Write-Host ""
     Write-Host "Node.js and a Claude account are not needed here, so nothing about them is installed or asked."
 } else {
-# --- Step 1b: Node.js + Claude Code CLI (for AmitBooks local receipt
-# processing) - optional, non-fatal if it fails. This is what
-# process_inbox.bat needs to actually run; the tracker/dashboard itself
-# doesn't depend on any of this, so a failure here is logged and skipped,
-# never aborts the rest of the install. Confirmed live 2026-08-01 -
-# exact same commands run by hand on Ryan's machine that session,
-# encoded here so every future install gets it automatically instead of
-# needing to be repeated manually.
+# --- Step 1b: Claude Code + Node.js - optional, non-fatal if either fails.
+# Claude Code is installed with Anthropic's own one-line (native) installer
+# (decided 2026-11-26; it needs neither Node.js nor VS Code). A computer that
+# already has the older npm copy keeps it. Node.js 22 or later is installed
+# separately because Amit's own coding engine runs on it.
 #
 # Does NOT sign anyone into a Claude account here - that's a separate,
-# explicit, explained step (its own popup, only when AmitBooks' local
-# processing is actually used), never silently triggered during install.
-Write-Host "[1b] Checking for Node.js (needed for AmitBooks local receipt processing)..."
+# explicit, explained step (1c), never silently triggered during install.
+$nativeClaude = "$env:USERPROFILE\.local\bin\claude.exe"
+$npmClaude = "$env:APPDATA\npm\claude.cmd"
+
+Write-Host "[1b] Checking for Claude Code..."
+if ((Test-Path $nativeClaude) -or (Test-Path $npmClaude)) {
+    Write-Host "  Already installed."
+} else {
+    Write-Host "  Not found - running Anthropic's installer (this can take a few minutes and shows little while it downloads)..."
+    try {
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor 3072; Invoke-RestMethod https://claude.ai/install.ps1 | Invoke-Expression" | Out-Null
+    } catch {
+        Write-Host "  Warning: the Claude Code installer reported a problem ($($_.Exception.Message))."
+    }
+    if (Test-Path $nativeClaude) { Write-Host "  Claude Code is installed." }
+    else { Write-Host "  Warning: Claude Code did not install. Amit's Claude features won't work until it does, but the rest of Amit is unaffected." }
+}
+
+Write-Host "  Checking for Node.js 22 or later..."
 try {
     $nodeExe = "$env:ProgramFiles\nodejs\node.exe"
-    if (-not (Test-Path $nodeExe)) {
-        Write-Host "  Not found - installing via winget (silent)..."
-        winget install OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements | Out-Null
+    $nodeMajor = { if (Test-Path $nodeExe) { try { [int]((& $nodeExe -v) -replace '^v(\d+).*$', '$1') } catch { 0 } } else { 0 } }
+    $have = & $nodeMajor
+    if ($have -ge 22) {
+        Write-Host "  Node.js $have is already installed."
     } else {
-        Write-Host "  Already installed."
-    }
-    if (Test-Path $nodeExe) {
-        # A freshly-installed Node isn't on THIS script's PATH yet (PATH
-        # changes from an installer don't reach an already-running
-        # process) - add it explicitly for the rest of this script only,
-        # same fix needed live on Ryan's machine.
-        $nodeDir = Split-Path $nodeExe
-        $npmGlobalDir = "$env:APPDATA\npm"
-        if ($env:Path -notlike "*$nodeDir*") { $env:Path = "$nodeDir;$env:Path" }
-        if ($env:Path -notlike "*$npmGlobalDir*") { $env:Path = "$npmGlobalDir;$env:Path" }
-
-        $claudeCmd = "$npmGlobalDir\claude.cmd"
-        if (-not (Test-Path $claudeCmd)) {
-            Write-Host "  Installing Claude Code CLI..."
-            & "$nodeDir\npm.cmd" install -g "@anthropic-ai/claude-code" 2>&1 | Out-Null
-        }
-        if (Test-Path $claudeCmd) {
-            Write-Host "  Claude Code CLI ready. (Signing into a Claude account happens separately, only when local processing is actually used.)"
-        } else {
-            Write-Host "  Warning: Claude Code CLI install did not complete - local receipt processing won't work until this is resolved, but the rest of Amit is unaffected."
-        }
-    } else {
-        Write-Host "  Warning: Node.js install did not complete - local receipt processing won't work until this is resolved, but the rest of Amit is unaffected."
+        $verb = if ($have -eq 0) { 'install' } else { 'upgrade' }
+        Write-Host "  Running winget $verb for Node.js (silent)..."
+        winget $verb OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements | Out-Null
+        if ((& $nodeMajor) -ge 22) { Write-Host "  Node.js is ready." }
+        else { Write-Host "  Warning: Node.js 22 or later is not ready - Amit's coding connection needs it. Get it from https://nodejs.org" }
     }
 } catch {
-    Write-Host "  Warning: could not set up local processing ($($_.Exception.Message)) - the rest of Amit is unaffected."
+    Write-Host "  Warning: could not set up Node.js ($($_.Exception.Message)) - the rest of Amit is unaffected."
 }
 
 # --- Step 1c: Connect your Claude account (2026-09-05, built for the shared
@@ -187,17 +182,17 @@ try {
 # Amit" section). Two genuinely separate checks, reported distinctly:
 # (1) is Claude Code (the CLI, `claude` - NOT Claude Desktop, a different
 # Anthropic product not used anywhere in this mechanism) installed at all -
-# Step 1b above already tries to install it automatically via the same
-# documented sequence (Node.js via winget, then
-# `npm install -g @anthropic-ai/claude-code`); this step just re-checks
+# Step 1b above already tries to install it; this step just re-checks
 # whether that succeeded rather than re-inventing the install. (2) is it
 # actually signed in - if not, this OFFERS (never silently forces) to run
 # `claude login`, which opens Anthropic's own sign-in page in the browser.
 Write-Host ""
 Write-Host "[1c] Checking your Claude account connection..."
-$claudeCmd = "$env:APPDATA\npm\claude.cmd"
-if (-not (Get-Command claude -ErrorAction SilentlyContinue) -and -not (Test-Path $claudeCmd)) {
-    Write-Host "  Claude Code isn't installed at all yet (Step 1b's automatic install above did not complete) - skipping the account-connection step for now. Local receipt processing and Amit's live features won't work until Claude Code is installed; re-run this installer, or install it yourself: winget install OpenJS.NodeJS.LTS, then npm install -g @anthropic-ai/claude-code."
+$claudeCmd = $null
+foreach ($c in @($nativeClaude, $npmClaude)) { if (Test-Path $c) { $claudeCmd = $c; break } }
+if (-not $claudeCmd) { $g = Get-Command claude -ErrorAction SilentlyContinue | Select-Object -First 1; if ($g) { $claudeCmd = $g.Source } }
+if (-not $claudeCmd) {
+    Write-Host "  Claude Code isn't installed yet (Step 1b did not complete) - skipping the account-connection step for now. Amit's Claude features won't work until Claude Code is installed; re-run this installer, or paste this into PowerShell: irm https://claude.ai/install.ps1 | iex"
 } else {
     $connected = $false
     $credPath = "$env:USERPROFILE\.claude\.credentials.json"
@@ -229,13 +224,12 @@ if (-not (Get-Command claude -ErrorAction SilentlyContinue) -and -not (Test-Path
         }
         if ($ans -eq '' -or $ans -match '^(?i)y') {
             try {
-                if ($env:Path -notlike "*$env:APPDATA\npm*") { $env:Path = "$env:APPDATA\npm;$env:Path" }
-                & claude login
+                & $claudeCmd auth login
             } catch {
-                Write-Host "  Could not launch 'claude login' automatically ($($_.Exception.Message)) - run it yourself from a terminal any time: claude login"
+                Write-Host "  Could not start the Claude sign-in automatically ($($_.Exception.Message)) - run it yourself from PowerShell any time: claude auth login"
             }
         } else {
-            Write-Host "  Skipped - you can connect any time later by running 'claude login' from a terminal, or from the Hub's Connect Amit panel."
+            Write-Host "  Skipped - you can connect any time later by running 'claude auth login' in PowerShell, or from the Hub's Connect Amit panel."
         }
     }
 }

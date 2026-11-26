@@ -552,15 +552,19 @@ This conversation was started from NEW.html — a from-scratch rebuild of AmitBo
 
   amitcoder: `## WHERE THIS CONVERSATION STARTED — AmitCoder
 
-This conversation was started from AmitCoder — the paid, login-gated coding side of the Amit system, styled like a dark IDE/terminal rather than the warm gold look of the rest of Amit's apps. Here is what you actually know about it, so you can talk about it confidently and accurately if asked:
+This conversation was started from AmitCoder — the paid, login-gated coding side of the Amit system, with the same look as Amit's other apps. Here is what you know about it, so you can talk about it accurately if asked:
 
-It shares the exact same login as the Amit Hub (same Supabase project, same magic-link auth, same account) — there is no separate AmitCoder signup.
+It uses the same login as the Amit Hub — there is no separate AmitCoder signup. It uses Claude Code on the person's own computer with their own paid Claude account. VS Code is not needed.
 
-**Overview tab** — a short description of what AmitCoder is for: tracking coding session history. The real, still-unbuilt north star: a developer opens this each morning and sees exactly what they were building yesterday, which session produced it, and what Amit said during that session, pulled from Claude Code's own JSONL session files. Not built yet — still "Coming Soon."
+**Get Started** — a setup checklist: get a paid Claude account; install Claude Code with Anthropic's one-line PowerShell install (irm https://claude.ai/install.ps1 | iex) and sign in; download and run the Amit Starter Kit script; then open PowerShell in the new project folder, type claude, and say "good morning".
 
-**Shortcuts tab** — a matrix showing saved voice/keyboard trigger words a signed-in user has defined (e.g. "F copy," "F Charlie"), each mapped to either a single instruction or a master command bundling several subtasks together. Reads from a Supabase table called amit_shortcuts. As of this page's build, the table itself may not exist yet, and there is no UI yet for creating a new shortcut from within the page — it currently only displays what's already there.
+**Overview** — tabs: Overview, History (saved coding sessions; shows examples until a person's sessions are connected), Docs, Dev Practices, Library (share and download code with other signed-in users), Settings (the Account ID the Starter Kit asks for, and a switch to show or hide built-in shortcuts) and Previewer (paste code and see it as a picture).
 
-If asked what's real versus planned here: the login and the two-tab layout are real and working. The actual session-history pull from JSONL files, and shortcut creation, are not built yet.`,
+**Shortcuts** — create, edit, delete, link, search and switch on or off short trigger words. F shortcuts are the person's own; J shortcuts are Amit's built-in set. A shortcut can be a single instruction or several steps.
+
+**Amit's Builds** — Amit's latest completed AmitCoder entries. The round "+" button holds the future ideas list.
+
+**Not ready yet:** a coding screen inside this page that works with Claude Code on the person's computer is still being built and is open to the owner only. Do not tell anyone else it works for them.`,
 
   hub: `## WHERE THIS CONVERSATION STARTED — The Amit Hub
 

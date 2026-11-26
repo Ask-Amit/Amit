@@ -143,7 +143,14 @@ function global:As-OpenPopup([string]$id, [string]$token, [string]$pageName = 'A
 # where Claude Code is on this computer: installed on its own, or the copy that comes INSIDE the VS Code extension (a person may have only that one; found missing 2026-11-25). $roots is for the test only.
 function global:As-ClaudeExe($roots = $null) {
     if ($null -eq $roots) {
-        foreach ($c in @((Join-Path $env:APPDATA 'npm\claude.cmd'), (Join-Path $env:USERPROFILE '.local\bin\claude.exe'))) { if (Test-Path -LiteralPath $c) { return $c } }
+        # The one-line (native) install is used unless an npm copy on the same computer is newer.
+        $native = Join-Path $env:USERPROFILE '.local\bin\claude.exe'
+        $npm = Join-Path $env:APPDATA 'npm\claude.cmd'
+        $verOf = { param($f) try { [version]((Get-Item -LiteralPath $f -ErrorAction Stop).VersionInfo.FileVersion -replace '[^0-9.].*$', '') } catch { [version]'0.0.0.0' } }
+        $hasNative = Test-Path -LiteralPath $native; $hasNpm = Test-Path -LiteralPath $npm
+        if ($hasNative -and $hasNpm) { if ((& $verOf (Join-Path $env:APPDATA 'npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe')) -gt (& $verOf $native)) { return $npm } else { return $native } }
+        if ($hasNative) { return $native }
+        if ($hasNpm) { return $npm }
         $g = Get-Command claude -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($g) { return $g.Source }
         $roots = @((Join-Path $env:USERPROFILE '.vscode\extensions'), (Join-Path $env:USERPROFILE '.vscode-insiders\extensions'))

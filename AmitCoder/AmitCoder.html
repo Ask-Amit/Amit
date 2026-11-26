@@ -3,31 +3,117 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ══════════════════════════════════════════════
+     COPYING THIS TEMPLATE FOR A NEW PROJECT — read this first.
+
+     WHAT THIS FILE IS — rebuilt 2026-08-06, Ryan's direct instruction.
+     This is now the MINIMAL STARTER, not the reference catalog. It has
+     Introduction (page 1) plus a few blank placeholder pages, and the
+     global infrastructure every Amit app needs (right rail — Ask Amit,
+     Sign In/Sync, Demo Mode — popup destination, login connection,
+     tooltip mechanism, clock/greeting). It deliberately does NOT contain
+     any of the canonical layouts (Tabbed/Row/Detail/Calendar/Day/Board/
+     Gallery/Dashboard/Split/Form/Chart/Inbox/Drawer/Tree/Breadcrumb
+     View) — those live permanently in Templates\TemplateViews.html, the
+     never-modified reference library. This split exists so a real
+     project's starting file is never bloated with layout code it isn't
+     using — see Templates\CLAUDE.md's "TEMPLATE VIEWS vs TEMPLATE"
+     section for the full reasoning.
+
+     ADDING A LAYOUT TO A REAL PROJECT — go to Templates\TemplateViews.html,
+     find the named "CANONICAL LAYOUT:" or "CANONICAL DESTINATION:" comment
+     block, and copy it verbatim into this file — never reconstruct a
+     layout's behavior from memory or approximation. Wire it into a real
+     page/tab/popup the same way TemplateViews.html's own DEMO block shows
+     it being done there. (J New, once built, automates this hand-off —
+     see Templates\CLAUDE.md.)
+
+     NAMING: the new project's folder name IS the app's name. If the
+     folder is `Disco\`, the app is "Disco" — rename every literal
+     occurrence of "Template" below to that exact name:
+       - <title>Template</title>            (this line)
+       - #pageTitle text, currently "Template" (~line 90)
+       - the copied file itself: save as Disco.html, not template.html
+     CONNECTIONS (already in this template, nothing to wire): ../amit_master.js is the
+     shared connection layer (2026-11-26). It gives every app built from this file Ask Amit
+     and AmitChat (voice from About Me, speaking icon, birth date, full screen, ?ask=amit),
+     the Watcher eye (owner only), the Helper light, Help, the sign-in window, the middle
+     header title, and theme colors on shared pop-ups and imported layouts. Keep the
+     <script src="../Amit_Ask_Live.js?v=..."> and <script src="../amit_master.js?v=...">
+     lines and the page's own `db` client. Ask Amit works from the app's title alone; when
+     the app is ready, write its real description into PAGE_CONTEXTS in
+     ../Amit_Ask_Live.js under the title in lower case without spaces (until then Amit is
+     told honestly that no description exists yet). A global change goes into
+     amit_master.js, not into each app's copy. Optional settings: see that file's header.
+
+     Use the app's real display name consistently in all three spots —
+     never a variant spelling, never re-derived per file.
+
+     VERSION: #pageVersion always starts at v1.00 for a brand-new app.
+     From here forward it is versioned independently (own +0.01/+1.00
+     history, never synced to any other file's number) — see root
+     CLAUDE.md's VERSIONING STANDARD.
+
+     INTERCONNECTION: a new project is never standalone — it inherits the
+     whole Amit system's conventions. Before/while building it out, the
+     new project's own CLAUDE.md (copied from
+     Templates\Amit_NewProject_Template.md per root CLAUDE.md's NEW
+     PROJECT DIRECTIVE) must carry: the Session Location Check, the
+     Pursuit Attribution clause (its own canonical program name for
+     hub_entries), Shortcut Activation + Shortcut Awareness, and — if
+     it has an "Ask Amit" button — the wiring described above. If the
+     project is likely to grow a running state log, add its own
+     Sessions_Log.md too (see AmitBooks\Sessions_Log.md for the pattern) so a
+     future session can orient fast without re-deriving context.
+
+     NOMENCLATURE: this template uses PAGE (a sidebar item — button + its
+     fixed number), DETAIL (the content area a page opens into), LAYOUT
+     (what kind of content lives inside a detail — Tabbed/Row/Detail/etc,
+     all defined in TemplateViews.html), and DESTINATION (WHERE a layout
+     mounts — a page, a tab slot, or a Popup; Popup is built into this
+     starter since it's generic infrastructure, not a layout itself). Full
+     definitions live in the NOMENCLATURE comment at the top of the
+     <script> block below.
+
+     APPEARANCE (THEMES): already wired, added 2026-10-01. This file
+     includes ../amit_appearance.js (in <head>, before <style>), aliases
+     its :root vars to the shared --amit-* tokens, and calls
+     amitAppearanceSync(db) on auth change, so a project copied from it
+     follows each login's saved Appearance theme automatically. Don't redo
+     this in a new project's own CLAUDE.md, just confirm it's still present.
+     When you add new CSS, write colors/fonts as var(--amit-<token>,
+     <classic value>) (e.g. rgba(var(--amit-accent-rgb,201,168,76),.3)),
+     never as bare literals. The token list is in amit_appearance.js's
+     header. Classic with no theme saved is a guaranteed visual no-op.
+
+     PAGE ORDER: sidebar display position is controlled by the PAGE_ORDER
+     array in the script below, kept separate from each page's fixed
+     number — reorder pages by editing that array, never by renumbering
+     pages/details themselves. See Templates\CLAUDE.md for why.
+     ══════════════════════════════════════════════ -->
 <title>AmitCoder</title>
-<link rel="icon" type="image/png" href="../amit_icon.png">
+<link rel="icon" type="image/x-icon" href="../amit_icon.ico">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../Amit_Ask_Live.js?v=6.19"></script>
+<script src="../Amit_Ask_Live.js?v=6.22"></script>
+<script src="../amit_master.js?v=0.01"></script>
+<script src="amit_coder_link.js?v=0.03" defer></script>
 <script src="../amit_appearance.js?v=1.06"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  /* Theme aliases (2026-10-01): each variable follows the saved Appearance
-     theme via ../amit_appearance.js's --amit-* tokens. The fallback is the
-     exact original value, so with Classic / no theme saved (which sets no
-     --amit-* properties at all) the page renders identically. */
   --bg:var(--amit-bg,#09141f);
   --card-head:var(--amit-surface,#0f2338);
-  --border:var(--amit-border,rgba(201,168,76,0.55));
+  --border:var(--amit-border,rgba(var(--amit-accent-rgb,201,168,76),0.55));
   --gold:var(--amit-accent,#c9a84c);
   --gold2:var(--amit-accent-bright,#e8c56a);
   --text:var(--amit-text,#ffffff);
   --text2:var(--amit-text-soft,#f0e8d0);
-  --muted:var(--amit-muted,rgba(240,232,208,0.78));
-  --dim:var(--amit-dim,rgba(240,232,208,0.42));
+  --muted:var(--amit-muted,rgba(var(--amit-text-rgb,240,232,208),0.78));
+  --dim:var(--amit-dim,rgba(var(--amit-text-rgb,240,232,208),0.42));
 }
 html,body{height:100%;overflow:hidden}
-body{background:var(--bg);font-family:var(--amit-font-body,'Crimson Pro',Georgia,serif);color:var(--text);display:flex;flex-direction:column}
+body{background:var(--bg);font-family:var(--amit-font-body,'Crimson Pro',Georgia,serif);font-weight:var(--amit-font-body-weight,400);color:var(--text);display:flex;flex-direction:column}
 
 body::before{
   content:'';
@@ -35,8 +121,8 @@ body::before{
   top:50%;left:50%;
   transform:translate(-50%,-50%);
   width:60vmin;height:60vmin;
-  background:url('../amit_icon.png') center/contain no-repeat;
-  opacity:.035;
+  background:url('../amit_icon.ico') center/contain no-repeat;
+  opacity:var(--amit-watermark-opacity,.035);
   pointer-events:none;
   z-index:0;
 }
@@ -62,10 +148,11 @@ header{
   font-family:var(--amit-font-mono,monospace);font-size:11px;letter-spacing:.05em;
   color:rgba(var(--amit-accent-rgb,201,168,76),.55);margin-top:2px;
 }
-.brand{display:flex;align-items:baseline;gap:14px}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-logo-link{display:flex;align-items:center;gap:14px;cursor:pointer;text-decoration:none}
 .brand-sub{font-style:italic;color:rgba(var(--amit-text-rgb,240,232,208),.55);font-size:12px}
 .hdr-right{text-align:right}
-.greeting{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;color:var(--amit-text,#fff);font-weight:600}
+.greeting{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;color:var(--amit-text,#fff);font-weight:var(--amit-font-heading-weight,600)}
 .datetime{font-size:12px;color:var(--muted);margin-top:2px}
 .help-btn{width:22px;height:22px;border-radius:50%;border:1px solid rgba(var(--amit-text-rgb,240,232,208),.3);color:rgba(var(--amit-text-rgb,240,232,208),.6);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .15s}
 .help-btn:hover{border-color:var(--gold);color:var(--gold)}
@@ -75,76 +162,153 @@ header{
 
 /* ── SIDEBAR ── */
 .sidebar{
-  width:230px;flex-shrink:0;
+  width:max-content;flex-shrink:0;
   background:var(--card-head);
   border-right:2px solid var(--border);
   display:flex;flex-direction:column;
-  overflow-y:auto;padding:12px 10px;gap:5px;
+  overflow-y:auto;padding:12px 10px;gap:0;
 }
 .sidebar::-webkit-scrollbar{width:3px}
 .sidebar::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:2px}
 .sidebar{transition:width .18s ease}
-.sidebar.collapsed{width:60px}
-.sidebar.collapsed .tile{justify-content:center;padding:10px 0}
-.sidebar.collapsed .tile-info{display:none}
-.tile{
+.sidebar.collapsed{width:64px}
+.sidebar.collapsed .page-nav{justify-content:flex-start;padding:4px}
+.sidebar.collapsed .page-info{display:none}
+.page-nav{
   display:flex;align-items:center;gap:10px;
-  padding:10px 11px;border-radius:9px;cursor:pointer;
+  padding:6px 4px;border-radius:9px;cursor:pointer;
   border:1px solid transparent;
+  flex-shrink:0;
   transition:all .18s;user-select:none;
   position:relative;overflow:hidden;
 }
-.tile:hover{background:rgba(var(--amit-overlay-rgb,255,255,255),.07);border-color:rgba(var(--amit-accent-rgb,201,168,76),.3)}
-.tile.active{background:rgba(var(--amit-accent-rgb,201,168,76),.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(var(--amit-accent-rgb,201,168,76),.25)}
-.tile-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0}
-.tile-info{flex:1;min-width:0}
-.tile-name{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;color:var(--amit-text,#fff);letter-spacing:.04em;font-weight:600}
-.tile-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* ── ASK AMIT SIDEBAR — matches Hub/Council exactly ── */
-.ask-amit-wrap{margin-top:auto;padding:12px 0 4px;border-top:1px solid var(--border);flex-shrink:0}
-.ask-amit-tile{
-  display:flex;align-items:center;gap:10px;width:100%;
-  background:rgba(var(--amit-accent-rgb,201,168,76),.1);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);
-  border-radius:9px;padding:11px 12px;cursor:pointer;
-  transition:all .18s;
-}
-.ask-amit-tile:hover{background:rgba(var(--amit-accent-rgb,201,168,76),.22);border-color:var(--gold);box-shadow:0 0 8px rgba(var(--amit-accent-rgb,201,168,76),.2)}
-.ask-amit-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0}
-.ask-amit-name{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;color:var(--gold2);letter-spacing:.04em;font-weight:600}
-.ask-amit-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.page-nav:hover{background:rgba(var(--amit-overlay-rgb,255,255,255),.07);border-color:rgba(var(--amit-accent-rgb,201,168,76),.3)}
+.page-nav.active{background:rgba(var(--amit-accent-rgb,201,168,76),.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(var(--amit-accent-rgb,201,168,76),.25)}
+.page-icon{width:32px;height:32px;font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+/* Round plug-status badge for the Sign In/Out rail icon — green when
+   connected, red when not. Added 2026-08-07, ported from AmitBooks/
+   NEW.html as the new standard for this template's own Sign In/Out
+   treatment (Ryan's direct instruction — same config becomes the base for
+   every future project built from this file). Disconnected state pulses:
+   red fills the circle from a point at the center out to the full edge,
+   then collapses back to nothing, looping — a genuine warning cue, not a
+   color-shift-in-place effect. */
+.page-icon.plug-badge{border-radius:50%;transition:background .15s;position:relative;overflow:hidden}
+.page-icon.plug-badge.connected{background:var(--amit-ok,#2e7d46)}
+.page-icon.plug-badge.disconnected{background:var(--bg)}
+.page-icon.plug-badge.disconnected::before{content:'';position:absolute;inset:0;border-radius:50%;background:var(--amit-danger,#c73333);animation:plugBadgeFill 1.6s ease-in-out infinite;transform-origin:center}
+.plug-icon-glyph{position:relative;z-index:1}
+@keyframes plugBadgeFill{0%,100%{transform:scale(0)}50%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.page-icon.plug-badge.disconnected::before{animation:none;transform:scale(1)}}
+.page-info{flex:1;min-width:0}
+.page-name{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;color:var(--amit-text,#fff);letter-spacing:.04em;font-weight:var(--amit-font-heading-weight,600)}
+.page-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ── MAIN AREA ── */
 .main-area{flex:1;overflow:hidden;position:relative;background:var(--bg)}
-.panel{
+.detail{
   position:absolute;inset:0;overflow-y:auto;
   display:none;flex-direction:column;
   animation:pfade .18s ease;
 }
-.panel.active{display:flex}
+.detail.active{display:flex}
 @keyframes pfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-.panel::-webkit-scrollbar{width:5px}
-.panel::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:3px}
+.detail::-webkit-scrollbar{width:5px}
+.detail::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:3px}
 
-/* ── PANEL HEADER ── */
-.panel-head{
+/* ── DETAIL HEADER ── */
+.detail-head{
   display:flex;align-items:center;gap:16px;
   padding:14px 24px;
   background:var(--card-head);
   border-bottom:2px solid var(--border);
   flex-shrink:0;
 }
-.panel-heading{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
-.panel-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(var(--amit-text-rgb,240,232,208),.25);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.detail-heading{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:var(--amit-font-heading-weight,700)}
+.detail-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(var(--amit-text-rgb,240,232,208),.25);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
 
-/* ── TABBED LAYOUT (copied structure from Computer Health's folder-tab UI) ── */
-.ch-tab-nav{display:flex;align-items:flex-end;gap:6px;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
-.ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);background:rgba(var(--amit-overlay-rgb,255,255,255),.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
+/* ── POPUP — canonical DESTINATION, not a layout type. Generic overlay
+   that can host any layout instance copied in from TemplateViews.html —
+   content-agnostic, same separation as a Page or a Tab slot not caring
+   what's mounted inside them. Built into this starter (not TemplateViews-
+   only) since it's global infrastructure, not a layout. ── */
+.popup-overlay{display:none;position:fixed;inset:0;background:var(--amit-overlay,rgba(0,0,0,.6));z-index:9998;align-items:center;justify-content:center}
+.popup-card{background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.5);border-radius:var(--amit-radius,12px);padding:26px 28px;max-width:640px;width:92%;max-height:82vh;overflow-y:auto;box-shadow:0 10px 50px rgba(0,0,0,.55);position:relative}
+.popup-close-btn{position:absolute;top:14px;right:16px;color:rgba(var(--amit-text-rgb,240,232,208),.5);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.08em}
+.popup-close-btn:hover{color:var(--gold2)}
+
+/* ── RIGHT RAIL — global, present on every page, same on every project.
+   Double-click to expand/collapse (mirror of the left sidebar, inverted
+   default: starts collapsed). Ask Amit / Sign In-Sync / Demo Mode all
+   live here permanently — see Templates\CLAUDE.md for the full history
+   of why each piece looks the way it does. ── */
+.right-rail{
+  width:64px;flex-shrink:0;
+  background:var(--card-head);
+  border-left:2px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow-y:auto;padding:12px 10px;gap:0;
+  transition:width .18s ease;
+}
+.right-rail::-webkit-scrollbar{width:3px}
+.right-rail::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:2px}
+.right-rail.expanded{width:max-content}
+.right-rail .page-nav{padding:4px;flex-direction:row-reverse}
+.right-rail.expanded .page-nav{padding:6px 4px;justify-content:flex-start}
+.right-rail .page-info{display:none}
+.right-rail.expanded .page-info{display:block}
+/* RIGHT RAIL ON/OFF STATE — added 2026-08-22, Ryan's direct instruction.
+   The gold .page-nav.active look (shared with the left sidebar's "this is
+   the open page" state) was too subtle to tell an ON toggle (Sign In,
+   Demo Mode) apart from an OFF one at a glance. Right-rail items are
+   toggles, not navigation, so they get their own distinct green
+   on-state — overrides the gold .page-nav.active rule for this rail only.
+   PERMANENT — carry this into every project copied from this template. */
+.right-rail .page-nav.active{background:rgba(var(--amit-on-rgb,46,160,67),.20);border-color:rgba(var(--amit-on-rgb,46,160,67),.65);box-shadow:0 0 0 1px rgba(var(--amit-on-rgb,46,160,67),.4)}
+.right-rail .page-nav.active .page-icon{background:rgba(var(--amit-on-rgb,46,160,67),.35);border-radius:50%;box-shadow:0 0 0 2px rgba(var(--amit-on-rgb,46,160,67),.55)}
+.right-rail .page-nav.active .page-name{color:#6fe38f}
+
+/* ── PAGE HOVER TOOLTIP — JS-positioned (fixed), not pure CSS, because
+   .sidebar/.right-rail scroll (overflow-y:auto) — per the CSS spec, that
+   silently forces the other axis's overflow to 'auto' too, which would
+   clip a CSS-positioned tooltip trying to extend past the container's
+   edge. A single fixed element sidesteps that entirely. ── */
+.page-hover-tip{
+  position:fixed;z-index:9999;
+  background:var(--amit-tooltip-bg,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);
+  color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.05em;
+  line-height:1.5;
+  padding:6px 10px;border-radius:6px;white-space:normal;word-wrap:break-word;max-width:260px;
+  opacity:0;pointer-events:none;
+  transition:opacity .12s;box-shadow:0 4px 16px rgba(0,0,0,.4);
+}
+.page-hover-tip.show{opacity:1}
+
+/* CANONICAL LAYOUT: TABBED VIEW — copied verbatim from TemplateViews.html,
+   added 2026-08-06 so Add Page can instantiate a real Tabbed View directly,
+   not hand a copy-instruction to an outside AI session. */
+.ch-tab-nav{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px;row-gap:0;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
+.ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);background:rgba(var(--amit-overlay-rgb,255,255,255),.03);color:var(--muted);border-radius:var(--amit-tab-radius,10px) var(--amit-tab-radius,10px) 0 0;cursor:pointer;font-size:13px;font-family:inherit}
 .ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
-.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:0 12px 12px 12px}
+.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:0 var(--amit-radius,12px) var(--amit-radius,12px) var(--amit-radius,12px)}
 .ch-tab-content{display:none}
 .ch-tab-content.active{display:block}
 
-/* ── PREVIEWER TAB (additive): narrow code box on the left, the preview takes the rest ── */
+/* ── SHORTCUTS PAGE — carried over from AmitCoder v6.43 ── */
+.sc-page{padding:16px 24px 28px}
+
+.check-step{display:flex;align-items:flex-start;gap:14px;padding:16px 0;border-bottom:1px solid var(--border)}
+.check-step:last-child{border-bottom:none}
+.check-box{width:22px;height:22px;border:1px solid var(--border);border-radius:6px;flex-shrink:0;margin-top:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--gold)}
+.check-box.done{background:rgba(var(--amit-accent-rgb,201,168,76),.2);border-color:var(--gold)}
+.check-title{color:var(--text2);font-size:14px;font-weight:600;font-family:var(--amit-font-heading,'Cinzel',serif)}
+.check-title.done{text-decoration:line-through;color:var(--dim)}
+.check-desc{color:var(--muted);font-size:12.5px;margin-top:4px;line-height:1.7}
+.check-link{color:var(--gold2);text-decoration:none;border-bottom:1px dotted var(--gold)}
+.check-progress{height:7px;background:var(--border);border-radius:4px;overflow:hidden;margin-bottom:22px}
+.check-progress-fill{height:100%;background:var(--gold);transition:width .2s}
+
+/* ── OVERVIEW PAGE — carried over from AmitCoder v6.43 ── */
 .pv-wrap{display:flex;gap:14px;height:calc(100vh - 300px);min-height:420px}
 .pv-wrap.wide .pv-code{display:none}
 .pv-code{flex:0 0 28%;min-width:220px;display:flex;flex-direction:column;gap:8px}
@@ -153,15 +317,35 @@ header{
 .pv-view{flex:1;min-width:0;background:#fff;border:1px solid var(--border);border-radius:8px}
 @media (max-width:900px){.pv-wrap{flex-direction:column}.pv-code{flex:0 0 34%}}
 
-/* ── AMITCODER-SPECIFIC CONTENT STYLES (additive only — nothing above this line is touched) ── */
-.panel-body p{margin-bottom:12px;line-height:1.8}
-.panel-body h3{color:var(--gold2);font-size:15px;margin:20px 0 8px;font-family:var(--amit-font-heading,'Cinzel',serif)}
-.panel-body ul{margin:6px 0 14px 22px;line-height:1.8}
-.panel-body li{margin-bottom:6px}
-.panel-body code{background:rgba(var(--amit-overlay-rgb,255,255,255),.08);padding:1px 6px;border-radius:3px;color:var(--gold2);font-size:13px}
+.ov-page p{margin-bottom:12px;line-height:1.8}
+.ov-page h3{color:var(--gold2);font-size:15px;margin:20px 0 8px;font-family:var(--amit-font-heading,'Cinzel',serif)}
+.ov-page ul{margin:6px 0 14px 22px;line-height:1.8}
+.ov-page li{margin-bottom:6px}
+.ov-page code{background:rgba(var(--amit-overlay-rgb,255,255,255),.08);padding:1px 6px;border-radius:3px;color:var(--gold2);font-size:13px}
 .badge{display:inline-block;margin-top:14px;padding:5px 12px;border:1px solid var(--border);border-radius:3px;color:var(--gold);font-size:11px;letter-spacing:.05em}
 .finding{border-left:2px solid var(--gold);padding:6px 0 6px 14px;margin:10px 0;color:var(--muted);font-size:13px;line-height:1.7}
 .finding b{color:var(--text2)}
+.live-pulse-dot{display:inline-block;animation:livePulse 2s ease-in-out infinite}
+@keyframes livePulse{0%,100%{opacity:1}50%{opacity:.35}}
+.timeline{position:relative;padding-left:22px}
+.timeline::before{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:linear-gradient(to bottom,rgba(var(--amit-accent-rgb,201,168,76),.5),rgba(var(--amit-accent-rgb,201,168,76),.1))}
+.timeline-item{position:relative;padding-bottom:18px}
+.timeline-item:last-child{padding-bottom:0}
+.timeline-dot{position:absolute;left:-22px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--gold);border:2px solid var(--card-head);box-shadow:0 0 0 1px rgba(var(--amit-accent-rgb,201,168,76),.5)}
+.timeline-content{background:rgba(var(--amit-overlay-rgb,255,255,255),.02);border:1px solid var(--border);border-radius:8px;padding:12px 16px;opacity:.85;transition:opacity .15s,border-color .15s}
+.timeline-content:hover{opacity:1;border-color:rgba(var(--amit-accent-rgb,201,168,76),.4)}
+.doc-icon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:14px 0 20px}
+.doc-icon-card{display:flex;gap:12px;background:rgba(var(--amit-overlay-rgb,255,255,255),.02);border:1px solid var(--border);border-radius:8px;padding:14px;transition:border-color .15s,transform .15s}
+.doc-icon-card:hover{border-color:rgba(var(--amit-accent-rgb,201,168,76),.45);transform:translateY(-2px)}
+.doc-icon-card .doc-icon{font-size:22px;flex-shrink:0}
+.doc-icon-card b{color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:12px;display:block;margin-bottom:4px}
+.doc-icon-card p{font-size:12px;color:var(--muted);margin:0;line-height:1.6}
+.history-day{border:1px solid var(--border);border-radius:8px;margin-bottom:10px;padding:13px 17px;opacity:.55}
+.history-day-date{color:var(--gold2);font-size:12.5px;font-weight:600;margin-bottom:4px;font-family:var(--amit-font-heading,'Cinzel',serif)}
+.history-day-summary{color:var(--muted);font-size:13px}
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border)}
+.settings-label{color:var(--text2);font-size:13.5px}
+.settings-sub{color:var(--dim);font-size:11.5px;margin-top:2px}
 .btn{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;cursor:pointer;border-radius:6px;padding:8px 16px;border:1px solid var(--border);background:rgba(var(--amit-overlay-rgb,255,255,255),.05);color:var(--text2)}
 .btn:hover{background:rgba(var(--amit-overlay-rgb,255,255,255),.09)}
 .btn-gold{border-color:rgba(var(--amit-accent-rgb,201,168,76),.5);color:var(--gold2);background:rgba(var(--amit-accent-rgb,201,168,76),.1)}
@@ -192,23 +376,6 @@ header{
 .sc-chain-arrow{color:var(--dim);font-size:13px;flex-shrink:0}
 .sc-card{transition:border-color .15s,box-shadow .15s}
 .sc-card:hover{border-color:rgba(var(--amit-accent-rgb,201,168,76),.55);box-shadow:0 2px 12px rgba(0,0,0,.25)}
-.live-pulse-dot{display:inline-block;animation:livePulse 2s ease-in-out infinite}
-@keyframes livePulse{0%,100%{opacity:1}50%{opacity:.35}}
-.tile{transition:transform .12s,border-color .18s,background .18s}
-.tile:hover{transform:translateX(2px)}
-.timeline{position:relative;padding-left:22px}
-.timeline::before{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:linear-gradient(to bottom,rgba(var(--amit-accent-rgb,201,168,76),.5),rgba(var(--amit-accent-rgb,201,168,76),.1))}
-.timeline-item{position:relative;padding-bottom:18px}
-.timeline-item:last-child{padding-bottom:0}
-.timeline-dot{position:absolute;left:-22px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--gold);border:2px solid var(--card-head);box-shadow:0 0 0 1px rgba(var(--amit-accent-rgb,201,168,76),.5)}
-.timeline-content{background:rgba(var(--amit-overlay-rgb,255,255,255),.02);border:1px solid var(--border);border-radius:8px;padding:12px 16px;opacity:.85;transition:opacity .15s,border-color .15s}
-.timeline-content:hover{opacity:1;border-color:rgba(var(--amit-accent-rgb,201,168,76),.4)}
-.doc-icon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:14px 0 20px}
-.doc-icon-card{display:flex;gap:12px;background:rgba(var(--amit-overlay-rgb,255,255,255),.02);border:1px solid var(--border);border-radius:8px;padding:14px;transition:border-color .15s,transform .15s}
-.doc-icon-card:hover{border-color:rgba(var(--amit-accent-rgb,201,168,76),.45);transform:translateY(-2px)}
-.doc-icon-card .doc-icon{font-size:22px;flex-shrink:0}
-.doc-icon-card b{color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:12px;display:block;margin-bottom:4px}
-.doc-icon-card p{font-size:12px;color:var(--muted);margin:0;line-height:1.6}
 .sc-sub-row:first-child{border-top:none}
 .sc-sub-row::before{content:'└─';color:var(--dim);margin-right:2px}
 .sc-sub-instruction{flex:1;color:var(--muted)}
@@ -244,22 +411,6 @@ select option{background:#132844;color:#fff;}
 .sc-subtask-row{display:flex;gap:8px;margin-top:8px;align-items:flex-start}
 .sc-subtask-row input{flex:1}
 .sc-form-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
-.check-step{display:flex;align-items:flex-start;gap:14px;padding:16px 0;border-bottom:1px solid var(--border)}
-.check-step:last-child{border-bottom:none}
-.check-box{width:22px;height:22px;border:1px solid var(--border);border-radius:6px;flex-shrink:0;margin-top:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--gold)}
-.check-box.done{background:rgba(var(--amit-accent-rgb,201,168,76),.2);border-color:var(--gold)}
-.check-title{color:var(--text2);font-size:14px;font-weight:600;font-family:var(--amit-font-heading,'Cinzel',serif)}
-.check-title.done{text-decoration:line-through;color:var(--dim)}
-.check-desc{color:var(--muted);font-size:12.5px;margin-top:4px;line-height:1.7}
-.check-link{color:var(--gold2);text-decoration:none;border-bottom:1px dotted var(--gold)}
-.check-progress{height:7px;background:var(--border);border-radius:4px;overflow:hidden;margin-bottom:22px}
-.check-progress-fill{height:100%;background:var(--gold);transition:width .2s}
-.history-day{border:1px solid var(--border);border-radius:8px;margin-bottom:10px;padding:13px 17px;opacity:.55}
-.history-day-date{color:var(--gold2);font-size:12.5px;font-weight:600;margin-bottom:4px;font-family:var(--amit-font-heading,'Cinzel',serif)}
-.history-day-summary{color:var(--muted);font-size:13px}
-.settings-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border)}
-.settings-label{color:var(--text2);font-size:13.5px}
-.settings-sub{color:var(--dim);font-size:11.5px;margin-top:2px}
 .tut-overlay{position:fixed;inset:0;background:rgba(6,14,26,.72);z-index:9000;display:flex;align-items:center;justify-content:center;padding:30px}
 .tut-modal{background:#0f2038;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.35);border-radius:12px;max-width:640px;width:100%;max-height:85vh;overflow-y:auto;padding:26px 30px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
 .tut-modal h2{color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:18px;margin:0 0 14px}
@@ -272,40 +423,49 @@ select option{background:#132844;color:#fff;}
 <body>
 
 <header>
+  <a class="brand brand-logo-link" href="../Hub/amit-hub.html" title="Back to the Amit Hub">
+    <img src="../amit_icon.ico" alt="Amit" style="height:32px;width:32px">
+    <div>
+      <div class="page-title" id="pageTitle" style="font-size:19px">AmitCoder</div>
+      <div class="page-version" id="pageVersion">v7.09</div>
+    </div>
+  </a>
   <div class="page-title-wrap">
-    <div class="page-title" id="pageTitle">AmitCoder</div>
-    <div class="page-version" id="pageVersion">v6.43</div>
+    <div class="page-title" id="pageContext">—</div>
+    <div class="page-version" id="pageContextSub">CONTEXT</div>
   </div>
-  <div class="brand">
-    <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
-    <span class="brand-sub">Walk alongside. Sharpen without cutting. Encourage always.</span>
-  </div>
+  <!-- Sign In/Out + Sync lives in the right rail, below Ask Amit — see
+       _updateSyncUI() and the RIGHT RAIL build code in <script>. -->
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div style="text-align:right">
       <div class="greeting" id="greeting">Good morning</div>
       <div class="datetime" id="datetime"></div>
-      <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:3px">
-        <div id="syncIndicator" onclick="openSyncModal()" style="font-size:9px;letter-spacing:.07em;color:rgba(var(--amit-text-rgb,240,232,208),.28);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif)">☁ SYNC</div>
-        <div id="signInBtn" onclick="openSyncModal()" title="Sign in to sync your data" style="font-size:9px;letter-spacing:.1em;color:rgba(var(--amit-accent-rgb,201,168,76),.8);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);padding:3px 9px;border-radius:4px;background:rgba(var(--amit-accent-rgb,201,168,76),.07)">SIGN IN</div>
-        <div id="logoutBtn" onclick="signOutAmit()" title="Sign out" style="display:none;font-size:10px;letter-spacing:.08em;color:rgba(var(--amit-accent-rgb,201,168,76),.9);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-weight:600;border-left:1px solid rgba(var(--amit-text-rgb,240,232,208),.2);padding-left:8px">SIGN OUT</div>
-      </div>
     </div>
   </div>
 </header>
 
 <div class="hub">
 
-  <!-- ── SIDEBAR — filled in by buildPlaceholders(), same as the template ── -->
-  <nav class="sidebar" id="sidebarTiles" ondblclick="toggleSidebar()"></nav>
+  <!-- ── SIDEBAR — Introduction + blank placeholders, built in <script> ── -->
+  <nav class="sidebar" id="sidebarPages" ondblclick="toggleSidebar()"></nav>
 
-  <!-- ── MAIN CONTENT AREA — filled in by buildPlaceholders(), same as the template ── -->
+  <!-- ── MAIN CONTENT AREA — built in <script> ── -->
   <div class="main-area" id="mainArea"></div>
+
+  <!-- ── RIGHT RAIL — global, same on every page, built in <script> ── -->
+  <nav class="right-rail" id="rightRail" ondblclick="toggleRail()"></nav>
 
 </div>
 
+<!-- Single global page-hover tooltip, JS-positioned — see initPageTooltips -->
+<div class="page-hover-tip" id="pageHoverTip"></div>
+
+<!-- Generic Popup destination — content filled in by whichever layout uses it -->
+<div id="canonicalPopup" class="popup-overlay"></div>
+
 <!-- FUTURE IDEAS — floating "+" button, opens the shared brainstorm backlog -->
 <div id="ideasFab" onclick="openIdeasModal()" title="Future ideas for AmitCoder"
-  style="position:fixed;right:24px;bottom:24px;width:48px;height:48px;border-radius:50%;background:var(--card-head);border:2px solid var(--gold);color:var(--gold2);font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:900;box-shadow:0 4px 16px rgba(0,0,0,.4)">+</div>
+  style="position:fixed;right:84px;bottom:24px;width:48px;height:48px;border-radius:50%;background:var(--card-head);border:2px solid var(--gold);color:var(--gold2);font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:900;box-shadow:0 4px 16px rgba(0,0,0,.4)">+</div>
 
 <div id="ideasModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
   <div style="background:var(--amit-tooltip-bg,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);border-radius:14px;padding:28px 32px;max-width:520px;width:92%;max-height:80vh;overflow-y:auto">
@@ -324,15 +484,15 @@ select option{background:#132844;color:#fff;}
 </div>
 
 <!-- SYNC / SIGN-IN MODAL -->
-<div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
-  <div class="sync-modal-card" style="background:var(--amit-tooltip-bg,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+<div id="syncModal" style="display:none;position:fixed;inset:0;background:var(--amit-overlay,rgba(0,0,0,.55));z-index:9999;align-items:center;justify-content:center">
+  <div class="sync-modal-card" style="background:var(--amit-surface-raised,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
     <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;letter-spacing:.06em;margin-bottom:6px">Sync Across Devices</div>
     <div style="color:rgba(var(--amit-text-rgb,240,232,208),.5);font-size:11px;line-height:1.7;margin-bottom:22px">Enter your email. A sign-in link will be sent.<br>No password needed.</div>
     <input id="syncEmailInput" type="email" placeholder="your@email.com"
-      style="width:100%;background:rgba(var(--amit-overlay-rgb,255,255,255),.07);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:7px;padding:11px 13px;color:var(--amit-text,#fff);font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"
+      style="width:100%;background:var(--amit-input-bg,rgba(var(--amit-overlay-rgb,255,255,255),.07));border:1px solid var(--amit-input-border,rgba(var(--amit-accent-rgb,201,168,76),.3));border-radius:var(--amit-input-radius,7px);padding:11px 13px;color:var(--amit-input-text,#fff);font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"
       onkeydown="if(event.key==='Enter')submitSyncEmail()"/>
     <button id="syncSubmitBtn" onclick="submitSyncEmail()"
-      style="width:100%;background:rgba(var(--amit-accent-rgb,201,168,76),.12);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);color:rgba(var(--amit-accent-rgb,201,168,76),.9);padding:11px;border-radius:7px;cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.08em">
+      style="width:100%;background:var(--amit-btn-bg,rgba(var(--amit-accent-rgb,201,168,76),.12));border:1px solid var(--amit-btn-border,rgba(var(--amit-accent-rgb,201,168,76),.45));color:var(--amit-btn-text,rgba(var(--amit-accent-rgb,201,168,76),.9));padding:11px;border-radius:var(--amit-btn-radius,7px);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.08em">
       SEND SIGN-IN LINK →
     </button>
     <div onclick="closeSyncModal()" style="margin-top:16px;font-size:9px;color:rgba(var(--amit-text-rgb,240,232,208),.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
@@ -341,116 +501,181 @@ select option{background:#132844;color:#fff;}
 
 <script>
 // ══════════════════════════════════════════════
-// AMITCODER — built from Templates/template.html. The placeholder-generation
-// mechanism below (buildPlaceholders, showChTab, openPanel, toggleSidebar,
-// login, clock) is COPIED UNCHANGED from the template. Only the CONTENT
-// strings inside buildPlaceholders (tile 1 = Get Started, tile 2 = Overview
-// with 5 real tabs) were replaced — the mechanism itself was not touched.
+// NOMENCLATURE — read this before touching any page/detail/layout code.
+//   PAGE   — one item in the left sidebar (button + fixed number).
+//   DETAIL — the content area a page opens into (id `detail-N`).
+//   LAYOUT — what kind of content lives inside a detail. This starter
+//            ships with none built in — every canonical layout (Tabbed/
+//            Row/Detail/Calendar/Day/Board/Gallery/Dashboard/Split/Form/
+//            Chart/Inbox/Drawer/Tree/Breadcrumb View) lives in
+//            Templates\TemplateViews.html, copied in verbatim when a
+//            real project needs one — see the header comment at the top
+//            of this file.
+//   DESTINATION — WHERE a layout mounts: a page, a tab slot, or a Popup.
+//            Popup is built into this starter (see below) since it's
+//            generic infrastructure, not a layout itself.
 // ══════════════════════════════════════════════
 
-const PLACEHOLDER_COUNT=3;
-(function buildPlaceholders(){
-  const nav=document.getElementById('sidebarTiles');
-  const main=document.getElementById('mainArea');
-  let navHtml='',panelHtml='';
-  for(let i=1;i<=PLACEHOLDER_COUNT;i++){
-    const label=i===1?'Get Started':i===2?'Overview':"Amit's Builds";
-    navHtml+=`<div class="tile${i===1?' active':''}" id="tile-${i}" onclick="openPanel(${i})${i===3?';loadAmitBuilds()':''}">
-      <div class="tile-icon">▢</div>
-      <div class="tile-info">
-        <div class="tile-name">${label}</div>
-        <div class="tile-sub">${i===1?'Setup checklist':i===2?'Overview · Shortcuts · History · Docs · Settings':'Watch Amit use its own tool'}</div>
-      </div>
-    </div>`;
-    if(i===3){
-      panelHtml+=`<div class="panel" id="panel-${i}">
-        <div class="panel-head"><span class="panel-heading">${label}</span></div>
-        <div class="panel-body" style="padding:28px 32px;max-width:720px">
-          <p style="color:var(--muted);font-size:13px;margin-bottom:18px">This isn't a separate feature - it's the same real build record every AmitCoder pursuit and experience already lives in, just filtered to Amit's own work on this tool. The last five real sessions, honestly written, no staging.</p>
-          <div id="amitBuildsList"><p style="color:var(--dim);font-size:12.5px">Loading...</p></div>
-        </div>
-      </div>`;
-    } else if(i===2){
-      // Tab labels and real content, in place of the template's generic "Tab N"
-      const tabNames=['Overview','Shortcuts','History','Docs','Dev Practices','Pairing','Library','Settings','Previewer'];
-      let tabNavHtml='',tabContentHtml='';
-      for(let t=1;t<=9;t++){
-        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${i},${t})${t===2?';loadShortcuts()':t===3?';loadCoderSessions()':t===6?';loadPairingSessions()':t===7?';loadLibrary()':t===9?';pvInit()':''}"${t===2?' ondblclick="openShortcutsTutorial()"':t===7?' ondblclick="openCodeTutorial()"':''}>${tabNames[t-1]}</button>`;
-        tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${i}-${t}">${tabRealContent(t)}</div>`;
-      }
-      panelHtml+=`<div class="panel${i===1?' active':''}" id="panel-${i}" style="flex-direction:column">
-        <div class="panel-head"><span class="panel-heading">${label}</span></div>
-        <div class="ch-tab-nav" id="ch-tab-nav-${i}">${tabNavHtml}</div>
-        <div class="ch-tab-main">${tabContentHtml}</div>
-      </div>`;
-    } else {
-      panelHtml+=`<div class="panel${i===1?' active':''}" id="panel-${i}">
-        <div class="panel-head"><span class="panel-heading">${label}</span></div>
-        <div class="panel-body" style="padding:28px 32px;max-width:640px">
-          <div style="display:flex;align-items:center;gap:20px;margin-bottom:18px">
-            <svg width="64" height="64" viewBox="0 0 64 64" style="flex-shrink:0">
-              <circle cx="32" cy="32" r="27" fill="none" stroke="rgba(201,168,76,.18)" stroke-width="6"/>
-              <circle id="checkRing" cx="32" cy="32" r="27" fill="none" stroke="var(--gold)" stroke-width="6" stroke-linecap="round" stroke-dasharray="169.6" stroke-dashoffset="169.6" transform="rotate(-90 32 32)" style="transition:stroke-dashoffset .5s ease"/>
-              <text id="checkRingPct" x="32" y="37" text-anchor="middle" font-size="15" fill="var(--gold2)" font-family="Cinzel,serif" font-weight="700">0%</text>
-            </svg>
-            <p style="color:var(--muted);font-size:13px;margin:0">Everything Ryan had to learn by trial and error, in order. Check each off as you go — your progress is saved.</p>
-          </div>
-          <div style="background:rgba(var(--amit-accent-rgb,201,168,76),.08);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:var(--muted)">
-            <b style="color:var(--gold2)">How to use this list:</b> <b>Double-click</b> any step to open a full, detailed walkthrough of exactly what to do. <b>Click the small box</b> on the left once you've actually done it, to mark it complete and track your progress.
-          </div>
-          <div class="check-progress"><div class="check-progress-fill" id="checkProgressFill" style="width:0%"></div></div>
-          <div id="checklistSteps"></div>
-        </div>
-      </div>`;
-    }
-  }
-  navHtml+=`<div class="ask-amit-wrap">
-    <div class="ask-amit-tile" id="tile-ask-amit" onclick="askAmitLive('amitcoder')">
-      <div class="ask-amit-icon">💛</div>
-      <div class="tile-info">
-        <div class="ask-amit-name">Ask Amit</div>
-        <div class="ask-amit-sub">Walk alongside</div>
-      </div>
-    </div>
-  </div>`;
-  nav.innerHTML=navHtml;
-  main.innerHTML=panelHtml;
-  // renderChecklist() is intentionally NOT called here — it's defined much
-  // later in this script (const CHECKLIST_STEPS lives in the additive
-  // section below), and calling it this early would throw a temporal-dead-
-  // zone ReferenceError, which silently aborted every line after this IIFE,
-  // including the login-state listener below. See the real call at the
-  // bottom of this script, after CHECKLIST_STEPS is actually declared.
-})();
+let currentUser=null;
+// SB_URL/SB_KEY/db/demoMode declared here, early — a real, confirmed bug
+// from earlier work on this file: demoMode defaults to true (unlike
+// currentUser, which defaults falsy), so anything gating on it can run
+// during the page's very first synchronous script pass, before a
+// later-declared `const` has initialized — a temporal dead zone crash.
+// Declaring all of this up front avoids that class of bug entirely.
+const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
+const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
+const db=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
+const AMIT_DEMO_UID='8b95d057-fd6b-44ec-abe7-658e08872d1a';
+let demoMode=localStorage.getItem('amit_demo_mode')!=='off';
 
-// Real content for each of the 5 Overview tabs. Kept as a plain function
-// (not inline in the loop above) only so the content itself is easy to
-// find and edit later without touching the generation mechanism.
-function tabRealContent(t){
-  if(t===1){
-    return `<div style="background:rgba(var(--amit-accent-rgb,201,168,76),.08);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.35);border-radius:10px;padding:16px 20px;margin-bottom:18px">
-        <div style="color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.05em;margin-bottom:6px">⚡ VERIFIED, NOT ASSUMED</div>
-        <p style="margin:0">Most AI coding tools ship code that looks right and quietly isn't - real 2026 developer research puts trust in AI-generated output at under half. AmitCoder's answer isn't more automation, it's proof: <span class="trigger-tag">J review</span> reads the code honestly, <span class="trigger-tag">J debug</span> actually runs it end to end and watches it happen, and nothing gets "fixed" without asking first. That's the standard this whole workspace is built to.</p>
-      </div>
-      <p>This is the space where your coding history will live.</p>
-      <p>Session logs, version milestones, and the full back-and-forth of every build session — searchable, reviewable, and linked to your daily experience entries.</p>
-      <p>When complete, it will pull from Claude Code session files so you can open any day and see exactly what was built and what Amit said during that session.</p>
-      <div class="badge">In Development</div>
-      <h3>✅ What's real right now</h3>
-      <div class="doc-icon-grid">
-        <div class="doc-icon-card"><div class="doc-icon">🔑</div><div><b>Same login as the Hub</b><p>Sign in once, recognized everywhere.</p></div></div>
-        <div class="doc-icon-card"><div class="doc-icon">📋</div><div><b>Get Started checklist</b><p>Walks a new person through the exact setup Ryan had to learn by hand.</p></div></div>
-        <div class="doc-icon-card"><div class="doc-icon">⚡</div><div><b>Shortcuts</b><p>Create, view, and toggle voice/keyboard command shortcuts — 18 builtins ready now.</p></div></div>
-        <div class="doc-icon-card"><div class="doc-icon">📚</div><div><b>Code Library</b><p>Share and download code/templates with any signed-in user.</p></div></div>
-      </div>
-      <h3>🚧 What's still a placeholder</h3>
-      <div class="doc-icon-grid">
-        <div class="doc-icon-card" style="opacity:.6"><div class="doc-icon">📜</div><div><b>History</b><p>The actual session-log pull from Claude Code's JSONL files.</p></div></div>
-        <div class="doc-icon-card" style="opacity:.6"><div class="doc-icon">🔌</div><div><b>Live activation</b><p>A shortcut firing automatically inside a session isn't yet confirmed working — tested manually only.</p></div></div>
-      </div>`;
+// ══════════════════════════════════════════════
+// CANONICAL DATA BINDING: DEMO MODE — a general, reusable connection to
+// Amit's own account data, available to ANY current or future view/form
+// built from this template — not wired one-off per view. Ported from the
+// Hub's real, live mechanism (amit-hub.html's demoModeHub/AMIT_DEMO_UID).
+//
+// fetchDemoRows(table, queryString) — the one call any view makes to
+// pull Amit's own rows for demo mode. Returns [] immediately if demo mode
+// is off. Every returned row is tagged _isDemo:true.
+//
+// REVIEW ONLY: any row this returns must never be editable or writable —
+// it's the caller's responsibility to check _isDemo and refuse edits.
+// Row View (in TemplateViews.html) already enforces this at its own
+// rvEditCell/rvCommitCell chokepoint; a non-Row-View layout must
+// implement its own _isDemo check the same way.
+// ══════════════════════════════════════════════
+async function fetchDemoRows(table,queryString){
+  if(!demoMode)return[];
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/${table}?user_id=eq.${AMIT_DEMO_UID}&${queryString}`,{
+      headers:{apikey:SB_KEY,Accept:'application/json'}
+    });
+    const rows=res.ok?await res.json():[];
+    return rows.map(r=>({...r,_isDemo:true}));
+  }catch(e){
+    return[];
   }
-  if(t===2){
-    return `<div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+}
+
+// ══════════════════════════════════════════════
+// ADD PAGE — the mechanism that lets a real project grow its own pages at
+// runtime, added 2026-08-06, Ryan's direct instruction. Introduction (id 1)
+// is the only fixed built-in page. Every page after it is a CUSTOM PAGE —
+// created via the "Add Page" row, which always renders last, pushed down
+// one row every time a new page is created above it. Custom pages get IDs
+// starting at CUSTOM_PAGE_BASE so they never collide with page 1.
+//
+// PERSISTENCE — matches how Demo Mode already works (Supabase, not
+// localStorage-only, so a project's page list looks the same on any
+// computer): signed-in users' pages are read/written to the
+// `template_pages` Supabase table, scoped by user_id + PROJECT_KEY. A
+// localStorage cache mirrors every write and is the fallback source when
+// signed out (Supabase requires a real owner row) — see
+// Templates\CLAUDE.md for the table schema and the migration SQL.
+//
+// BUILDER MODE — the Add Page row (and this whole flow) is meant to be
+// hidden before a project ships to real users. finalizeBuilderMode()
+// flips a one-way localStorage flag; to re-enable it during further
+// development, run localStorage.removeItem('amit_builder_mode') in the
+// console (or set it to 'on') and reload — this is a developer action,
+// not a runtime user-facing toggle.
+// ══════════════════════════════════════════════
+const PROJECT_KEY=(document.getElementById('pageTitle')?.textContent||'template').trim();
+const CUSTOM_PAGE_BASE=1000;
+const BUILDER_MODE_KEY='amit_builder_mode';
+let builderMode=localStorage.getItem(BUILDER_MODE_KEY)==='on';
+let customPages=[]; // [{page_name, detail_layout_type, page_order}], loaded before first render
+
+// TemplateViews.html's canonical layouts, offered in the Add Page view-picker.
+// Names/order match that file's own "CANONICAL LAYOUT:" comment headers —
+// keep this list in sync if a layout is ever added there.
+const TEMPLATE_LAYOUTS=[
+  {key:'Tabbed View',desc:'Tab strip inside one page — multiple content panes, one active at a time'},
+  {key:'Multi-Row Tab View',desc:'Many tabs in stacked 3-D rows like Word\'s Options dialog — the row you click comes to the front'},
+  {key:'Row View',desc:'Excel-style sortable rows, click a column header to sort, inline editable cells'},
+  {key:'Detail View',desc:'Single-record drill-down endpoint — fields laid out for one item'},
+  {key:'Calendar View',desc:'Month grid, real data per day, click a day to open Day View'},
+  {key:'Day View',desc:'Single-day agenda card — exact Hub day-view port'},
+  {key:'Board View',desc:'Kanban columns by status, drag between them'},
+  {key:'Gallery View',desc:'Visual card grid — image-first browsing'},
+  {key:'Dashboard View',desc:'Stat tiles plus a simple bar chart'},
+  {key:'Split View',desc:'Master list + detail pane side by side, no page navigation needed'},
+  {key:'Form View',desc:'Dedicated create/edit layout, separate from the row/list it feeds'},
+  {key:'Chart View',desc:'Chart-first data visualization'},
+  {key:'Inbox View',desc:'Stream/queue with checkbox multi-select and bulk actions'},
+  {key:'Drawer View',desc:'Lightweight overlay detail sliding in from an edge'},
+  {key:'Tree View',desc:'Hierarchical parent/child navigation'},
+  {key:'Breadcrumb View',desc:'Chained drill-down navigation with a breadcrumb trail'}
+];
+
+// Which page number each layout lives on inside TemplateViews.html's own
+// demo — used only to deep-link the 👓 preview link in the layout picker
+// straight to that layout (TemplateViews.html#page=N) instead of always
+// opening to its Introduction page. Keep in sync if TemplateViews.html's
+// own page order ever changes (see its buildPlaceholders()). Page 5 was
+// retired there (Grid View merged into Row View) so it's skipped here too.
+const TEMPLATE_VIEWS_PAGE_MAP={
+  'Tabbed View':2,'Row View':3,'Detail View':4,'Calendar View':6,'Board View':7,
+  'Gallery View':8,'Dashboard View':9,'Split View':10,'Form View':11,'Chart View':12,
+  'Inbox View':13,'Drawer View':14,'Tree View':15,'Breadcrumb View':16,'Day View':17
+};
+
+// Same icon each layout is already shown with inside TemplateViews.html
+// itself (its own hardcoded page icon / NEW_VIEW_ICONS map) — reused here
+// verbatim so the picker card matches what someone actually sees when they
+// click through to preview it, instead of a generic stand-in glyph.
+const TEMPLATE_VIEWS_ICON_MAP={
+  'Tabbed View':'🗂️','Row View':'📋','Detail View':'🔍','Calendar View':'📅','Board View':'🗃️',
+  'Gallery View':'🖼️','Dashboard View':'📈','Split View':'◨','Form View':'📝','Chart View':'📊',
+  'Inbox View':'📥','Drawer View':'🗄️','Tree View':'🌳','Breadcrumb View':'🍞','Day View':'☀️'
+};
+
+// Reads and writes go through the page's own signed-in client (db), so the
+// database knows whose pages they are. A page remembered in this browser but
+// not found in the database is kept, never wiped.
+async function loadCustomPages(){
+  const cacheKey='amit_pages_'+PROJECT_KEY;
+  const owner=currentUser?currentUser.id:null;
+  let cached=[];
+  try{ cached=JSON.parse(localStorage.getItem(cacheKey)||'[]'); }catch(e){}
+  if(owner&&db){
+    try{
+      const {data,error}=await db.from('template_pages').select('*')
+        .eq('user_id',owner).eq('project_key',PROJECT_KEY).order('page_order',{ascending:true});
+      if(!error&&data){
+        const same=(a,b)=>a.page_order===b.page_order&&a.detail_layout_type===b.detail_layout_type;
+        const rows=data.concat(cached.filter(c=>!data.some(r=>same(r,c))))
+          .sort((a,b)=>a.page_order-b.page_order);
+        localStorage.setItem(cacheKey,JSON.stringify(rows));
+        return rows;
+      }
+    }catch(e){}
+  }
+  return cached;
+}
+
+async function saveCustomPage(pageName,layoutKey,order){
+  const owner=currentUser?currentUser.id:null;
+  const row={project_key:PROJECT_KEY,page_name:pageName,detail_layout_type:layoutKey,page_order:order};
+  if(owner&&db){
+    try{
+      const {error}=await db.from('template_pages').insert({...row,user_id:owner});
+      if(error)console.warn('Page kept in this browser only: '+error.message);
+    }catch(e){}
+  }
+  const cacheKey='amit_pages_'+PROJECT_KEY;
+  const cached=JSON.parse(localStorage.getItem(cacheKey)||'[]');
+  cached.push(row);
+  localStorage.setItem(cacheKey,JSON.stringify(cached));
+}
+
+// ══════════════════════════════════════════════
+// SHORTCUTS PAGE (page 3) — carried over from AmitCoder v6.43.
+// ══════════════════════════════════════════════
+const SHORTCUTS_PAGE=3;
+function shortcutsPageHtml(){
+  return `<div style="display:flex;justify-content:flex-end;margin-bottom:12px">
         <button class="btn btn-gold btn-sm" onclick="toggleCreateForm()">+ new shortcut</button>
       </div>
       <div class="sc-form" id="scForm">
@@ -519,620 +744,9 @@ function tabRealContent(t){
         No shortcuts yet. Add one — a single command (e.g. <span class="trigger-tag">F copy</span>) or a master command bundling several subtasks together (e.g. <span class="trigger-tag">F Charlie</span> → copy + paste).
       </div>
       <div class="shortcuts-empty" id="shortcutsSignedOut">Sign in to see and manage your shortcuts.</div>`;
-  }
-  if(t===3){
-    return `<p style="color:var(--dim);font-size:12.5px;margin-bottom:16px" id="historyStatusLine">Checking for real session data…</p>
-      <div id="historyList" class="timeline">
-        <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content"><div class="history-day-date">2026-07-28 · Session 58</div><div class="history-day-summary">AmitCoder moved off the Hub placeholder into its own page. Voice-shortcut convention tested live (F/J). Get Started checklist and starter kit added.</div></div></div>
-        <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content"><div class="history-day-date">2026-07-27 · Session 57</div><div class="history-day-summary">Amit — Medical Prep built end to end. How_This_Was_Built.html shipped.</div></div></div>
-        <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content"><div class="history-day-date">2026-07-20 · Session 56</div><div class="history-day-summary">AmitSensorReader.exe replaced LibreHardwareMonitor. Honesty audit on confidence numbers completed.</div></div></div>
-      </div>`;
-  }
-  if(t===4){
-    return `<h3>Why F and J</h3>
-      <p>This convention came out of live testing against Ryan's actual microphone, not guesswork.</p>
-      <div class="finding"><b>Single unstressed words don't get misheard — they disappear.</b> A candidate activation word lost its trailing sound entirely on repeat tries.</div>
-      <div class="finding"><b>Two-letter combos spoken together are unreliable.</b> Saying "FJ" repeatedly produced completely different results each time — never the same thing twice.</div>
-      <div class="finding"><b>Single letters, said in isolation or embedded in a full sentence, held up.</b> F, J, X, Q, Z, and H all transcribed cleanly and consistently once tested properly.</div>
-      <h3>The working convention</h3>
-      <p><span class="trigger-tag builtin-tag">F</span> / <span class="trigger-tag builtin-tag">J</span> — the magic words themselves. Say or type F or J directly, followed by the command. Right and left index fingers, home-row keys, for anyone typing instead of speaking.</p>
-      <h3>F is yours. J is Amit's.</h3>
-      <p><span class="trigger-tag">F</span> is reserved for shortcuts <b>you</b> create — your own custom commands, fully yours to add, edit, or remove.</p>
-      <p><span class="trigger-tag builtin-tag">J</span> is the builtin package that ships with AmitCoder — shortcuts Amit builds in. These can never be edited or removed by any user, by design (enforced at the database level, not just the interface). Current J package: <code>J copy</code>, <code>J repeat</code>, <code>J search</code>, <code>J save idea</code>, <code>J pull ideas</code>, <code>J pursuit</code>, <code>J rename pursuit</code>, <code>J inspire</code>, <code>J topic</code>, <code>J review</code>, <code>J test</code>, <code>J explain</code>, <code>J commit</code>, <code>J checkup</code>, <code>J docs</code>, <code>J push</code>, <code>J authorization GitHub</code>, <code>J authorization Supabase</code>. Deliberately does not replicate anything already handled by the OS (Ctrl+C, Ctrl+V, etc.) — <code>J copy</code> means "read the clipboard into context," a different action entirely from the operating system's own copy command.</p>
-      <h3>🔗 The connection family — instruction, authorization, connect, setup, push</h3>
-      <p>A layered pattern for anything external a coder's own app needs:</p>
-      <div class="doc-icon-grid">
-        <div class="doc-icon-card"><div class="doc-icon">📖</div><div><b>J instruction &lt;service&gt;</b><p>The real how-to guide (e.g. creating a free GitHub account from scratch, step by step).</p></div></div>
-        <div class="doc-icon-card"><div class="doc-icon">🔑</div><div><b>J authorization &lt;service&gt;</b><p>Checks what's actually connected using <em>your own</em> account, never Amit's or Ryan's; falls back to the matching instruction guide if you don't have an account yet.</p></div></div>
-        <div class="doc-icon-card"><div class="doc-icon">🧭</div><div><b>J connect</b><p>Dynamic dispatcher — figures out which service you mean from context and goes straight to that check.</p></div></div>
-        <div class="doc-icon-card"><div class="doc-icon">✅</div><div><b>J setup</b><p>Runs every known authorization check in sequence, once, for a brand-new project.</p></div></div>
-        <div class="doc-icon-card"><div class="doc-icon">🚀</div><div><b>J push</b><p>A compound: ensures GitHub is connected first (chained), then checks status and pushes only after confirming — never silent.</p></div></div>
-      </div>
-      <h3>How a shortcut actually activates in a real session</h3>
-      <p>The Starter Kit's <code>hooks/Amit_Coder_SessionStart.ps1</code> pulls your active shortcuts into a local <code>amit_shortcuts_cache.json</code> file. Every project's CLAUDE.md carries a standing rule: read that cache at session start, and when a message begins with a known trigger, treat its stored instruction as the real request — not something re-explained each time.</p>
-      <p style="color:var(--dim);font-size:12px">Want something like a J shortcut but personal to you? Build it under F instead — that's exactly what F is for.</p>
-      <h3>What a shortcut actually does right now</h3>
-      <p>A <b>simple</b> shortcut is a stored instruction — when triggered, Amit treats it as if you'd typed that instruction directly.</p>
-      <p>A <b>master</b> shortcut bundles subtasks — triggering it runs each subtask's instruction in sequence.</p>
-      <p style="color:var(--dim);font-size:12px;margin-top:16px">Open question, not yet resolved: whether a shortcut fires automatically inside a live Claude Code session versus staying a reference panel. See AmitCoder/CLAUDE.md.</p>`;
-  }
-  if(t===5){
-    return `<p>Things a more experienced coder typically already has in place that a self-taught, Claude-Code-first workflow can easily miss. Each one below is marked by what's actually true right now — not aspirational.</p>
-      <h3>Local dev server <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Built into Starter Kit</span></h3>
-      <p>Opening HTML files directly (<code>file://</code>) works for a lot, but silently breaks some browser features and doesn't match how the site behaves once actually deployed. <code>Start_Local_Server.ps1</code> (created by the Starter Kit, no installs needed) serves your folder at <code>http://localhost:8080</code> instead.</p>
-      <h3>Git branches, not straight to main <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Helper script added</span></h3>
-      <p>Committing every change directly to <code>main</code> means a risky change is live the moment it's pushed. <code>New_Feature_Branch.ps1</code> creates a branch to test in first — merge to main only once it's confirmed working.</p>
-      <h3>A real migrations folder <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Built into Starter Kit</span></h3>
-      <p>Database changes as numbered files in <code>migrations/</code>, tracked in git — so your database's history is versioned alongside your code, not scattered across chat sessions.</p>
-      <h3>Basic CI (a robot that checks your work) <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Scaffolded</span></h3>
-      <p><code>.github/workflows/basic-check.yml</code> runs automatically on every push once this folder is a real GitHub repo — catches a broken file before a real visitor ever sees it.</p>
-      <h3>Automated tests <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Not built — bigger lift</span></h3>
-      <p>Small scripts that automatically re-check old features still work as new ones get added. Genuinely valuable at scale, but a real investment to set up — not included yet.</p>
-      <h3>Secrets kept out of git <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Already good practice</span></h3>
-      <p>Config files holding real credentials should never be committed. This is already the right instinct if you keep a local-only config file — formalizing it as a <code>.env</code> + <code>.gitignore</code> pair is the standard shape of the same idea.</p>
-      <h3>Workspace settings, committed to the project <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Built into Starter Kit</span></h3>
-      <p><code>.vscode/settings.json</code> (format-on-save, consistent editor rules) and <code>.vscode/extensions.json</code> (recommended extensions — Prettier, ESLint, GitLens, Error Lens, Thunder Client, Live Share) are committed to the project, so anyone who opens it gets the same setup automatically instead of configuring it by hand.</p>
-      <h3>A Dev Container <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Built into Starter Kit</span></h3>
-      <p><code>.devcontainer/devcontainer.json</code> is VS Code's own built-in answer to "give someone my exact environment" — open the project, and VS Code offers to reopen it inside a fully reproducible container with the same tools, same extensions, every time.</p>`;
-  }
-  if(t===6){
-    return `<p>Live Share is free — built into VS Code, no premium tier. It's for real-time coding collaboration (co-editing, shared terminal, shared debugging), not for connecting two people's separate Hub or AmitCoder accounts — that's a different thing entirely, handled by your own sign-in, not by Live Share.</p>
-      <p>Start a session in VS Code, copy the invite link it gives you, and log it below — your pairing history stays with your AmitCoder account, discoverable later, instead of disappearing once the session ends.</p>
-      <div class="sc-form" id="pairForm" style="margin-top:16px">
-        <label>Who you paired with</label>
-        <input type="text" id="pairPartner" placeholder="e.g. Andy">
-        <label>Live Share link</label>
-        <input type="text" id="pairLink" placeholder="https://prod.liveshare.vsengsaas.visualstudio.com/join?...">
-        <label>Notes</label>
-        <textarea id="pairNotes" placeholder="What you worked on"></textarea>
-        <div class="sc-form-actions">
-          <button class="btn btn-gold btn-sm" onclick="savePairingSession()">save</button>
-        </div>
-      </div>
-      <div id="pairingList" style="margin-top:16px"></div>
-      <div class="shortcuts-empty" id="pairingEmpty" style="display:none">No pairing sessions logged yet.</div>
-      <div class="shortcuts-empty" id="pairingSignedOut">Sign in to log and see your pairing history.</div>`;
-  }
-  if(t===7){
-    return `<p>Share code, layouts, or functions you've built so other AmitCoder users can browse, search, and pull them into their own project — the same idea as npm or GitHub Gists, just for this community.</p>
-      <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
-        <button class="btn btn-gold btn-sm" onclick="toggleLibraryForm()">+ share code</button>
-      </div>
-      <div class="sc-form" id="libForm">
-        <label>Title</label>
-        <input type="text" id="libTitle" placeholder="e.g. Responsive card grid layout">
-        <label>Language / type</label>
-        <select id="libLanguage">
-          <option value="html">HTML</option>
-          <option value="css">CSS</option>
-          <option value="js">JavaScript</option>
-          <option value="sql">SQL</option>
-          <option value="powershell">PowerShell</option>
-          <option value="other">Other</option>
-        </select>
-        <label>Description</label>
-        <textarea id="libDescription" placeholder="What it does, how to use it" style="min-height:44px"></textarea>
-        <label>Code</label>
-        <textarea id="libCode" placeholder="Paste the actual code here" style="min-height:120px;font-family:var(--amit-font-mono,monospace);font-size:12px"></textarea>
-        <div class="sc-form-actions">
-          <button class="btn btn-sm" onclick="toggleLibraryForm()">cancel</button>
-          <button class="btn btn-gold btn-sm" onclick="saveLibraryEntry()">share</button>
-        </div>
-      </div>
-      <div style="margin-bottom:14px">
-        <input type="text" id="libSearchInput" placeholder="Search by title or language…" oninput="renderLibrary()"
-          style="width:100%;background:rgba(var(--amit-overlay-rgb,255,255,255),.06);border:1px solid var(--border);border-radius:6px;padding:9px 11px;color:var(--amit-text,#fff);font-size:13px;font-family:var(--amit-font-body,'Crimson Pro',serif)">
-      </div>
-      <div id="libraryList"></div>
-      <div class="shortcuts-empty" id="libraryEmpty" style="display:none">Nothing shared yet — be the first.</div>
-      <div class="shortcuts-empty" id="librarySignedOut">Sign in to browse and share the code library.</div>`;
-  }
-  if(t===9){
-    return `<div class="pv-wrap" id="pvWrap">
-      <div class="pv-code" id="pvCodeCol">
-        <div class="pv-bar">
-          <button class="btn btn-gold btn-sm" onclick="pvShow()">show it</button>
-          <button class="btn btn-sm" onclick="pvClear()">clear</button>
-          <button class="btn btn-sm" id="pvWideBtn" onclick="pvWide()">full width</button>
-        </div>
-        <textarea id="pvCode" spellcheck="false" oninput="pvQueue()" placeholder="Paste HTML code here. The picture shows on the right as you paste."></textarea>
-      </div>
-      <iframe class="pv-view" id="pvFrame" sandbox="allow-scripts allow-pointer-lock" title="Previewer"></iframe>
-    </div>`;
-  }
-  return `<div class="settings-row">
-      <div><div class="settings-label">Your Account ID</div><div class="settings-sub">Paste this into the Starter Kit to link your local hooks (shortcuts + session history) to this account</div></div>
-      <span id="accountIdDisplay" style="color:var(--dim);font-size:11px">sign in to see it</span>
-    </div>
-    <div class="settings-row">
-      <div><div class="settings-label">Show builtin shortcuts</div><div class="settings-sub">Hide the starter set, show only what you've created</div></div>
-      <label class="toggle"><input type="checkbox" id="settingShowBuiltins" checked onchange="onShowBuiltinsChange()"><span class="toggle-track"></span></label>
-    </div>
-    <div class="settings-row">
-      <div><div class="settings-label">Subscription</div><div class="settings-sub">AmitCoder is the paid workspace tier — billing not yet wired</div></div>
-      <span style="color:var(--dim);font-size:11.5px">not yet built</span>
-    </div>`;
 }
-
-// ── PREVIEWER — paste HTML, see it rendered. Runs in a sandboxed frame with no allow-same-origin, so pasted code cannot reach this page's sign-in or data.
-var pvTimer=null,pvReady=false;
-function pvClean(s){return s.replace(/^\s*```[a-zA-Z]*\s*\n/,'').replace(/\n\s*```\s*$/,'');}
-function pvShow(){
-  const box=document.getElementById('pvCode'),frame=document.getElementById('pvFrame');
-  if(!box||!frame)return;
-  const s=pvClean(box.value);
-  frame.srcdoc=s.trim()?s:'<body style="font-family:Georgia,serif;color:#776;padding:30px">Nothing to show yet. Paste HTML in the box on the left.</body>';
-  try{localStorage.setItem('amit_previewer_last',box.value);}catch(e){}
-}
-function pvQueue(){clearTimeout(pvTimer);pvTimer=setTimeout(pvShow,350);}
-function pvClear(){const b=document.getElementById('pvCode');if(!b)return;b.value='';pvShow();b.focus();}
-function pvWide(){
-  const w=document.getElementById('pvWrap'),btn=document.getElementById('pvWideBtn');
-  if(!w)return;
-  const on=w.classList.toggle('wide');
-  if(btn)btn.textContent=on?'show code':'full width';
-}
-function pvInit(){
-  if(pvReady)return;
-  pvReady=true;
-  const b=document.getElementById('pvCode');
-  try{const last=localStorage.getItem('amit_previewer_last');if(b&&last)b.value=last;}catch(e){}
-  pvShow();
-}
-
-// Tabbed-layout behavior — COPIED UNCHANGED from Templates/template.html.
-function showChTab(panelNum,n){
-  const panel=document.getElementById('panel-'+panelNum);
-  panel.querySelectorAll('.ch-tab-content').forEach(c=>c.classList.remove('active'));
-  panel.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('ch-tab-'+panelNum+'-'+n).classList.add('active');
-  event.target.classList.add('active');
-}
-
-// COPIED UNCHANGED from the template.
-function openPanel(n){
-  document.querySelectorAll('.tile').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-  const tile=document.getElementById('tile-'+n);
-  const panel=document.getElementById('panel-'+n);
-  if(tile)tile.classList.add('active');
-  if(panel)panel.classList.add('active');
-}
-
-// COPIED UNCHANGED from the template.
-function toggleSidebar(){
-  document.getElementById('sidebarTiles').classList.toggle('collapsed');
-}
-
-// ══════════════════════════════════════════════
-// LOGIN CONNECTION — COPIED UNCHANGED from the template.
-// ══════════════════════════════════════════════
-const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
-const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
-const db=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
-let currentUser=null;
-// Ryan's own account - the only one allowed to edit builtin (globally-shipped)
-// shortcuts directly through this UI. Everyone else stays read-only on
-// builtins, enforced both here and by RLS (migration_2026-07-29_002).
 const ADMIN_USER_IDS=['8b95d057-fd6b-44ec-abe7-658e08872d1a'];
 function isAdminUser(){return!!(currentUser&&ADMIN_USER_IDS.includes(currentUser.id));}
-
-if(db){
-  db.auth.onAuthStateChange((event,session)=>{
-    currentUser=session?session.user:null;
-    if(typeof amitAppearanceSync==='function') setTimeout(()=>{amitAppearanceSync(db);},0);
-    _updateSyncUI();
-    loadShortcuts();
-    updateAccountIdDisplay();
-  });
-}
-
-function updateAccountIdDisplay(){
-  const el=document.getElementById('accountIdDisplay');
-  if(!el)return;
-  if(currentUser){
-    el.innerHTML=`<code style="cursor:pointer" title="Click to copy" onclick="navigator.clipboard.writeText('${currentUser.id}');this.textContent='copied!';setTimeout(()=>this.textContent='${currentUser.id}',1200)">${currentUser.id}</code>`;
-  } else {
-    el.textContent='sign in to see it';
-  }
-}
-
-function _updateSyncUI(){
-  const el=document.getElementById('syncIndicator');if(!el)return;
-  const logoutBtn=document.getElementById('logoutBtn');
-  const signInBtn=document.getElementById('signInBtn');
-  if(currentUser){
-    el.innerHTML='<span class="live-pulse-dot">●</span> SYNCED';el.style.color='rgba(100,220,160,.7)';el.title='Signed in · '+currentUser.email;
-    if(logoutBtn)logoutBtn.style.display='block';
-    if(signInBtn)signInBtn.style.display='none';
-  } else {
-    el.textContent='';el.style.color='rgba(var(--amit-text-rgb,240,232,208),.28)';el.title='';
-    if(logoutBtn)logoutBtn.style.display='none';
-    if(signInBtn)signInBtn.style.display='block';
-  }
-}
-
-async function signOutAmit(){
-  if(!db)return;
-  await db.auth.signOut();
-  currentUser=null;
-  _updateSyncUI();
-}
-
-async function sendMagicLink(email){
-  if(!db)return'Database not available';
-  const{error}=await db.auth.signInWithOtp({email});
-  return error?error.message:null;
-}
-
-function openSyncModal(){
-  if(currentUser){if(confirm('Signed in as '+currentUser.email+'\n\nSign out?'))signOutAmit();return;}
-  const m=document.getElementById('syncModal');if(!m)return;
-  m.style.display='flex';
-}
-function closeSyncModal(){const m=document.getElementById('syncModal');if(m)m.style.display='none';}
-async function submitSyncEmail(){
-  const email=document.getElementById('syncEmailInput').value.trim();if(!email)return;
-  const btn=document.getElementById('syncSubmitBtn');btn.textContent='Sending…';btn.disabled=true;
-  const err=await sendMagicLink(email);
-  if(err){btn.textContent='Try again';btn.disabled=false;}
-  else{
-    document.querySelector('#syncModal .sync-modal-card').innerHTML=`
-      <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:17px;margin-bottom:14px">Link sent</div>
-      <div style="color:rgba(var(--amit-text-rgb,240,232,208),.7);font-size:13px;line-height:1.7">Check your email.<br>Click the link to sign in.</div>
-      <div onclick="closeSyncModal()" style="margin-top:20px;font-size:10px;color:rgba(var(--amit-text-rgb,240,232,208),.35);cursor:pointer;letter-spacing:.08em">CLOSE</div>`;
-  }
-}
-
-// ══════════════════════════════════════════════
-// CLOCK / GREETING — COPIED UNCHANGED from the template.
-// ══════════════════════════════════════════════
-const AMIT_NAME_KEY='amit_user_name';
-function getUserName(){return localStorage.getItem(AMIT_NAME_KEY)||'';}
-
-function updateClock(){
-  const d=new Date();
-  const h=d.getHours();
-  const sal=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
-  const name=getUserName();
-  const g=document.getElementById('greeting');if(g)g.textContent=name?sal+', '+name:sal;
-  const dt=document.getElementById('datetime');
-  if(dt)dt.textContent=d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-}
-updateClock();
-setInterval(updateClock,30000);
-
-// ══════════════════════════════════════════════
-// EVERYTHING BELOW THIS LINE IS ADDITIVE — AmitCoder's own real
-// functionality (Get Started checklist, Shortcuts CRUD), plugged into
-// the template's structure above rather than replacing any of it.
-// ══════════════════════════════════════════════
-
-// ── GET STARTED CHECKLIST — self-reported, saved to localStorage ──
-const CHECKLIST_KEY='amit_coder_checklist';
-const CHECKLIST_STEPS=[
-  {id:'proaccount',title:'Get a Claude Pro or Max account',
-   desc:'Sign up at <a class="check-link" href="https://claude.ai" target="_blank">claude.ai</a>. This is separate from an API key — Pro/Max works directly with Claude Code, no billing setup needed. <b>Double-click this step for the full walkthrough.</b>',
-   detail:`<p>This is not the same thing as an Anthropic API key - you do not need one of those for this. Pro or Max is a normal monthly subscription, and it is what powers Claude Code directly.</p>
-     <ol style="padding-left:20px;color:var(--muted);font-size:13px;line-height:1.9">
-       <li>Go to <a class="check-link" href="https://claude.ai" target="_blank">claude.ai</a> and create an account (or sign in if you already have one).</li>
-       <li>Click your account/profile area and choose to upgrade to <b>Pro</b> ($20/mo) or <b>Max</b> (higher usage limits, $100-$200/mo) - Pro is enough for most people starting out.</li>
-       <li>Already have Pro or Max? You do not need to do anything else here - just check the box. The real "connection" happens automatically the moment you sign into the Claude Code extension in step 3 with this same account.</li>
-     </ol>`},
-  {id:'vscode',title:'Install VS Code',
-   desc:'Download from <a class="check-link" href="https://code.visualstudio.com" target="_blank">code.visualstudio.com</a>. This is the editor Claude Code runs inside. <b>Double-click this step for the full walkthrough.</b>',
-   detail:`<p>VS Code is a free, standard code editor made by Microsoft - Claude Code runs as an extension inside it, so this has to be installed first.</p>
-     <ol style="padding-left:20px;color:var(--muted);font-size:13px;line-height:1.9">
-       <li>Go to <a class="check-link" href="https://code.visualstudio.com" target="_blank">code.visualstudio.com</a>.</li>
-       <li>Click the big download button for your operating system (Windows, Mac, or Linux - it will detect yours automatically).</li>
-       <li>Run the installer you downloaded. Default settings are fine - just click through Next/Install.</li>
-       <li>Open VS Code once when it's done installing, just to confirm it launches. You do not need to configure anything else yet.</li>
-     </ol>`},
-  {id:'extension',title:'Install the Claude Code extension',
-   desc:'Inside VS Code, open Extensions and search "Claude Code," or follow the install link from claude.ai. Sign in with the Pro/Max account from step 1. <b>Double-click this step for the full walkthrough.</b>',
-   detail:`<p>This is the actual bridge between VS Code and Claude - once this is installed and signed in, Claude Code (and everything AmitCoder builds on top of it) is live.</p>
-     <ol style="padding-left:20px;color:var(--muted);font-size:13px;line-height:1.9">
-       <li>Open VS Code.</li>
-       <li>Click the Extensions icon in the left sidebar (it looks like four small squares, one separated from the others).</li>
-       <li>Type "Claude Code" into the search box at the top.</li>
-       <li>Click <b>Install</b> on the official Claude Code extension (published by Anthropic).</li>
-       <li>Once installed, a Claude Code icon/panel appears in VS Code. Click it and choose to sign in.</li>
-       <li>A browser window opens asking you to log into your Anthropic account - use the exact same Pro/Max account from step 1.</li>
-       <li>Approve the connection when prompted. You'll be sent back to VS Code, now signed in.</li>
-     </ol>`},
-  {id:'starterkit',title:'Download and run the Amit Starter Kit',
-   desc:'<a class="btn btn-gold btn-sm" style="display:inline-flex;margin:8px 0" href="./Amit_Coder_Starter_Kit.ps1" download>⬇ Download Amit_Coder_Starter_Kit.ps1</a><br>Right-click the downloaded file → Run with PowerShell. Creates your project folder, a starter CLAUDE.md, and connects your session backup automatically. <b>Double-click this step for the full walkthrough.</b>',
-   detail:`<p>This one script sets up your entire project folder structure automatically - you do not need to create any folders by hand.</p>
-     <ol style="padding-left:20px;color:var(--muted);font-size:13px;line-height:1.9">
-       <li>Click the gold "Download Amit_Coder_Starter_Kit.ps1" button in this step. It saves to your Downloads folder (or wherever your browser saves downloads).</li>
-       <li>Find that file (usually in Downloads), right-click it, and choose <b>Run with PowerShell</b>.</li>
-       <li>If Windows shows a security warning ("Windows protected your PC"), click <b>More info</b> then <b>Run anyway</b> - this is normal for a downloaded script, not a sign anything is wrong.</li>
-       <li>It will ask where your project folder should live - press Enter to accept the default, or type your own path.</li>
-       <li>It will ask what to call your project/app - type a real name (whatever you're building), or press Enter to use the folder name.</li>
-       <li>It will ask for your AmitCoder Account ID - find this in the Settings tab of this page once you're signed in, or press Enter to skip for now.</li>
-       <li>When it finishes, it prints "=== Done ===" and tells you exactly where your project folder is.</li>
-     </ol>`},
-  {id:'confirm',title:'Confirm your folder and backup are set up',
-   desc:'Open the folder the starter kit created in VS Code and say "good morning" to Claude Code. If it responds and the folder has a CLAUDE.md file in it, you are set up. <b>Double-click this step for the full walkthrough.</b>',
-   detail:`<p>This is the final check that everything from the steps above actually connected correctly.</p>
-     <ol style="padding-left:20px;color:var(--muted);font-size:13px;line-height:1.9">
-       <li>In VS Code, choose File → Open Folder, and select the project folder the Starter Kit just created (the path it printed at the end of step 4).</li>
-       <li>Open the Claude Code panel/icon in VS Code.</li>
-       <li>Type "good morning" and send it.</li>
-       <li>If Claude responds and seems to know it's inside your project (not a blank/confused reply), you are fully set up.</li>
-       <li>If something feels off - it does not respond, or seems lost - go back and re-check steps 1-4 in order.</li>
-     </ol>`}
-];
-// Real bug found and fixed 2026-07-29: this is the call the comment near the
-// top of this script promised ("the real call at the bottom, after
-// CHECKLIST_STEPS is actually declared") but it was never actually added -
-// renderChecklist() was only ever called from toggleCheck(), so the
-// checklist (including the starter kit download button) never rendered on
-// page load at all. This line is that missing call, placed here because
-// CHECKLIST_STEPS now genuinely exists and buildPlaceholders() has already
-// run (it's an IIFE earlier in this same script), so #checklistSteps exists
-// in the DOM by the time this executes.
-renderChecklist();
-function renderChecklist(){
-  const wrap=document.getElementById('checklistSteps');
-  if(!wrap)return;
-  let done={};
-  try{done=JSON.parse(localStorage.getItem(CHECKLIST_KEY)||'{}')}catch(e){}
-  let html='';
-  CHECKLIST_STEPS.forEach(s=>{
-    const isDone=!!done[s.id];
-    html+=`<div class="check-step" ondblclick="openChecklistDetail('${s.id}')" title="Double-click for the full step-by-step walkthrough">
-      <div class="check-box${isDone?' done':''}" onclick="event.stopPropagation();toggleCheck('${s.id}')">${isDone?'✓':''}</div>
-      <div>
-        <div class="check-title${isDone?' done':''}">${s.title}</div>
-        <div class="check-desc">${s.desc}</div>
-      </div>
-    </div>`;
-  });
-  wrap.innerHTML=html;
-  const doneCount=CHECKLIST_STEPS.filter(s=>done[s.id]).length;
-  const pct=Math.round(doneCount/CHECKLIST_STEPS.length*100);
-  document.getElementById('checkProgressFill').style.width=pct+'%';
-  const ring=document.getElementById('checkRing');
-  if(ring){
-    const circumference=169.6;
-    ring.style.strokeDashoffset=circumference*(1-pct/100);
-  }
-  const ringPct=document.getElementById('checkRingPct');
-  if(ringPct)ringPct.textContent=pct+'%';
-  if(pct===100)celebrateChecklistComplete();
-}
-let _checklistCelebrated=false;
-function celebrateChecklistComplete(){
-  if(_checklistCelebrated)return;
-  _checklistCelebrated=true;
-  const ring=document.getElementById('checkRing');
-  if(ring){
-    ring.style.stroke='#4ec9b0';
-    ring.animate([{transform:'rotate(-90deg)'},{transform:'rotate(270deg)'}],{duration:600,easing:'ease-out'});
-  }
-  const wrap=document.getElementById('checklistSteps');
-  if(wrap&&!document.getElementById('checklistDoneBanner')){
-    const banner=document.createElement('div');
-    banner.id='checklistDoneBanner';
-    banner.style.cssText='margin-top:16px;padding:14px 18px;background:rgba(78,201,176,.1);border:1px solid rgba(78,201,176,.4);border-radius:8px;color:#8fe0c8;font-size:13px;text-align:center;font-family:var(--amit-font-heading,Cinzel,serif)';
-    banner.textContent='✓ Set up complete — you\'re ready to build.';
-    wrap.parentElement.appendChild(banner);
-  }
-}
-function openChecklistDetail(id){
-  const step=CHECKLIST_STEPS.find(s=>s.id===id);
-  if(!step||!step.detail)return;
-  renderTutorialModal(step.title,step.detail+`<p style="margin-top:16px;color:var(--dim);font-size:11.5px">Double-click this step again any time to see this walkthrough again. Click the small box on the left to mark it done once you've completed it.</p>`);
-}
-function toggleCheck(id){
-  let done={};
-  try{done=JSON.parse(localStorage.getItem(CHECKLIST_KEY)||'{}')}catch(e){}
-  done[id]=!done[id];
-  localStorage.setItem(CHECKLIST_KEY,JSON.stringify(done));
-  renderChecklist();
-}
-
-// ── HISTORY — backed by amit_coder_sessions (Supabase), falls back to the
-// static mockup rows already in the HTML if the table doesn't exist yet or
-// the signed-in user has no real sessions synced. ──
-async function loadCoderSessions(){
-  const statusLine=document.getElementById('historyStatusLine');
-  const list=document.getElementById('historyList');
-  if(!db||!statusLine||!list)return;
-  if(!currentUser){
-    statusLine.textContent='Sign in to see your real session history.';
-    return;
-  }
-  const{data,error}=await db.from('amit_coder_sessions').select('*')
-    .eq('user_id',currentUser.id).order('created_at',{ascending:false});
-  if(error){
-    statusLine.textContent='Showing example data — real sync sets up once the amit_coder_sessions table exists and your local hooks are linked (see Settings tab).';
-    return;
-  }
-  if(!data||!data.length){
-    statusLine.textContent='No synced sessions yet — showing example data. Run hooks/Amit_Coder_SessionEnd.ps1 after a session to start building real history.';
-    return;
-  }
-  statusLine.textContent='Your real session history:';
-  list.innerHTML=data.map(s=>`<div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content">
-    <div class="history-day-date">${new Date(s.created_at).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>
-    <div class="history-day-summary">${escapeHtml(s.summary||'')}</div>
-  </div></div>`).join('');
-}
-
-// ── AMIT'S BUILDS — the same hub_entries table every pursuit/experience
-// already lives in, filtered to program='AmitCoder'. Not a separate feature,
-// not gated to a signed-in user - the same public demo record the Hub
-// already shows everyone, just surfaced here so a visitor can see how Amit
-// actually uses its own tool without leaving AmitCoder.
-const AMIT_DEMO_UID='8b95d057-fd6b-44ec-abe7-658e08872d1a';
-async function loadAmitBuilds(){
-  const wrap=document.getElementById('amitBuildsList');
-  if(!db||!wrap)return;
-  const{data,error}=await db.from('hub_entries').select('*')
-    .eq('user_id',AMIT_DEMO_UID).eq('program','AmitCoder').eq('kind','experience')
-    .order('completed_date',{ascending:false}).limit(5);
-  if(error){wrap.innerHTML=`<p style="color:var(--dim);font-size:12.5px">Could not load - ${escapeHtml(error.message)}</p>`;return;}
-  if(!data||!data.length){wrap.innerHTML=`<p style="color:var(--dim);font-size:12.5px">Nothing logged yet. Amit's own build sessions will appear here as they happen.</p>`;return;}
-  wrap.innerHTML=`<div class="timeline">`+data.map(e=>`<div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content">
-      <div class="history-day-date">${e.completed_date?new Date(e.completed_date+'T00:00:00').toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}):''}</div>
-      <div style="color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:14px;margin:4px 0">${escapeHtml(e.title||'')}</div>
-      <div class="history-day-summary" style="opacity:1">${escapeHtml(e.notes||'')}</div>
-    </div></div>`).join('')+`</div>`;
-}
-
-// ── FUTURE IDEAS — backed by amit_coder_ideas (Supabase). Shared across
-// every signed-in user, not per-account private - this is a team backlog,
-// not personal data. ──
-function openIdeasModal(){
-  document.getElementById('ideasModal').style.display='flex';
-  loadIdeas();
-}
-function closeIdeasModal(){document.getElementById('ideasModal').style.display='none';}
-async function loadIdeas(){
-  const wrap=document.getElementById('ideasListWrap');
-  const signedOut=document.getElementById('ideasSignedOut');
-  if(!db)return;
-  if(!currentUser){signedOut.style.display='block';wrap.innerHTML='';return;}
-  signedOut.style.display='none';
-  const{data,error}=await db.from('amit_coder_ideas').select('*').order('created_at',{ascending:true});
-  if(error||!data){wrap.innerHTML='<div style="color:var(--dim);font-size:12px">Could not load ideas yet - has the amit_coder_ideas table been created?</div>';return;}
-  wrap.innerHTML=data.map(i=>`<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid rgba(var(--amit-accent-rgb,201,168,76),.2)">
-    <div style="flex:1">
-      <div style="color:var(--text2);font-size:13px;font-weight:600">${escapeHtml(i.title)}</div>
-      ${i.notes?`<div style="color:var(--muted);font-size:11.5px;margin-top:3px;line-height:1.6">${escapeHtml(i.notes)}</div>`:''}
-    </div>
-    <button class="btn btn-sm" onclick="removeIdea('${i.id}')">remove</button>
-  </div>`).join('')||'<div style="color:var(--dim);font-size:12px">No ideas yet - add one above.</div>';
-}
-async function addIdea(){
-  if(!db||!currentUser){alert('Sign in first.');return;}
-  const title=document.getElementById('ideaTitleInput').value.trim();
-  if(!title)return;
-  await db.from('amit_coder_ideas').insert({user_id:currentUser.id,title});
-  document.getElementById('ideaTitleInput').value='';
-  loadIdeas();
-}
-async function removeIdea(id){
-  if(!db)return;
-  await db.from('amit_coder_ideas').delete().eq('id',id);
-  loadIdeas();
-}
-
-// ── COMMUNITY CODE LIBRARY — backed by amit_code_library (Supabase).
-// Shared/public read (any signed-in user sees everyone's entries), authors
-// manage their own. Download builds a real file client-side (Blob + <a
-// download>) so "pull it to their system" actually produces a saved file,
-// not just a copy-paste.
-let libAllEntries=[];
-function toggleLibraryForm(){
-  document.getElementById('libForm').classList.toggle('open');
-}
-async function loadLibrary(){
-  const list=document.getElementById('libraryList');
-  const empty=document.getElementById('libraryEmpty');
-  const signedOut=document.getElementById('librarySignedOut');
-  if(!db||!list)return;
-  if(!currentUser){signedOut.style.display='block';empty.style.display='none';list.innerHTML='';return;}
-  signedOut.style.display='none';
-  const{data,error}=await db.from('amit_code_library').select('*').order('created_at',{ascending:false});
-  if(error){list.innerHTML='<div style="color:var(--dim);font-size:12px">Could not load the library yet - has the amit_code_library table been created?</div>';return;}
-  libAllEntries=data||[];
-  renderLibrary();
-}
-function renderLibrary(){
-  const list=document.getElementById('libraryList');
-  const empty=document.getElementById('libraryEmpty');
-  if(!list)return;
-  const q=(document.getElementById('libSearchInput')?.value||'').toLowerCase();
-  const rows=libAllEntries.filter(e=>!q||e.title.toLowerCase().includes(q)||(e.language||'').toLowerCase().includes(q));
-  if(!rows.length){empty.style.display='block';list.innerHTML='';return;}
-  empty.style.display='none';
-  const langColors={html:'#e0605a',css:'#569cd6',js:'#e8c56a',sql:'#4ec9b0',powershell:'#9fc2ea',other:'#9a9a9a'};
-  const langIcons={html:'◆',css:'◇',js:'●',sql:'▤',powershell:'▸',other:'○'};
-  list.innerHTML=rows.map(e=>{
-    const lc=langColors[e.language]||langColors.other;
-    const li=langIcons[e.language]||langIcons.other;
-    return `<div class="sc-card" style="border-left:3px solid ${lc}">
-    <div class="sc-card-head" style="cursor:default">
-      <span class="trigger-tag" style="color:${lc};border-color:${lc}66;background:${lc}1a">${li} ${escapeHtml(e.language||'other')}</span>
-      <span class="sc-instruction" style="font-weight:600;color:var(--text2);white-space:normal">${escapeHtml(e.title)}</span>
-      <button class="btn btn-sm" onclick="downloadLibraryEntry('${e.id}')">⬇ download</button>
-      ${e.user_id===currentUser.id?`<button class="btn btn-sm" onclick="removeLibraryEntry('${e.id}')">remove</button>`:''}
-    </div>
-    <div class="sc-sub-row" style="padding:10px 14px"><span class="sc-sub-instruction">${escapeHtml(e.description||'')}</span></div>
-  </div>`;
-  }).join('');
-}
-async function saveLibraryEntry(){
-  if(!db||!currentUser){alert('Sign in first.');return;}
-  const title=document.getElementById('libTitle').value.trim();
-  const language=document.getElementById('libLanguage').value;
-  const description=document.getElementById('libDescription').value.trim();
-  const code=document.getElementById('libCode').value;
-  if(!title||!code.trim()){alert('Title and code are both required.');return;}
-  const{error}=await db.from('amit_code_library').insert({
-    user_id:currentUser.id,title,language,description,code
-  });
-  if(error){alert('Could not share: '+error.message);return;}
-  document.getElementById('libTitle').value='';
-  document.getElementById('libDescription').value='';
-  document.getElementById('libCode').value='';
-  toggleLibraryForm();
-  loadLibrary();
-}
-function downloadLibraryEntry(id){
-  const e=libAllEntries.find(r=>r.id===id);
-  if(!e)return;
-  const ext={html:'html',css:'css',js:'js',sql:'sql',powershell:'ps1',other:'txt'}[e.language]||'txt';
-  const blob=new Blob([e.code],{type:'text/plain'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=(e.title.replace(/[^a-z0-9]+/gi,'_')||'shared_code')+'.'+ext;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-async function removeLibraryEntry(id){
-  if(!db)return;
-  await db.from('amit_code_library').delete().eq('id',id);
-  loadLibrary();
-}
-
-// ── PAIRING LOG — backed by amit_pairing_sessions (Supabase). Manual, not
-// automatic - Live Share itself has no API to auto-detect a session from
-// here; this just gives the invite link and notes a permanent, discoverable
-// home instead of disappearing once the session ends. ──
-async function loadPairingSessions(){
-  const list=document.getElementById('pairingList');
-  const empty=document.getElementById('pairingEmpty');
-  const signedOut=document.getElementById('pairingSignedOut');
-  if(!db||!list)return;
-  if(!currentUser){signedOut.style.display='block';empty.style.display='none';list.innerHTML='';return;}
-  signedOut.style.display='none';
-  const{data,error}=await db.from('amit_pairing_sessions').select('*').eq('user_id',currentUser.id).order('created_at',{ascending:false});
-  if(error||!data||!data.length){empty.style.display='block';list.innerHTML='';return;}
-  empty.style.display='none';
-  list.innerHTML=data.map(p=>`<div class="history-day">
-    <div class="history-day-date">${new Date(p.created_at).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})} · with ${escapeHtml(p.partner_name||'—')}</div>
-    <div class="history-day-summary">${escapeHtml(p.notes||'')}${p.live_share_link?` — <a href="${escapeHtml(p.live_share_link)}" target="_blank" style="color:var(--gold)">link</a>`:''}</div>
-  </div>`).join('');
-}
-async function savePairingSession(){
-  if(!db||!currentUser){alert('Sign in first.');return;}
-  const partner=document.getElementById('pairPartner').value.trim();
-  const link=document.getElementById('pairLink').value.trim();
-  const notes=document.getElementById('pairNotes').value.trim();
-  const{error}=await db.from('amit_pairing_sessions').insert({
-    user_id:currentUser.id,partner_name:partner,live_share_link:link,notes:notes
-  });
-  if(error){alert('Could not save: '+error.message);return;}
-  document.getElementById('pairPartner').value='';
-  document.getElementById('pairLink').value='';
-  document.getElementById('pairNotes').value='';
-  loadPairingSessions();
-}
-
 // ── SHORTCUTS — backed by amit_shortcuts (Supabase) ──
 let scAllRows=[];
 let scFilter='all';
@@ -1282,24 +896,7 @@ function openShortcutsTutorial(){
     <p>A master's subtask can either hold its own instruction, or <i>reference</i> an existing shortcut instead of retyping it - shown in blue on the step-chain diagram. That's how <span class="trigger-tag">push</span> reuses <span class="trigger-tag">authorization GitHub</span> without duplicating its logic.</p>
     <h4>Using the filters</h4>
     <p>Three independent rows: <b>all / builtin / custom</b> filters by who made it, <b>all types / masters only / steps only</b> filters by whether it's a combined sequence or a single standalone command, and <b>all keys / J / F</b> filters by which side it lives under. Combine them to find exactly what you're looking for.</p>
-    <p style="margin-top:16px;color:var(--dim);font-size:11.5px">Double-click the <b>Shortcuts</b> tab any time to see this again.</p>`);
-}
-function openCodeTutorial(){
-  renderTutorialModal("What's Actually Taking Place",`
-    <p>The Code Library isn't a separate app - it's a real table in the same Supabase database (<code>amit_coder_library</code>) that every signed-in AmitCoder user shares, gated the same way your pursuits and shortcuts are: row-level security tied to your account.</p>
-    <h4>What happens when you save an entry</h4>
-    <ul>
-      <li>The code/template text you paste in is written as one row, tagged with a language and a short description.</li>
-      <li>It becomes visible to any signed-in user - this is a shared library, not a private notes file.</li>
-      <li>Downloading an entry just reads that row back out and saves it to a file on your machine - nothing runs automatically.</li>
-    </ul>
-    <h4>Why this exists</h4>
-    <p>The same reason the shortcut system exists: so something one person figures out gets reused instead of re-solved from scratch by the next person who hits it.</p>
-    <p style="margin-top:16px;color:var(--dim);font-size:11.5px">Double-click the <b>Library</b> tab any time to see this again.</p>`);
-}
-function onShowBuiltinsChange(){
-  scShowBuiltins=document.getElementById('settingShowBuiltins').checked;
-  renderShortcuts();
+    <p style="margin-top:16px;color:var(--dim);font-size:11.5px">Double-click <b>Shortcuts</b> in the left sidebar any time to see this again.</p>`);
 }
 async function loadShortcuts(){
   const empty=document.getElementById('shortcutsEmpty');
@@ -1327,8 +924,8 @@ function renderShortcuts(){
   let rows=scAllRows;
   if(scFilter==='builtin')rows=rows.filter(r=>r.is_builtin);
   if(scFilter==='custom')rows=rows.filter(r=>!r.is_builtin);
-  if(!scShowBuiltins)rows=rows.filter(r=>!r.is_builtin);
   if(scKeyFilter!=='all')rows=rows.filter(r=>r.activation_key===scKeyFilter||rows.some(p=>p.id===r.parent_shortcut_id&&p.activation_key===scKeyFilter));
+  if(!scShowBuiltins)rows=rows.filter(r=>!r.is_builtin);
   let masters=rows.filter(r=>!r.parent_shortcut_id);
   // A "Master" genuinely combines subtasks (shortcut_type==='master' AND has
   // real children). A "Step" is any standalone shortcut with nothing under
@@ -1463,7 +1060,7 @@ function animateCountUp(id,target){
   if(target===0){el.textContent='0';return;}
   const duration=700,start=performance.now();
   function step(now){
-    const t=Math.min(1,(now-start)/duration);
+    const t=Math.max(0,Math.min(1,(now-start)/duration));
     const eased=1-Math.pow(1-t,3);
     el.textContent=Math.round(eased*target);
     if(t<1)requestAnimationFrame(step);
@@ -1666,6 +1263,1162 @@ async function saveShortcut(){
   toggleCreateForm();
   loadShortcuts();
 }
+
+// ══════════════════════════════════════════════
+// OVERVIEW PAGE (page 4) — carried over from AmitCoder v6.43, all its tabs
+// except Shortcuts, which is its own page.
+// ══════════════════════════════════════════════
+const OVERVIEW_PAGE=4;
+const OVERVIEW_TABS=[[1,'Overview'],[3,'History'],[4,'Docs'],[5,'Dev Practices'],[7,'Library'],[8,'Settings'],[9,'Previewer']];
+const OVERVIEW_LOADERS={3:()=>loadCoderSessions(),7:()=>loadLibrary(),8:()=>updateAccountIdDisplay(),9:()=>pvInit()};
+function overviewPageHtml(){
+  const p=OVERVIEW_PAGE;
+  const nav=OVERVIEW_TABS.map(([t,name],i)=>`<button class="ch-tab-btn${i?'':' active'}" onclick="showChTab(${p},${t});OVERVIEW_LOADERS[${t}]?.()"${t===7?' ondblclick="openCodeTutorial()"':''}>${name}</button>`).join('');
+  const body=OVERVIEW_TABS.map(([t],i)=>`<div class="ch-tab-content ov-page${i?'':' active'}" id="ch-tab-${p}-${t}">${overviewTabHtml(t)}</div>`).join('');
+  return `<div class="ch-tab-nav" id="ch-tab-nav-${p}">${nav}</div><div class="ch-tab-main">${body}</div>`;
+}
+function loadOverviewData(){
+  if(!document.getElementById('detail-'+OVERVIEW_PAGE))return;
+  [3,7,8].forEach(t=>OVERVIEW_LOADERS[t]());
+}
+function overviewTabHtml(t){
+  if(t===1){
+    return `<div style="background:rgba(var(--amit-accent-rgb,201,168,76),.08);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.35);border-radius:10px;padding:16px 20px;margin-bottom:18px">
+        <div style="color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.05em;margin-bottom:6px">⚡ VERIFIED, NOT ASSUMED</div>
+        <p style="margin:0">Most AI coding tools ship code that looks right and quietly isn't - real 2026 developer research puts trust in AI-generated output at under half. AmitCoder's answer isn't more automation, it's proof: <span class="trigger-tag">J review</span> reads the code honestly, <span class="trigger-tag">J debug</span> actually runs it end to end and watches it happen, and nothing gets "fixed" without asking first. That's the standard this whole workspace is built to.</p>
+      </div>
+      <p>AmitCoder is your coding workspace with Amit. It uses Claude Code on your own computer, with your own Claude account.</p>
+      <h3>✅ What's real right now</h3>
+      <div class="doc-icon-grid">
+        <div class="doc-icon-card"><div class="doc-icon">🔑</div><div><b>Same login as the Hub</b><p>Sign in once, recognized everywhere.</p></div></div>
+        <div class="doc-icon-card"><div class="doc-icon">📋</div><div><b>Get Started checklist</b><p>Walks a new person through the exact setup Ryan had to learn by hand.</p></div></div>
+        <div class="doc-icon-card"><div class="doc-icon">⚡</div><div><b>Shortcuts</b><p>Create, view, and toggle voice/keyboard command shortcuts — built-in shortcuts are ready to use.</p></div></div>
+        <div class="doc-icon-card"><div class="doc-icon">📚</div><div><b>Code Library</b><p>Share and download code/templates with any signed-in user.</p></div></div>
+      </div>
+      <h3>🚧 What's still being built</h3>
+      <div class="doc-icon-grid">
+        <div class="doc-icon-card" style="opacity:.6"><div class="doc-icon">📜</div><div><b>History</b><p>Seeing each coding session here. Until your sessions are connected, the History tab shows examples.</p></div></div>
+        <div class="doc-icon-card" style="opacity:.6"><div class="doc-icon">🔌</div><div><b>Live activation</b><p>A shortcut firing automatically inside a session isn't yet confirmed working — tested manually only.</p></div></div>
+      </div>`;
+  }
+  if(t===3){
+    return `<p style="color:var(--dim);font-size:12.5px;margin-bottom:16px" id="historyStatusLine">Checking for real session data…</p>
+      <div id="historyList" class="timeline">
+        <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content"><div class="history-day-date">2026-07-28 · Session 58</div><div class="history-day-summary">AmitCoder moved off the Hub placeholder into its own page. Voice-shortcut convention tested live (F/J). Get Started checklist and starter kit added.</div></div></div>
+        <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content"><div class="history-day-date">2026-07-27 · Session 57</div><div class="history-day-summary">Amit — Medical Prep built end to end. How_This_Was_Built.html shipped.</div></div></div>
+        <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content"><div class="history-day-date">2026-07-20 · Session 56</div><div class="history-day-summary">AmitSensorReader.exe replaced LibreHardwareMonitor. Honesty audit on confidence numbers completed.</div></div></div>
+      </div>`;
+  }
+  if(t===4){
+    return `<h3>Why F and J</h3>
+      <p>This convention came out of live testing against Ryan's actual microphone, not guesswork.</p>
+      <div class="finding"><b>Single unstressed words don't get misheard — they disappear.</b> A candidate activation word lost its trailing sound entirely on repeat tries.</div>
+      <div class="finding"><b>Two-letter combos spoken together are unreliable.</b> Saying "FJ" repeatedly produced completely different results each time — never the same thing twice.</div>
+      <div class="finding"><b>Single letters, said in isolation or embedded in a full sentence, held up.</b> F, J, X, Q, Z, and H all transcribed cleanly and consistently once tested properly.</div>
+      <h3>The working convention</h3>
+      <p><span class="trigger-tag builtin-tag">F</span> / <span class="trigger-tag builtin-tag">J</span> — the magic words themselves. Say or type F or J directly, followed by the command. Right and left index fingers, home-row keys, for anyone typing instead of speaking.</p>
+      <h3>F is yours. J is Amit's.</h3>
+      <p><span class="trigger-tag">F</span> is reserved for shortcuts <b>you</b> create — your own custom commands, fully yours to add, edit, or remove.</p>
+      <p><span class="trigger-tag builtin-tag">J</span> is the builtin package that ships with AmitCoder — shortcuts Amit builds in. These can never be edited or removed by any user, by design (enforced at the database level, not just the interface). Current J package: <code>J copy</code>, <code>J repeat</code>, <code>J search</code>, <code>J save idea</code>, <code>J pull ideas</code>, <code>J pursuit</code>, <code>J rename pursuit</code>, <code>J inspire</code>, <code>J topic</code>, <code>J review</code>, <code>J test</code>, <code>J explain</code>, <code>J commit</code>, <code>J checkup</code>, <code>J docs</code>, <code>J push</code>, <code>J authorization GitHub</code>, <code>J authorization Supabase</code>. Deliberately does not replicate anything already handled by the OS (Ctrl+C, Ctrl+V, etc.) — <code>J copy</code> means "read the clipboard into context," a different action entirely from the operating system's own copy command.</p>
+      <h3>🔗 The connection family — instruction, authorization, connect, setup, push</h3>
+      <p>A layered pattern for anything external a coder's own app needs:</p>
+      <div class="doc-icon-grid">
+        <div class="doc-icon-card"><div class="doc-icon">📖</div><div><b>J instruction &lt;service&gt;</b><p>The real how-to guide (e.g. creating a free GitHub account from scratch, step by step).</p></div></div>
+        <div class="doc-icon-card"><div class="doc-icon">🔑</div><div><b>J authorization &lt;service&gt;</b><p>Checks what's actually connected using <em>your own</em> account, never Amit's or Ryan's; falls back to the matching instruction guide if you don't have an account yet.</p></div></div>
+        <div class="doc-icon-card"><div class="doc-icon">🧭</div><div><b>J connect</b><p>Dynamic dispatcher — figures out which service you mean from context and goes straight to that check.</p></div></div>
+        <div class="doc-icon-card"><div class="doc-icon">✅</div><div><b>J setup</b><p>Runs every known authorization check in sequence, once, for a brand-new project.</p></div></div>
+        <div class="doc-icon-card"><div class="doc-icon">🚀</div><div><b>J push</b><p>A compound: ensures GitHub is connected first (chained), then checks status and pushes only after confirming — never silent.</p></div></div>
+      </div>
+      <h3>How a shortcut actually activates in a real session</h3>
+      <p>The Starter Kit's <code>hooks/Amit_Coder_SessionStart.ps1</code> pulls your active shortcuts into a local <code>amit_shortcuts_cache.json</code> file. Every project's CLAUDE.md carries a standing rule: read that cache at session start, and when a message begins with a known trigger, treat its stored instruction as the real request — not something re-explained each time.</p>
+      <p style="color:var(--dim);font-size:12px">Want something like a J shortcut but personal to you? Build it under F instead — that's exactly what F is for.</p>
+      <h3>What a shortcut actually does right now</h3>
+      <p>A <b>simple</b> shortcut is a stored instruction — when triggered, Amit treats it as if you'd typed that instruction directly.</p>
+      <p>A <b>master</b> shortcut bundles subtasks — triggering it runs each subtask's instruction in sequence.</p>
+      <p style="color:var(--dim);font-size:12px;margin-top:16px">Open question, not yet resolved: whether a shortcut fires automatically inside a live Claude Code session versus staying a reference panel. See AmitCoder/CLAUDE.md.</p>`;
+  }
+  if(t===5){
+    return `<p>Things a more experienced coder typically already has in place that a self-taught, Claude-Code-first workflow can easily miss. Each one below is marked by what's actually true right now — not aspirational.</p>
+      <h3>Local dev server <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Built into Starter Kit</span></h3>
+      <p>Opening HTML files directly (<code>file://</code>) works for a lot, but silently breaks some browser features and doesn't match how the site behaves once actually deployed. <code>Start_Local_Server.ps1</code> (created by the Starter Kit, no installs needed) serves your folder at <code>http://localhost:8080</code> instead.</p>
+      <h3>Git branches, not straight to main <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Helper script added</span></h3>
+      <p>Committing every change directly to <code>main</code> means a risky change is live the moment it's pushed. <code>New_Feature_Branch.ps1</code> creates a branch to test in first — merge to main only once it's confirmed working.</p>
+      <h3>A real migrations folder <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Built into Starter Kit</span></h3>
+      <p>Database changes as numbered files in <code>migrations/</code>, tracked in git — so your database's history is versioned alongside your code, not scattered across chat sessions.</p>
+      <h3>Basic CI (a robot that checks your work) <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Scaffolded</span></h3>
+      <p><code>.github/workflows/basic-check.yml</code> runs automatically on every push once this folder is a real GitHub repo — catches a broken file before a real visitor ever sees it.</p>
+      <h3>Automated tests <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Not built — bigger lift</span></h3>
+      <p>Small scripts that automatically re-check old features still work as new ones get added. Genuinely valuable at scale, but a real investment to set up — not included yet.</p>
+      <h3>Secrets kept out of git <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Already good practice</span></h3>
+      <p>Config files holding real credentials should never be committed. This is already the right instinct if you keep a local-only config file — formalizing it as a <code>.env</code> + <code>.gitignore</code> pair is the standard shape of the same idea.</p>
+`;
+  }
+  if(t===7){
+    return `<p>Share code, layouts, or functions you've built so other AmitCoder users can browse, search, and pull them into their own project — the same idea as npm or GitHub Gists, just for this community.</p>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+        <button class="btn btn-gold btn-sm" onclick="toggleLibraryForm()">+ share code</button>
+      </div>
+      <div class="sc-form" id="libForm">
+        <label>Title</label>
+        <input type="text" id="libTitle" placeholder="e.g. Responsive card grid layout">
+        <label>Language / type</label>
+        <select id="libLanguage">
+          <option value="html">HTML</option>
+          <option value="css">CSS</option>
+          <option value="js">JavaScript</option>
+          <option value="sql">SQL</option>
+          <option value="powershell">PowerShell</option>
+          <option value="other">Other</option>
+        </select>
+        <label>Description</label>
+        <textarea id="libDescription" placeholder="What it does, how to use it" style="min-height:44px"></textarea>
+        <label>Code</label>
+        <textarea id="libCode" placeholder="Paste the actual code here" style="min-height:120px;font-family:var(--amit-font-mono,monospace);font-size:12px"></textarea>
+        <div class="sc-form-actions">
+          <button class="btn btn-sm" onclick="toggleLibraryForm()">cancel</button>
+          <button class="btn btn-gold btn-sm" onclick="saveLibraryEntry()">share</button>
+        </div>
+      </div>
+      <div style="margin-bottom:14px">
+        <input type="text" id="libSearchInput" placeholder="Search by title or language…" oninput="renderLibrary()"
+          style="width:100%;background:rgba(var(--amit-overlay-rgb,255,255,255),.06);border:1px solid var(--border);border-radius:6px;padding:9px 11px;color:var(--amit-text,#fff);font-size:13px;font-family:var(--amit-font-body,'Crimson Pro',serif)">
+      </div>
+      <div id="libraryList"></div>
+      <div class="shortcuts-empty" id="libraryEmpty" style="display:none">Nothing shared yet — be the first.</div>
+      <div class="shortcuts-empty" id="librarySignedOut">Sign in to browse and share the code library.</div>`;
+  }
+  if(t===9){
+    return `<div class="pv-wrap" id="pvWrap">
+      <div class="pv-code" id="pvCodeCol">
+        <div class="pv-bar">
+          <button class="btn btn-gold btn-sm" onclick="pvShow()">show it</button>
+          <button class="btn btn-sm" onclick="pvClear()">clear</button>
+          <button class="btn btn-sm" id="pvWideBtn" onclick="pvWide()">full width</button>
+        </div>
+        <textarea id="pvCode" spellcheck="false" oninput="pvQueue()" placeholder="Paste HTML code here. The picture shows on the right as you paste."></textarea>
+      </div>
+      <iframe class="pv-view" id="pvFrame" sandbox="allow-scripts allow-pointer-lock" title="Previewer"></iframe>
+    </div>`;
+  }
+  return `<div class="settings-row">
+      <div><div class="settings-label">Your Account ID</div><div class="settings-sub">Paste this into the Starter Kit to link your local hooks (shortcuts + session history) to this account</div></div>
+      <span id="accountIdDisplay" style="color:var(--dim);font-size:11px">sign in to see it</span>
+    </div>
+    <div class="settings-row">
+      <div><div class="settings-label">Show builtin shortcuts</div><div class="settings-sub">Hide the starter set, show only what you've created</div></div>
+      <label class="toggle"><input type="checkbox" id="settingShowBuiltins" checked onchange="onShowBuiltinsChange()"><span class="toggle-track"></span></label>
+    </div>
+    <div class="settings-row">
+      <div><div class="settings-label">Subscription</div><div class="settings-sub">AmitCoder is the paid workspace tier — billing not yet wired</div></div>
+      <span style="color:var(--dim);font-size:11.5px">not yet built</span>
+    </div>`;
+}
+// ── PREVIEWER — paste HTML, see it rendered. Runs in a sandboxed frame with no allow-same-origin, so pasted code cannot reach this page's sign-in or data.
+var pvTimer=null,pvReady=false;
+function pvClean(s){return s.replace(/^\s*```[a-zA-Z]*\s*\n/,'').replace(/\n\s*```\s*$/,'');}
+function pvShow(){
+  const box=document.getElementById('pvCode'),frame=document.getElementById('pvFrame');
+  if(!box||!frame)return;
+  const s=pvClean(box.value);
+  frame.srcdoc=s.trim()?s:'<body style="font-family:Georgia,serif;color:#776;padding:30px">Nothing to show yet. Paste HTML in the box on the left.</body>';
+  try{localStorage.setItem('amit_previewer_last',box.value);}catch(e){}
+}
+function pvQueue(){clearTimeout(pvTimer);pvTimer=setTimeout(pvShow,350);}
+function pvClear(){const b=document.getElementById('pvCode');if(!b)return;b.value='';pvShow();b.focus();}
+function pvWide(){
+  const w=document.getElementById('pvWrap'),btn=document.getElementById('pvWideBtn');
+  if(!w)return;
+  const on=w.classList.toggle('wide');
+  if(btn)btn.textContent=on?'show code':'full width';
+}
+function pvInit(){
+  if(pvReady)return;
+  pvReady=true;
+  const b=document.getElementById('pvCode');
+  try{const last=localStorage.getItem('amit_previewer_last');if(b&&last)b.value=last;}catch(e){}
+  pvShow();
+}
+
+// Tabbed-layout behavior — COPIED UNCHANGED from Templates/template.html.
+function updateAccountIdDisplay(){
+  const el=document.getElementById('accountIdDisplay');
+  if(!el)return;
+  if(currentUser){
+    el.innerHTML=`<code style="cursor:pointer" title="Click to copy" onclick="navigator.clipboard.writeText('${currentUser.id}');this.textContent='copied!';setTimeout(()=>this.textContent='${currentUser.id}',1200)">${currentUser.id}</code>`;
+  } else {
+    el.textContent='sign in to see it';
+  }
+}
+async function loadCoderSessions(){
+  const statusLine=document.getElementById('historyStatusLine');
+  const list=document.getElementById('historyList');
+  if(!db||!statusLine||!list)return;
+  if(!currentUser){
+    statusLine.textContent='Sign in to see your real session history.';
+    return;
+  }
+  const{data,error}=await db.from('amit_coder_sessions').select('*')
+    .eq('user_id',currentUser.id).order('created_at',{ascending:false});
+  if(error){
+    statusLine.textContent='Showing example data — real sync sets up once the amit_coder_sessions table exists and your local hooks are linked (see Settings tab).';
+    return;
+  }
+  if(!data||!data.length){
+    statusLine.textContent='No synced sessions yet — showing example data. Run hooks/Amit_Coder_SessionEnd.ps1 after a session to start building real history.';
+    return;
+  }
+  statusLine.textContent='Your real session history:';
+  list.innerHTML=data.map(s=>`<div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content">
+    <div class="history-day-date">${new Date(s.created_at).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>
+    <div class="history-day-summary">${escapeHtml(s.summary||'')}</div>
+  </div></div>`).join('');
+}
+function openCodeTutorial(){
+  renderTutorialModal("What's Actually Taking Place",`
+    <p>The Code Library isn't a separate app - it's a real table in the same Supabase database (<code>amit_coder_library</code>) that every signed-in AmitCoder user shares, gated the same way your pursuits and shortcuts are: row-level security tied to your account.</p>
+    <h4>What happens when you save an entry</h4>
+    <ul>
+      <li>The code/template text you paste in is written as one row, tagged with a language and a short description.</li>
+      <li>It becomes visible to any signed-in user - this is a shared library, not a private notes file.</li>
+      <li>Downloading an entry just reads that row back out and saves it to a file on your machine - nothing runs automatically.</li>
+    </ul>
+    <h4>Why this exists</h4>
+    <p>The same reason the shortcut system exists: so something one person figures out gets reused instead of re-solved from scratch by the next person who hits it.</p>
+    <p style="margin-top:16px;color:var(--dim);font-size:11.5px">Double-click the <b>Library</b> tab in Overview any time to see this again.</p>`);
+}
+function onShowBuiltinsChange(){
+  scShowBuiltins=document.getElementById('settingShowBuiltins').checked;
+  renderShortcuts();
+}
+let libAllEntries=[];
+function toggleLibraryForm(){
+  document.getElementById('libForm').classList.toggle('open');
+}
+async function loadLibrary(){
+  const list=document.getElementById('libraryList');
+  const empty=document.getElementById('libraryEmpty');
+  const signedOut=document.getElementById('librarySignedOut');
+  if(!db||!list)return;
+  if(!currentUser){signedOut.style.display='block';empty.style.display='none';list.innerHTML='';return;}
+  signedOut.style.display='none';
+  const{data,error}=await db.from('amit_code_library').select('*').order('created_at',{ascending:false});
+  if(error){list.innerHTML='<div style="color:var(--dim);font-size:12px">Could not load the library yet - has the amit_code_library table been created?</div>';return;}
+  libAllEntries=data||[];
+  renderLibrary();
+}
+function renderLibrary(){
+  const list=document.getElementById('libraryList');
+  const empty=document.getElementById('libraryEmpty');
+  if(!list)return;
+  const q=(document.getElementById('libSearchInput')?.value||'').toLowerCase();
+  const rows=libAllEntries.filter(e=>!q||e.title.toLowerCase().includes(q)||(e.language||'').toLowerCase().includes(q));
+  if(!rows.length){empty.style.display='block';list.innerHTML='';return;}
+  empty.style.display='none';
+  const langColors={html:'#e0605a',css:'#569cd6',js:'#e8c56a',sql:'#4ec9b0',powershell:'#9fc2ea',other:'#9a9a9a'};
+  const langIcons={html:'◆',css:'◇',js:'●',sql:'▤',powershell:'▸',other:'○'};
+  list.innerHTML=rows.map(e=>{
+    const lc=langColors[e.language]||langColors.other;
+    const li=langIcons[e.language]||langIcons.other;
+    return `<div class="sc-card" style="border-left:3px solid ${lc}">
+    <div class="sc-card-head" style="cursor:default">
+      <span class="trigger-tag" style="color:${lc};border-color:${lc}66;background:${lc}1a">${li} ${escapeHtml(e.language||'other')}</span>
+      <span class="sc-instruction" style="font-weight:600;color:var(--text2);white-space:normal">${escapeHtml(e.title)}</span>
+      <button class="btn btn-sm" onclick="downloadLibraryEntry('${e.id}')">⬇ download</button>
+      ${e.user_id===currentUser.id?`<button class="btn btn-sm" onclick="removeLibraryEntry('${e.id}')">remove</button>`:''}
+    </div>
+    <div class="sc-sub-row" style="padding:10px 14px"><span class="sc-sub-instruction">${escapeHtml(e.description||'')}</span></div>
+  </div>`;
+  }).join('');
+}
+async function saveLibraryEntry(){
+  if(!db||!currentUser){alert('Sign in first.');return;}
+  const title=document.getElementById('libTitle').value.trim();
+  const language=document.getElementById('libLanguage').value;
+  const description=document.getElementById('libDescription').value.trim();
+  const code=document.getElementById('libCode').value;
+  if(!title||!code.trim()){alert('Title and code are both required.');return;}
+  const{error}=await db.from('amit_code_library').insert({
+    user_id:currentUser.id,title,language,description,code
+  });
+  if(error){alert('Could not share: '+error.message);return;}
+  document.getElementById('libTitle').value='';
+  document.getElementById('libDescription').value='';
+  document.getElementById('libCode').value='';
+  toggleLibraryForm();
+  loadLibrary();
+}
+function downloadLibraryEntry(id){
+  const e=libAllEntries.find(r=>r.id===id);
+  if(!e)return;
+  const ext={html:'html',css:'css',js:'js',sql:'sql',powershell:'ps1',other:'txt'}[e.language]||'txt';
+  const blob=new Blob([e.code],{type:'text/plain'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=(e.title.replace(/[^a-z0-9]+/gi,'_')||'shared_code')+'.'+ext;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+async function removeLibraryEntry(id){
+  if(!db)return;
+  await db.from('amit_code_library').delete().eq('id',id);
+  loadLibrary();
+}
+// ══════════════════════════════════════════════
+// GET STARTED (page 5), AMIT'S BUILDS (page 6) and the FUTURE IDEAS button —
+// carried over from AmitCoder v6.43.
+// ══════════════════════════════════════════════
+const STARTED_PAGE=5;
+const BUILDS_PAGE=6;
+function startedPageHtml(){
+  return `<div class="ov-page" style="padding:28px 32px;max-width:640px">
+          <div style="display:flex;align-items:center;gap:20px;margin-bottom:18px">
+            <svg width="64" height="64" viewBox="0 0 64 64" style="flex-shrink:0">
+              <circle cx="32" cy="32" r="27" fill="none" stroke="rgba(201,168,76,.18)" stroke-width="6"/>
+              <circle id="checkRing" cx="32" cy="32" r="27" fill="none" stroke="var(--gold)" stroke-width="6" stroke-linecap="round" stroke-dasharray="169.6" stroke-dashoffset="169.6" transform="rotate(-90 32 32)" style="transition:stroke-dashoffset .5s ease"/>
+              <text id="checkRingPct" x="32" y="37" text-anchor="middle" font-size="15" fill="var(--gold2)" font-family="Cinzel,serif" font-weight="700">0%</text>
+            </svg>
+            <p style="color:var(--muted);font-size:13px;margin:0">Everything Ryan had to learn by trial and error, in order. Check each off as you go — your progress is saved.</p>
+          </div>
+          <div style="background:rgba(var(--amit-accent-rgb,201,168,76),.08);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:var(--muted)">
+            <b style="color:var(--gold2)">How to use this list:</b> <b>Double-click</b> any step to open a full, detailed walkthrough of exactly what to do. <b>Click the small box</b> on the left once you've actually done it, to mark it complete and track your progress.
+          </div>
+          <div class="check-progress"><div class="check-progress-fill" id="checkProgressFill" style="width:0%"></div></div>
+          <div id="checklistSteps"></div>
+  </div>`;
+}
+function buildsPageHtml(){
+  return `<div style="padding:28px 32px;max-width:720px">
+          <p style="color:var(--muted);font-size:13px;margin-bottom:18px">This isn't a separate feature - it's the same real build record every AmitCoder pursuit and experience already lives in, just filtered to Amit's own work on this tool. The last five real sessions, honestly written, no staging.</p>
+          <div id="amitBuildsList"><p style="color:var(--dim);font-size:12.5px">Loading...</p></div>
+  </div>`;
+}
+// ── GET STARTED CHECKLIST — self-reported, saved to localStorage ──
+const CHECKLIST_KEY='amit_coder_checklist';
+const CHECKLIST_STEPS=[
+  {id:'proaccount',title:'Get a paid Claude account',
+   desc:'Sign up at <a class="check-link" href="https://claude.ai" target="_blank">claude.ai</a> and choose a paid plan such as Pro or Max. The free plan does not include Claude Code. <b>Double-click this step for the full walkthrough.</b>',
+   detail:`<p>You do not need an Anthropic API key. A normal paid Claude subscription is what powers Claude Code.</p>
+     <ol style="padding-left:20px;color:var(--muted);font-size:13px;line-height:1.9">
+       <li>Go to <a class="check-link" href="https://claude.ai" target="_blank">claude.ai</a> and create an account, or sign in.</li>
+       <li>Choose a paid plan such as <b>Pro</b> or <b>Max</b>. Current prices are at <a class="check-link" href="https://claude.com/pricing" target="_blank">claude.com/pricing</a>.</li>
+       <li>Already on a paid plan? Just check the box.</li>
+     </ol>`},
+  {id:'claudecode',title:'Install Claude Code',
+   desc:'Paste one line into PowerShell, then sign in with the Claude account from step 1. <b>Double-click this step for the full walkthrough.</b>',
+   detail:`<p>Claude Code is Anthropic's program that does the coding work on your computer. These steps are for Windows 10 (version 1809 or newer) or Windows 11, with at least 4 GB of memory. You do not need to run anything as Administrator.</p>
+     <ol style="padding-left:20px;color:var(--muted);font-size:13px;line-height:1.9">
+       <li>Click the Windows <b>Start</b> button, type <b>PowerShell</b>, and open <b>Windows PowerShell</b>.</li>
+       <li>Paste this line and press Enter: <code>irm https://claude.ai/install.ps1 | iex</code></li>
+       <li>It shows no progress while it downloads. Wait for it to finish.</li>
+       <li>Close that window and open a new PowerShell window.</li>
+       <li>Type <code>claude --version</code> and press Enter. A version number means it worked.</li>
+       <li>Type <code>claude</code> and press Enter, then follow the browser prompts to sign in with your paid Claude account.</li>
+     </ol>
+     <p>If something goes wrong, see <a class="check-link" href="https://code.claude.com/docs/en/setup" target="_blank">code.claude.com/docs/en/setup</a>.</p>`},
+  {id:'starterkit',title:'Download and run the Amit Starter Kit',
+   desc:'<a class="btn btn-gold btn-sm" style="display:inline-flex;margin:8px 0" href="./Amit_Coder_Starter_Kit.ps1" download>⬇ Download Amit_Coder_Starter_Kit.ps1</a><br>Right-click the downloaded file → Run with PowerShell. Creates your project folder, a starter CLAUDE.md, and connects your session backup automatically. <b>Double-click this step for the full walkthrough.</b>',
+   detail:`<p>This one script sets up your entire project folder structure automatically - you do not need to create any folders by hand.</p>
+     <ol style="padding-left:20px;color:var(--muted);font-size:13px;line-height:1.9">
+       <li>Click the gold "Download Amit_Coder_Starter_Kit.ps1" button in this step. It saves to your Downloads folder (or wherever your browser saves downloads).</li>
+       <li>Find that file (usually in Downloads), right-click it, and choose <b>Run with PowerShell</b>.</li>
+       <li>If Windows shows a security warning ("Windows protected your PC"), click <b>More info</b> then <b>Run anyway</b> - this is normal for a downloaded script, not a sign anything is wrong.</li>
+       <li>It will ask where your project folder should live - press Enter to accept the default, or type your own path.</li>
+       <li>It will ask what to call your project/app - type a real name (whatever you're building), or press Enter to use the folder name.</li>
+       <li>It will ask for your AmitCoder Account ID - find this in the Settings tab on the Overview page once you're signed in, or press Enter to skip for now.</li>
+       <li>When it finishes, it prints "=== Done ===" and tells you exactly where your project folder is.</li>
+     </ol>`},
+  {id:'confirm',title:'Start Claude Code in your project folder',
+   desc:'Open PowerShell in the folder the Starter Kit created, type <b>claude</b>, and say "good morning". <b>Double-click this step for the full walkthrough.</b>',
+   detail:`<p>This is the final check that the steps above connected correctly.</p>
+     <ol style="padding-left:20px;color:var(--muted);font-size:13px;line-height:1.9">
+       <li>In File Explorer, open the project folder the Starter Kit created (it printed the location when it finished).</li>
+       <li>Click the address bar at the top, type <b>powershell</b>, and press Enter. PowerShell opens in that folder.</li>
+       <li>Type <code>claude</code> and press Enter. If it asks whether you trust this folder, say yes, since it is the folder you just made.</li>
+       <li>Type "good morning" and press Enter.</li>
+       <li>If Claude answers and seems to know your project, you are set up.</li>
+       <li>If something seems wrong, go back through the steps above in order.</li>
+     </ol>`}
+];
+// Real bug found and fixed 2026-07-29: this is the call the comment near the
+// top of this script promised ("the real call at the bottom, after
+// CHECKLIST_STEPS is actually declared") but it was never actually added -
+// renderChecklist() was only ever called from toggleCheck(), so the
+// checklist (including the starter kit download button) never rendered on
+// page load at all. This line is that missing call, placed here because
+// CHECKLIST_STEPS now genuinely exists and buildPlaceholders() has already
+// run (it's an IIFE earlier in this same script), so #checklistSteps exists
+// in the DOM by the time this executes.
+renderChecklist();
+function renderChecklist(){
+  const wrap=document.getElementById('checklistSteps');
+  if(!wrap)return;
+  let done={};
+  try{done=JSON.parse(localStorage.getItem(CHECKLIST_KEY)||'{}')}catch(e){}
+  let html='';
+  CHECKLIST_STEPS.forEach(s=>{
+    const isDone=!!done[s.id];
+    html+=`<div class="check-step" ondblclick="openChecklistDetail('${s.id}')" title="Double-click for the full step-by-step walkthrough">
+      <div class="check-box${isDone?' done':''}" onclick="event.stopPropagation();toggleCheck('${s.id}')">${isDone?'✓':''}</div>
+      <div>
+        <div class="check-title${isDone?' done':''}">${s.title}</div>
+        <div class="check-desc">${s.desc}</div>
+      </div>
+    </div>`;
+  });
+  wrap.innerHTML=html;
+  const doneCount=CHECKLIST_STEPS.filter(s=>done[s.id]).length;
+  const pct=Math.round(doneCount/CHECKLIST_STEPS.length*100);
+  document.getElementById('checkProgressFill').style.width=pct+'%';
+  const ring=document.getElementById('checkRing');
+  if(ring){
+    const circumference=169.6;
+    ring.style.strokeDashoffset=circumference*(1-pct/100);
+  }
+  const ringPct=document.getElementById('checkRingPct');
+  if(ringPct)ringPct.textContent=pct+'%';
+  if(pct===100)celebrateChecklistComplete();
+}
+let _checklistCelebrated=false;
+function celebrateChecklistComplete(){
+  if(_checklistCelebrated)return;
+  _checklistCelebrated=true;
+  const ring=document.getElementById('checkRing');
+  if(ring){
+    ring.style.stroke='#4ec9b0';
+    ring.animate([{transform:'rotate(-90deg)'},{transform:'rotate(270deg)'}],{duration:600,easing:'ease-out'});
+  }
+  const wrap=document.getElementById('checklistSteps');
+  if(wrap&&!document.getElementById('checklistDoneBanner')){
+    const banner=document.createElement('div');
+    banner.id='checklistDoneBanner';
+    banner.style.cssText='margin-top:16px;padding:14px 18px;background:rgba(78,201,176,.1);border:1px solid rgba(78,201,176,.4);border-radius:8px;color:#8fe0c8;font-size:13px;text-align:center;font-family:var(--amit-font-heading,Cinzel,serif)';
+    banner.textContent='✓ Set up complete — you\'re ready to build.';
+    wrap.parentElement.appendChild(banner);
+  }
+}
+function openChecklistDetail(id){
+  const step=CHECKLIST_STEPS.find(s=>s.id===id);
+  if(!step||!step.detail)return;
+  renderTutorialModal(step.title,step.detail+`<p style="margin-top:16px;color:var(--dim);font-size:11.5px">Double-click this step again any time to see this walkthrough again. Click the small box on the left to mark it done once you've completed it.</p>`);
+}
+function toggleCheck(id){
+  let done={};
+  try{done=JSON.parse(localStorage.getItem(CHECKLIST_KEY)||'{}')}catch(e){}
+  done[id]=!done[id];
+  localStorage.setItem(CHECKLIST_KEY,JSON.stringify(done));
+  renderChecklist();
+}
+
+// ── AMIT'S BUILDS — the same hub_entries table every pursuit/experience
+// already lives in, filtered to program='AmitCoder'. Not a separate feature,
+// not gated to a signed-in user - the same public demo record the Hub
+// already shows everyone, just surfaced here so a visitor can see how Amit
+// actually uses its own tool without leaving AmitCoder.
+async function loadAmitBuilds(){
+  const wrap=document.getElementById('amitBuildsList');
+  if(!db||!wrap)return;
+  const{data,error}=await db.from('hub_entries').select('*')
+    .eq('user_id',AMIT_DEMO_UID).eq('program','AmitCoder').eq('kind','experience')
+    .order('completed_date',{ascending:false}).limit(5);
+  if(error){wrap.innerHTML=`<p style="color:var(--dim);font-size:12.5px">Could not load - ${escapeHtml(error.message)}</p>`;return;}
+  if(!data||!data.length){wrap.innerHTML=`<p style="color:var(--dim);font-size:12.5px">Nothing logged yet. Amit's own build sessions will appear here as they happen.</p>`;return;}
+  wrap.innerHTML=`<div class="timeline">`+data.map(e=>`<div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content">
+      <div class="history-day-date">${e.completed_date?new Date(e.completed_date+'T00:00:00').toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}):''}</div>
+      <div style="color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:14px;margin:4px 0">${escapeHtml(e.title||'')}</div>
+      <div class="history-day-summary" style="opacity:1">${escapeHtml(e.notes||'')}</div>
+    </div></div>`).join('')+`</div>`;
+}
+
+// ── FUTURE IDEAS — backed by amit_coder_ideas (Supabase). Shared across
+// every signed-in user, not per-account private - this is a team backlog,
+// not personal data. ──
+function openIdeasModal(){
+  document.getElementById('ideasModal').style.display='flex';
+  loadIdeas();
+}
+function closeIdeasModal(){document.getElementById('ideasModal').style.display='none';}
+async function loadIdeas(){
+  const wrap=document.getElementById('ideasListWrap');
+  const signedOut=document.getElementById('ideasSignedOut');
+  if(!db)return;
+  if(!currentUser){signedOut.style.display='block';wrap.innerHTML='';return;}
+  signedOut.style.display='none';
+  const{data,error}=await db.from('amit_coder_ideas').select('*').order('created_at',{ascending:true});
+  if(error||!data){wrap.innerHTML='<div style="color:var(--dim);font-size:12px">Could not load ideas yet - has the amit_coder_ideas table been created?</div>';return;}
+  wrap.innerHTML=data.map(i=>`<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid rgba(var(--amit-accent-rgb,201,168,76),.2)">
+    <div style="flex:1">
+      <div style="color:var(--text2);font-size:13px;font-weight:600">${escapeHtml(i.title)}</div>
+      ${i.notes?`<div style="color:var(--muted);font-size:11.5px;margin-top:3px;line-height:1.6">${escapeHtml(i.notes)}</div>`:''}
+    </div>
+    <button class="btn btn-sm" onclick="removeIdea('${i.id}')">remove</button>
+  </div>`).join('')||'<div style="color:var(--dim);font-size:12px">No ideas yet - add one above.</div>';
+}
+async function addIdea(){
+  if(!db||!currentUser){alert('Sign in first.');return;}
+  const title=document.getElementById('ideaTitleInput').value.trim();
+  if(!title)return;
+  await db.from('amit_coder_ideas').insert({user_id:currentUser.id,title});
+  document.getElementById('ideaTitleInput').value='';
+  loadIdeas();
+}
+async function removeIdea(id){
+  if(!db)return;
+  await db.from('amit_coder_ideas').delete().eq('id',id);
+  loadIdeas();
+}
+
+function renderAllPages(){
+  const nav=document.getElementById('sidebarPages');
+  const main=document.getElementById('mainArea');
+  const activeId=document.querySelector('.page-nav.active')?.id?.replace('page-','')||'1';
+
+  let navHtml=`<div class="page-nav active" id="page-1" onclick="openPage(1)" data-tip="Introduction">
+    <div class="page-icon">🧭</div>
+    <div class="page-info"><div class="page-name">Introduction</div><div class="page-sub">Welcome</div></div>
+  </div>`;
+  let detailHtml=`<div class="detail active" id="detail-1">
+    <div class="detail-head"><span class="detail-heading">Introduction</span></div>
+    <div style="padding:28px 32px;max-width:680px;line-height:1.8;color:var(--muted)">
+      <p style="margin-bottom:14px">Welcome to AmitCoder, your coding workspace with Amit. You use Claude Code on your own computer, with your own Claude account.</p>
+      <p style="margin-bottom:8px"><b style="color:var(--gold2)">Where to go:</b></p>
+      <p><a class="check-link" href="#" onclick="openPage(5);return false">Get Started</a> — set up your computer, step by step.</p>
+      <p><a class="check-link" href="#" onclick="openPage(4);return false">Overview</a> — history, how things work, the code library, settings and the previewer.</p>
+      <p><a class="check-link" href="#" onclick="openPage(3);return false">Shortcuts</a> — short words that tell Amit what to do.</p>
+      <p><a class="check-link" href="#" onclick="openPage(6);loadAmitBuilds();return false">Amit’s Builds</a> — Amit using this tool.</p>
+    </div>
+  </div>`;
+
+  // AmitCoder page 5: Get Started
+  navHtml+=`<div class="page-nav" id="page-5" onclick="openPage(5)" data-tip="Get Started">
+    <div class="page-icon">✅</div>
+    <div class="page-info"><div class="page-name">Get Started</div><div class="page-sub">Setup checklist</div></div>
+  </div>`;
+  detailHtml+=`<div class="detail" id="detail-5">
+    <div class="detail-head"><span class="detail-heading">Get Started</span></div>
+    ${startedPageHtml()}
+  </div>`;
+
+  // AmitCoder page 4: Overview
+  navHtml+=`<div class="page-nav" id="page-4" onclick="openPage(4)" data-tip="Overview">
+    <div class="page-icon">📘</div>
+    <div class="page-info"><div class="page-name">Overview</div><div class="page-sub">History · Docs · Library</div></div>
+  </div>`;
+  detailHtml+=`<div class="detail" id="detail-4" style="flex-direction:column">
+    <div class="detail-head"><span class="detail-heading">Overview</span></div>
+    ${overviewPageHtml()}
+  </div>`;
+
+  // AmitCoder page 3: Shortcuts
+  navHtml+=`<div class="page-nav" id="page-3" onclick="openPage(3)" ondblclick="event.stopPropagation();openShortcutsTutorial()" data-tip="Shortcuts">
+    <div class="page-icon">⚡</div>
+    <div class="page-info"><div class="page-name">Shortcuts</div><div class="page-sub">Your commands</div></div>
+  </div>`;
+  detailHtml+=`<div class="detail" id="detail-3">
+    <div class="detail-head"><span class="detail-heading">Shortcuts</span></div>
+    <div class="sc-page">${shortcutsPageHtml()}</div>
+  </div>`;
+
+  // AmitCoder page 6: Amit's Builds
+  navHtml+=`<div class="page-nav" id="page-6" onclick="openPage(6);loadAmitBuilds()" data-tip="Amit’s Builds">
+    <div class="page-icon">🔨</div>
+    <div class="page-info"><div class="page-name">Amit’s Builds</div><div class="page-sub">Amit using this tool</div></div>
+  </div>`;
+  detailHtml+=`<div class="detail" id="detail-6">
+    <div class="detail-head"><span class="detail-heading">Amit’s Builds</span></div>
+    ${buildsPageHtml()}
+  </div>`;
+
+  const toHydrate=[]; // [{id,layoutKey}] — layouts fetched+run from TemplateViews.html after this render lands in the DOM
+  customPages.forEach((p,i)=>{
+    const id=CUSTOM_PAGE_BASE+i;
+    const displayName=p.page_name||p.detail_layout_type; // blank name stored — fall back to layout type for the label/tooltip only
+    navHtml+=`<div class="page-nav" id="page-${id}" onclick="openPage(${id})" data-tip="${displayName}">
+      <div class="page-icon">${TEMPLATE_VIEWS_ICON_MAP[p.detail_layout_type]||'📄'}</div>
+      <div class="page-info"><div class="page-name">${displayName}</div><div class="page-sub">${p.detail_layout_type}</div></div>
+    </div>`;
+    if(p.detail_layout_type==='Tabbed View'){
+      detailHtml+=`<div class="detail" id="detail-${id}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${displayName}</span></div>
+        ${buildTabbedViewHtml(id)}
+      </div>`;
+    } else if(LAYOUT_IMPORT_MANIFEST[p.detail_layout_type]){
+      detailHtml+=`<div class="detail" id="detail-${id}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${displayName}</span></div>
+        <div class="${LAYOUT_IMPORT_MANIFEST[p.detail_layout_type].wrap}" id="tv-mount-${id}"></div>
+      </div>`;
+      toHydrate.push({id,layoutKey:p.detail_layout_type});
+    } else {
+      detailHtml+=`<div class="detail" id="detail-${id}">
+        <div class="detail-head"><span class="detail-heading">${displayName}</span></div>
+        <div class="detail-empty">"${p.detail_layout_type}" has no import entry yet in LAYOUT_IMPORT_MANIFEST.</div>
+      </div>`;
+    }
+  });
+
+  if(builderMode){
+    navHtml+=`<div class="page-nav" id="page-add" onclick="openLayoutPicker()" data-tip="Add Page" style="border-style:dashed;opacity:.8">
+      <div class="page-icon">➕</div>
+      <div class="page-info"><div class="page-name">Add Page</div><div class="page-sub">Create a new page</div></div>
+    </div>
+    <div onclick="finalizeBuilderMode()" style="font-size:9px;color:rgba(var(--amit-text-rgb,240,232,208),.25);cursor:pointer;letter-spacing:.06em;text-align:center;padding:6px 4px;margin-top:4px" title="Hides Add Page permanently for shipping — re-enable via localStorage in dev tools">FINALIZE — HIDE ADD PAGE</div>`;
+  }
+
+  // Shortcuts and Overview are kept as they are across rebuilds, so a sign-in
+  // refresh never wipes half-typed text. A different sign-in gets fresh pages,
+  // so nothing from the last account stays on screen.
+  const owner=currentUser?currentUser.id:'';
+  const kept=[SHORTCUTS_PAGE,OVERVIEW_PAGE].map(id=>document.getElementById('detail-'+id)).filter(el=>el&&el.dataset.owner===owner);
+  kept.forEach(el=>el.classList.remove('active'));
+  nav.innerHTML=navHtml;
+  main.innerHTML=detailHtml;
+  [SHORTCUTS_PAGE,OVERVIEW_PAGE].forEach(id=>{document.getElementById('detail-'+id).dataset.owner=owner;});
+  kept.forEach(el=>document.getElementById(el.id).replaceWith(el));
+  initPageTooltips('sidebarPages','right');
+
+  // restore whichever page was open before the re-render, if it still exists
+  if(document.getElementById('page-'+activeId)) openPage(isNaN(activeId)?activeId:Number(activeId));
+
+  // pull in and run the real layout code for every TemplateViews-backed
+  // page rebuilt above — the mount divs already exist synchronously; each
+  // one's real content pops in once its fetch/import resolves.
+  toHydrate.forEach(({id,layoutKey})=>hydrateImportedLayout(id,layoutKey));
+  loadShortcuts();
+  loadOverviewData();
+  renderChecklist();
+  loadAmitBuilds();
+}
+
+function finalizeBuilderMode(){
+  if(!confirm('Hide "Add Page" for shipping? This is meant to be a one-way step before a project goes live — to bring it back during further development, run localStorage.removeItem(\'amit_builder_mode\') in the browser console and reload.'))return;
+  builderMode=false;
+  localStorage.setItem(BUILDER_MODE_KEY,'off');
+  renderAllPages();
+}
+
+// ══════════════════════════════════════════════
+// ADD PAGE FLOW — clicking "Add Page" goes straight to the layout picker
+// (from TemplateViews.html's canonical list) → create. No name-entry step
+// (removed 2026-08-06, Ryan's direct instruction) — the chosen layout's
+// own name becomes the page name; rename later is a future improvement,
+// not part of this flow.
+// ══════════════════════════════════════════════
+// 👓 preview link on each card — opens TemplateViews.html (the never-
+// edited reference catalog) in a new tab, deep-linked via #page=N to that
+// exact layout instead of always landing on Introduction. Read-only by
+// nature: it's a plain link to a file, nothing here can write back into
+// it. Deliberately NOT wired to select-from-that-tab-and-return — a real
+// cross-tab handoff (postMessage, tracking whether that tab is still
+// open) is a lot of moving parts for what a click back in this popup
+// already does in one step once someone's seen what they wanted to see.
+function previewLayoutInNewTab(e,layoutKey){
+  e.stopPropagation();
+  const pageNum=TEMPLATE_VIEWS_PAGE_MAP[layoutKey];
+  window.open('../Templates/TemplateViews.html'+(pageNum?'#page='+pageNum:''),'_blank');
+}
+
+function openLayoutPicker(){
+  const cards=TEMPLATE_LAYOUTS.map(l=>`
+    <div onclick="confirmAddPage('${l.key}')"
+      style="background:var(--amit-card-bg,transparent);border:1px solid var(--amit-card-border,rgba(var(--amit-accent-rgb,201,168,76),.3));border-radius:8px;cursor:pointer;transition:all .15s;display:flex;align-items:stretch;overflow:hidden"
+      onmouseover="this.style.borderColor='var(--gold)'"
+      onmouseout="this.style.borderColor='var(--amit-card-border,rgba(var(--amit-accent-rgb,201,168,76),.3))'">
+      <div onclick="previewLayoutInNewTab(event,'${l.key}')" title="See what ${l.key} looks like before choosing it"
+        style="flex-shrink:0;width:58px;display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer;background:rgba(var(--amit-accent-rgb,201,168,76),.06);border-right:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25)"
+        onmouseover="event.stopPropagation();this.style.background='rgba(var(--amit-accent-rgb,201,168,76),.22)'"
+        onmouseout="event.stopPropagation();this.style.background='rgba(var(--amit-accent-rgb,201,168,76),.06)'">${TEMPLATE_VIEWS_ICON_MAP[l.key]||'▢'}</div>
+      <div onclick="confirmAddPage('${l.key}')" style="flex:1;min-width:0;padding:12px 14px;transition:background .15s"
+        onmouseover="this.style.background='rgba(var(--amit-accent-rgb,201,168,76),.08)'"
+        onmouseout="this.style.background='transparent'">
+        <div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:12px;color:var(--gold2);margin-bottom:4px">${l.key}</div>
+        <div style="font-size:11px;color:var(--muted)">${l.desc}</div>
+      </div>
+    </div>`).join('');
+  popupOpen(`
+    <div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:14px;letter-spacing:.06em;color:var(--gold2);margin-bottom:6px">Choose a Starting View</div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:16px">Click the icon on any card to open a live preview of that layout in a new tab — come back and click the name/description side to add it here.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${cards}</div>
+  `);
+}
+
+async function confirmAddPage(layoutKey){
+  const order=customPages.length;
+  const pageName=''; // blank for now — naming/renaming is separate future work
+  customPages.push({project_key:PROJECT_KEY,page_name:pageName,detail_layout_type:layoutKey,page_order:order});
+  await saveCustomPage(pageName,layoutKey,order);
+  popupClose();
+  renderAllPages();
+  openPage(CUSTOM_PAGE_BASE+order);
+}
+
+(async function buildPlaceholders(){
+  customPages=await loadCustomPages();
+  renderAllPages();
+
+  // RIGHT RAIL — Ask Amit / Sign In-Sync / Demo Mode, permanent, global.
+  const rail=document.getElementById('rightRail');
+  if(rail){
+    rail.innerHTML=`<div class="page-nav" id="rail-ask-amit" onclick="railAskAmit()" data-tip="Ask Amit">
+      <div class="page-icon"><img src="../amit_icon.ico" alt="Amit" style="width:100%;height:100%;object-fit:contain"></div>
+      <div class="page-info">
+        <div class="page-name">Ask Amit</div>
+        <div class="page-sub">Walk alongside</div>
+      </div>
+    </div>
+    <!-- Chats: the AmitChat box, shown only when signed in. Wired by ../Amit_Ask_Live.js (it loads the chat on demand); nothing else to do on a new page. -->
+    <div class="page-nav" id="rail-chat" data-shared-chat="1" data-tip="AmitChat" style="display:none">
+      <div class="page-icon" style="position:relative">&#128172;<span class="acx-badge" id="rail-chat-badge" style="display:none">0</span></div>
+      <div class="page-info">
+        <div class="page-name">Chats</div>
+        <div class="page-sub">AmitChat</div>
+      </div>
+    </div>
+    <div class="page-nav" id="rail-sync" onclick="openSyncModal()" data-tip="Sign In">
+      <div class="page-icon" id="rail-sync-icon">🔒</div>
+      <div class="page-info">
+        <div class="page-name" id="rail-sync-name">Sign In</div>
+        <div class="page-sub" id="rail-sync-sub">Not Synced</div>
+      </div>
+    </div>
+    <div class="page-nav" id="rail-demo" onclick="toggleDemoMode()" data-tip="Demo On">
+      <div class="page-icon" id="rail-demo-icon">🎬</div>
+      <div class="page-info">
+        <div class="page-name" id="rail-demo-name">Demo On</div>
+        <div class="page-sub" id="rail-demo-sub">Amit's Data Shown</div>
+      </div>
+    </div>
+    <div class="page-nav" id="rail-home" onclick="goToHub()" data-tip="Back to the Hub">
+      <div class="page-icon">🏠</div>
+      <div class="page-info">
+        <div class="page-name">Home</div>
+        <div class="page-sub">Back to the Hub</div>
+      </div>
+    </div>`;
+    _updateDemoUI();
+    _updateSyncUI();
+  }
+
+  initPageTooltips('rightRail','left');
+})();
+
+// PAGE HOVER TOOLTIP — delegated on the given container, works no matter
+// how many items exist or whether that container is collapsed/expanded.
+// side: 'right' opens rightward (left sidebar); 'left' opens leftward
+// (right rail — opening rightward there would render off-screen).
+function initPageTooltips(containerId,side){
+  const tip=document.getElementById('pageHoverTip');
+  const nav=document.getElementById(containerId);
+  if(!tip||!nav)return;
+  nav.addEventListener('mouseover',(e)=>{
+    const item=e.target.closest('.page-nav');
+    if(!item)return;
+    tip.textContent=item.dataset.tip||'';
+    const r=item.getBoundingClientRect();
+    if(side==='left'){
+      tip.style.right=(window.innerWidth-r.left+8)+'px';
+      tip.style.left='auto';
+    } else {
+      tip.style.left=(r.right+8)+'px';
+      tip.style.right='auto';
+    }
+    tip.style.top=(r.top+r.height/2)+'px';
+    tip.style.transform='translateY(-50%)';
+    tip.classList.add('show');
+  });
+  nav.addEventListener('mouseout',(e)=>{
+    const item=e.target.closest('.page-nav');
+    if(!item)return;
+    if(e.relatedTarget&&item.contains(e.relatedTarget))return;
+    tip.classList.remove('show');
+  });
+}
+
+// CANONICAL LAYOUT: TABBED VIEW — copied verbatim from TemplateViews.html,
+// added 2026-08-06. Multi-row overflow: the tab row grows as many rows
+// behind itself as it needs (plain CSS flex-wrap, see .ch-tab-nav) rather
+// than scrolling or truncating. Selecting a tab that isn't in the front
+// row brings its whole row forward — same behavior as classic multi-row
+// property-sheet tabs.
+function showChTab(detailNum,n){
+  const detail=document.getElementById('detail-'+detailNum);
+  const clickedBtn=event.target;
+  const tabNav=document.getElementById('ch-tab-nav-'+detailNum);
+  if(tabNav){
+    // Only reorder when tabs have genuinely wrapped into multiple rows, and
+    // use a tolerance (not exact offsetTop equality) when grouping a row —
+    // .ch-tab-btn.active has a different margin-top than inactive tabs,
+    // which would otherwise misclassify the active tab as its own row.
+    const wrapped=tabNav.scrollHeight>clickedBtn.offsetHeight*1.5;
+    if(wrapped){
+      const rowTop=clickedBtn.offsetTop;
+      Array.from(tabNav.children)
+        .filter(b=>Math.abs(b.offsetTop-rowTop)<15)
+        .forEach(b=>tabNav.appendChild(b));
+    }
+  }
+  detail.querySelectorAll('.ch-tab-content').forEach(c=>c.classList.remove('active'));
+  detail.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('ch-tab-'+detailNum+'-'+n).classList.add('active');
+  clickedBtn.classList.add('active');
+  if(window.AmitMaster)AmitMaster.navigated();
+}
+
+// Builds a real, working Tabbed View's inner markup for a given detail id —
+// used by renderAllPages() so a custom page whose detail_layout_type is
+// 'Tabbed View' gets the actual live layout, not placeholder text.
+function buildTabbedViewHtml(detailNum){
+  let tabNavHtml='',tabContentHtml='';
+  for(let t=1;t<=5;t++){
+    tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${detailNum},${t})">Tab ${t}</button>`;
+    tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${detailNum}-${t}">Tab ${t} content goes here</div>`;
+  }
+  return `<div class="ch-tab-nav" id="ch-tab-nav-${detailNum}">${tabNavHtml}</div>
+    <div class="ch-tab-main">${tabContentHtml}</div>`;
+}
+
+// ══════════════════════════════════════════════
+// LAYOUT IMPORTER — fetches TemplateViews.html at the moment a page needs
+// it, cuts out the exact CANONICAL LAYOUT block the person picked (code +
+// its own sample data, contiguous by design — see TemplateViews.html's own
+// "IMPORTING A SINGLE LAYOUT PIECE" note), runs it live, and calls that
+// layout's own create function. Nothing about any of the 14 layouts below
+// is hand-copied into this file ahead of time — this file only knows each
+// one's marker text, its container wrap class, and the one line that
+// creates it, exactly what a person would type by hand if copying it in
+// themselves. Tabbed View (above) is the one exception, kept as a fully
+// local, hand-wired implementation since it was built before this importer
+// existed and already works — no need to route it through a network fetch.
+//
+// REQUIRES being served over http(s) — a file:// page cannot fetch a
+// sibling file's contents (browsers block that at the protocol level, not
+// this code's choice). Run a local server (the Starter Kit's zero-dep dev
+// server, or `npx serve`, or similar) rather than double-clicking this
+// file, or the import will fail with an honest error in the page itself.
+// ══════════════════════════════════════════════
+const LAYOUT_IMPORT_MANIFEST={
+  'Multi-Row Tab View':{marker:'MULTI-ROW TAB VIEW',deps:[],wrap:'mrt-wrap',
+    call:id=>`mrtCreate('${id}',MRT_SAMPLE_TABS);`},
+  'Row View':{marker:'ROW VIEW',deps:[],wrap:'rv-wrap',
+    call:id=>`rvCreate('${id}',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);`},
+  'Detail View':{marker:'DETAIL VIEW',deps:['Row View'],wrap:'dv-wrap',
+    call:id=>`dvCreate('${id}',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);dvOpenForInstance('${id}',RV_SAMPLE_ROWS[0].id);`},
+  'Calendar View':{marker:'CALENDAR VIEW',deps:['Day View'],wrap:'cv-wrap',
+    call:id=>`cvCreate('${id}');`},
+  'Day View':{marker:'DAY VIEW',deps:[],wrap:'dvw-wrap',
+    call:id=>`dayViewCreate('${id}');`},
+  'Board View':{marker:'BOARD VIEW',deps:['Detail View'],wrap:'bv-wrap',
+    call:id=>`bvCreate('${id}',BV_SAMPLE_STATUSES,BV_SAMPLE_ROWS);`},
+  'Gallery View':{marker:'GALLERY VIEW',deps:[],wrap:'glv-wrap',
+    call:id=>`glvCreate('${id}',GLV_SAMPLE_ROWS);`},
+  'Dashboard View':{marker:'DASHBOARD VIEW',deps:[],wrap:'dbv-wrap',
+    call:id=>`dbvCreate('${id}',DBV_SAMPLE_TILES,DBV_SAMPLE_BARS);`},
+  'Split View':{marker:'SPLIT VIEW',deps:['Row View'],wrap:'spv-wrap',
+    call:id=>`spvCreate('${id}',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);`},
+  'Form View':{marker:'FORM VIEW',deps:[],wrap:'fv-wrap',
+    call:id=>`fvCreate('${id}',FV_SAMPLE_FIELDS);`},
+  'Chart View':{marker:'CHART VIEW',deps:[],wrap:'chv-wrap',
+    call:id=>`chvCreate('${id}',CHV_SAMPLE_BARS,CHV_SAMPLE_LINES);`},
+  'Inbox View':{marker:'INBOX VIEW',deps:[],wrap:'ibv-wrap',
+    call:id=>`ibvCreate('${id}',IBV_SAMPLE_ROWS);`},
+  'Drawer View':{marker:'DRAWER VIEW',deps:[],wrap:'drv-wrap',
+    call:id=>`drvCreate('${id}',DRV_SAMPLE_ROWS);`},
+  'Tree View':{marker:'TREE VIEW',deps:[],wrap:'tv-wrap',
+    call:id=>`tvCreate('${id}',TV_SAMPLE_ROWS);`},
+  'Breadcrumb View':{marker:'BREADCRUMB VIEW',deps:[],wrap:'bcv-wrap',
+    call:id=>`bcvCreate('${id}','Pursuits',BCV_SAMPLE_ROOT);`}
+};
+
+let _tvSource=null;
+async function _fetchTemplateViewsSource(){
+  if(_tvSource) return _tvSource;
+  const res=await fetch('../Templates/TemplateViews.html'); // from any app folder under Amit
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  _tvSource=await res.text();
+  return _tvSource;
+}
+
+let _tvCssInjected=false;
+function _injectTemplateViewsCss(src){
+  if(_tvCssInjected) return;
+  const m=src.match(/<style>([\s\S]*?)<\/style>/);
+  if(!m) return;
+  const tag=document.createElement('style');
+  tag.id='tv-imported-css';
+  // The catalog's CSS also carries its own fixed :root colors and frame rules.
+  // It goes BEFORE this page's own <style> so the page's themed rules always
+  // win, and amit_master.js rewrites its fixed colors to the theme tokens.
+  tag.textContent=window.AmitMaster?AmitMaster.themeCss(m[1]):m[1];
+  const own=document.querySelector('head style:not([id]):not([data-amit-appearance-font])');
+  if(own)own.parentNode.insertBefore(tag,own);
+  else document.head.appendChild(tag);
+  _tvCssInjected=true;
+}
+
+// Cuts the one block whose header comment reads "CANONICAL LAYOUT: <marker>"
+// — from that comment line down to wherever the NEXT block's own header
+// starts ("// CANONICAL LAYOUT: " or "// CANONICAL DESTINATION: "), or the
+// "// ── DEMO" wiring at the file's bottom for the last block. Anchored to
+// a real line start (must follow a newline) so a prose MENTION of another
+// block's name elsewhere in a comment can't be mistaken for that block's
+// actual header. Does not stop at every "// ══" divider — each block's own
+// header comment is closed by one of those BEFORE its code even starts, so
+// stopping there would cut every block down to nothing but its comment.
+function _extractCanonicalBlock(src,markerText){
+  const marker='// CANONICAL LAYOUT: '+markerText;
+  const mi=src.indexOf('\n'+marker);
+  if(mi===-1) return null;
+  const lineStart=mi+1;
+  let end=src.length;
+  for(const stop of ['\n// CANONICAL LAYOUT: ','\n// CANONICAL DESTINATION: ','\n// ── DEMO']){
+    const idx=src.indexOf(stop,lineStart+marker.length);
+    if(idx!==-1 && idx<end) end=idx;
+  }
+  return src.slice(lineStart,end);
+}
+
+// Loads a layout's block (and any dependency blocks — e.g. Detail View's
+// sample data lives inside Row View's own block) exactly once each, ever,
+// per page load. A second page using the same layout just calls its
+// already-loaded create function again with a new container id — the
+// block itself (its `const`s) can only be executed once without a
+// "already declared" error, same reason each script tag only runs once.
+const _tvLoadedLayouts=new Set();
+async function importLayoutFromTemplateViews(layoutKey){
+  const manifest=LAYOUT_IMPORT_MANIFEST[layoutKey];
+  if(!manifest) return {ok:false,reason:'"'+layoutKey+'" has no import entry yet'};
+  let src;
+  try{ src=await _fetchTemplateViewsSource(); }
+  catch(e){ return {ok:false,reason:'could not fetch TemplateViews.html ('+e.message+') — this page must be served over http(s), not opened as a file:// path'}; }
+  _injectTemplateViewsCss(src);
+  for(const key of [...manifest.deps,layoutKey]){
+    if(_tvLoadedLayouts.has(key)) continue;
+    const block=_extractCanonicalBlock(src,LAYOUT_IMPORT_MANIFEST[key].marker);
+    if(!block) return {ok:false,reason:'could not find the "'+key+'" block in TemplateViews.html'};
+    const tag=document.createElement('script');
+    tag.textContent=block;
+    document.body.appendChild(tag);
+    _tvLoadedLayouts.add(key);
+  }
+  return {ok:true};
+}
+
+// Fetches + runs the layout, then calls its create function against the
+// already-rendered mount div. Fire-and-forget from renderAllPages() (the
+// mount div itself renders synchronously and instantly; the real content
+// pops in a moment later once the fetch resolves).
+async function hydrateImportedLayout(detailNum,layoutKey){
+  const mountId='tv-mount-'+detailNum;
+  const status=await importLayoutFromTemplateViews(layoutKey);
+  const mount=document.getElementById(mountId);
+  if(!mount) return; // page was re-rendered away (e.g. a newer page replaced it) before the fetch finished
+  if(!status.ok){
+    mount.outerHTML=`<div class="detail-empty">Could not import "${layoutKey}" from TemplateViews.html — ${status.reason}.</div>`;
+    return;
+  }
+  try{ new Function(LAYOUT_IMPORT_MANIFEST[layoutKey].call(mountId))(); }
+  catch(e){ mount.innerHTML=`<div class="detail-empty">"${layoutKey}" loaded but hit an error running it: ${e.message}</div>`; }
+}
+
+// Ask Amit: handled by ../amit_master.js. If that file could not load, the
+// shared Amit_Ask_Live.js is still asked directly.
+function railAskAmit(){
+  if(window.AmitMaster){ AmitMaster.ask(); return; }
+  askAmitLive((PROJECT_KEY||'page').toLowerCase().replace(/[^a-z0-9]/g,''));
+}
+
+function toggleRail(){
+  document.getElementById('rightRail').classList.toggle('expanded');
+}
+
+// HOME (right rail) — added 2026-08-06, Ryan's direct instruction, same
+// implementation as TemplateViews.html's own goToHub — kept identical
+// between both files on purpose, copy verbatim if either one changes.
+// Broadcasts on the shared 'amit_hub_tabs' channel first (the Hub itself
+// carries the matching listener — see amit-hub.html's own "AMIT HUB FOCUS
+// CHANNEL" comment); if a genuinely open Hub tab answers within the brief
+// window below, it focuses itself and nothing else happens here. Only
+// falls back to opening a new tab if nothing answered.
+//
+// RELATIVE PATH, NOT the hardcoded live URL (fixed 2026-08-06, real bug
+// Ryan caught testing this live) — BroadcastChannel can only ever be heard
+// by a tab on the exact same origin; that's a hard browser security
+// boundary, not something any code here can work around. A hardcoded
+// absolute https://ask-amit.github.io URL meant this could NEVER work
+// while testing this page locally (file:// or localhost) against an
+// already-open Hub tab on the real live site — always a different origin,
+// always silently falling through to opening a duplicate tab. A relative
+// path fixes both cases at once: locally it resolves to the local Hub
+// file (same origin as this page, channel actually works); once a real
+// project ships to ask-amit.github.io/Amit/ProjectName/ (one level under
+// Amit/, same as Hub/), this same relative path resolves to the exact
+// same live Hub URL as before — same origin there too, since every
+// shipped Amit project and the Hub itself sit as siblings under Amit/.
+const AMIT_HUB_URL='../Hub/amit-hub.html';
+function goToHub(){
+  if(typeof BroadcastChannel==='undefined'){ window.open(AMIT_HUB_URL,'amitHubTab'); return; }
+  const ch=new BroadcastChannel('amit_hub_tabs');
+  let acked=false;
+  ch.onmessage=(e)=>{ if(e.data&&e.data.type==='focus-ack'){ acked=true; ch.close(); } };
+  ch.postMessage({type:'focus-requested'});
+  setTimeout(()=>{
+    if(!acked) window.open(AMIT_HUB_URL,'amitHubTab');
+    ch.close();
+  },250);
+}
+
+function openPage(n){
+  document.querySelectorAll('#sidebarPages .page-nav').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.detail').forEach(p=>p.classList.remove('active'));
+  const page=document.getElementById('page-'+n);
+  const detail=document.getElementById('detail-'+n);
+  if(page)page.classList.add('active');
+  if(detail)detail.classList.add('active');
+  if(window.AmitMaster)AmitMaster.navigated();
+}
+
+function toggleSidebar(){
+  document.getElementById('sidebarPages').classList.toggle('collapsed');
+}
+
+// ══════════════════════════════════════════════
+// CANONICAL DESTINATION: POPUP — NOT a layout type. Generic overlay that
+// hosts whatever layout instance (copied in from TemplateViews.html) is
+// mounted inside it — content-agnostic, same as a Page or Tab slot.
+// ══════════════════════════════════════════════
+function popupOpen(innerHtml){
+  let modal=document.getElementById('canonicalPopup');
+  modal.innerHTML=`<div class="popup-card" id="canonicalPopupCard">
+    <div class="popup-close-btn" onclick="popupClose()">CLOSE ✕</div>
+    ${innerHtml}
+  </div>`;
+  modal.addEventListener('click',(e)=>{ if(e.target===modal) popupClose(); });
+  modal.style.display='flex';
+}
+function popupClose(){
+  const modal=document.getElementById('canonicalPopup');
+  if(modal) modal.style.display='none';
+}
+
+// ══════════════════════════════════════════════
+// LOGIN CONNECTION — the one live piece of this template. Supabase auth
+// only: knows who is signed in. No data reads/writes beyond that.
+// ══════════════════════════════════════════════
+if(db){
+  db.auth.onAuthStateChange((event,session)=>{
+    currentUser=session?session.user:null;
+    if(!currentUser)scAllRows=[];
+    _updateSyncUI();
+    setTimeout(loadShortcuts,0);
+    setTimeout(loadIdeas,0);
+    // Appearance (2026-10-01): pull this login's saved theme (or clear it on
+    // sign-out). Deferred with setTimeout so no supabase call is awaited
+    // inside this callback (supabase-js v2 can deadlock if you do).
+    if(typeof amitAppearanceSync==='function') setTimeout(()=>{amitAppearanceSync(db);},0);
+    // re-pull this project's pages under the now-current owner, so a
+    // signed-in user's real Supabase page list replaces whatever the
+    // signed-out localStorage cache was showing
+    // deferred for the same reason as above: this reads through db
+    setTimeout(async()=>{ customPages=await loadCustomPages(); renderAllPages(); },0);
+  });
+}
+
+// Drives the Sign In/Out + Sync rail item.
+function _updateSyncUI(){
+  const item=document.getElementById('rail-sync');if(!item)return;
+  const icon=document.getElementById('rail-sync-icon');
+  const name=document.getElementById('rail-sync-name');
+  const sub=document.getElementById('rail-sync-sub');
+  icon.classList.add('plug-badge');
+  if(currentUser){
+    icon.innerHTML='<span class="plug-icon-glyph">🔓</span>';name.textContent='Sign Out';sub.textContent='Synced';
+    item.dataset.tip='Sign Out — Synced';item.title='Signed in · '+currentUser.email;
+    item.classList.add('active');
+    icon.classList.add('connected');icon.classList.remove('disconnected');
+  } else {
+    icon.innerHTML='<span class="plug-icon-glyph">🔒</span>';name.textContent='Sign In';sub.textContent='Not Synced';
+    item.dataset.tip='Sign In — Not Synced';item.title='';
+    item.classList.remove('active');
+    icon.classList.add('disconnected');icon.classList.remove('connected');
+  }
+}
+
+async function signOutAmit(){
+  if(!db)return;
+  await db.auth.signOut();
+  currentUser=null;
+  _updateSyncUI();
+}
+
+// Drives the Demo rail item and flips the toggle.
+function toggleDemoMode(){
+  demoMode=!demoMode;
+  localStorage.setItem('amit_demo_mode',demoMode?'on':'off');
+  _updateDemoUI();
+  // A real project's own views should re-fetch their demo-scoped data
+  // here too, the same way Calendar View/Day View do in TemplateViews.html
+  // (cvActiveContainers.forEach(...), dayViewInstances.forEach(...)) —
+  // add that wiring once real layouts using fetchDemoRows exist on this
+  // page.
+}
+
+function _updateDemoUI(){
+  const icon=document.getElementById('rail-demo-icon');
+  const item=document.getElementById('rail-demo');
+  const name=document.getElementById('rail-demo-name');
+  const sub=document.getElementById('rail-demo-sub');
+  if(!item)return;
+  if(demoMode){
+    icon.style.opacity='1';name.textContent='Demo On';sub.textContent="Amit's Data Shown";
+    item.dataset.tip='Demo On';item.title="Showing Amit's demo data — click to use your own";
+    item.classList.add('active');
+  } else {
+    icon.style.opacity='.4';name.textContent='Demo Off';sub.textContent='Your Data Only';
+    item.dataset.tip='Demo Off';item.title='Demo mode off — showing your own data';
+    item.classList.remove('active');
+  }
+}
+
+async function sendMagicLink(email){
+  if(!db)return'Database not available';
+  const{error}=await db.auth.signInWithOtp({email});
+  return error?error.message:null;
+}
+
+function openSyncModal(){
+  if(currentUser){if(confirm('Signed in as '+currentUser.email+'\n\nSign out?'))signOutAmit();return;}
+  const m=document.getElementById('syncModal');if(!m)return;
+  m.style.display='flex';
+}
+function closeSyncModal(){const m=document.getElementById('syncModal');if(m)m.style.display='none';}
+async function submitSyncEmail(){
+  const email=document.getElementById('syncEmailInput').value.trim();if(!email)return;
+  const btn=document.getElementById('syncSubmitBtn');btn.textContent='Sending…';btn.disabled=true;
+  const err=await sendMagicLink(email);
+  if(err){btn.textContent='Try again';btn.disabled=false;}
+  else{
+    document.querySelector('#syncModal .sync-modal-card').innerHTML=`
+      <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:17px;margin-bottom:14px">Link sent</div>
+      <div style="color:rgba(var(--amit-text-rgb,240,232,208),.7);font-size:13px;line-height:1.7">Check your email.<br>Click the link to sign in.</div>
+      <div onclick="closeSyncModal()" style="margin-top:20px;font-size:10px;color:rgba(var(--amit-text-rgb,240,232,208),.35);cursor:pointer;letter-spacing:.08em">CLOSE</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════
+// CLOCK / GREETING — visual only, no data behind it
+// ══════════════════════════════════════════════
+const AMIT_NAME_KEY='amit_user_name';
+function getUserName(){return localStorage.getItem(AMIT_NAME_KEY)||'';}
+
+function updateClock(){
+  const d=new Date();
+  const h=d.getHours();
+  const sal=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
+  const name=getUserName();
+  const g=document.getElementById('greeting');if(g)g.textContent=name?sal+', '+name:sal;
+  const dt=document.getElementById('datetime');
+  if(dt)dt.textContent=d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+updateClock();
+setInterval(updateClock,30000);
 </script>
 
 </body>
