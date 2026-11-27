@@ -1,4 +1,6 @@
-// amit_coder_engine.js v0.06: a setting for how much technical detail to explain with (plain/some/technical), separate from the permission level.
+// amit_coder_engine.js v0.07: the approval card no longer calls an ordinary, well-described PowerShell/Bash call "unclear" just because it runs as "powershell -Command ..."
+//   (that matched almost every call this engine itself makes); the "unclear" title and warning read as a confident ask, not self-doubt, for the genuinely opaque cases left.
+// Was v0.06: a setting for how much technical detail to explain with (plain/some/technical), separate from the permission level.
 // Was v0.05: a message can carry attachments (pictures, PDFs, text files).
 // Was v0.04: the conversation is kept across restarts.
 // v0.03: permission levels and plain-language approval cards.
@@ -87,10 +89,10 @@ const PROTECTED = [
   ['send', 'This sends information from your computer to someone or something else.', /Send-MailMessage|\bsmtp\b|sendmail|(-X|--request)\s*['"]?(POST|PUT|PATCH)|-Method\s+['"]?(POST|PUT|PATCH)|\bcurl\b.*\s(-d|-F|-T|--data\S*|--form\S*|--upload-file)\b|\b(scp|sftp|ftp)\s|webhook/i],
   ['money', 'This may involve spending money.', /\b(stripe|paypal|checkout|purchase|payment|billing|subscribe)\b/i],
   ['programs', 'This closes, starts or restarts programs, or changes how your computer is set up.', /Stop-Process|\btaskkill\b|\bpkill\b|(^|[\s;|&])kill\s|(Stop|Restart|Set|New)-(Service|Computer)|Start-Process|\bshutdown\b|\breg(\.exe)?\s+(add|delete|import)|HKLM:|HKCU:|\bschtasks\b|ScheduledTask|Set-ExecutionPolicy|\bnetsh\b|\bicacls\b|\btakeown\b|-Verb\s+RunAs|\bsudo\b|\bsetx\b|SetEnvironmentVariable/i],
-  ['unclear', 'Amit can’t confirm what this does. If you are not sure, choose No.', /-e(nc|ncodedcommand)?\s+[A-Za-z0-9+\/=]{16,}|FromBase64String|\biex\b|Invoke-Expression|(^|[\s;|&])eval\s|\b(node|deno|bun)\s+(-e|-p|--eval|--print)\b|\bpython[3w]?\s+(-\w+\s+)*-c\b|\b(powershell|pwsh)(\.exe)?\b.*\s-(c|command|file|f)\b|\bcmd(\.exe)?\s+\/[ck]\b|\b(bash|sh)\s+(-c\b|\S+\.sh\b)|\|\s*(sh|bash|iex|python|node|powershell|pwsh)\b|(^|[;|&]\s*|&\s+)["']?[^\s"';|&]*\.(ps1|bat|cmd|vbs|exe|msi|sh)\b/i]
+  ['unclear', 'This kind of command can hide more than the words show. Check "Show details" before saying yes.', /-e(nc|ncodedcommand)?\s+[A-Za-z0-9+\/=]{16,}|FromBase64String|\biex\b|Invoke-Expression|(^|[\s;|&])eval\s|\b(node|deno|bun)\s+(-e|-p|--eval|--print)\b|\bpython[3w]?\s+(-\w+\s+)*-c\b|\bcmd(\.exe)?\s+\/[ck]\b|\b(bash|sh)\s+(-c\b|\S+\.sh\b)|\|\s*(sh|bash|iex|python|node|powershell|pwsh)\b|(^|[;|&]\s*|&\s+)["']?[^\s"';|&]*\.(ps1|bat|cmd|vbs|exe|msi|sh)\b/i]
 ];
 const SETTINGS_PLACES = /[\\\/]\.claude([\\\/]|$)|settings(\.local)?\.json|permission_level\.json|light_settings\.json|gate_settings\.json|amit_coder_engine|AmitComputerHealth|[\\\/]\.git[\\\/]/i;
-const TITLES = { delete: 'Can I delete something?', publish: 'Can I publish?', install: 'Can I install software?', send: 'Can I send information out?', money: 'Can I do something that may cost money?', programs: 'Can I make a change to your computer?', unclear: 'Can I run something I can’t fully explain?', setting: 'Can I change a setting that controls what Amit may do?' };
+const TITLES = { delete: 'Can I delete something?', publish: 'Can I publish?', install: 'Can I install software?', send: 'Can I send information out?', money: 'Can I do something that may cost money?', programs: 'Can I make a change to your computer?', unclear: 'Can I go ahead with this?', setting: 'Can I change a setting that controls what Amit may do?' };
 function judge(tool, input, level, base) {
   input = input || {};
   const card = { what: '', why: '', warnings: [], heads: '', title: '', details: '' }, kinds = [];
