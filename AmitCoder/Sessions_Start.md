@@ -14,6 +14,12 @@ Read this file first; it is all a new session needs. Read Sessions_ToDo.md only 
 - Ryan agreed to the design and safety limits for the phone as the full Amit. Not built. Next: step 1, look-up only (AmitBooks jobs, budgets, spending; pursuits; calendar), with web search off whenever records are opened.
 - Full record: Sessions_Design.md, "ONE AMIT, AT THE DESK OR IN THE POCKET". The code lives in the Helper, AskAmit and Amit Mobile.
 
+## RESUME: AmitCoder - v7.18, ready for Ryan's test (2026-11-26, session 92edde33)
+- LIVE parts: spoken words appear in the box as said (v7.17); a restart can no longer leave the page locked; messages can be sent while Amit works (real Claude Code: picked up during a tool step; if sent during the final answer it is answered right after); status box (working / waiting / quiet 60s / stopped, with continue after a cut-off); one clock; new project found and used as the session name. Screen 0.06, link 0.06. Web only: Helper stays 2.39.
+- Tested with a pretend connection. NOT CONFIRMED by Ryan: voice, the status box, continue-after-restart and Boone Hills style project creation with the real Helper.
+- NOT BUILT: Helper updates and the installer do not yet wait for a running job (a restart cut off Ryan's timed test). Needs a Helper release.
+- Timing test: VS Code read the whole testimony in 24.0 s. The Coder run was cut off by a restart; to be redone.
+
 ## RESUME: AmitCoder - microphone fix (2026-11-26, session 92edde33)
 - v7.16, screen 0.04, Helper 2.39: the microphone cycled on and off in 2.38 (Helper check, fixed); the cursor now goes into the message box before it starts. NOT YET CONFIRMED with Ryan's voice.
 - Ryan wants, as in VS Code: send another message while Amit is still working. NOT BUILT (words wait in the box). Also not built: the project list refreshing by itself so a newly created project can be chosen. Offered; not answered.
