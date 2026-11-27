@@ -14,6 +14,12 @@ Read this file first; it is all a new session needs. Read Sessions_ToDo.md only 
 - Ryan agreed to the design and safety limits for the phone as the full Amit. Not built. Next: step 1, look-up only (AmitBooks jobs, budgets, spending; pursuits; calendar), with web search off whenever records are opened.
 - Full record: Sessions_Design.md, "ONE AMIT, AT THE DESK OR IN THE POCKET". The code lives in the Helper, AskAmit and Amit Mobile.
 
+## RESUME: AmitCoder - v7.19 (2026-11-26, session 92edde33)
+- Screen 0.07, link 0.07: microphone reconnects by itself after a speech network error or an automatic switch-off; a refresh in a running job picks it up again with any waiting question; no line shown twice; leaving the page switches mic and voice off at once; searches name the file and text and steps are counted; a banner says when the page is out of date.
+- Tested with a pretend connection. NOT CONFIRMED by Ryan with voice and the real Helper. Speaker: Ryan says it is not working properly; what is wrong is not yet known.
+- Open question: why the page stopped asking for words at 21:04 and 21:08 (recovery added; cause not found).
+- The Devotions study added from the Coding page (job finished 21:17, edits to Devotions.html and who_is_god.html, research note R7) is LOCAL ONLY and not yet reviewed.
+
 ## RESUME: AmitCoder - v7.18, ready for Ryan's test (2026-11-26, session 92edde33)
 - LIVE parts: spoken words appear in the box as said (v7.17); a restart can no longer leave the page locked; messages can be sent while Amit works (real Claude Code: picked up during a tool step; if sent during the final answer it is answered right after); status box (working / waiting / quiet 60s / stopped, with continue after a cut-off); one clock; new project found and used as the session name. Screen 0.06, link 0.06. Web only: Helper stays 2.39.
 - Tested with a pretend connection. NOT CONFIRMED by Ryan: voice, the status box, continue-after-restart and Boone Hills style project creation with the real Helper.

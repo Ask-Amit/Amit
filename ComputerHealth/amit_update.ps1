@@ -117,6 +117,7 @@ try {
                 if ($st.state -ne 'idle') { $busy = 'Amit is being used right now' }
                 elseif ($st.editors -gt 0) { $busy = 'a Show Amit window is open' }
             }
+            if (-not $busy) { try { $ce = Get-Content (Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\AmitCoder\engine.json') -Raw -ErrorAction Stop | ConvertFrom-Json; if ($ce.busy -eq $true -and ([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() - [int64]$ce.at) -lt 15000) { $busy = 'Amit Coder is working on a job' } } catch {} }
             $tr = Get-Json ("http://localhost:$Port/api/tracker-status")
             if (-not $busy -and $tr -and $tr.running -eq $true) { $busy = 'a Computer Health session is running' }
             if (-not $busy) { break }

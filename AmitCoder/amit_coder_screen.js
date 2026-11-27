@@ -1,4 +1,5 @@
-/* amit_coder_screen.js v0.06 (2026-11-26): messages can be sent while Amit works; a status box that never looks locked up; new projects are found.
+/* amit_coder_screen.js v0.07 (2026-11-26): the microphone reconnects by itself; a running job is picked up after a refresh; an old page says so.
+   Was v0.06: messages can be sent while Amit works; a status box that never looks locked up; new projects are found.
    Was v0.05: spoken words appear in the box as they are said; a job can no longer stay locked after a restart.
    Was v0.04: the cursor goes into the message box before the microphone starts.
    Was v0.03: a microphone and a speaker that stay on until turned off.
@@ -86,6 +87,7 @@
 #cd-status-more{font-size:13px;opacity:.85}
 #cd-status-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
 #cd-status-acts:empty{display:none}
+#cd-newer{padding:7px 12px;background:#33280f;border-bottom:1px solid #e8be46;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:13.5px}
 #cd-voice{padding:5px 12px 0;font-size:13.5px;color:#50d78c;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 #cd-voice b{font-weight:600}
 #cd .compose button.round{width:46px;height:46px;flex:none;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center}
@@ -107,6 +109,7 @@
   <div id="cd-tip"><span></span><button id="cd-tip-new" class="gold" title="Saves and wraps up (this uses Claude), then opens a new session">Save and start new session</button></div>
   <div id="cd-info">Looking for your computer…</div>
 </div>
+<div id="cd-newer" hidden><b>A newer version of this page is ready.</b> <button id="cd-newer-go" class="gold">Load it now</button> <span>A job that is running keeps going.</span></div>
 <div id="cd-log"></div>
 <div id="cd-past" hidden><div><b style="color:#e8c56a">Earlier sessions</b> <button id="cd-past-close">Close</button></div><div id="cd-past-bar"><input id="cd-find" placeholder="find by name or words"><label>Sort <select id="cd-sort"><option value="new">newest first</option><option value="name">by project name</option></select></label></div><div id="cd-list"></div></div>
 <div class="extras">
@@ -194,7 +197,7 @@
     function resultText(c) { if (typeof c === 'string') return c; if (Array.isArray(c)) return c.map(function (x) { return x.type === 'text' ? x.text : '[' + x.type + ']'; }).join('\n'); return JSON.stringify(c, null, 2); }
     /* ── the status box: working, waiting for the person, quiet, or stopped. It never looks busy when nothing is happening ── */
     var QUIET_MS = 60000;
-    function watchStart() { clearInterval(watch && watch.timer); watch = { state: 'work', step: 'Starting…', worked: 0, last: Date.now(), tick: Date.now(), quietFrom: Date.now(), timer: setInterval(watchTick, 500) }; watchPaint(); }
+    function watchStart() { clearInterval(watch && watch.timer); watch = { state: 'work', count: 0, step: 'Starting…', worked: 0, last: Date.now(), tick: Date.now(), quietFrom: Date.now(), timer: setInterval(watchTick, 500) }; watchPaint(); }
     function watchHide() { if (watch) clearInterval(watch.timer); watch = null; q('status').hidden = true; }
     function watchStep(text) { if (!watch || watch.state === 'stop') return; if (text) watch.step = text; watch.last = watch.quietFrom = Date.now(); watchPaint(); }
     function watchTick() {
@@ -209,7 +212,7 @@
       var s = Math.floor(watch.worked / 1000), box = q('status');
       q('status-time').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
       var title = kind === 'work' ? watch.step : kind === 'you' ? 'Waiting for you' : kind === 'slow' ? 'Nothing new for ' + Math.max(1, Math.floor(idle / 60000)) + ' minute(s)' : watch.title;
-      var more = kind === 'work' ? 'Connected. Last activity ' + (idle < 2000 ? 'just now.' : Math.round(idle / 1000) + ' seconds ago.') : kind === 'you' ? 'Amit has paused until you answer the question above. The work clock is paused.' : kind === 'slow' ? 'Your computer is still connected and the job has not ended. Some steps take a while. You can wait or stop.' : watch.more;
+      var more = kind === 'work' ? 'Connected. ' + (watch.count ? watch.count + ' step(s) so far. ' : '') + 'Last activity ' + (idle < 2000 ? 'just now.' : Math.round(idle / 1000) + ' seconds ago.') : kind === 'you' ? 'Amit has paused until you answer the question above. The work clock is paused.' : kind === 'slow' ? 'Your computer is still connected and the job has not ended. Some steps take a while. You can wait or stop.' : watch.more;
       if (q('status-title').textContent !== title) q('status-title').textContent = title;
       q('status-more').textContent = more; box.hidden = false;
       if (box.dataset.kind === kind && !watch.redraw) return;
@@ -236,7 +239,7 @@
       if (c.name === 'Read') return 'Reading ' + (file || 'a file');
       if (/^(Edit|Write|MultiEdit|NotebookEdit)$/.test(c.name)) return 'Changing ' + (file || 'a file');
       if (/^(Bash|PowerShell)$/.test(c.name)) return String(i.description || 'Running a step').split('|')[0].trim() || 'Running a step';
-      if (/^(Grep|Glob)$/.test(c.name)) return 'Searching your files';
+      if (/^(Grep|Glob)$/.test(c.name)) return 'Searching ' + (String(i.path || '').split(/[\\/]/).pop() || 'your files') + (i.pattern ? ' for “' + short(i.pattern, 36) + '”' : '');
       if (/^Web/.test(c.name)) return 'Looking on the internet';
       return 'Working on a step';
     }
@@ -270,6 +273,15 @@
       b.scrollTop = b.scrollHeight; live = done ? '' : text;
     }
     function micDown(why) { live = ''; micOn = false; micLoop++; interim = ''; micNote = why || ''; voiceLine(); }
+    var again = null;
+    function reconnect(after) {
+      if (!micOn || again) return;
+      live = ''; micNote = 'Reconnecting the microphone… words said right now may be missed.'; voiceLine();
+      again = setTimeout(function () {
+        again = null; if (!micOn) return;
+        link().mic('on').then(function (ok) { if (!micOn) { if (ok) link().mic('off'); return; } if (ok) { micNote = ''; voiceLine(); } else reconnect(5000); });
+      }, after);
+    }
     function listenLoop(mine) {
       link().micWords(micSeq).then(function (j) {
         if (mine !== micLoop) return;
@@ -278,7 +290,9 @@
         (j.events || []).forEach(function (ev) {
           if (ev.k === 'final' && ev.t) putLive(ev.t, true);
           else if (ev.k === 'interim' && ev.t) putLive(ev.t, false);
-          else if (ev.k === 'error') { link().mic('off'); micDown(tellers[ev.t] || 'Amit cannot listen right now.'); }
+          else if (ev.k === 'error' && /not-allowed|no-mic|unsupported/.test(ev.t)) { link().mic('off'); micDown(tellers[ev.t] || 'Amit cannot listen on this computer.'); }
+          else if (ev.k === 'error' || ev.k === 'coderoff') reconnect(1500);
+          if (ev.k === 'final' || ev.k === 'interim') { if (micNote.indexOf('Reconnecting') === 0) micNote = ''; }
         });
         if (mine !== micLoop) return;
         voiceLine(); listenLoop(mine);
@@ -353,7 +367,7 @@
       e.preventDefault(); e.stopPropagation(); voiceSend();
     }, true);
     root.addEventListener('contextmenu', function (e) { if (micOn) { e.preventDefault(); voiceSend(); } });
-    window.addEventListener('pagehide', function () { if (micOn) link().mic('off'); if (speaking) link().sayStop(); });
+    window.addEventListener('pagehide', function () { if (micOn || speaking) link().leaving(micOn, speaking); });
 
     /* ── approval cards. The Helper's engine writes the card and decides what needs one; this only shows it ── */
     function make(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
@@ -532,6 +546,7 @@
       if (o.type === 'assistant') {
         (o.message.content || []).forEach(function (c) {
           if (c.type !== 'tool_use') return;
+          if (watch) watch.count++;
           watchStep(stepWords(c));
           var x = tools[c.id] || (tools[c.id] = { f: fold('', '', t), name: c.name });
           x.f.s.textContent = '🔧 ' + c.name + '  ' + short(argOf(c.input), 120); x.f.p.textContent = 'SENT TO THE TOOL:\n' + JSON.stringify(c.input, null, 2); x.start = t;
@@ -566,17 +581,39 @@
       q('where').classList.toggle('ask-name', !!(d && d.ask));
       projectShown(d && d.title);
     }
+    var lastN = 0, past = { running: false, asks: {} }, pastTimer = null;
+    function rememberPast(e) {
+      var o = e.data || {};
+      if (e.kind === 'local' && o.ended) past = { running: false, asks: {} };
+      if (e.kind !== 'claude') return;
+      if (o.type === 'system' && o.subtype === 'init') { past.running = true; if (S.id === null) S.id = o.session_id; }
+      if (o.type === 'result') past = { running: false, asks: {} };
+      if (o.type === 'control_request' && o.request && o.request.subtype === 'can_use_tool') past.asks[o.request_id] = o;
+      if (o.type === 'user' && o.message && Array.isArray(o.message.content)) o.message.content.forEach(function (r) { if (r.type === 'tool_result') Object.keys(past.asks).forEach(function (id) { if (past.asks[id].request.tool_use_id === r.tool_use_id) delete past.asks[id]; }); });
+    }
+    function pickUp(words) { run = { p0: performance.now(), open: 0, text: '' }; blocks = {}; detailsButton(); controls(); watchStart(); watchStep(words); }
+    function recover() {
+      pastTimer = null;
+      if (!past.running || (run && !run.over)) return;
+      row('quiet', 'Amit is still working on your earlier message. Earlier lines are not shown here, but nothing was lost.', 0, true);
+      pickUp('Still working on your earlier message');
+      Object.keys(past.asks).forEach(function (id) { permission(past.asks[id], Date.now()); });
+    }
     function onEvent(e) {
+      if (e.n) { if (e.n <= lastN) return; lastN = e.n; }
       if (e.kind === 'session') { showWhere(e.data); return; }
       if (e.kind === 'level') { level = IDS.indexOf(e.data.level); drawLevel(); return; }
-      if (e.t && e.t < openedAt - 3000) return;                    // what happened before this page was opened is not replayed
+      if (e.t && e.t < openedAt - 3000) { rememberPast(e); if (!pastTimer) pastTimer = setTimeout(recover, 1500); return; }                    // what happened before this page was opened is not replayed
       if (e.kind === 'history') {
         watchHide(); extra = 0; run = null; q('log').textContent = ''; extras().forEach(function (b) { b.classList.remove('used'); }); controls();
         row('quiet', 'Opened an earlier session. Type to continue it.' + (e.data.older ? ' (' + e.data.older + ' earlier message(s) are not shown, but they are still part of the session.)' : ''), 0, true);
         (e.data.turns || []).forEach(function (t) { row('you', t.you, 0, true); if (t.reply) row('say', t.reply, 0, true); });
         q('log').scrollTop = q('log').scrollHeight; return;
       }
-      if (e.kind === 'claude') { track(e.data, e.t); claude(e.data, e.t); return; }
+      if (e.kind === 'claude') {
+        if ((!run || run.over) && e.data.type === 'stream_event' && watch && watch.state === 'stop') { watchHide(); pickUp('The connection is back and the job is still running'); }
+        track(e.data, e.t); claude(e.data, e.t); return;
+      }
       if (e.kind === 'stderr') { row('err', e.data.msg, e.t); return; }
       row('quiet', e.data.msg, e.t); if (e.data.ended) { if (run && !run.over) { row('err', e.data.msg, e.t, true); watchStopped('This job stopped', e.data.msg, S.id); } end(); }
     }
@@ -666,12 +703,22 @@
       if (!ready) { if (micOn) micDown('The microphone is off because the connection was lost.'); speaking = false; }
       controls(); drawLevel(); voiceLine();
     }
+    function checkNewer() {
+      if (!/^http/.test(location.protocol) || !q('newer').hidden) return;
+      fetch(location.pathname + '?check=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
+        var m = t.match(/amit_coder_screen\.js\?v=([0-9.]+)/);
+        if (m && parseFloat(m[1]) > parseFloat(window.AmitCoderScreen.version)) q('newer').hidden = false;
+      }).catch(function () {});
+    }
+    q('newer-go').onclick = function () { location.replace(location.pathname + '?v=' + Date.now() + location.hash); };
+    setInterval(checkNewer, 60000); setTimeout(checkNewer, 3000);
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') checkNewer(); });
     link().onState(connection); link().onEvent(onEvent);
     showWhere(null); drawSession(); drawMeter(); connection(link().state()); link().refresh();
   }
 
   window.AmitCoderScreen = {
-    version: '0.06',
+    version: '0.07',
     mount: function (host) {
       if (!host || !window.AmitCoderLink) return;
       if (!root) build();

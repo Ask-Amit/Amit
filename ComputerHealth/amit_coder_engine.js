@@ -1,4 +1,5 @@
-// amit_coder_engine.js v0.03: permission levels and plain-language approval cards.
+// amit_coder_engine.js v0.04: the conversation is kept across restarts.
+// v0.03: permission levels and plain-language approval cards.
 // Was v0.02 (Amit Helper, 2026-11-26) - runs the person's OWN Claude Code for Amit Coder.
 // It has NO network port. The one shared Helper bridge (localhost:8710) is the only door: its Amit Coder routes check who is asking,
 // then hand commands to this program as small files and read its events back. Folder: %LOCALAPPDATA%\AmitComputerHealth\AmitCoder\
@@ -26,6 +27,8 @@ for (const d of [INBOX, REPLY]) for (const f of fs.readdirSync(d)) fs.unlinkSync
 fs.writeFileSync(EVENTS, ''); fs.writeFileSync(path.join(STATE, 'alive.touch'), '');
 let seq = Date.now(), child = null, sessionId = null, title = '', pendingName = '', asked = false, tellClaude = '', turns = 0, savedAt = 0, busy = false;
 const pending = new Map();
+const LASTFILE = path.join(STATE, 'last.json');
+function keepLast() { if (sessionId) try { fs.writeFileSync(LASTFILE, JSON.stringify({ id: sessionId, title, at: Date.now() })); } catch (e) {} }
 
 // BUTTONS and the LIGHT setup, carried over from the round-trip test (AmitCoder\RoundTripTest\server.js).
 const HOOKS = path.join(os.homedir(), '.claude', 'hooks');
@@ -139,7 +142,7 @@ function stopChild() {
 }
 function start(o) {
   stopChild();
-  if (!o.resume) { turns = 0; savedAt = 0; title = ''; pendingName = ''; asked = false; tellClaude = ''; sessionId = null; }
+  if (!o.resume) { turns = 0; savedAt = 0; title = ''; pendingName = ''; asked = false; tellClaude = ''; sessionId = null; try { fs.unlinkSync(LASTFILE); } catch (e) {} }
   const args = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--include-partial-messages', '--include-hook-events',
     '--permission-mode', 'manual', '--permission-prompts', 'host', '--permission-prompt-tool', 'stdio'];
   const light = o.hooks === 'light';
@@ -162,8 +165,9 @@ function start(o) {
       const line = buf.slice(0, i); buf = buf.slice(i + 1); if (!line.trim() || c !== child) continue;
       let m; try { m = JSON.parse(line); } catch (e) { push('stderr', { msg: line }); continue; }
       if (m.session_id) sessionId = m.session_id;
+      if (m.type === 'system' && m.subtype === 'init') { busy = true; keepLast(); }
       if (m.type === 'result') {
-        turns++; busy = false;
+        turns++; busy = false; keepLast();
         if (!title && pendingName) setTimeout(() => { if (!title && pendingName) giveName(pendingName); }, 700);
         else if (!title && !asked) { asked = true; push('session', { ask: true }); }
       }
@@ -235,6 +239,11 @@ function run(cmd) {
     default: return false;
   }
 }
+// after a restart, the next message continues the conversation from the last day
+try {
+  const last = JSON.parse(fs.readFileSync(LASTFILE, 'utf8')), past = Date.now() - last.at < 24 * 3600e3 && S.get(last.id);
+  if (past) { sessionId = last.id; title = past.title || last.title || ''; if (title) tellWhere(); push('local', { msg: 'Your earlier conversation was kept. Your next message continues it. Press New session to start fresh.' }); }
+} catch (e) {}
 setInterval(() => {
   for (const f of fs.readdirSync(INBOX).filter((f) => f.endsWith('.json')).sort()) {
     const p = path.join(INBOX, f); let cmd;

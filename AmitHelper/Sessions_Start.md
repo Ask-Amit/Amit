@@ -58,6 +58,10 @@ Full plan: root Sessions_Start.md, "DECISION: one Amit folder at C:\Amit". The i
 - Looked up or used outside our folders: Claude Code (.local\bin or the npm folder), its sign-in file under .claude, Node.js under Program Files.
 **What the work must cover:** the installer creates the layout from the one layout map and writes the settings file; checks and restricts access to C:\Amit; moves an existing install safely (stop the Helper, the coding engine and the bar first, and bring the bar back: the open gap from 5.44); updates the link registrations, start-up entry and shortcuts; the updater, reload, uninstall and verify_helper_release.ps1 read the same locations; computers on older versions update themselves without being stranded and never go backwards; test on a clean computer and on an upgraded one.
 
+## RELEASE: Helper 2.40 + installer 5.48 (2026-11-26, session 92edde33)
+- Coder microphone: no leftover "Amit hears you" box (2.38/2.39 put it up and never took it down); tells the page if it had to switch off. Coding engine 0.04: conversation kept across restarts (tested with real Claude). Updater and installer now wait for a running Coder job (parsed and built; the wait itself NOT tested live).
+- On Ryan's computer the automatic update also keeps waiting for a running Computer Health session; with Watch on that can be always. Not changed.
+
 ## RELEASE: Helper 2.39 + installer 5.47 (2026-11-26, session 92edde33)
 - Fixes the 2.38 Coder microphone cycling: IdleCheck stopped any page listening that had no Dictate window (about every 6 seconds). It now leaves the Coder microphone alone. Found in whisper.log; 2.38 had only been tested with a pretend Helper.
 

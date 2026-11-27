@@ -58,6 +58,17 @@ $redo = $Force -or $upgrading     # replace shortcuts and settings entries too, 
 # Stops Amit's helper (the tray program, the bridge, the watchers and the Whisper window) so its files can be replaced. Only this person's
 # own Amit programs; never the installer itself ($PID).
 function Stop-AmitHelper([string]$CommandPattern = 'amit_bridge_server\.ps1|activity_watcher2\.ps1|resource_watcher\.ps1|diagnostics_watcher\.ps1|app_behavior_watcher\.ps1|amit_mobile_watcher\.ps1|install_snapshot_watcher\.ps1', [string]$TrayName = 'AmitTracker', [string]$EdgeMatch = '*AmitComputerHealth*whisper_profile*') {
+    if (-not $PSBoundParameters.ContainsKey('CommandPattern')) {
+        # an Amit Coder job that is running is never cut off without waiting for it (up to 10 minutes)
+        $coderEnd = (Get-Date).AddMinutes(10); $told = $false
+        while ((Get-Date) -lt $coderEnd) {
+            $working = $false
+            try { $ce = Get-Content (Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\AmitCoder\engine.json') -Raw -ErrorAction Stop | ConvertFrom-Json; $working = ($ce.busy -eq $true -and ([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() - [int64]$ce.at) -lt 15000) } catch {}
+            if (-not $working) { break }
+            if (-not $told) { Write-Host "  Amit Coder is in the middle of a job. Waiting for it to finish (answer any question it is asking)..."; $told = $true }
+            Start-Sleep -Seconds 3
+        }
+    }
     Write-Host "  Stopping the running Amit helper so its files can be replaced..."
     try { Get-Process -Name $TrayName -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue } catch {}
     try {
