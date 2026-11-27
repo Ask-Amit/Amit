@@ -1,4 +1,4 @@
-/* amit_coder_link.js v0.04 (2026-11-26) - the ONE connection layer of Amit Coder.
+/* amit_coder_link.js v0.05 (2026-11-26) - the ONE connection layer of Amit Coder.
    The coding screen talks only to AmitCoderLink. How the messages travel is a ROUTE behind it:
      local : this computer, through the shared Amit Helper at http://localhost:8710 (routes /api/coder/*)
      away  : another device reaching your computer over the internet (version 2, NOT BUILT)
@@ -85,7 +85,7 @@
       lastError = r.data && r.data.error ? r.data.error : '';
       return !!(r.ok && r.data && r.data.ok !== false);
     },
-    get: async function (what) { var r = await call(HELPER + '/api/coder/' + what + '?s=' + session, {}, 35000); return r.ok && r.data && r.data.ok ? r.data.data : null; },
+    get: async function (what, more) { var r = await call(HELPER + '/api/coder/' + what + '?s=' + session + (more || ''), {}, 35000); return r.ok && r.data && r.data.ok ? r.data.data : null; },
     // The Helper holds each request open until there is something new (or 5 seconds pass), so replies are passed on as they arrive.
     listen: function (onEvent, onLost) {
       var stopped = false, last = 0, mine = session, fails = 0;
@@ -146,15 +146,20 @@
   }
 
   async function post(what, body) { return route && session ? route.post(what, body) : false; }
-  async function get(what) { return route && session ? route.get(what) : null; }
+  async function get(what, more) { return route && session ? route.get(what, more) : null; }
   window.AmitCoderLink = {
-    version: '0.04', client: null,
+    version: '0.05', client: null,
     refresh: refresh, state: function () { return stateNow; }, lastError: function () { return lastError; },
     onState: function (f) { stateFns.push(f); }, onEvent: function (f) { eventFns.push(f); },
     newSession: function (o) { return post('new', o); },
     send: function (text, o) { return post('send', Object.assign({ text: text }, o || {})); },
     permission: function (id, allow) { return post('permission', { id: id, allow: !!allow }); },
     stop: function () { return post('stop'); },
+    mic: function (action) { return post('mic', { action: action }); },
+    micWords: function (after) { return get('mic-words', '&after=' + after); },
+    say: function (text) { return post('say', { text: text }); },
+    sayStop: function () { return post('say', { stop: true }); },
+    sayState: function () { return get('say-state'); },
     level: function (to, confirm) { return post('level', to ? { level: to, confirm: !!confirm } : {}); },
     name: function (project, piece) { return post('name', { project: project, piece: piece }); },
     open: function (id, o) { return post('open', Object.assign({ id: id }, o || {})); },

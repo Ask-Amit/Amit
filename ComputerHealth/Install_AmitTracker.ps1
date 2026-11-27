@@ -70,6 +70,11 @@ function Stop-AmitHelper([string]$CommandPattern = 'amit_bridge_server\.ps1|acti
             Where-Object { $_.CommandLine -like $EdgeMatch } |
             ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
     } catch {}
+    if (-not $PSBoundParameters.ContainsKey('CommandPattern')) {
+        # the coding engine and the bar are replaced too (the bar is started again after the files are in place)
+        try { Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -match 'amit_coder_engine\.js' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue } } catch {}
+        try { Get-Process -Name AmitBar -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue } catch {}
+    }
     Start-Sleep -Seconds 2
 }
 
@@ -125,6 +130,10 @@ if ($alreadyInstalled) {
     if (Test-Path "$watcherInstallDir\amit_reload.ps1") {
         try { Start-Process -FilePath powershell.exe -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File',"`"$watcherInstallDir\amit_reload.ps1`"",'-BuildOnly' -WindowStyle Hidden -Wait }
         catch { Write-Host "  Warning: could not build the Amit bar ($($_.Exception.Message))" }
+        $barProgram = "$watcherInstallDir\AmitBar.exe"
+        if (-not $env:AMIT_INSTALL_TEST_NO_STOP -and -not $env:AMIT_INSTALL_TEST_COPY_ONLY -and (Test-Path $barProgram) -and -not (Get-Process -Name AmitBar -ErrorAction SilentlyContinue)) {
+            try { Start-Process -FilePath $barProgram -WorkingDirectory $watcherInstallDir } catch { Write-Host "  Warning: could not start the Amit bar ($($_.Exception.Message))" }
+        }
     }
     Write-Host "  Done."
 }

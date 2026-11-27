@@ -142,6 +142,25 @@ function global:Invoke-AmitCoderRoute {
         Send-JsonRaw $Response ('{"ok":true,"events":[' + (($lines.ToArray()) -join ',') + ']}')
         return
     }
+    # the Coding page's microphone and speaker (Helper 2.38): the Helper's own listening and Amit Read
+    if (@('mic', 'mic-words', 'say', 'say-state') -contains $what) {
+        if ($what -eq 'mic-words') {
+            $after = [int64]-1; $n = [int64]0; if ([int64]::TryParse([string]$Request.QueryString['after'], [ref]$n)) { $after = $n }
+            Send-JsonRaw $Response ('{"ok":true,"data":' + [AmitWhisper]::CoderMicWait($after, 4000) + '}'); return
+        }
+        if ($what -eq 'say-state') { Send-JsonRaw $Response ('{"ok":true,"data":' + [AmitWhisper]::CoderSayState() + '}'); return }
+        if ($Request.HttpMethod -ne 'POST') { As-Send $Response @{ ok = $false } 405; return }
+        $b = $null; try { $b = (As-Js).DeserializeObject((As-Body $Request)) } catch { }
+        if ($what -eq 'mic') {
+            $act = [string](As-Get $b 'action' '')
+            if ($act -eq 'on') { $t = [AmitWhisper]::CoderMicOn() } elseif ($act -eq 'off') { $t = [AmitWhisper]::CoderMicOff() } elseif ($act -eq 'cut') { $t = [AmitWhisper]::CoderMicCut() } else { $t = '{"ok":false}' }
+            if ($t -notmatch '"ok":true') { $why = [regex]::Match($t, '"reason":"([a-z]+)"').Groups[1].Value; As-Send $Response @{ ok = $false; error = $(if ($why -eq 'busy') { 'Amit is busy with another dictation.' } elseif ($why -eq 'nointernet') { 'Dictation needs the internet.' } else { 'The microphone could not be changed.' }) }; return }
+            Send-JsonRaw $Response $t; return
+        }
+        if ((As-Get $b 'stop' $false) -eq $true) { Send-JsonRaw $Response ([AmitWhisper]::CoderSayStop()); return }
+        $text = [string](As-Get $b 'text' ''); if ($text.Length -gt 8000) { $text = $text.Substring(0, 8000) + ' The rest is on the screen.' }
+        Send-JsonRaw $Response ([AmitWhisper]::CoderSay($text)); return
+    }
     if ($what -eq 'sessions' -or $what -eq 'projects') {
         $t = Ac-Ask $what @{} 30000
         if (-not $t) { As-Send $Response @{ ok = $false } 504; return }

@@ -1,4 +1,5 @@
-/* amit_coder_screen.js v0.02 (2026-11-26): permission levels and plain-language approval cards.
+/* amit_coder_screen.js v0.03 (2026-11-26): a microphone and a speaker that stay on until turned off.
+   Was v0.02: permission levels and plain-language approval cards.
    Was v0.01 - the working screen of Amit Coder (the Coding page).
    Carried over from the round-trip test (RoundTripTest\page.html). The one difference: it talks to the person's computer only
    through AmitCoderLink (amit_coder_link.js), which goes through the shared Amit Helper.
@@ -69,6 +70,11 @@
 #cd .extras{border-top:1px solid rgba(201,168,76,.4);padding:7px 12px 0;display:flex;gap:8px;flex-wrap:wrap}
 #cd .extras button.used{background:#3a3320;border-color:#e8c56a}
 #cd .compose{padding:7px 70px 9px 12px;display:flex;gap:9px;align-items:flex-end}
+#cd-voice{padding:5px 12px 0;font-size:13.5px;color:#50d78c;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#cd-voice b{font-weight:600}
+#cd .compose button.round{width:46px;height:46px;flex:none;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center}
+#cd .compose button.round.on{background:#50d78c;border-color:#50d78c;color:#06210f;opacity:1}
+#cd-box.listening{border:2px solid #50d78c;box-shadow:0 0 0 3px rgba(80,215,140,.2)}
 #cd-box{flex:1;background:#050b12;border:1px solid rgba(201,168,76,.55);border-radius:8px;padding:8px;height:70px;resize:vertical}
 `;
 
@@ -94,8 +100,11 @@
   <button data-b="apps" data-label="What apps are there?" title="Looks up the list of applications">🗂 What apps are there?</button>
   <button data-b="release" data-label="Helper release rules (loads the rules only)" title="Developer. It only loads the rules.">🛠 Helper release rules (developer)</button>
 </div>
+<div id="cd-voice" hidden><b id="cd-voice-text"></b><button id="cd-hush" hidden>Stop reading</button></div>
 <div class="compose">
   <textarea id="cd-box" placeholder="Type here and press Enter (Shift+Enter for a new line)"></textarea>
+  <button id="cd-mic" class="round" title="Microphone: stays on until you turn it off. Enter or right-click sends." aria-label="Microphone" aria-pressed="false" disabled><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg></button>
+  <button id="cd-spk" class="round" title="Speaker: reads Amit\u2019s closing message and approval requests aloud" aria-label="Read answers aloud" aria-pressed="false" disabled><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19.5 6a9 9 0 0 1 0 12"/></svg></button>
   <button id="cd-send" class="gold">Send</button><button id="cd-stop" disabled>■ Stop</button>
 </div>`;
 
@@ -138,6 +147,7 @@
       var typed = q('box').value.trim();
       if (!ready || (!typed && !button) || (run && !run.over)) return;
       var label = button ? '[Button: ' + button.dataset.label + ']' : '', text = [label, typed].filter(Boolean).join('  ');
+      hush();
       run = { p0: performance.now(), open: 0, text: text }; blocks = {};
       q('box').value = ''; row('you', text, 0, true); detailsButton(); controls();
       link().send(typed, Object.assign({ button: button ? button.dataset.b : '' }, opts())).then(function (ok) {
@@ -156,6 +166,110 @@
     var short = function (s, n) { s = String(s).replace(/\s+/g, ' '); return s.length > n ? s.slice(0, n) + '…' : s; };
     var argOf = function (i) { return (i && (i.file_path || i.command || i.pattern || i.query || i.url || i.description || i.prompt)) || ''; };
     function resultText(c) { if (typeof c === 'string') return c; if (Array.isArray(c)) return c.map(function (x) { return x.type === 'text' ? x.text : '[' + x.type + ']'; }).join('\n'); return JSON.stringify(c, null, 2); }
+    /* ── microphone and speaker. Both stay as set until the person turns them off. The listening and the voice are the Helper's ── */
+    var micOn = false, micSeq = -1, micLoop = 0, micNote = '', interim = '', spkOn = false, speaking = false, spkTimer = null, spkSeen = 0, cutting = false;
+    var tellers = { 'not-allowed': 'The microphone is not allowed on this computer.', 'no-mic': 'No microphone was found.', network: 'The speech service could not be reached.' };
+    function voiceLine() {
+      var text = '';
+      if (micOn) text = speaking ? 'Microphone on. Waiting while Amit reads…' : (run && !run.over ? 'Microphone on. Amit is working, so your words wait in the box.' : 'Microphone on. ' + (interim ? 'Hearing: ' + interim : 'Enter or right-click sends.'));
+      else if (speaking) text = 'Reading aloud…';
+      if (micNote) text = (text ? text + '  ·  ' : '') + micNote;
+      q('voice-text').textContent = text; q('hush').hidden = !speaking; q('voice').hidden = !text;
+      [['mic', micOn], ['spk', spkOn]].forEach(function (p) { q(p[0]).classList.toggle('on', p[1]); q(p[0]).setAttribute('aria-pressed', String(p[1])); q(p[0]).disabled = !ready && !p[1]; });
+      q('box').classList.toggle('listening', micOn);
+    }
+    // words go to the message box wherever the person last clicked
+    function putWords(w) {
+      var b = q('box'), space = b.value && !/\s$/.test(b.value) ? ' ' : '';
+      if (document.activeElement === b) b.setRangeText(space + w, b.selectionStart, b.selectionEnd, 'end'); else b.value += space + w;
+      b.scrollTop = b.scrollHeight;
+    }
+    function micDown(why) { micOn = false; micLoop++; interim = ''; micNote = why || ''; voiceLine(); }
+    function listenLoop(mine) {
+      link().micWords(micSeq).then(function (j) {
+        if (mine !== micLoop) return;
+        if (!j) { link().mic('off'); micDown('The microphone stopped: the connection to your computer did not answer.'); return; }
+        micSeq = j.seq;
+        (j.events || []).forEach(function (ev) {
+          if (ev.k === 'final' && ev.t) { putWords(ev.t); interim = ''; }
+          else if (ev.k === 'interim') interim = ev.t || '';
+          else if (ev.k === 'error') { link().mic('off'); micDown(tellers[ev.t] || 'Amit cannot listen right now.'); }
+        });
+        if (mine !== micLoop) return;
+        voiceLine(); listenLoop(mine);
+      });
+    }
+    function micStart() {
+      hush(); micNote = 'Turning the microphone on…'; voiceLine(); q('mic').disabled = true;
+      link().micWords(-1).then(function (j) {
+        micSeq = j ? j.seq : -1;
+        return j ? link().mic('on') : false;
+      }).then(function (ok) {
+        q('mic').disabled = false;
+        if (!ok) { micDown(link().lastError() || 'The microphone needs Amit Helper 2.38 or newer.'); return; }
+        micOn = true; micNote = ''; q('box').focus(); voiceLine(); listenLoop(++micLoop);
+      });
+    }
+    function micStop() {
+      micOn = false; interim = ''; voiceLine();
+      var mine = micLoop;   // the last words still arrive just after switching off
+      link().mic('off').then(function () { setTimeout(function () { if (mine === micLoop) micLoop++; }, 1500); });
+    }
+    // Enter or right-click while the microphone is on: collect the last words, send, and keep listening
+    function voiceSend() {
+      if (cutting) return;
+      if (run && !run.over) { micNote = 'Amit is still working. Send when he has finished.'; voiceLine(); return; }
+      cutting = true;
+      link().mic('cut').then(function () {
+        setTimeout(function () {
+          cutting = false; interim = '';
+          micNote = q('box').value.trim() ? '' : 'Nothing was heard, so nothing was sent.';
+          send(); voiceLine(); if (micOn) q('box').focus();
+        }, 700);
+      });
+    }
+    // what is read aloud: the words, without the marks, code blocks or long file paths
+    function forEars(text) {
+      var BS = String.fromCharCode(92), tick = String.fromCharCode(96);
+      return String(text || '')
+        .replace(new RegExp(tick + tick + tick + '[^]*?' + tick + tick + tick, 'g'), ' There is code on the screen. ')
+        .replace(/^\s*\|?[\s:\-|]+\|[\s:\-|]*$/gm, '')
+        .replace(/^\s*\|(.*)\|\s*$/gm, function (m, row) { return row.split('|').map(function (c) { return c.trim(); }).filter(Boolean).join(', ') + '.'; })
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+        .replace(new RegExp('[A-Za-z]:' + BS + BS + '[^' + tick + '"\\n]*' + BS + BS + '([^' + BS + BS + tick + '"\\s]+)', 'g'), '$1')
+        .replace(new RegExp('[*#>' + tick + ']', 'g'), '')
+        .replace(/\n{2,}/g, '\n').trim();
+    }
+    function watchSpeaking() {
+      clearTimeout(spkTimer);
+      spkTimer = setTimeout(function () {
+        link().sayState().then(function (j) {
+          if (!speaking) return;
+          if (j && j.speaking) { spkSeen = Date.now(); watchSpeaking(); return; }
+          if (Date.now() - spkSeen < 1500) { watchSpeaking(); return; }
+          speaking = false; voiceLine();
+        });
+      }, 800);
+    }
+    function readAloud(text) {
+      if (!spkOn) return;
+      var words = forEars(text); if (!words) return;
+      speaking = true; spkSeen = Date.now(); voiceLine();
+      link().say(words).then(function (ok) { if (!ok) { speaking = false; micNote = 'That could not be read aloud.'; voiceLine(); } else watchSpeaking(); });
+    }
+    function hush() { if (!speaking) return; speaking = false; clearTimeout(spkTimer); link().sayStop(); voiceLine(); }
+    q('mic').onclick = function () { if (micOn) micStop(); else micStart(); };
+    q('spk').onclick = function () { spkOn = !spkOn; if (!spkOn) hush(); voiceLine(); };
+    q('hush').onclick = hush;
+    var showing = function () { return root.offsetParent !== null; };
+    document.addEventListener('keydown', function (e) {
+      if (!micOn || !showing() || e.key !== 'Enter' || e.shiftKey) return;
+      var el = e.target; if (el !== q('box') && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;   // other boxes keep their own Enter
+      e.preventDefault(); e.stopPropagation(); voiceSend();
+    }, true);
+    root.addEventListener('contextmenu', function (e) { if (micOn) { e.preventDefault(); voiceSend(); } });
+    window.addEventListener('pagehide', function () { if (micOn) link().mic('off'); if (speaking) link().sayStop(); });
+
     /* ── approval cards. The Helper's engine writes the card and decides what needs one; this only shows it ── */
     function make(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
     function askCard(c, yesText, onceText, onAnswer) {
@@ -182,7 +296,9 @@
       // An older Helper sends no card: then the technical request is shown as it is.
       var card = o.card || { title: 'Claude Code asks permission to use ' + req.tool_name, what: 'This Helper can’t explain this request in everyday words.', warnings: [], details: JSON.stringify(req.input, null, 2) };
       if (run) run.open++;
+      readAloud('I need your approval. ' + card.title + ' ' + (card.what || '') + ' ' + (card.why ? 'Why: ' + card.why + '. ' : '') + (card.warnings || []).join(' ') + ' Please click yes or no.');
       w.appendChild(askCard(card, 'Yes, do it', 'Your yes covers only this one action. If Amit needs to do something else, it is checked again.', function (ok) {
+        hush();
         return link().permission(o.request_id, ok).then(function (sent) {
           if (run && run.open) run.open--;
           return { text: !sent ? 'This request is no longer waiting.' : ok ? 'You said yes.' : 'You said no.', then: function () { if (sent && run && run.panel) run.panel.appendChild(w.parentNode); } };
@@ -344,6 +460,7 @@
         row('done', (o.is_error ? 'Ended with a problem (' + o.subtype + ')' : 'Finished') + ' · your stopwatch ' + (run ? secs(run.done) : '–') + 's · Claude Code\'s own count ' + secs(o.duration_ms || 0) + 's · ' + o.num_turns + ' turn(s)\nTokens: new input ' + (u.input_tokens || 0) + ', written to cache ' + (u.cache_creation_input_tokens || 0) + ', read from cache ' + (u.cache_read_input_tokens || 0) + ', output ' + (u.output_tokens || 0), t);
         if (o.is_error) row('err', o.result || 'The job ended early (' + o.subtype + ').', t, true); else row('say', o.result || '(no reply text)', t, true);
         q('log').scrollTop = q('log').scrollHeight;
+        readAloud(o.is_error ? 'The job ended with a problem. ' + (o.result || '') : o.result); voiceLine();
         if (wantNew) { wantNew = false; if (!o.is_error) setTimeout(function () { fresh(false); }, 2500); }
       }
     }
@@ -447,14 +564,15 @@
         if (was && run && !run.over) { row('err', 'The connection to your computer was lost.', 0, true); end(); }
         q('info').textContent = x.code === 'checking' ? 'Checking the connection…' : x.code === 'signed-out' ? 'Sign in to connect to your computer.' : 'Not connected. ' + (x.missing || []).join(' ');
       }
-      controls(); drawLevel();
+      if (!ready) { if (micOn) micDown('The microphone is off because the connection was lost.'); speaking = false; }
+      controls(); drawLevel(); voiceLine();
     }
     link().onState(connection); link().onEvent(onEvent);
     showWhere(null); drawSession(); drawMeter(); connection(link().state()); link().refresh();
   }
 
   window.AmitCoderScreen = {
-    version: '0.02',
+    version: '0.03',
     mount: function (host) {
       if (!host || !window.AmitCoderLink) return;
       if (!root) build();
