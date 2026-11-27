@@ -1,4 +1,5 @@
-/* amit_coder_screen.js v0.07 (2026-11-26): the microphone reconnects by itself; a running job is picked up after a refresh; an old page says so.
+/* amit_coder_screen.js v0.08 (2026-11-27): attachments in a message: screen capture through Show Amit, add files, paste or drag them in.
+   Was v0.07: the microphone reconnects by itself; a running job is picked up after a refresh; an old page says so.
    Was v0.06: messages can be sent while Amit works; a status box that never looks locked up; new projects are found.
    Was v0.05: spoken words appear in the box as they are said; a job can no longer stay locked after a restart.
    Was v0.04: the cursor goes into the message box before the microphone starts.
@@ -73,6 +74,13 @@
 #cd .behind{margin:0 0 9px;border-left:3px solid #2b4a6b;padding-left:10px}
 #cd .extras{border-top:1px solid rgba(201,168,76,.4);padding:7px 12px 0;display:flex;gap:8px;flex-wrap:wrap}
 #cd .extras button.used{background:#3a3320;border-color:#e8c56a}
+#cd-pics{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:9px 12px 0;font-size:13.5px}
+#cd-pics .pic{position:relative}
+#cd-pics img{height:70px;max-width:160px;object-fit:cover;border:1px solid #c9a84c;border-radius:6px;display:block}
+#cd-pics .doc,#cd .you .doc{display:block;border:1px solid #c9a84c;border-radius:6px;padding:7px 14px;font-size:13px;word-break:break-all}
+#cd-pics .pic button{position:absolute;top:-8px;right:-8px;width:22px;height:22px;padding:0;border-radius:50%;line-height:1}
+#cd .you img{display:block;max-height:140px;max-width:100%;margin-top:6px;border-radius:6px}
+#cd .you .doc{margin-top:6px}
 #cd .compose{padding:7px 70px 9px 12px;display:flex;gap:9px;align-items:flex-end}
 #cd-status{margin:6px 12px 0;border:2px solid;border-radius:10px;padding:8px 11px}
 #cd-status.work{border-color:#50d78c;background:#0f2a1f}
@@ -121,7 +129,10 @@
 </div>
 <div id="cd-status" role="status" hidden><div class="head"><i></i><span id="cd-status-title"></span><span id="cd-status-time"></span></div><div id="cd-status-more"></div><div id="cd-status-acts"></div></div>
 <div id="cd-voice" hidden><b id="cd-voice-text"></b><button id="cd-hush" hidden>Stop reading</button></div>
+<div id="cd-pics" hidden></div>
 <div class="compose">
+  <button id="cd-cap" class="round" title="Screen capture: opens Show Amit. Press Capture, mark it up, then Send to Amit. The picture lands here." aria-label="Screen capture">📷</button>
+  <button id="cd-add" class="round" title="Attach a file from your computer: a picture, PDF, or text or code file (you can also paste or drag it in)" aria-label="Attach a file">＋</button><input id="cd-file" type="file" multiple hidden>
   <textarea id="cd-box" placeholder="Type here and press Enter (Shift+Enter for a new line)"></textarea>
   <button id="cd-mic" class="round" title="Microphone: stays on until you turn it off. Enter or right-click sends." aria-label="Microphone" aria-pressed="false" disabled><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg></button>
   <button id="cd-spk" class="round" title="Speaker: reads Amit\u2019s closing message and approval requests aloud" aria-label="Read answers aloud" aria-pressed="false" disabled><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19.5 6a9 9 0 0 1 0 12"/></svg></button>
@@ -162,14 +173,92 @@
     function follow() { var l = q('log'); if (l.scrollHeight - l.scrollTop - l.clientHeight < 140) l.scrollTop = l.scrollHeight; }
     function fold(title, body, t, open) { var w = row('', null, t), d = document.createElement('details'), s = document.createElement('summary'), p = document.createElement('pre'); s.textContent = title; p.textContent = body; d.open = !!open; d.append(s, p); w.appendChild(d); return { s: s, p: p, d: d }; }
 
+    /* attachments waiting to go with the next message. Nothing is sent until the person presses send. */
+    var pics = [], MAX_FILES = 4, MAX_PIC = 900000, MAX_ALL = 3500000, HELPER = 'http://localhost:8710', TAG = 'amit-coder', capTimer = null, capTaken = {};
+    function picNote(t) { row('err', t, 0, true); q('log').scrollTop = q('log').scrollHeight; }
+    function thumb(p) {
+      var el = document.createElement(p.url ? 'img' : 'span');
+      if (p.url) { el.src = p.url; el.alt = p.name; el.title = p.name; } else { el.className = 'doc'; el.textContent = '\ud83d\udcc4 ' + p.name; }
+      return el;
+    }
+    function picPaint() {
+      var box = q('pics'); box.textContent = ''; box.hidden = !pics.length;
+      pics.forEach(function (p) {
+        var d = document.createElement('div'), x = document.createElement('button'); d.className = 'pic';
+        x.textContent = '\u00d7'; x.title = 'Remove ' + p.name; x.onclick = function () { pics.splice(pics.indexOf(p), 1); picPaint(); };
+        d.append(thumb(p), x); box.appendChild(d);
+      });
+    }
+    function attach(item) {
+      var total = pics.reduce(function (n, p) { return n + p.data.length; }, item.data.length);
+      if (pics.length >= MAX_FILES) { picNote('A message can hold ' + MAX_FILES + ' attachments. Remove one first.'); return false; }
+      if (total > MAX_ALL) { picNote(item.name + ' makes this message too large. Send it in a message of its own, or ask Amit to open it from your computer.'); return false; }
+      pics.push(item); picPaint(); return true;
+    }
+    async function addPicture(blob, name) {
+      try {
+        var bmp = await createImageBitmap(blob), scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height)), url = '';
+        for (var n = 0; n < 6; n++, scale *= 0.8) {
+          var c = document.createElement('canvas'); c.width = Math.max(1, Math.round(bmp.width * scale)); c.height = Math.max(1, Math.round(bmp.height * scale));
+          var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+          url = c.toDataURL('image/png'); if (url.length > MAX_PIC) url = c.toDataURL('image/jpeg', 0.85);
+          if (url.length <= MAX_PIC) break;
+        }
+        if (url.length > MAX_PIC) { picNote('That picture is too large to send.'); return false; }
+        return attach({ name: name || 'picture', url: url, media_type: url.slice(5, url.indexOf(';')), data: url.slice(url.indexOf(',') + 1) });
+      } catch (e) { picNote('That file could not be read as a picture.'); return false; }
+    }
+    async function addFile(f) {
+      var name = f.name || 'file';
+      if (/^image\//.test(f.type)) return addPicture(f, name);
+      if (f.type === 'application/pdf' || /\.pdf$/i.test(name)) {
+        if (f.size > 2500000) { picNote(name + ' is too large to attach. Ask Amit to open it from your computer instead.'); return false; }
+        var url = await new Promise(function (res) { var r = new FileReader(); r.onload = function () { res(String(r.result)); }; r.onerror = function () { res(''); }; r.readAsDataURL(f); });
+        return url ? attach({ name: name, media_type: 'application/pdf', data: url.slice(url.indexOf(',') + 1) }) : false;
+      }
+      if (f.size > 300000) { picNote(name + ' is too large to attach. Ask Amit to open it from your computer instead.'); return false; }
+      var text = await f.text();
+      if (text.indexOf('\u0000') >= 0 || text.indexOf('\ufffd') >= 0) { picNote(name + ' is a kind of file that cannot be attached yet. Pictures, PDFs and text or code files work.'); return false; }
+      return attach({ name: name, media_type: 'text/plain', data: text });
+    }
+    function picFiles(list) { Array.prototype.slice.call(list || []).reduce(function (p, f) { return p.then(function () { return addFile(f); }); }, Promise.resolve()); }
+    async function helperJson(path) { try { var r = await fetch(HELPER + path, { cache: 'no-store' }); return await r.json(); } catch (e) { return null; } }
+    async function capture() {
+      var from = Date.now() - 2000, until = Date.now() + 10 * 60000;
+      var j = await helperJson('/api/menu/open?id=show-amit&origin=' + TAG);
+      if (!j || !j.ok) { picNote('Show Amit did not open.' + (j && j.error ? ' ' + j.error : ' The Amit Helper did not answer.')); return; }
+      clearInterval(capTimer); var looking = false;
+      capTimer = setInterval(async function () {          // only a picture sent back to the Coder, made after this press, is taken
+        if (Date.now() > until) { clearInterval(capTimer); return; }
+        if (looking) return; looking = true;
+        try {
+          var s = await helperJson('/api/showamit/pending');
+          if (s && s.id && s.origin === TAG && Number(s.id) >= from && !capTaken[s.id]) {
+            var r = await fetch(HELPER + '/api/showamit/pending.png?id=' + encodeURIComponent(s.id), { cache: 'no-store' });
+            if (r.ok) {
+              capTaken[s.id] = true;
+              if (await addPicture(await r.blob(), s.name || 'screen capture')) {
+                var asked = /^Question: ([^|]*)/.exec(s.text || ''), b = q('box');
+                if (asked) b.value = (b.value && !/\s$/.test(b.value) ? b.value + ' ' : b.value) + asked[1].trim();
+                b.focus();
+              }
+            }
+          }
+        } catch (e) {} finally { looking = false; }
+      }, 1000);
+    }
+    function picRow(text, sent) { var w = row('you', text, 0, true); sent.forEach(function (p) { w.appendChild(thumb(p)); }); return w; }
+    function withPics(o, sent) { return sent.length ? Object.assign({ files: sent.map(function (p) { return { name: p.name, media_type: p.media_type, data: p.data }; }) }, o) : o; }
+    function picsRefused(sent) { picNote('This Amit Helper is older and cannot take attachments yet. Your words were sent without them.'); pics = sent.concat(pics); picPaint(); }
+
     function send(button) {
-      var typed = q('box').value.trim();
-      if (!ready || (!typed && !button)) return;
+      var typed = q('box').value.trim(), sent = button ? [] : pics.slice();
+      if (!ready || (!typed && !button && !sent.length)) return;
       if (run && !run.over) {                       // Amit is working: this message joins the job
-        if (button || !typed) return;
-        q('box').value = ''; live = ''; extra++;
-        row('you', typed + '  (sent while Amit was working)', 0, true); q('log').scrollTop = q('log').scrollHeight;
-        link().send(typed, opts()).then(function (ok) { if (!ok) { extra--; row('err', 'That message could not be delivered.' + (link().lastError() ? ' ' + link().lastError() : ''), 0, true); if (!q('box').value) q('box').value = typed; } });
+        if (button || (!typed && !sent.length)) return;
+        q('box').value = ''; live = ''; extra++; if (sent.length) { pics = []; picPaint(); }
+        picRow(typed + '  (sent while Amit was working)', sent); q('log').scrollTop = q('log').scrollHeight;
+        link().send(typed, withPics(opts(), sent)).then(function (ok) { if (ok === 'no-attachments') { picsRefused(sent); } else if (!ok) { extra--; row('err', 'That message could not be delivered.' + (link().lastError() ? ' ' + link().lastError() : ''), 0, true); if (!q('box').value) q('box').value = typed; pics = sent.concat(pics); picPaint(); } });
         return;
       }
       extra = 0;
@@ -177,11 +266,13 @@
       hush();
       live = '';
       run = { p0: performance.now(), open: 0, text: text }; blocks = {};
-      q('box').value = ''; row('you', text, 0, true); detailsButton(); controls(); watchStart();
-      link().send(typed, Object.assign({ button: button ? button.dataset.b : '' }, opts())).then(function (ok) {
+      q('box').value = ''; if (sent.length) { pics = []; picPaint(); } picRow(text, sent); detailsButton(); controls(); watchStart();
+      link().send(typed, withPics(Object.assign({ button: button ? button.dataset.b : '' }, opts()), sent)).then(function (ok) {
+        if (ok === 'no-attachments') { picsRefused(sent); return; }
         if (ok) { if (button) button.classList.add('used'); return; }
         row('err', 'The message could not be delivered.' + (link().lastError() ? ' ' + link().lastError() : ''), 0, true);
         if (!q('box').value) q('box').value = typed;
+        pics = sent.concat(pics); picPaint();
         end();
       });
     }
@@ -682,6 +773,12 @@
 
     /* ── buttons ── */
     q('send').onclick = function () { send(); };
+    q('cap').onclick = capture;
+    q('add').onclick = function () { q('file').click(); };
+    q('file').onchange = function () { picFiles(Array.prototype.slice.call(this.files)); this.value = ''; };
+    q('box').addEventListener('paste', function (e) { var f = Array.prototype.slice.call((e.clipboardData && e.clipboardData.items) || []).filter(function (i) { return i.kind === 'file'; }).map(function (i) { return i.getAsFile(); }).filter(Boolean); if (f.length) { e.preventDefault(); picFiles(f); } });
+    root.addEventListener('dragover', function (e) { if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') >= 0) e.preventDefault(); });
+    root.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files.length) { e.preventDefault(); picFiles(e.dataTransfer.files); } });
     extras().forEach(function (b) { b.onclick = function () { send(b); }; });
     q('box').onkeydown = function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
     q('stop').onclick = function () {

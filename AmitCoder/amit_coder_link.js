@@ -1,4 +1,4 @@
-/* amit_coder_link.js v0.07 (2026-11-26) - the ONE connection layer of Amit Coder.
+/* amit_coder_link.js v0.08 (2026-11-27: a message can carry attachments) - the ONE connection layer of Amit Coder.
    The coding screen talks only to AmitCoderLink. How the messages travel is a ROUTE behind it:
      local : this computer, through the shared Amit Helper at http://localhost:8710 (routes /api/coder/*)
      away  : another device reaching your computer over the internet (version 2, NOT BUILT)
@@ -24,7 +24,7 @@
   if (window.AmitCoderLink) return;
   var HELPER = 'http://localhost:8710';
   var stateNow = { code: 'signed-out', route: null, computer: '', missing: [], text: '' };
-  var stateFns = [], eventFns = [], lastError = '', waitUntil = 0, held = null, session = null, route = null, streamStop = null, looking = null;
+  var lastReply = null, stateFns = [], eventFns = [], lastError = '', waitUntil = 0, held = null, session = null, route = null, streamStop = null, looking = null;
 
   async function call(url, opts, ms) {
     var c = new AbortController(), t = setTimeout(function () { c.abort(); }, ms || 6000);
@@ -82,7 +82,7 @@
     },
     post: async function (what, body) {
       var r = await call(HELPER + '/api/coder/' + what + '?s=' + session, { method: 'POST', body: JSON.stringify(body || {}) }, 45000);
-      lastError = r.data && r.data.error ? r.data.error : '';
+      lastError = r.data && r.data.error ? r.data.error : ''; if (what === 'send') lastReply = r.data;
       return !!(r.ok && r.data && r.data.ok !== false);
     },
     get: async function (what, more) { var r = await call(HELPER + '/api/coder/' + what + '?s=' + session + (more || ''), {}, 35000); return r.ok && r.data && r.data.ok ? r.data.data : null; },
@@ -148,11 +148,15 @@
   async function post(what, body) { return route && session ? route.post(what, body) : false; }
   async function get(what, more) { return route && session ? route.get(what, more) : null; }
   window.AmitCoderLink = {
-    version: '0.07', client: null,
+    version: '0.08', client: null,
     refresh: refresh, state: function () { return stateNow; }, lastError: function () { return lastError; },
     onState: function (f) { stateFns.push(f); }, onEvent: function (f) { eventFns.push(f); },
     newSession: function (o) { return post('new', o); },
-    send: function (text, o) { return post('send', Object.assign({ text: text }, o || {})); },
+    send: async function (text, o) {                 // true, false, or 'no-attachments' when an older Helper took the words only
+      var body = Object.assign({ text: text }, o || {}), ok = await post('send', body);
+      if (ok && body.files && !(lastReply && lastReply.data && lastReply.data.files === body.files.length)) return 'no-attachments';
+      return ok;
+    },
     permission: function (id, allow) { return post('permission', { id: id, allow: !!allow }); },
     stop: function () { return post('stop'); },
     mic: function (action) { return post('mic', { action: action }); },
