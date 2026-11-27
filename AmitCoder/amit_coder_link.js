@@ -148,7 +148,7 @@
   async function post(what, body) { return route && session ? route.post(what, body) : false; }
   async function get(what, more) { return route && session ? route.get(what, more) : null; }
   window.AmitCoderLink = {
-    version: '0.08', client: null,
+    version: '0.09', client: null,
     refresh: refresh, state: function () { return stateNow; }, lastError: function () { return lastError; },
     onState: function (f) { stateFns.push(f); }, onEvent: function (f) { eventFns.push(f); },
     newSession: function (o) { return post('new', o); },
@@ -170,6 +170,7 @@
       if (mic) go('mic', { action: 'off' }); if (voice) go('say', { stop: true });
     },
     level: function (to, confirm) { return post('level', to ? { level: to, confirm: !!confirm } : {}); },
+    understand: function (to) { return post('understand', to ? { level: to } : {}); },
     name: function (project, piece) { return post('name', { project: project, piece: piece }); },
     open: function (id, o) { return post('open', Object.assign({ id: id }, o || {})); },
     sessions: function () { return get('sessions'); },

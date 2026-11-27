@@ -1,4 +1,5 @@
-// amit_coder_engine.js v0.05: a message can carry attachments (pictures, PDFs, text files).
+// amit_coder_engine.js v0.06: a setting for how much technical detail to explain with (plain/some/technical), separate from the permission level.
+// Was v0.05: a message can carry attachments (pictures, PDFs, text files).
 // Was v0.04: the conversation is kept across restarts.
 // v0.03: permission levels and plain-language approval cards.
 // Was v0.02 (Amit Helper, 2026-11-26) - runs the person's OWN Claude Code for Amit Coder.
@@ -67,6 +68,16 @@ const BUTTONS = {
 const LEVELS = ['every', 'some', 'little'];
 const LEVELFILE = path.join(STATE, 'permission_level.json');
 function getLevel() { try { const v = JSON.parse(fs.readFileSync(LEVELFILE, 'utf8')).level; return LEVELS.includes(v) ? v : 'some'; } catch (e) { return 'some'; } }
+
+// HOW MUCH DETAIL TO EXPLAIN WITH. Separate from the permission level above — this changes how Claude writes, not what it may do.
+const UNDERSTANDS = ['plain', 'some', 'technical'];
+const UNDERSTANDFILE = path.join(STATE, 'understand_level.json');
+function getUnderstand() { try { const v = JSON.parse(fs.readFileSync(UNDERSTANDFILE, 'utf8')).level; return UNDERSTANDS.includes(v) ? v : 'some'; } catch (e) { return 'some'; } }
+const UNDERSTAND_TEXT = {
+  plain: 'This person chose "Plain words": they are new to computers. Never use technical words, file names, code or command names with them. When you find a problem, say in one or two everyday sentences what you found and what you would do, then ask yes or no. Keep the technical work itself exactly as careful as always — only the words you say to them change.',
+  some: 'This person chose "Some experience": keep explanations short and in plain words, naming the general idea (a file, a setting, a program) without deep technical detail, unless they ask for more.',
+  technical: 'This person chose "Technical / coder": they want the real detail. Show exact file names, code and commands when relevant, the way one developer explains to another.'
+};
 //JUDGE-START
 // The protected list: these ask at EVERY level. This is a check of the words in a command, so it can miss things.
 const PROTECTED = [
@@ -150,7 +161,7 @@ function start(o) {
   // The light setup skips the person's settings, so their default model and effort are passed in by hand.
   if (light) { const mine = userSettings(); o = Object.assign({}, o, { model: o.model || mine.model, effort: o.effort || mine.effortLevel }); args.push('--setting-sources', 'project,local', '--settings', lightSettings()); }
   else args.push('--settings', fullSettings());
-  args.push('--append-system-prompt', (light ? ALWAYS + ' ' : '') + 'The Amit Coder program names this session itself. Never run rename_session.js here. The person may be asked to approve your commands and sees your own words, not the command. So for EVERY Bash or PowerShell call write the description in this exact form: one everyday-language sentence saying everything the command will do | why: the reason in everyday words. Name anything it deletes, publishes, installs, sends, closes or overwrites. No technical terms. The description is not complete without the part after the bar. Example description: Shows the names of the files in your project | why: to find the page you asked me about');
+  args.push('--append-system-prompt', (light ? ALWAYS + ' ' + UNDERSTAND_TEXT[getUnderstand()] + ' ' : '') + 'The Amit Coder program names this session itself. Never run rename_session.js here. The person may be asked to approve your commands and sees your own words, not the command. So for EVERY Bash or PowerShell call write the description in this exact form: one everyday-language sentence saying everything the command will do | why: the reason in everyday words. Name anything it deletes, publishes, installs, sends, closes or overwrites. No technical terms. The description is not complete without the part after the bar. Example description: Shows the names of the files in your project | why: to find the page you asked me about');
   if (/^[a-z0-9.\-]+(\[1m\])?$/.test(o.model || '')) args.push('--model', o.model);
   if (/^(low|medium|high|xhigh|max)$/.test(o.effort || '')) args.push('--effort', o.effort);
   if (o.resume && sessionId) args.push('--resume', sessionId);
@@ -239,6 +250,11 @@ function run(cmd) {
         fs.writeFileSync(LEVELFILE, JSON.stringify({ level: want }));
       }
       push('level', { level: getLevel() }); return true;
+    }
+    case 'understand': {
+      const want = String(b.level || '');
+      if (want) { if (!UNDERSTANDS.includes(want)) return false; fs.writeFileSync(UNDERSTANDFILE, JSON.stringify({ level: want })); }
+      push('understand', { level: getUnderstand() }); return true;
     }
     case 'stop': return toClaude({ type: 'control_request', request_id: 'stop-' + Date.now(), request: { subtype: 'interrupt' } });
     case 'name': {

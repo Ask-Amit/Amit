@@ -57,6 +57,8 @@
 #cd .permit button{margin:8px 8px 0 0}
 #cd-levels{width:100%;display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:13.5px}
 #cd-levels button.on{background:#c9a84c;color:#09141f;font-weight:700;opacity:1}
+#cd-understand{width:100%;display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:13.5px}
+#cd-understand button.on{background:#c9a84c;color:#09141f;font-weight:700;opacity:1}
 #cd-level-text{width:100%;font-size:12.5px;opacity:.8}
 #cd .permit h3{margin:0 0 6px;font-size:17px}
 #cd .permit p{margin:3px 0}
@@ -111,6 +113,7 @@
   <label>Setup <select id="cd-hooks"><option value="light">light (buttons)</option><option value="full">my full setup</option></select></label>
   <button id="cd-new">New session</button><button id="cd-past-open" title="Open or continue an earlier session">📂 Sessions</button><button id="cd-resume">Resume last</button>
   <div id="cd-levels"><b>How often should Amit ask you?</b><button data-lv="0" disabled>Ask me everything</button><button data-lv="1" disabled>Ask me some things</button><button data-lv="2" disabled>Ask me very little</button><div id="cd-level-text">Your choice appears when your computer is connected.</div></div>
+  <div id="cd-understand"><b>How should Amit explain things to you?</b><button data-un="0" disabled>Plain words</button><button data-un="1" disabled>Some experience</button><button data-un="2" disabled>Technical / coder</button></div>
   <div id="cd-meter"><span class="m" id="cd-m-five_hour"><b>5-hour</b><u><i></i></u><span>waiting for the first message</span><small></small></span><span class="m" id="cd-m-seven_day"><b>Week</b><u><i></i></u><span>waiting</span><small></small></span><span id="cd-age"></span></div>
   <div id="cd-where"><b>Project</b><span class="combo"><input id="cd-project" placeholder="type to find a project" autocomplete="off"><div id="cd-drop" hidden></div></span><b>Topic</b><input id="cd-topic" placeholder="optional, like Amit Pad, then Enter" title="The part of the project you are working on. It is added to the session name."><span id="cd-where-text"></span></div>
   <div id="cd-sess"></div>
@@ -527,7 +530,17 @@
     levelButtons().forEach(function (b, i) { b.onclick = function () { chooseLevel(i); }; });
     function askLevel() {
       link().level().then(function (ok) { if (!ok) q('level-text').textContent = 'Permission levels need Amit Helper 2.37 or newer.'; });
+      link().understand();
     }
+
+    /* ── how much detail to explain things with ── */
+    var UNAMES = ['Plain words', 'Some experience', 'Technical / coder'], UIDS = ['plain', 'some', 'technical'], understand = -1;
+    var understandButtons = function () { return Array.prototype.slice.call(root.querySelectorAll('#cd-understand button')); };
+    function drawUnderstand() {
+      understandButtons().forEach(function (b, i) { b.classList.toggle('on', i === understand); b.disabled = !ready || understand < 0; b.textContent = (i === understand ? '✓ ' : '') + UNAMES[i]; });
+    }
+    function chooseUnderstand(i) { if (i === understand || !ready) return; link().understand(UIDS[i]).then(function () {}); }
+    understandButtons().forEach(function (b, i) { b.onclick = function () { chooseUnderstand(i); }; });
 
     /* ── plan use, as Claude Code reports it with its replies; shown as received ── */
     var kept = store('amit_coder_meter') || {}, meter = kept.meter || {}, meterAt = kept.at || 0;
@@ -694,6 +707,7 @@
       if (e.n) { if (e.n <= lastN) return; lastN = e.n; }
       if (e.kind === 'session') { showWhere(e.data); return; }
       if (e.kind === 'level') { level = IDS.indexOf(e.data.level); drawLevel(); return; }
+      if (e.kind === 'understand') { understand = UIDS.indexOf(e.data.level); drawUnderstand(); return; }
       if (e.t && e.t < openedAt - 3000) { rememberPast(e); if (!pastTimer) pastTimer = setTimeout(recover, 1500); return; }                    // what happened before this page was opened is not replayed
       if (e.kind === 'history') {
         watchHide(); extra = 0; run = null; q('log').textContent = ''; extras().forEach(function (b) { b.classList.remove('used'); }); controls();
@@ -798,7 +812,7 @@
         q('info').textContent = x.code === 'checking' ? 'Checking the connection…' : x.code === 'signed-out' ? 'Sign in to connect to your computer.' : 'Not connected. ' + (x.missing || []).join(' ');
       }
       if (!ready) { if (micOn) micDown('The microphone is off because the connection was lost.'); speaking = false; }
-      controls(); drawLevel(); voiceLine();
+      controls(); drawLevel(); drawUnderstand(); voiceLine();
     }
     function checkNewer() {
       if (!/^http/.test(location.protocol) || !q('newer').hidden) return;
@@ -815,7 +829,7 @@
   }
 
   window.AmitCoderScreen = {
-    version: '0.07',
+    version: '0.09',
     mount: function (host) {
       if (!host || !window.AmitCoderLink) return;
       if (!root) build();
