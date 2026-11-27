@@ -1,4 +1,5 @@
-/* amit_coder_screen.js v0.04 (2026-11-26): the cursor goes into the message box before the microphone starts.
+/* amit_coder_screen.js v0.05 (2026-11-26): spoken words appear in the box as they are said; a job can no longer stay locked after a restart.
+   Was v0.04: the cursor goes into the message box before the microphone starts.
    Was v0.03: a microphone and a speaker that stay on until turned off.
    Was v0.02: permission levels and plain-language approval cards.
    Was v0.01 - the working screen of Amit Coder (the Coding page).
@@ -149,6 +150,7 @@
       if (!ready || (!typed && !button) || (run && !run.over)) return;
       var label = button ? '[Button: ' + button.dataset.label + ']' : '', text = [label, typed].filter(Boolean).join('  ');
       hush();
+      live = '';
       run = { p0: performance.now(), open: 0, text: text }; blocks = {};
       q('box').value = ''; row('you', text, 0, true); detailsButton(); controls();
       link().send(typed, Object.assign({ button: button ? button.dataset.b : '' }, opts())).then(function (ok) {
@@ -172,7 +174,7 @@
     var tellers = { 'not-allowed': 'The microphone is not allowed on this computer.', 'no-mic': 'No microphone was found.', network: 'The speech service could not be reached.' };
     function voiceLine() {
       var text = '';
-      if (micOn) text = speaking ? 'Microphone on. Waiting while Amit reads…' : (run && !run.over ? 'Microphone on. Amit is working, so your words wait in the box.' : 'Microphone on. ' + (interim ? 'Hearing: ' + interim : 'Enter or right-click sends.'));
+      if (micOn) text = speaking ? 'Microphone on. Waiting while Amit reads…' : (run && !run.over ? 'Microphone on. Amit is working, so your words wait in the box.' : 'Microphone on. ' + 'Enter or right-click sends.');
       else if (speaking) text = 'Reading aloud…';
       if (micNote) text = (text ? text + '  ·  ' : '') + micNote;
       q('voice-text').textContent = text; q('hush').hidden = !speaking; q('voice').hidden = !text;
@@ -185,15 +187,25 @@
       if (document.activeElement === b) b.setRangeText(space + w, b.selectionStart, b.selectionEnd, 'end'); else b.value += space + w;
       b.scrollTop = b.scrollHeight;
     }
-    function micDown(why) { micOn = false; micLoop++; interim = ''; micNote = why || ''; voiceLine(); }
+    // the phrase still being spoken is in the box already, and is corrected in place until it is final
+    var live = '';
+    function putLive(text, done) {
+      var b = q('box'), v = b.value, at = live ? v.lastIndexOf(live) : -1;
+      if (at < 0) { if (!text) { live = ''; return; } putWords(text); live = done ? '' : text; return; }
+      var caret = b.selectionStart, atEnd = caret >= at + live.length, shift = text.length - live.length;
+      b.value = v.slice(0, at) + text + v.slice(at + live.length);
+      if (document.activeElement === b && atEnd) b.selectionStart = b.selectionEnd = Math.max(0, Math.min(b.value.length, caret + shift));
+      b.scrollTop = b.scrollHeight; live = done ? '' : text;
+    }
+    function micDown(why) { live = ''; micOn = false; micLoop++; interim = ''; micNote = why || ''; voiceLine(); }
     function listenLoop(mine) {
       link().micWords(micSeq).then(function (j) {
         if (mine !== micLoop) return;
         if (!j) { link().mic('off'); micDown('The microphone stopped: the connection to your computer did not answer.'); return; }
         micSeq = j.seq;
         (j.events || []).forEach(function (ev) {
-          if (ev.k === 'final' && ev.t) { putWords(ev.t); interim = ''; }
-          else if (ev.k === 'interim') interim = ev.t || '';
+          if (ev.k === 'final' && ev.t) putLive(ev.t, true);
+          else if (ev.k === 'interim' && ev.t) putLive(ev.t, false);
           else if (ev.k === 'error') { link().mic('off'); micDown(tellers[ev.t] || 'Amit cannot listen right now.'); }
         });
         if (mine !== micLoop) return;
@@ -209,7 +221,7 @@
       }).then(function (ok) {
         q('mic').disabled = false;
         if (!ok) { micDown(link().lastError() || 'The microphone needs Amit Helper 2.38 or newer.'); return; }
-        micOn = true; micNote = ''; q('box').focus(); voiceLine(); listenLoop(++micLoop);
+        micOn = true; live = ''; micNote = ''; q('box').focus(); voiceLine(); listenLoop(++micLoop);
       });
     }
     function micStop() {
@@ -553,7 +565,10 @@
     q('send').onclick = function () { send(); };
     extras().forEach(function (b) { b.onclick = function () { send(b); }; });
     q('box').onkeydown = function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
-    q('stop').onclick = function () { row('quiet', '■ Stop pressed', 0, true); link().stop(); };
+    q('stop').onclick = function () {
+      var mine = run; row('quiet', '■ Stop pressed', 0, true); link().stop();
+      setTimeout(function () { if (mine && run === mine && !mine.over) { end(); row('quiet', 'Nothing answered the Stop, so this page has let that job go. You can type again.', 0, true); } }, 5000);
+    };
     q('new').onclick = function () { fresh(false); }; q('resume').onclick = function () { fresh(true); };
     q('tip-new').onclick = function () { if (run && !run.over) return; wantNew = true; send(root.querySelector('.extras button[data-b="save"]')); };
     q('model').onchange = q('effort').onchange = q('hooks').onchange = function () { row('quiet', 'The new setting applies after New session or Resume last.', 0, true); };
@@ -563,7 +578,7 @@
       var was = ready; ready = x.code === 'local-ready';
       if (ready) { if (!was) { q('info').textContent = 'Connected to ' + x.computer + '. Claude Code reports its details after your first message.'; loadProjects(); setTimeout(askLevel, 200); } }
       else {
-        if (was && run && !run.over) { row('err', 'The connection to your computer was lost.', 0, true); end(); }
+        if (was && run && !run.over) { row('err', 'This job stopped: the connection to your computer was interrupted. Some steps may already be done. You can type again.', 0, true); end(); }
         q('info').textContent = x.code === 'checking' ? 'Checking the connection…' : x.code === 'signed-out' ? 'Sign in to connect to your computer.' : 'Not connected. ' + (x.missing || []).join(' ');
       }
       if (!ready) { if (micOn) micDown('The microphone is off because the connection was lost.'); speaking = false; }
@@ -574,7 +589,7 @@
   }
 
   window.AmitCoderScreen = {
-    version: '0.04',
+    version: '0.05',
     mount: function (host) {
       if (!host || !window.AmitCoderLink) return;
       if (!root) build();

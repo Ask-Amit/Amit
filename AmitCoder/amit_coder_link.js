@@ -1,4 +1,4 @@
-/* amit_coder_link.js v0.05 (2026-11-26) - the ONE connection layer of Amit Coder.
+/* amit_coder_link.js v0.06 (2026-11-26) - the ONE connection layer of Amit Coder.
    The coding screen talks only to AmitCoderLink. How the messages travel is a ROUTE behind it:
      local : this computer, through the shared Amit Helper at http://localhost:8710 (routes /api/coder/*)
      away  : another device reaching your computer over the internet (version 2, NOT BUILT)
@@ -120,7 +120,7 @@
       if (!found) continue;
       if (found.ready) {
         disconnect(); route = ROUTES[i]; session = found.session;
-        streamStop = route.listen(function (e) { eventFns.forEach(function (f) { try { f(e); } catch (x) {} }); }, function () { disconnect(); setTimeout(refresh, 500); });
+        streamStop = route.listen(function (e) { eventFns.forEach(function (f) { try { f(e); } catch (x) {} }); }, function () { disconnect(); set('checking'); setTimeout(refresh, 500); });
         return set(route.name + '-ready', { route: route.name, computer: found.computer });
       }
       return set(ROUTES[i].name + '-not-ready', { route: ROUTES[i].name, computer: found.computer, missing: found.missing });
@@ -148,7 +148,7 @@
   async function post(what, body) { return route && session ? route.post(what, body) : false; }
   async function get(what, more) { return route && session ? route.get(what, more) : null; }
   window.AmitCoderLink = {
-    version: '0.05', client: null,
+    version: '0.06', client: null,
     refresh: refresh, state: function () { return stateNow; }, lastError: function () { return lastError; },
     onState: function (f) { stateFns.push(f); }, onEvent: function (f) { eventFns.push(f); },
     newSession: function (o) { return post('new', o); },
