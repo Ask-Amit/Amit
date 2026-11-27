@@ -47,6 +47,38 @@ Read this file first; it is all you need to start work. Read Sessions_ToDo.md on
 | Button_Creator_SPEC.md, Ideas_Captured.md, Ideas_Merged.md | button-creator plan and brainstorms | none |
 | MOUSE_TEST_MATRIX.md | mouse test list | none |
 
+## INSTALLER AND THE ONE AMIT FOLDER (Ryan, 2026-11-26) - requirement logged, NOT BUILT
+Full plan: root Sessions_Start.md, "DECISION: one Amit folder at C:\Amit". The installer must put things in the same known places on every computer.
+**Where things go today** (from a search of the installer and Helper code on 2026-11-26; a text search, so it may not be complete):
+- Program folder: %LOCALAPPDATA%\AmitComputerHealth (installed Helper in Watchers\; Coder state in AmitCoder\; preview history).
+- Registry for the signed-in user: start-up entry (CurrentVersion\Run); link registrations amit-tracker: and amit-helper: (they point at fixed paths).
+- Shortcuts: Desktop (Start Menu paths also appear in the code).
+- Temporary folder: flags, tracker results and metrics, sensor data, install snapshots.
+- Pictures folder: Show Amit captures.
+- Looked up or used outside our folders: Claude Code (.local\bin or the npm folder), its sign-in file under .claude, Node.js under Program Files.
+**What the work must cover:** the installer creates the layout from the one layout map and writes the settings file; checks and restricts access to C:\Amit; moves an existing install safely (stop the Helper, the coding engine and the bar first, and bring the bar back: the open gap from 5.44); updates the link registrations, start-up entry and shortcuts; the updater, reload, uninstall and verify_helper_release.ps1 read the same locations; computers on older versions update themselves without being stranded and never go backwards; test on a clean computer and on an upgraded one.
+
+## RELEASE: Helper 2.37 + installer 5.45 (2026-11-26, session 92edde33)
+- Pushed 05e3939. Release check ALL PASS. Coding engine 0.03: permission levels (every / some / little, default some) and plain-language cards. Route /api/coder/level.
+- STILL OPEN from 5.44: the installer does not stop the coding engine or AmitBar; the bar did not come back after that reinstall.
+
+## RELEASE: Helper 2.36 + installer 5.44 (2026-11-26, session 92edde33)
+- Pushed 9c767f6. Release check and live check ALL PASS. Coding engine 0.02: the coding screen's buttons, light setup, Resume last.
+- Reinstalled here by running install-Amit.exe 5.44 after shutting the Helper down: installed_version 5.44, Helper answers 2.36, coding routes answer.
+- GAP FOUND: the installer does not stop the coding engine (node) or AmitBar, and the bar did not come back after the reinstall (Amit started it by hand). Fix in the next release; whether the self-update stops the old engine is not checked.
+
+## RELEASE: Helper 2.35 + installer 5.43 (2026-11-26, session 92edde33, AmitCoder - Shortcuts page in new screen)
+- Pushed c52eeab. Release check and live check ALL PASS. Reloaded here: the Helper answers 2.35 and the bar is running.
+- The Helper uses the one-line (native) Claude Code copy unless the npm copy is newer. On this computer it still picks npm (2.1.266; the native copy is 2.1.220, cause not checked). The bridge, process_inbox.bat and amit_mobile_watcher.ps1 also find the native copy.
+- The installer passes -WithClaude again: Anthropic's one-line install when no copy exists, Node.js 22+ by winget, then the offer to sign in (claude auth login).
+- NOT TESTED: the installer on any computer; receipt processing with the native copy. Computers that only self-update do not run these install steps.
+- AskAmit\engine\ask_engine.js and AmitChat\amit_ask_watcher.js still look only for the npm copy.
+
+## RELEASE: Helper 2.34 (2026-11-26, session 958e9ff7, AmitCoder - working screen)
+- PUSHED 0cabea7: Helper 2.34, installer 5.42 (four places), manifest 35 files. verify_helper_release.ps1 ALL PASS before the push and with -Live after it. Installed here with amit_reload.ps1; it answers 2.34.
+- Adds /api/coder/* for Amit Coder (new files amit_coder_routes.ps1, amit_coder_engine.js, amit_coder_sessions.js, added to the manifest, status, installer and install-script lists). Owner only. Backups of replaced installed files: *.pre-v2.34-coder. Detail: AmitCoder\Sessions_Design.md section 22.
+- Tested: whole path on a spare port with pretend account checks and real Claude (Haiku): reply, permission, file write, projects, sessions, stop. Live: another website refused, fake sign-in refused. NOT tested: a real signed-in connection, a second computer, an installer run.
+
 ## RESUME: AmitHelper - Custom script buttons (2026-11-25, session cf3ab537)
 - WHERE WE ENDED: Helper 2.24, installer 5.32, Hub v9.10 and Living Testimony v1.73 are PUSHED (commit d1e23f3). Release check ALL PASS before the push; Ryan's Helper was reloaded and answers 2.24. PUBLISHED SITE VERIFIED 2026-11-25: verify_helper_release.ps1 -Live ALL PASS; askamit.org serves Hub v9.10, the website tool and the whole-conversation fix (the old github.io address forwards there, so curl needs -L). New in this release: the safe open-website tool, ordinary-steps builds, no set number of questions (rules plus the Hub sends Amit the whole conversation), automatic repair of a refused script, needed questions linked to the button.
 - AFTER THE CLEAN-UP (2026-11-25, Ryan: "do all", "go ahead and get it built", approved the three-screen preview with "1"): J AND F SHORTCUT BUTTONS: RELEASED 2026-11-25 on Ryan's "push" as Helper 2.25, installer 5.33, Hub v9.11, Living Testimony v1.75 (release check ALL PASS before the push; the new window was pictured hidden against a test server: start and Allow screens correct). The root CLAUDE.md rule is NOT in the GitHub copy (that copy has other older unpushed rules too). Rule in root CLAUDE.md (PREMIUM FEATURES, with several linked emails). Built: account check + shortcut routes in Toolkitamit_script_routes.ps1; amit_claude_run.ps1 (runs the person's own Claude Code turn by turn, rechecks before every turn); amit_claude_hook.ps1 (every tool asks Allow, except reading in the button's own folder); AmitClaudePopup.html (paid, and free copy version); Hub v9.11 + amit_script_buttons.js ?v=0.5 (F/J in the step list, check on choosing; stored as run_script cc-j-<id> / cc-f-<id>, no bar or database change). Tests: claude check 20, claude routes 14, claude run with real Claude 11, scripts routes 35, Hub module 55. NOT built: linked Claude emails (needs a migration Ryan runs, an About Me screen, and email sending). NOT tested: the new window in a real browser window, a real press from the bar, the Hub dropdown by a person, a free account, plans other than Pro, a computer with only the VS Code extension. EMAIL: Supabase custom SMTP is ON (Resend) but the sender is onboarding@resend.dev, which per Resend docs only delivers to the Resend account owner; Ryan was asked to add mail.askamit.org in Resend and screenshot the DNS records (stay on free plan).
@@ -91,6 +123,7 @@ Read this file first; it is all you need to start work. Read Sessions_ToDo.md on
 Open to-dos: 62 numbered items in Sessions_ToDo.md (counted 2026-11-16; the numbers run to 63 and some numbers are unused), plus the pursuit-style items in its Hub-pursuits section.
 
 ## LAST CLEAN-UP
+Last clean-up: 2026-11-26T18:48Z, session 958e9ff7-50f6-4a17-a3ac-eca2025120e8 (Helper 2.34 only; saved under AmitCoder\Daily Sessions). Before it:
 Last clean-up: 2026-11-25T17:17Z (after the Helper 2.24 release), session cf3ab537-6ea8-4e35-bd0f-758409092bc5 (saved in Daily Sessions as: 2026-11-24 cf3ab537 AmitHelper - Custom code buttons.txt). Before it:
 Last clean-up: 2026-11-25T01:56Z (after Helper 2.23, custom script buttons), session cf3ab537-6ea8-4e35-bd0f-758409092bc5 (AmitHelper - Custom script buttons, saved in Daily Sessions as: 2026-11-24 cf3ab537 AmitHelper - Custom code buttons.txt, 715 KB). Before it: 2026-11-23T04:28Z (after Helper 2.22), session 1461d1fb-8a69-43f1-a79e-1652e62b8c8b (AmitHelper - Aurora editor and imported icons, saved in Daily Sessions as: 2026-11-22 1461d1fb AmitHelper - Aurora editor and imported icons.txt, 55 KB). Before it: 2026-11-18 (after Amit Mobile v1.58), session 73360eb4-bb49-4c27-8b17-fc4fc6a9ab0e (AmitHelper - Amit Pad, saved in Daily Sessions as: 2026-11-16 73360eb4 AmitHelper - Amit Pad.txt, 230 KB). Before it: 2026-11-17 05:26 UTC, session e7e97179-6a2f-4d9a-ac20-8bf3c56d344b (saved as: 2026-11-16 e7e97179 AmitHelper - Show Amit editor.txt). The session before that, c410b654 (right sidebar, bar), is saved as 2026-11-16 c410b654 AmitHelper - right sidebar (bar).txt.
 Backlog pursuits: not initialized

@@ -2,6 +2,31 @@
 
 How to read: short current-state page built from root CLAUDE.md (unchanged). Permanent rules, identity, paths and standards stay in CLAUDE.md. To-dos: Sessions_ToDo.md. History: the old log (now in the Daily Sessions folder).
 
+## DECISION: one Amit folder at C:\Amit, the same on every computer (Ryan, 2026-11-26) - NOT BUILT, NOTHING MOVED
+**Ryan's rule:** the folder hierarchy is replicated on every computer and everything Amit places goes under C:\Amit, so that when anyone has a problem we know where it is. Many people may install this; files must never end up scattered in different places. The Helper installer is part of this rule.
+
+**Proposed layout (names NOT approved yet; Ryan has not asked for the full draft to be reviewed):**
+| Folder | What goes there | May an update change it? |
+| C:\Amit\Program | Amit's own program files | Yes |
+| C:\Amit\Projects | the person's projects, one folder each | Not without permission |
+| C:\Amit\Private | personal files, never published | No |
+| C:\Amit\Publish | the publishing folder (GitHub repository); only for people who publish | Only when they publish |
+| C:\Amit\Backups | backup copies (a second copy off this drive is also needed) | Adds new copies |
+
+**Amit's proposed rules to keep it consistent:**
+1. One standard layout, not a copy of Ryan's folders (his hold years of history and private work).
+2. One numbered layout map; the installer builds from it.
+3. One settings file on each computer records the locations; every program reads it; no paths typed into programs.
+4. A health check (AmitFix looks like its home) compares a computer with the map and reports what is missing or misplaced. It may create missing folders; it asks before moving anything; it never deletes a person's files by itself.
+5. A new layout version ships with tested steps for moving older computers. Updates never overwrite a person's files.
+6. Access: a folder made directly on C: may be reachable by other accounts on that computer (NOT VERIFIED). The installer checks and restricts it. Administrators can still get in.
+7. Publishing uses the person's own GitHub account, never ours. Only approved files are published; no Git setup over all of C:\Amit may be able to pick up private files.
+8. Things Windows or Claude Code require elsewhere (start-up entry, shortcuts, link registrations, Claude's own folder) cannot live under C:\Amit: list each one in the layout map so it is still known.
+
+**Moving Ryan's computer (later, only when asked):** finish releases first; back up private files; COPY, do not move; update fixed paths (CLAUDE.md files, hooks, scripts, shortcuts, the Coder's config.json); carry over Claude Code memory and past sessions (stored by folder path); anything that reaches the files through OneDrive stops seeing changes; test; keep the old folder until proven; work in only one of the two.
+**Installer side:** AmitHelper\Sessions_Start.md, "INSTALLER AND THE ONE AMIT FOLDER".
+**Still to decide:** folder names; whether the Helper moves out of Windows app-data; where captures and temporary files go.
+
 ## Directory
 - Sessions_Start.md (this), Sessions_ToDo.md (open and resolved items), `Daily Sessions\` (history: one text file per session; the old Sessions_Log.md files were split into each project's Daily Sessions folder on 2026-11-15 and sent to the Recycle Bin).
 - Full session history: `amit_sessions` table in Supabase. Build history: `Amit_BuildLog.md` (last entry Session 35; looks out of date: newer work is logged elsewhere).

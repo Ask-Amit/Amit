@@ -14,13 +14,38 @@ Read this file first; it is all a new session needs. Read Sessions_ToDo.md only 
 - Ryan agreed to the design and safety limits for the phone as the full Amit. Not built. Next: step 1, look-up only (AmitBooks jobs, budgets, spending; pursuits; calendar), with web search off whenever records are opened.
 - Full record: Sessions_Design.md, "ONE AMIT, AT THE DESK OR IN THE POCKET". The code lives in the Helper, AskAmit and Amit Mobile.
 
-## RESUME: AmitCoder - working screen (2026-11-25)
-- Ended: designed on paper the way of working inside Amit Coder: build on the running app by pointing and talking, a live test copy of the whole project, development kept apart from Amit while all Amit tools keep working. Looked up the guided Amit Previewer and the sending rules: today the previewer loads one sandboxed HTML file, so it cannot run linked pages or grow a live app. Preview v1 made earlier. Nothing built or pushed.
-- Next: continue the design discussion (sections 10 and 13 to 16): the layout, building on the app itself, live project mode and the protections. Ryan: it must be graphical, grow on itself, and every part, including linked pages, must work while being built. Discuss before changing the preview. Last offer not answered: open the existing guided Previewer so he can try it.
-- Files: Sessions_Design.md section "AMIT CODER WORKING SCREEN AND PLATFORM DIRECTION" (start at 10 and 11); Previews/AmitCoder_Screen_Preview.html (v1, no verdict yet); AmitCoder.html v6.43 and AmitPreview.html v2.17 (both match the repo copy).
-- Decisions waiting: section 11, plus the proposals in sections 13 to 16 (none approved as design; live project mode and the protections are recorded as proposals). Set by Ryan: keep Amit alive; separate from Amit and askamit.org with all Amit tools working.
-- Also set after the clean-up: same principle for everyone, each develops with their own login and credentials (design section 16).
-- Open to-dos: 106 (counted 2026-11-25), none added today.
+## RESUME: AmitCoder - permission levels (2026-11-26, session 92edde33)
+- v7.14 (screen 0.02, link 0.04, engine 0.03, Helper 2.37). Approved preview: Previews\AmitCoder_Permissions_Preview.html.
+- How it works: the engine file is also the GATE (a PreToolUse hook, "--gate") passed to Claude Code in both setups, so every action except reading and Claude's own note-keeping reaches the engine (tested in both setups). judge() in the engine decides by level and writes the card. Level file: permission_level.json in the engine's state folder; loosening needs confirm.
+- Protected at every level: delete, publish, install, send, money words, closing/starting programs or computer setup, unexplained or script-running commands, files that control permissions. Programs/setup was ADDED beyond the preview's list.
+- The check for risky actions has limits (the page says it can miss things). Do not offer it to other people yet.
+- Tested: 129 rule checks; real Claude Code (Haiku, empty folder): full and light setups, delete No kept the file, delete Yes removed it, loosening without yes refused; screen with a pretend connection.
+- NEXT: Ryan tries it signed in. Do not offer to other people yet.
+
+## RESUME: AmitCoder - Coding page is LIVE (2026-11-26, session 92edde33)
+- LIVE: AmitCoder.html v7.13 + amit_coder_screen.js v0.01 (owner only), Helper 2.36. Left side: Overview (tabs: Introduction, Get Started, Overview, History, Docs, Dev Practices, Library, Settings, Previewer, Amit's Builds), Shortcuts, Coding. This replaces the older page lists below.
+- Tested: the engine with real Claude Code on Haiku in an empty folder (typed message, Talk with Amit, Allow, Deny); the screen with a pretend connection.
+- NEXT: Ryan tests the Coding page signed in: the whole live path is NOT proven. Not tested with real Claude Code: Save and wrap up, Study Scripture, Helper rules, full setup, Stop, Resume last.
+- Still missing: formatted replies, nested projects, New project, Save wrapping up every project, a way for another person to set their Amit folder.
+- Offered, not answered: remove the repeated Overview tab. The round + button covers part of a switch in Shortcuts.
+
+## RESUME: AmitCoder - new page is LIVE (2026-11-26, session 92edde33)
+- LIVE: AmitCoder.html v7.09 (c52eeab), the page the Hub opens. AmitCoder_NEW.html now only forwards to it. This replaces the older LIVE and Next lines below about the two pages. Old page kept locally: Backups\AmitCoder\AmitCoder_Original_v6.43.html (not published under another name, Ryan's choice).
+- Pages: Introduction, Get Started, Overview (Overview, History, Docs, Dev Practices, Library, Settings, Previewer), Shortcuts, Amit's Builds, and the ideas button. Pairing removed (needed VS Code). Add Page is hidden.
+- Ryan: no VS Code; the one-line Claude Code install is what Get Started and the installer use. Starter kit no longer writes .vscode or .devcontainer.
+- amit_coder_link.js v0.03: contacts this computer only after confirming the owner.
+- NOT TESTED with a real sign-in: saving and loading shortcuts, library, ideas, history. NOT TESTED: Get Started and the installer on a new computer.
+- The coding screen is still not in the page: owner only, needs Node.js, folder setting written by hand here.
+
+## RESUME: AmitCoder - working screen (2026-11-26, after Helper 2.34)
+- Ended: Helper 2.34 + installer 5.42 PUSHED (0cabea7), installed and running here; live release check ALL PASS. It adds the coding connection /api/coder (owner only while being built).
+- LIVE: Helper 2.34; AmitCoder/AmitCoder_NEW.html v7.03 with amit_coder_link.js v0.02 (test page); template v1.02 + amit_master.js (1f6f02c; Ryan: the template looks like it is working). AmitCoder.html on the website is still the original v6.43 with the shortcut screen. The local AmitCoder.html is v7.03 (not pushed under that name). Backup of v6.43: Backups\AmitCoder\AmitCoder_Original_v6.43.html.
+- NOT YET PROVEN: the coding connection with Ryan's real sign-in (tested whole-path with PRETEND account checks and real Claude Haiku; the real Helper refused another website and a fake sign-in). Speed through the real Helper not timed.
+- Next: (1) Ryan opens https://askamit.org/AmitCoder/AmitCoder_NEW.html signed in: the line under the version should read "On this computer: ...". (2) Then move the working screen onto Page 2 (Ryan: NOT yet, until the connection works); everything on the carry-over list (design section 18) goes with it. (3) Name Page 2 and its tabs. Move Shortcuts over before this page ever replaces AmitCoder.html.
+- Engine: ComputerHealth\Watchers amit_coder_routes.ps1, amit_coder_engine.js, amit_coder_sessions.js (needs Node.js; the Amit folder is set in %LOCALAPPDATA%\AmitComputerHealth\AmitCoder\config.json, written by hand on this computer; nothing sets it for another person yet).
+- The proof of concept (RoundTripTest\) is unchanged as the reference.
+- Decisions waiting: design section 11 and the proposals in 13 to 20; phone safety limit before coding from away; custom buttons built inside the Coder (discussed; keep-code-hidden question unanswered); full-screen chat place in the template (preview in Templates\Previews).
+- Open to-dos: 120 (counted 2026-11-26).
 
 ## CURRENT STATE
 AmitCoder is the paid, login-gated coding workspace: shortcuts, session history, a starter kit, and (newest) the Amit Preview tool. Product model (agreed 2026-10-31, discussion only): a subscriber gets the same CLAUDE.md / Sessions files mechanics Ryan uses, tailored to them, on their own computer with their own Claude account; the shared Amit file is delivered by a session-start hook; Amit software never reads or stores the person's Claude login. Price is NOT set. Billing is not wired.
@@ -42,7 +67,7 @@ Amit Coder has to keep Amit alive. Without that, the whole platform would be cor
 ## FILES IN PLAY (under AmitCoder\ unless stated)
 | File | What it is | Version |
 |---|---|---|
-| AmitCoder.html | the workspace page | v6.43 (matches the repo copy 2026-11-25) |
+| AmitCoder.html | the workspace page | v7.03 local; live as AmitCoder_NEW.html (AmitCoder.html live: v6.43) |
 | AmitPreview.html | Amit Preview window page | v2.17 |
 | Amit_Coder_Starter_Kit.ps1 | project scaffolding | none |
 | Templates\amit_previewer.html | guided previewer | v1.00 |
@@ -53,10 +78,10 @@ Amit Coder has to keep Amit alive. Without that, the whole platform would be cor
 | CLAUDE.md | project rules | not read for this record |
 
 ## OPEN TO-DOS
-Open to-dos: 106 items, see Sessions_ToDo.md.
+Open to-dos: 120 items, see Sessions_ToDo.md.
 
 last clean-up: built 2026-11-13 from the old Sessions.md (now in Backups\AmitCoder\Sessions_backup_2026-11-13.md), newest log entry dated 2026-11-07 (Current State) / 2026-11-06 (Log).
-Last clean-up: 2026-11-26T02:54Z, session 958e9ff7-50f6-4a17-a3ac-eca2025120e8
+Last clean-up: 2026-11-26T18:48Z, session 958e9ff7-50f6-4a17-a3ac-eca2025120e8
 
 ## ORIGINAL SESSIONS
 Originals were not recorded before 2026-11-13. From the next clean-up on, each entry names its session (name, ID and path under C:\Users\user1\.claude\projects\c--Users-user1-OneDrive-Documents---onedrive-Amit\). Those files expire on Claude's own schedule, which is acceptable because the log is the permanent record.
