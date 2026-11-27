@@ -148,7 +148,7 @@ function global:Invoke-AmitCoderRoute {
         Send-JsonRaw $Response $t
         return
     }
-    if (@('new', 'send', 'permission', 'stop', 'name', 'open') -contains $what -and $Request.HttpMethod -eq 'POST') {
+    if (@('new', 'send', 'permission', 'stop', 'name', 'open', 'level') -contains $what -and $Request.HttpMethod -eq 'POST') {
         $b = $null; try { $b = (As-Js).DeserializeObject((As-Body $Request)) } catch { }
         if ($null -eq $b) { $b = @{} }
         if ($what -eq 'send' -or $what -eq 'open') {

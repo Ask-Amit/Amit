@@ -1,4 +1,4 @@
-/* amit_coder_link.js v0.03 (2026-11-26) - the ONE connection layer of Amit Coder.
+/* amit_coder_link.js v0.04 (2026-11-26) - the ONE connection layer of Amit Coder.
    The coding screen talks only to AmitCoderLink. How the messages travel is a ROUTE behind it:
      local : this computer, through the shared Amit Helper at http://localhost:8710 (routes /api/coder/*)
      away  : another device reaching your computer over the internet (version 2, NOT BUILT)
@@ -148,13 +148,14 @@
   async function post(what, body) { return route && session ? route.post(what, body) : false; }
   async function get(what) { return route && session ? route.get(what) : null; }
   window.AmitCoderLink = {
-    version: '0.03', client: null,
+    version: '0.04', client: null,
     refresh: refresh, state: function () { return stateNow; }, lastError: function () { return lastError; },
     onState: function (f) { stateFns.push(f); }, onEvent: function (f) { eventFns.push(f); },
     newSession: function (o) { return post('new', o); },
     send: function (text, o) { return post('send', Object.assign({ text: text }, o || {})); },
     permission: function (id, allow) { return post('permission', { id: id, allow: !!allow }); },
     stop: function () { return post('stop'); },
+    level: function (to, confirm) { return post('level', to ? { level: to, confirm: !!confirm } : {}); },
     name: function (project, piece) { return post('name', { project: project, piece: piece }); },
     open: function (id, o) { return post('open', Object.assign({ id: id }, o || {})); },
     sessions: function () { return get('sessions'); },

@@ -1,4 +1,5 @@
-/* amit_coder_screen.js v0.01 (2026-11-26) - the working screen of Amit Coder (the Coding page).
+/* amit_coder_screen.js v0.02 (2026-11-26): permission levels and plain-language approval cards.
+   Was v0.01 - the working screen of Amit Coder (the Coding page).
    Carried over from the round-trip test (RoundTripTest\page.html). The one difference: it talks to the person's computer only
    through AmitCoderLink (amit_coder_link.js), which goes through the shared Amit Helper.
    AmitCoderScreen.mount(element) puts the screen on a page. The same screen is moved if the page is rebuilt, so nothing is lost. */
@@ -48,6 +49,16 @@
 #cd pre{white-space:pre-wrap;word-break:break-word;font:12.5px/1.45 Consolas,monospace;background:#050b12;padding:7px;border-radius:5px;margin-top:6px;max-height:320px;overflow:auto}
 #cd .permit{border:2px solid #e8c56a;border-radius:10px;padding:10px;background:#201d12}
 #cd .permit button{margin:8px 8px 0 0}
+#cd-levels{width:100%;display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:13.5px}
+#cd-levels button.on{background:#c9a84c;color:#09141f;font-weight:700;opacity:1}
+#cd-level-text{width:100%;font-size:12.5px;opacity:.8}
+#cd .permit h3{margin:0 0 6px;font-size:17px}
+#cd .permit p{margin:3px 0}
+#cd .permit .k{color:#e8c56a;font-weight:600}
+#cd .permit .warn{margin-top:8px;background:#2c1a12;border:1px solid #ffb08a;color:#ffb08a;border-radius:8px;padding:7px 10px}
+#cd .permit .heads{margin-top:8px;border:1px solid #7fb6e8;background:#12222f;color:#cfe6fa;border-radius:8px;padding:7px 10px}
+#cd .permit .more{background:none;border:0;text-decoration:underline;opacity:.75}
+#cd .permit .once{font-size:12px;opacity:.65;margin-top:7px}
 #cd .done{font-size:12.5px;opacity:.7;white-space:pre-wrap}
 #cd .work-btn{display:inline-flex;align-items:center;gap:9px;font:13.5px Consolas,monospace;color:#e8c56a}
 #cd .work-btn i{width:16px;height:16px;border:2px solid #e8c56a;border-radius:50%;position:relative}
@@ -67,6 +78,7 @@
   <label>Effort <select id="cd-effort"><option value="">my default</option><option>low</option><option>medium</option><option>high</option></select></label>
   <label>Setup <select id="cd-hooks"><option value="light">light (buttons)</option><option value="full">my full setup</option></select></label>
   <button id="cd-new">New session</button><button id="cd-past-open" title="Open or continue an earlier session">📂 Sessions</button><button id="cd-resume">Resume last</button>
+  <div id="cd-levels"><b>How often should Amit ask you?</b><button data-lv="0" disabled>Ask me everything</button><button data-lv="1" disabled>Ask me some things</button><button data-lv="2" disabled>Ask me very little</button><div id="cd-level-text">Your choice appears when your computer is connected.</div></div>
   <div id="cd-meter"><span class="m" id="cd-m-five_hour"><b>5-hour</b><u><i></i></u><span>waiting for the first message</span><small></small></span><span class="m" id="cd-m-seven_day"><b>Week</b><u><i></i></u><span>waiting</span><small></small></span><span id="cd-age"></span></div>
   <div id="cd-where"><b>Project</b><span class="combo"><input id="cd-project" placeholder="type to find a project" autocomplete="off"><div id="cd-drop" hidden></div></span><b>Topic</b><input id="cd-topic" placeholder="optional, like Amit Pad, then Enter" title="The part of the project you are working on. It is added to the session name."><span id="cd-where-text"></span></div>
   <div id="cd-sess"></div>
@@ -144,24 +156,69 @@
     var short = function (s, n) { s = String(s).replace(/\s+/g, ' '); return s.length > n ? s.slice(0, n) + '…' : s; };
     var argOf = function (i) { return (i && (i.file_path || i.command || i.pattern || i.query || i.url || i.description || i.prompt)) || ''; };
     function resultText(c) { if (typeof c === 'string') return c; if (Array.isArray(c)) return c.map(function (x) { return x.type === 'text' ? x.text : '[' + x.type + ']'; }).join('\n'); return JSON.stringify(c, null, 2); }
+    /* ── approval cards. The Helper's engine writes the card and decides what needs one; this only shows it ── */
+    function make(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+    function askCard(c, yesText, onceText, onAnswer) {
+      var d = make('div', 'permit'); d.appendChild(make('h3', '', c.title));
+      [['Why: ', c.why], ['What it does: ', c.what]].forEach(function (p) { if (!p[1]) return; var line = make('p'); line.appendChild(make('span', 'k', p[0])); line.appendChild(document.createTextNode(p[1])); d.appendChild(line); });
+      (c.warnings || []).forEach(function (w) { d.appendChild(make('div', 'warn', '⚠ ' + w)); });
+      if (c.heads) d.appendChild(make('div', 'heads', 'ℹ ' + c.heads));
+      var bar = make('div'), yes = make('button', 'gold', yesText), no = make('button', '', 'No'); bar.append(yes, no);
+      if (c.details) {
+        var more = make('button', 'more', 'Show details'), pre = make('pre', '', c.details); pre.hidden = true;
+        more.onclick = function () { pre.hidden = !pre.hidden; more.textContent = pre.hidden ? 'Show details' : 'Hide details'; };
+        bar.appendChild(more); d.append(bar, pre);
+      } else d.appendChild(bar);
+      d.appendChild(make('div', 'once', onceText));
+      var answer = function (ok) {
+        yes.disabled = no.disabled = true;
+        onAnswer(ok).then(function (result) { yes.remove(); no.remove(); bar.appendChild(make('b', '', result.text)); if (result.then) result.then(); });
+      };
+      yes.onclick = function () { answer(true); }; no.onclick = function () { answer(false); };
+      return d;
+    }
     function permission(o, t) {
-      var req = o.request, w = row('', null, t, true), d = document.createElement('div'); d.className = 'permit';
-      var h = document.createElement('b'); h.textContent = 'Claude Code asks permission to use ' + req.tool_name;
-      var p = document.createElement('pre'); p.textContent = JSON.stringify(req.input, null, 2); d.append(h, p);
+      var req = o.request, w = row('', null, t, true);
+      // An older Helper sends no card: then the technical request is shown as it is.
+      var card = o.card || { title: 'Claude Code asks permission to use ' + req.tool_name, what: 'This Helper can’t explain this request in everyday words.', warnings: [], details: JSON.stringify(req.input, null, 2) };
       if (run) run.open++;
-      [['Allow', true], ['Deny', false]].forEach(function (pair) {
-        var b = document.createElement('button'); b.textContent = pair[0]; if (pair[1]) b.className = 'gold';
-        b.onclick = function () {
-          link().permission(o.request_id, pair[1]).then(function (ok) {
-            d.querySelectorAll('button').forEach(function (x) { x.remove(); });
-            var s = document.createElement('div'); s.textContent = ok ? 'You pressed ' + pair[0] + '.' : 'This request is no longer waiting.'; d.appendChild(s);
-            if (run && run.open) run.open--;
-            if (ok && run && run.panel) run.panel.appendChild(w.parentNode);
-          });
-        };
-        d.appendChild(b);
-      });
-      w.appendChild(d); follow();
+      w.appendChild(askCard(card, 'Yes, do it', 'Your yes covers only this one action. If Amit needs to do something else, it is checked again.', function (ok) {
+        return link().permission(o.request_id, ok).then(function (sent) {
+          if (run && run.open) run.open--;
+          return { text: !sent ? 'This request is no longer waiting.' : ok ? 'You said yes.' : 'You said no.', then: function () { if (sent && run && run.panel) run.panel.appendChild(w.parentNode); } };
+        });
+      }));
+      follow();
+    }
+
+    /* ── how often to be asked. The level is kept and enforced on the person's computer ── */
+    var NAMES = ['Ask me everything', 'Ask me some things', 'Ask me very little'], IDS = ['every', 'some', 'little'], level = -1, loosening = null;
+    var ALWAYS_ASKS = ' Always asks: deleting, publishing, installing, spending money, sending information, closing or starting programs, anything Amit can’t explain, and loosening this setting. The check can miss things.';
+    var ABOUT = ['Without asking: reading and searching your files. Asks first: every command and file change.',
+      'Without asking: reading, searching and changing files inside this project. Asks first: commands, and anything outside this project.',
+      'Without asking: everyday work, including commands and files outside this project.'];
+    var levelButtons = function () { return Array.prototype.slice.call(root.querySelectorAll('#cd-levels button')); };
+    function drawLevel() {
+      levelButtons().forEach(function (b, i) { b.classList.toggle('on', i === level); b.disabled = !ready || level < 0 || !!loosening; b.textContent = (i === level ? '✓ ' : '') + NAMES[i]; });
+      if (level >= 0) q('level-text').textContent = ABOUT[level] + ALWAYS_ASKS;
+    }
+    function setLevel(i, yes) { return link().level(IDS[i], yes); }
+    function chooseLevel(i) {
+      if (i === level || loosening) return;
+      if (i < level) { setLevel(i, false).then(function (ok) { row('quiet', ok ? 'Now set to “' + NAMES[i] + '”.' : 'The setting could not be changed.', 0, true); }); return; }
+      var w = row('', null, 0, true);
+      loosening = w;
+      w.appendChild(askCard({ title: 'Let Amit ask you less often?', why: 'you chose “' + NAMES[i] + '”.', what: 'Amit will do more without checking with you first. You can switch back at any time.', warnings: ['Amit’s check for risky actions can miss some. For example, a script can delete files without saying so.'] },
+        'Yes, change it', 'Only you can make this change. Asking more often happens right away.', function (ok) {
+          var done = function (text) { loosening = null; drawLevel(); return { text: text }; };
+          if (!ok) return Promise.resolve(done('Left at “' + NAMES[level] + '”.'));
+          return setLevel(i, true).then(function (sent) { return done(sent ? 'Changed to “' + NAMES[i] + '”.' : 'The setting could not be changed.'); });
+        }));
+      drawLevel(); follow();
+    }
+    levelButtons().forEach(function (b, i) { b.onclick = function () { chooseLevel(i); }; });
+    function askLevel() {
+      link().level().then(function (ok) { if (!ok) q('level-text').textContent = 'Permission levels need Amit Helper 2.37 or newer.'; });
     }
 
     /* ── plan use, as Claude Code reports it with its replies; shown as received ── */
@@ -298,6 +355,7 @@
     }
     function onEvent(e) {
       if (e.kind === 'session') { showWhere(e.data); return; }
+      if (e.kind === 'level') { level = IDS.indexOf(e.data.level); drawLevel(); return; }
       if (e.t && e.t < openedAt - 3000) return;                    // what happened before this page was opened is not replayed
       if (e.kind === 'history') {
         run = null; q('log').textContent = ''; extras().forEach(function (b) { b.classList.remove('used'); }); controls();
@@ -384,19 +442,19 @@
     /* ── the connection ── */
     function connection(x) {
       var was = ready; ready = x.code === 'local-ready';
-      if (ready) { if (!was) { q('info').textContent = 'Connected to ' + x.computer + '. Claude Code reports its details after your first message.'; loadProjects(); } }
+      if (ready) { if (!was) { q('info').textContent = 'Connected to ' + x.computer + '. Claude Code reports its details after your first message.'; loadProjects(); setTimeout(askLevel, 200); } }
       else {
         if (was && run && !run.over) { row('err', 'The connection to your computer was lost.', 0, true); end(); }
         q('info').textContent = x.code === 'checking' ? 'Checking the connection…' : x.code === 'signed-out' ? 'Sign in to connect to your computer.' : 'Not connected. ' + (x.missing || []).join(' ');
       }
-      controls();
+      controls(); drawLevel();
     }
     link().onState(connection); link().onEvent(onEvent);
     showWhere(null); drawSession(); drawMeter(); connection(link().state()); link().refresh();
   }
 
   window.AmitCoderScreen = {
-    version: '0.01',
+    version: '0.02',
     mount: function (host) {
       if (!host || !window.AmitCoderLink) return;
       if (!root) build();

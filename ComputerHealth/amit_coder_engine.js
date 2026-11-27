@@ -1,10 +1,20 @@
-// amit_coder_engine.js v0.02 (Amit Helper, 2026-11-26) - runs the person's OWN Claude Code for Amit Coder.
+// amit_coder_engine.js v0.03: permission levels and plain-language approval cards.
+// Was v0.02 (Amit Helper, 2026-11-26) - runs the person's OWN Claude Code for Amit Coder.
 // It has NO network port. The one shared Helper bridge (localhost:8710) is the only door: its Amit Coder routes check who is asking,
 // then hand commands to this program as small files and read its events back. Folder: %LOCALAPPDATA%\AmitComputerHealth\AmitCoder\
 //   inbox\*.json   commands from the Helper        events.jsonl  what happened, one line each, numbered
 //   reply\<id>.json answers to questions (sessions, projects)    engine.json  heartbeat        alive.touch  the page was just here
 // Started by the Helper as: node amit_coder_engine.js <state folder> <Amit folder> <claude program>
 const fs = require('fs'), path = require('path'), os = require('os');
+// THE GATE. Claude Code runs "node amit_coder_engine.js --gate" before every action. It answers "ask", so the action comes to this
+// engine even when the person's own settings would have let it run unasked. The engine then decides by the permission level.
+// Reading, searching and Claude's own note-keeping are not gated.
+const UNGATED = /^(Read|Glob|Grep|LS|NotebookRead|TodoWrite|TaskCreate|TaskUpdate|TaskList|TaskGet|ToolSearch|Skill|Agent|Task|ExitPlanMode|EnterPlanMode|TaskOutput|BashOutput|KillShell|TaskStop)$/;
+if (process.argv[2] === '--gate') {
+  let name = ''; try { name = String(JSON.parse(fs.readFileSync(0, 'utf8')).tool_name || ''); } catch (e) {}
+  if (!UNGATED.test(name)) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: 'Amit Coder permission level' } }));
+  process.exit(0);
+}
 const { spawn, execFile } = require('child_process');
 const [STATE, ROOT, CLAUDE] = process.argv.slice(2);
 if (!STATE || !ROOT || !CLAUDE) process.exit(2);
@@ -29,8 +39,10 @@ function lightSettings() {
     const kept = groups.map((g) => Object.assign({}, g, { hooks: g.hooks.filter((h) => KEEP.test(h.command || '')) })).filter((g) => g.hooks.length);
     if (kept.length) hooks[ev] = kept;
   }
+  hooks.PreToolUse = (hooks.PreToolUse || []).concat([gateHook()]);
   const f = path.join(STATE, 'light_settings.json'); fs.writeFileSync(f, JSON.stringify({ hooks })); return f;
 }
+function fullSettings() { const f = path.join(STATE, 'gate_settings.json'); fs.writeFileSync(f, JSON.stringify({ hooks: { PreToolUse: [gateHook()] } })); return f; }
 // A button gets its rule text from the hook script that already holds it, so there is only one copy of each rule.
 function ruleText(script, words) {
   try {
@@ -47,6 +59,65 @@ const BUTTONS = {
   release: () => { const r = ruleText('helper_release_hook.ps1', 'release the helper'); return r && 'I pressed Helper release rules. Load the rules only. Do NOT build, install, publish, push or change anything. Tell me briefly what a release requires, then wait.\n\n' + r; }
 };
 
+// PERMISSION LEVELS. Kept on this computer. Loosening needs the person's own yes (the page sends confirm after its card).
+const LEVELS = ['every', 'some', 'little'];
+const LEVELFILE = path.join(STATE, 'permission_level.json');
+function getLevel() { try { const v = JSON.parse(fs.readFileSync(LEVELFILE, 'utf8')).level; return LEVELS.includes(v) ? v : 'some'; } catch (e) { return 'some'; } }
+//JUDGE-START
+// The protected list: these ask at EVERY level. This is a check of the words in a command, so it can miss things.
+const PROTECTED = [
+  ['delete', 'This deletes or erases things. They may not be recoverable.', /(^|[\s;|&({'"])(rm|rmdir|rd|del|erase|ri|Remove-Item|Remove-\w+|Clear-Content|Clear-RecycleBin|unlink|shred|Format-Volume|diskpart)(\.exe)?(?=$|[\s;|&)'"])|git\s+(\S+\s+)*?(clean\b|reset\s+--hard|checkout\s+--|restore\b|branch\s+-D|stash\s+(drop|clear)|rm\b)|\.(rm|rmSync|unlink|unlinkSync|rmdir|rmdirSync)\s*\(|::Delete\s*\(|\.Delete\s*\(|shutil\.rmtree|\s-delete\b|robocopy.*\s\/(mir|purge)\b|\b(drop\s+(table|database|schema|policy)|truncate\s+table|delete\s+from)\b|-Method\s+['"]?Delete|(-X|--request)\s*['"]?DELETE/i],
+  ['publish', 'This publishes. Other people may be able to see it.', /git\s+(\S+\s+)*?push\b|\bgh\s+(pr|release|repo|gist)\s+(create|merge|edit)|\b(npm|yarn|pnpm)\s+publish\b|\b(vercel|netlify|firebase|wrangler|supabase)\b.*\b(deploy|push|publish)\b/i],
+  ['install', 'This installs or removes software on your computer.', /\b(winget|choco|scoop)\b.*\b(install|upgrade|uninstall)\b|\b(npm|pnpm|yarn)\s+(i|install|add|ci|uninstall|update)\b|\bpip3?\s+(install|uninstall)\b|\bInstall-(Module|Package|Script)\b|\bmsiexec\b|Add-AppxPackage|install[\w.\-]*\.(exe|msi|ps1|bat)\b|\bapt(-get)?\s+install\b/i],
+  ['send', 'This sends information from your computer to someone or something else.', /Send-MailMessage|\bsmtp\b|sendmail|(-X|--request)\s*['"]?(POST|PUT|PATCH)|-Method\s+['"]?(POST|PUT|PATCH)|\bcurl\b.*\s(-d|-F|-T|--data\S*|--form\S*|--upload-file)\b|\b(scp|sftp|ftp)\s|webhook/i],
+  ['money', 'This may involve spending money.', /\b(stripe|paypal|checkout|purchase|payment|billing|subscribe)\b/i],
+  ['programs', 'This closes, starts or restarts programs, or changes how your computer is set up.', /Stop-Process|\btaskkill\b|\bpkill\b|(^|[\s;|&])kill\s|(Stop|Restart|Set|New)-(Service|Computer)|Start-Process|\bshutdown\b|\breg(\.exe)?\s+(add|delete|import)|HKLM:|HKCU:|\bschtasks\b|ScheduledTask|Set-ExecutionPolicy|\bnetsh\b|\bicacls\b|\btakeown\b|-Verb\s+RunAs|\bsudo\b|\bsetx\b|SetEnvironmentVariable/i],
+  ['unclear', 'Amit can’t confirm what this does. If you are not sure, choose No.', /-e(nc|ncodedcommand)?\s+[A-Za-z0-9+\/=]{16,}|FromBase64String|\biex\b|Invoke-Expression|(^|[\s;|&])eval\s|\b(node|deno|bun)\s+(-e|-p|--eval|--print)\b|\bpython[3w]?\s+(-\w+\s+)*-c\b|\b(powershell|pwsh)(\.exe)?\b.*\s-(c|command|file|f)\b|\bcmd(\.exe)?\s+\/[ck]\b|\b(bash|sh)\s+(-c\b|\S+\.sh\b)|\|\s*(sh|bash|iex|python|node|powershell|pwsh)\b|(^|[;|&]\s*|&\s+)["']?[^\s"';|&]*\.(ps1|bat|cmd|vbs|exe|msi|sh)\b/i]
+];
+const SETTINGS_PLACES = /[\\\/]\.claude([\\\/]|$)|settings(\.local)?\.json|permission_level\.json|light_settings\.json|gate_settings\.json|amit_coder_engine|AmitComputerHealth|[\\\/]\.git[\\\/]/i;
+const TITLES = { delete: 'Can I delete something?', publish: 'Can I publish?', install: 'Can I install software?', send: 'Can I send information out?', money: 'Can I do something that may cost money?', programs: 'Can I make a change to your computer?', unclear: 'Can I run something I can’t fully explain?', setting: 'Can I change a setting that controls what Amit may do?' };
+function judge(tool, input, level, base) {
+  input = input || {};
+  const card = { what: '', why: '', warnings: [], heads: '', title: '', details: '' }, kinds = [];
+  const file = input.file_path || input.notebook_path || input.path || '';
+  let auto = false;
+  if (/^(Read|Glob|Grep|LS|NotebookRead|TodoWrite|ToolSearch|Skill)$/.test(tool)) return { auto: true, kinds, card };
+  if (/^(Edit|Write|MultiEdit|NotebookEdit)$/.test(tool)) {
+    const full = path.resolve(base, String(file)), rel = path.relative(base, full), inside = !!file && !rel.startsWith('..') && !path.isAbsolute(rel);
+    const made = tool === 'Write' && !fs.existsSync(full), name = path.basename(full);
+    card.title = 'Can I ' + (made ? 'create ' : 'change ') + name + '?';
+    card.what = (made ? 'Creates a new file: ' : tool === 'Write' ? 'Replaces everything in this file: ' : 'Changes part of this file: ') + (inside ? rel : full);
+    card.details = tool + '  ' + full + '\n\n' + JSON.stringify(input, null, 2).slice(0, 6000);
+    if (!inside) card.warnings.push('This file is outside this project. Other things may use it.');
+    if (SETTINGS_PLACES.test(full)) { kinds.push('setting'); card.title = TITLES.setting; card.warnings.push('This file controls what Amit or your computer’s tools may do.'); }
+    auto = !kinds.length && (level === 'little' || (level === 'some' && inside));
+  } else if (/^(Bash|PowerShell|Monitor)$/.test(tool)) {
+    const cmd = String(input.command || ''), said = String(input.description || '').trim();
+    const parts = said.split(/\s*\|\s*why:\s*/i);
+    for (const [k, warn, rx] of PROTECTED) if (rx.test(cmd)) { kinds.push(k); card.warnings.push(warn); }
+    if (SETTINGS_PLACES.test(cmd)) { kinds.push('setting'); card.warnings.push('This touches files that control what Amit or your computer’s tools may do.'); }
+    if (!parts[0] && !kinds.includes('unclear')) { kinds.push('unclear'); card.warnings.push('No explanation came with this. If you are not sure, choose No.'); }
+    card.title = kinds.length ? TITLES[kinds[0]] : 'Can I do this on your computer?';
+    card.what = parts[0] || 'Amit did not say what this does.';
+    card.why = parts[1] || '';
+    card.details = tool + '\n' + cmd;
+    if (kinds.includes('install')) card.heads = 'Windows may also show its own box asking whether this program may make changes. That box comes from Windows, so Amit can’t reword it. If you say No there, Windows stops it.';
+    auto = !kinds.length && level === 'little';
+  } else if (/^(WebFetch|WebSearch)$/.test(tool)) {
+    card.title = 'Can I look something up on the internet?';
+    card.what = tool === 'WebSearch' ? 'Searches the web for: ' + (input.query || '') : 'Opens this web page: ' + (input.url || '');
+    card.details = tool + '\n' + JSON.stringify(input, null, 2).slice(0, 6000);
+    auto = level === 'little';
+  } else {
+    kinds.push('unclear'); card.title = 'Can I use an extra tool?'; card.what = 'Uses the tool named ' + tool + '.';
+    card.warnings.push('Amit can’t tell what this tool changes or sends. If you are not sure, choose No.');
+    card.details = tool + '\n' + JSON.stringify(input, null, 2).slice(0, 6000);
+  }
+  return { auto, kinds, card };
+}
+//JUDGE-END
+function projectBase() { const p = String(title || pendingName).split(' - ')[0]; return p && S.projects().includes(p) ? path.join(ROOT, p) : ROOT; }
+function gateHook() { return { matcher: '*', hooks: [{ type: 'command', command: 'node "' + __filename.replace(/\\/g, '/') + '" --gate', timeout: 20 }] }; }
 function push(kind, data) { fs.appendFileSync(EVENTS, JSON.stringify({ n: ++seq, t: Date.now(), kind, data }) + '\n'); }
 function toClaude(o) { if (!child || !child.stdin.writable) return false; child.stdin.write(JSON.stringify(o) + '\n'); return true; }
 function tellWhere(extra) { const p = title.split(' - ')[0]; push('session', Object.assign({ title, folder: S.projects().includes(p) ? p + '\\Daily Sessions' : 'Daily Sessions (unsorted)' }, extra || {})); }
@@ -74,7 +145,8 @@ function start(o) {
   const light = o.hooks === 'light';
   // The light setup skips the person's settings, so their default model and effort are passed in by hand.
   if (light) { const mine = userSettings(); o = Object.assign({}, o, { model: o.model || mine.model, effort: o.effort || mine.effortLevel }); args.push('--setting-sources', 'project,local', '--settings', lightSettings()); }
-  args.push('--append-system-prompt', (light ? ALWAYS + ' ' : '') + 'The Amit Coder program names this session itself. Never run rename_session.js here.');
+  else args.push('--settings', fullSettings());
+  args.push('--append-system-prompt', (light ? ALWAYS + ' ' : '') + 'The Amit Coder program names this session itself. Never run rename_session.js here. The person may be asked to approve your commands and sees your own words, not the command. So for EVERY Bash or PowerShell call write the description in this exact form: one everyday-language sentence saying everything the command will do | why: the reason in everyday words. Name anything it deletes, publishes, installs, sends, closes or overwrites. No technical terms. The description is not complete without the part after the bar. Example description: Shows the names of the files in your project | why: to find the page you asked me about');
   if (/^[a-z0-9.\-]+(\[1m\])?$/.test(o.model || '')) args.push('--model', o.model);
   if (/^(low|medium|high|xhigh|max)$/.test(o.effort || '')) args.push('--effort', o.effort);
   if (o.resume && sessionId) args.push('--resume', sessionId);
@@ -96,7 +168,11 @@ function start(o) {
         else if (!title && !asked) { asked = true; push('session', { ask: true }); }
       }
       if (m.type === 'control_request') {
-        if (m.request && m.request.subtype === 'can_use_tool') pending.set(m.request_id, m.request);
+        if (m.request && m.request.subtype === 'can_use_tool') {
+          let v; try { v = judge(m.request.tool_name, m.request.input, getLevel(), projectBase()); } catch (e) { v = { auto: false, card: null }; }
+          if (v.auto) { toClaude({ type: 'control_response', response: { subtype: 'success', request_id: m.request_id, response: { behavior: 'allow', updatedInput: m.request.input } } }); continue; }
+          m.card = v.card; pending.set(m.request_id, m.request);
+        }
         else toClaude({ type: 'control_response', response: { subtype: 'error', request_id: m.request_id, error: 'not supported' } });
       }
       push('claude', m);
@@ -128,6 +204,15 @@ function run(cmd) {
     case 'permission': {
       const r = pending.get(b.id); if (!r) return false; pending.delete(b.id);
       return toClaude({ type: 'control_response', response: { subtype: 'success', request_id: b.id, response: b.allow === true ? { behavior: 'allow', updatedInput: r.input } : { behavior: 'deny', message: 'The person pressed Deny.' } } });
+    }
+    case 'level': {
+      const now = getLevel(), want = String(b.level || '');
+      if (want) {
+        if (!LEVELS.includes(want)) return false;
+        if (LEVELS.indexOf(want) > LEVELS.indexOf(now) && b.confirm !== true) return false;
+        fs.writeFileSync(LEVELFILE, JSON.stringify({ level: want }));
+      }
+      push('level', { level: getLevel() }); return true;
     }
     case 'stop': return toClaude({ type: 'control_request', request_id: 'stop-' + Date.now(), request: { subtype: 'interrupt' } });
     case 'name': {
