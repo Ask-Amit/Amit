@@ -58,6 +58,15 @@ Full plan: root Sessions_Start.md, "DECISION: one Amit folder at C:\Amit". The i
 - Looked up or used outside our folders: Claude Code (.local\bin or the npm folder), its sign-in file under .claude, Node.js under Program Files.
 **What the work must cover:** the installer creates the layout from the one layout map and writes the settings file; checks and restricts access to C:\Amit; moves an existing install safely (stop the Helper, the coding engine and the bar first, and bring the bar back: the open gap from 5.44); updates the link registrations, start-up entry and shortcuts; the updater, reload, uninstall and verify_helper_release.ps1 read the same locations; computers on older versions update themselves without being stranded and never go backwards; test on a clean computer and on an upgraded one.
 
+## RELEASE: Helper 2.39 + installer 5.47 (2026-11-26, session 92edde33)
+- Fixes the 2.38 Coder microphone cycling: IdleCheck stopped any page listening that had no Dictate window (about every 6 seconds). It now leaves the Coder microphone alone. Found in whisper.log; 2.38 had only been tested with a pretend Helper.
+
+## RELEASE: Helper 2.38 + installer 5.46 (2026-11-26, session 92edde33)
+- Pushed 6bc1212. Release and live checks ALL PASS. Installed here: answers 2.38, record 5.46, recorders running.
+- Adds the Coder microphone and speaker routes (mic, mic-words, say, say-state; same protection as the other coder routes) using the Dictate window's listening and Amit Read.
+- Installer gap CLOSED here: setup now closes the old coding engine and bar and starts the bar again (confirmed on this computer).
+- STILL OPEN: the self-update does not close an old coding engine (not checked further); it waited again and again while a Computer Health session was running.
+
 ## RELEASE: Helper 2.37 + installer 5.45 (2026-11-26, session 92edde33)
 - Pushed 05e3939. Release check ALL PASS. Coding engine 0.03: permission levels (every / some / little, default some) and plain-language cards. Route /api/coder/level.
 - STILL OPEN from 5.44: the installer does not stop the coding engine or AmitBar; the bar did not come back after that reinstall.

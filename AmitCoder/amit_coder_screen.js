@@ -1,4 +1,5 @@
-/* amit_coder_screen.js v0.03 (2026-11-26): a microphone and a speaker that stay on until turned off.
+/* amit_coder_screen.js v0.04 (2026-11-26): the cursor goes into the message box before the microphone starts.
+   Was v0.03: a microphone and a speaker that stay on until turned off.
    Was v0.02: permission levels and plain-language approval cards.
    Was v0.01 - the working screen of Amit Coder (the Coding page).
    Carried over from the round-trip test (RoundTripTest\page.html). The one difference: it talks to the person's computer only
@@ -200,6 +201,7 @@
       });
     }
     function micStart() {
+      q('box').focus();   // the cursor goes into the message box first, before anything is switched on
       hush(); micNote = 'Turning the microphone on…'; voiceLine(); q('mic').disabled = true;
       link().micWords(-1).then(function (j) {
         micSeq = j ? j.seq : -1;
@@ -572,7 +574,7 @@
   }
 
   window.AmitCoderScreen = {
-    version: '0.03',
+    version: '0.04',
     mount: function (host) {
       if (!host || !window.AmitCoderLink) return;
       if (!root) build();

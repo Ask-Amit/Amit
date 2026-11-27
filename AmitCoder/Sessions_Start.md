@@ -14,6 +14,16 @@ Read this file first; it is all a new session needs. Read Sessions_ToDo.md only 
 - Ryan agreed to the design and safety limits for the phone as the full Amit. Not built. Next: step 1, look-up only (AmitBooks jobs, budgets, spending; pursuits; calendar), with web search off whenever records are opened.
 - Full record: Sessions_Design.md, "ONE AMIT, AT THE DESK OR IN THE POCKET". The code lives in the Helper, AskAmit and Amit Mobile.
 
+## RESUME: AmitCoder - microphone fix (2026-11-26, session 92edde33)
+- v7.16, screen 0.04, Helper 2.39: the microphone cycled on and off in 2.38 (Helper check, fixed); the cursor now goes into the message box before it starts. NOT YET CONFIRMED with Ryan's voice.
+- Ryan wants, as in VS Code: send another message while Amit is still working. NOT BUILT (words wait in the box). Also not built: the project list refreshing by itself so a newly created project can be chosen. Offered; not answered.
+
+## RESUME: AmitCoder - microphone and speaker (2026-11-26, session 92edde33)
+- LIVE: AmitCoder.html v7.15, screen 0.03, link 0.05, Helper 2.38. Approved preview: Previews/AmitCoder_Microphone_Preview.html.
+- Both buttons stay on until turned off. Mic: words go to the message box wherever the focus is; Enter or right-click sends and it keeps listening; while Amit works the words wait; it turns off if the connection drops or the page stops asking for 30 seconds. Speaker: reads the closing message and approval requests only; starts off.
+- Tested: Helper compiles; screen with a pretend connection. NOT TESTED: the real microphone and voice, a real right-click (the Helper also uses the right button), long quiet periods.
+- NEXT: Ryan tests signed in: permission levels, microphone, speaker.
+
 ## RESUME: AmitCoder - permission levels (2026-11-26, session 92edde33)
 - v7.14 (screen 0.02, link 0.04, engine 0.03, Helper 2.37). Approved preview: Previews\AmitCoder_Permissions_Preview.html.
 - How it works: the engine file is also the GATE (a PreToolUse hook, "--gate") passed to Claude Code in both setups, so every action except reading and Claude's own note-keeping reaches the engine (tested in both setups). judge() in the engine decides by level and writes the card. Level file: permission_level.json in the engine's state folder; loosening needs confirm.
