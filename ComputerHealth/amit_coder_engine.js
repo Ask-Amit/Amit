@@ -1,4 +1,9 @@
-// amit_coder_engine.js v0.07: the approval card no longer calls an ordinary, well-described PowerShell/Bash call "unclear" just because it runs as "powershell -Command ..."
+// amit_coder_engine.js v0.11 (2026-11-28): the permission rules Ryan agreed, for "Ask me very little", with undo copies. Record: AmitCoder/Sessions_Design.md, APPROVALS AND THE APPROVAL LIST.
+// Was v0.10: the Coder closes ONLY a program running the same chat it is using; every other chat stays open (Ryan, 2026-11-28).
+// Was v0.09: a command with no explanation is sent back to be rewritten instead of asking the person.
+// Was v0.08: only one coding session at a time. When Amit Coder starts it closes every other Claude Code session on this computer
+//   (VS Code's too); when it shuts down (no page for 2 minutes and no job running) it closes them all, its own included. For building the Coder (owner only).
+// Was v0.07: the approval card no longer calls an ordinary, well-described PowerShell/Bash call "unclear" just because it runs as "powershell -Command ..."
 //   (that matched almost every call this engine itself makes); the "unclear" title and warning read as a confident ask, not self-doubt, for the genuinely opaque cases left.
 // Was v0.06: a setting for how much technical detail to explain with (plain/some/technical), separate from the permission level.
 // Was v0.05: a message can carry attachments (pictures, PDFs, text files).
@@ -15,9 +20,13 @@ const fs = require('fs'), path = require('path'), os = require('os');
 // engine even when the person's own settings would have let it run unasked. The engine then decides by the permission level.
 // Reading, searching and Claude's own note-keeping are not gated.
 const UNGATED = /^(Read|Glob|Grep|LS|NotebookRead|TodoWrite|TaskCreate|TaskUpdate|TaskList|TaskGet|ToolSearch|Skill|Agent|Task|ExitPlanMode|EnterPlanMode|TaskOutput|BashOutput|KillShell|TaskStop)$/;
+const KEYGATE = /(supabase_config.md|amit_coder_credentials.md|(^|[\/]).env(.[w-]+)?$|.(pem|pfx|p12|key|ppk)$|(^|[\/]).?credentials(.json)?$|(^|[\/])id_(rsa|ed25519)$|(^|[\/])secrets?.(json|ya?ml|txt|md)$|(^|[\/])token.json$)/i;
 if (process.argv[2] === '--gate') {
-  let name = ''; try { name = String(JSON.parse(fs.readFileSync(0, 'utf8')).tool_name || ''); } catch (e) {}
-  if (!UNGATED.test(name)) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: 'Amit Coder permission level' } }));
+  let name = '', input = {}; try { const j = JSON.parse(fs.readFileSync(0, 'utf8')); name = String(j.tool_name || ''); input = j.tool_input || {}; } catch (e) {}
+  // A command with no explanation goes back to be rewritten (agents often leave it out); the person is not asked. The new try is judged as usual.
+  const unexplained = /^(Bash|PowerShell|Monitor)$/.test(name) && !String(input.description || '').split(/\s*\|\s*why:\s*/i)[0].trim();
+  const keyed = /^(Read|Grep)$/.test(name) && KEYGATE.test(String(input.file_path || input.path || ''));
+  if (keyed || !UNGATED.test(name)) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: unexplained ? 'deny' : 'ask', permissionDecisionReason: unexplained ? 'Not run, because it has no explanation. Send the same command again with its description in this form: one everyday-language sentence saying everything the command will do | why: the reason in everyday words.' : 'Amit Coder permission level' } }));
   process.exit(0);
 }
 const { spawn, execFile } = require('child_process');
@@ -94,6 +103,9 @@ const PROTECTED = [
 const SETTINGS_PLACES = /[\\\/]\.claude([\\\/]|$)|settings(\.local)?\.json|permission_level\.json|light_settings\.json|gate_settings\.json|amit_coder_engine|AmitComputerHealth|[\\\/]\.git[\\\/]/i;
 const TITLES = { delete: 'Can I delete something?', publish: 'Can I publish?', install: 'Can I install software?', send: 'Can I send information out?', money: 'Can I do something that may cost money?', programs: 'Can I make a change to your computer?', unclear: 'Can I go ahead with this?', setting: 'Can I change a setting that controls what Amit may do?' };
 function judge(tool, input, level, base) {
+  if (level === 'little') return judgeLittle(tool, input || {}, base);
+  const keyed = /^(Read|Grep)$/.test(tool) && KEYFILE.test(String((input || {}).file_path || (input || {}).path || ''));
+  if (keyed) return keyCard(tool, input);
   input = input || {};
   const card = { what: '', why: '', warnings: [], heads: '', title: '', details: '' }, kinds = [];
   const file = input.file_path || input.notebook_path || input.path || '';
@@ -132,6 +144,145 @@ function judge(tool, input, level, base) {
   }
   return { auto, kinds, card };
 }
+
+// ── THE AGREED RULES for "Ask me very little" (Ryan, 2026-11-28). These check words, paths and file contents; they lower risk and can miss things.
+const sha = (x) => require('crypto').createHash('sha256').update(x).digest('hex');
+const MEM = { made: new Map(), scripts: new Set() };   // throwaway files Amit made, and scripts already approved: this session only
+const SCRATCH = path.join(os.tmpdir(), 'AmitCoderTemp');
+const UNDO = process.env.AMIT_CODER_UNDO || path.join(process.env.LOCALAPPDATA || os.homedir(), 'AmitCoderUndo');   // this computer only, outside OneDrive
+const UNDO_DAYS = 7, UNDO_MAX = 500e6, UNDO_ONE = 50e6;
+const KEYFILE = /(supabase_config\.md|amit_coder_credentials\.md|(^|[\\\/])\.env(\.[\w-]+)?$|\.(pem|pfx|p12|key|ppk)$|(^|[\\\/])\.?credentials(\.json)?$|(^|[\\\/])id_(rsa|ed25519)$|(^|[\\\/])secrets?\.(json|ya?ml|txt|md)$|(^|[\\\/])token\.json$)/i;
+const KEYWORDS = /supabase_config\.md|amit_coder_credentials\.md|(^|[\s\\\/"'=])\.env\b|\.(pem|pfx|p12|ppk)\b|\bid_(rsa|ed25519)\b|\.credentials\b|\bcredentials\.json\b/i;
+const SECRET = /sb_secret_\w{10,}|sk-[A-Za-z0-9_\-]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY|eyJ[\w-]{15,}\.[\w-]{15,}\.[\w-]{10,}/;
+const RULEFILE = /(^|[\\\/\s"'])(CLAUDE\.md|Shortcuts_Activation\.md|Cleanup_Procedure\.md|HELPER_RELEASE_RULES\.md|Closing_Sequence\.md|AMIT_ANSWERER_RULES\.md|Investigator\.md)(?![\w.])/i;
+const CONTROL = /[\\\/]\.claude(?![\\\/]projects[\\\/][^\\\/]+[\\\/]memory[\\\/])([\\\/]|(?![\w]))|settings(\.local)?\.json|permission_level\.json|light_settings\.json|gate_settings\.json|amit_coder_(engine|routes|link|screen|sessions)|[\\\/]\.git([\\\/]|(?![\w]))|AmitComputerHealth[\\\/](Watchers|AmitCoder)\b/i;
+const PROGRAMS = /Stop-Process|\btaskkill\b|\bpkill\b|(^|[\s;|&])kill\s|(Stop|Restart|Set|New|Start|Suspend)-(Service|Computer)|Start-Process|\bshutdown\b|\breg(\.exe)?\s+(add|delete|import)|(Set|New|Remove|Rename)-ItemProperty|\bschtasks\b(?!.*\/query)|(Register|Unregister|Set|Enable|Disable|Start|Stop)-ScheduledTask|Set-ExecutionPolicy|\bnetsh\b(?!.*\bshow\b)|\bicacls\b|\btakeown\b|-Verb\s+RunAs|\bsudo\b|\bsetx\b|SetEnvironmentVariable|(^|[\s;|&])(start|nohup)\s/i;
+const ALWAYS_HIDDEN = /-e(nc|ncodedcommand)?\s+[A-Za-z0-9+\/=]{16,}|FromBase64String|\b(curl|wget|iwr|irm|Invoke-WebRequest|Invoke-RestMethod)\b.*\|\s*(sh|bash|iex|Invoke-Expression|python3?|node|powershell|pwsh)\b|(\biex\b|Invoke-Expression).*(https?:|DownloadString)/i;
+const INLINE = /\biex\b|Invoke-Expression|(^|[\s;|&])eval\s|\b(node|deno|bun)\s+(-e|-p|--eval|--print)\b|\bpython[3w]?\s+(-\w+\s+)*-c\b|\bcmd(\.exe)?\s+\/[ck]\b|\b(bash|sh)\s+-c\b|\|\s*(sh|bash|iex|python3?|node|powershell|pwsh)\b/i;
+const SCRIPT = /(?:\b(?:node|python[3w]?|bash|sh|deno|bun)\s+(?!-)|-File\s+|(?:^|[;|&]\s*|&\s+))(?:"([^"]+\.(?:js|mjs|cjs|py|sh|ps1|bat|cmd|vbs|exe|msi))"|'([^']+\.(?:js|mjs|cjs|py|sh|ps1|bat|cmd|vbs|exe|msi))'|([^\s"';|&]+\.(?:js|mjs|cjs|py|sh|ps1|bat|cmd|vbs|exe|msi))(?![\w.]))/gi;
+const NEWTITLES = { keys: 'Can I open a file that holds passwords or keys?', undo: 'Can I change files without a way to undo it?', script: 'Can I run this script or code?', hidden: 'Can I run something that hides what it does?', web: 'Can I send this to the internet?' };
+Object.assign(TITLES, NEWTITLES);
+const blank = () => ({ what: '', why: '', warnings: [], heads: '', title: '', details: '' });
+function keyCard(tool, input) {
+  const file = String(input.file_path || input.path || '');
+  return { auto: false, kinds: ['keys'], card: Object.assign(blank(), { title: TITLES.keys, what: 'Opens ' + file, warnings: ['This file holds passwords or keys. What Amit reads goes to Claude as part of your conversation.'], details: tool + '  ' + file }) };
+}
+const fullPath = (p, base) => { let s = String(p); const m = s.match(/^\/([a-z])\/(.*)$/i); if (m) s = m[1] + ':/' + m[2]; return path.resolve(base, s); };
+const isFile = (p) => { try { return fs.statSync(p).isFile(); } catch (e) { return false; } };
+function undoSize() { try { return fs.readdirSync(UNDO).reduce((n, f) => n + fs.statSync(path.join(UNDO, f)).size, 0); } catch (e) { return 0; } }
+const canKeep = (files) => { try { let n = 0; for (const f of files) { const s = fs.statSync(f).size; if (s > UNDO_ONE) return false; n += s; } return undoSize() + n <= UNDO_MAX; } catch (e) { return false; } };
+function purgeUndo() { try { for (const f of fs.readdirSync(UNDO)) { const m = f.match(/^(\d{13})-/); if (m && Date.now() - Number(m[1]) > UNDO_DAYS * 864e5) fs.unlinkSync(path.join(UNDO, f)); } } catch (e) {} }
+// Done only when an action is allowed: keep the earlier versions, note a move, remember a throwaway file or an approved script.
+function commit(v) {
+  try {
+    if ((v.keep || []).length || (v.moves || []).length) fs.mkdirSync(UNDO, { recursive: true });
+    for (const f of v.keep || []) { const name = Date.now() + '-' + sha(f + Math.random()).slice(0, 8) + '-' + path.basename(f).slice(-80); fs.copyFileSync(f, path.join(UNDO, name)); fs.appendFileSync(path.join(UNDO, 'index.jsonl'), JSON.stringify({ at: new Date().toISOString(), copy: name, was: f }) + '\n'); }
+    for (const m of v.moves || []) fs.appendFileSync(path.join(UNDO, 'index.jsonl'), JSON.stringify({ at: new Date().toISOString(), moved: m[0], to: m[1] }) + '\n');
+    if (v.made) MEM.made.set(v.made[0].toLowerCase(), v.made[1]);
+    if (v.script) MEM.scripts.add(v.script);
+    return true;
+  } catch (e) { return false; }
+}
+const unchangedOwn = (p) => { try { return MEM.made.get(p.toLowerCase()) === sha(fs.readFileSync(p)); } catch (e) { return false; } };
+// A delete that names exactly one file Amit made in the throwaway folder this session, unchanged, and does nothing else.
+function ownThrowaway(cmd, base) {
+  const m = cmd.trim().match(/^(?:rm(?:\s+-f)?|del|Remove-Item(?:\s+-Force)?(?:\s+-(?:LiteralPath|Path))?)\s+(?:"([^"*?$`]+)"|'([^'*?$`]+)'|([^\s"'*?$`;|&<>()]+))(?:\s+-Force)?$/i);
+  if (!m) return false;
+  const p = fullPath(m[1] || m[2] || m[3], base);
+  return !path.relative(SCRATCH, p).startsWith('..') && unchangedOwn(p);
+}
+const READONLY = /^(cat|head|tail|ls|dir|grep|rg|wc|sort|uniq|find|echo|Get-Content|Get-ChildItem|Get-Item|Select-String|Select-Object|Where-Object|Test-Path|Measure-Object|git\s+(log|diff|status|show))\b/i;
+const unquoted = (cmd) => cmd.replace(/"[^"]*"|'[^']*'/g, '""');
+function readsOnly(cmd) {
+  const c = unquoted(cmd).replace(/\d?>\s*(\/dev\/null|\$null|&\d)/gi, '');
+  if (/>|\s-(delete|exec)\b|\$\(|`/.test(c)) return false;
+  return c.split(/&&|\|\||[;|\n]/).every((part) => !part.trim() || READONLY.test(part.trim()) || /^cd\s/.test(part.trim()));
+}
+// Commands that move, copy over or write files. Returns what to keep for undo, or why it cannot be undone.
+function fileChanges(cmd, base) {
+  const out = { keep: [], moves: [], cannot: false };
+  const quoted = []; const c = cmd.replace(/"[^"]*"|'[^']*'/g, (q) => { quoted.push(q.slice(1, -1)); return ' \u0001' + (quoted.length - 1) + '\u0001 '; });
+  const word = (w) => { const m = String(w).match(/^\u0001(\d+)\u0001$/); return m ? quoted[Number(m[1])] : w; };
+  const plain = (p) => p && !/[*?$`{}()]/.test(p);
+  const redirect = /(?<![=\-<])>{1,2}(?!&)\s*(\u0001\d+\u0001|[^\s;|&<>]+)/g; let m;
+  while ((m = redirect.exec(c))) {
+    const to = word(m[1]); if (/^(\/dev\/null|\$null|nul)$/i.test(to)) continue;
+    if (!plain(to)) { out.cannot = true; continue; }
+    const p = fullPath(to, base); if (isFile(p)) out.keep.push(p);
+  }
+  for (const part of c.split(/&&|\|\||[;|\n]/)) {
+    const words = part.trim().split(/\s+/), verb = (words[0] || '').toLowerCase();
+    if (/^(mv|move|move-item|ren|rename-item|cp|copy|copy-item)$/.test(verb)) {
+      const args = words.slice(1).filter((w) => !/^-(f|v|n|force|path|literalpath|destination)$/i.test(w)).map(word);
+      if (args.length !== 2 || !args.every((a) => plain(a) && !a.startsWith('-')) || /^(ren|rename-item)$/.test(verb)) { out.cannot = true; continue; }
+      const from = fullPath(args[0], base); let to = fullPath(args[1], base);
+      if (!isFile(from)) { out.cannot = true; continue; }
+      try { if (fs.statSync(to).isDirectory()) to = path.join(to, path.basename(from)); } catch (e) {}
+      if (isFile(to)) out.keep.push(to);
+      if (/^m/.test(verb)) out.moves.push([from, to]);
+    } else if (/^(set-content|add-content|out-file|clear-content|tee|tee-object|truncate|robocopy|xcopy|dd)$/.test(verb) || (verb === 'sed' && /\s-i\b/.test(part)) || /\b(writeFile|writeFileSync|appendFile\w*|WriteAllText|WriteAllBytes)\s*\(/.test(part)) out.cannot = true;
+  }
+  return out;
+}
+function judgeLittle(tool, input, base) {
+  const card = blank(), kinds = [];
+  const ask = (kind, warn) => { kinds.push(kind); if (warn) card.warnings.push(warn); };
+  const done = (extra) => { card.title = card.title || (kinds.length ? TITLES[kinds[0]] : 'Can I do this on your computer?'); return Object.assign({ auto: !kinds.length, kinds, card }, extra || {}); };
+  if (/^(Read|Grep)$/.test(tool)) return KEYFILE.test(String(input.file_path || input.path || '')) ? keyCard(tool, input) : done();
+  if (/^(Glob|LS|NotebookRead|TodoWrite|ToolSearch|Skill|Agent|Task|ReportFindings|ScheduleWakeup)$/.test(tool)) return done();
+  if (/^(Edit|Write|MultiEdit|NotebookEdit)$/.test(tool)) {
+    const file = String(input.file_path || input.notebook_path || ''), p = fullPath(file, base), there = isFile(p), name = path.basename(p);
+    card.what = (!there ? 'Creates a new file: ' : tool === 'Write' ? 'Replaces everything in this file: ' : 'Changes part of this file: ') + p;
+    card.details = tool + '  ' + p + '\n\n' + JSON.stringify(input, null, 2).slice(0, 6000);
+    if (!file) ask('unclear', 'Amit did not say which file.');
+    if (KEYFILE.test(p)) { ask('keys', 'This file holds passwords or keys.'); }
+    if (RULEFILE.test(p) || CONTROL.test(p)) { ask('setting', 'This file controls what Amit or your computer’s tools may do. Open "Show details" for the exact change.'); card.title = 'Can I change a rule or setting file: ' + name + '?'; }
+    if (there && !canKeep([p])) ask('undo', 'This file is too large for an undo copy, or the undo space is full, so this change could not be undone.');
+    const extra = { keep: there ? [p] : [] };
+    const own = !path.relative(SCRATCH, p).startsWith('..');
+    if (tool === 'Write' && own && (!there || unchangedOwn(p))) extra.made = [p, sha(Buffer.from(String(input.content || ''), 'utf8'))];
+    return done(extra);
+  }
+  if (/^(Bash|PowerShell|Monitor)$/.test(tool)) {
+    const cmd = String(input.command || ''), parts = String(input.description || '').trim().split(/\s*\|\s*why:\s*/i);
+    card.what = parts[0] || 'Amit did not say what this does.'; card.why = parts[1] || ''; card.details = tool + '\n' + cmd;
+    if (SECRET.test(cmd) && /https?:\/\/[^\s"']*(sb_secret_|sk-|gh[pousr]_|AKIA|eyJ)/.test(cmd)) return done({ auto: false, block: 'Blocked: a password or key may not be put in a web address.' });
+    if (!parts[0]) ask('unclear', 'No explanation came with this. If you are not sure, choose No.');
+    for (const [k, warn, rx] of PROTECTED) if (/^(delete|publish|install|send)$/.test(k) && rx.test(cmd) && !(k === 'delete' && ownThrowaway(cmd, base))) ask(k, warn);
+    if (PROGRAMS.test(cmd)) { ask('programs', 'This starts, closes or restarts a program, or changes how your computer is set up. Unsaved work in a closed program can be lost.'); if (/-Verb\s+RunAs|\bsudo\b|\bshutdown\b|(Restart|Stop)-Computer/i.test(cmd)) card.heads = 'This needs administrator rights or restarts your computer. Windows may show its own box too.'; }
+    if (KEYWORDS.test(cmd)) ask('keys', 'This touches a file that holds passwords or keys.');
+    if ((CONTROL.test(cmd) || RULEFILE.test(cmd)) && !readsOnly(cmd)) ask('setting', 'This may change a rule, setting or safety file.');
+    const extra = { keep: [], moves: [] };
+    if (!ownThrowaway(cmd, base)) {
+      const ch = fileChanges(cmd, base);
+      if (ch.cannot || (ch.keep.length && !canKeep(ch.keep))) ask('undo', 'Amit cannot promise an undo for the files this changes.'); else { extra.keep = ch.keep; extra.moves = ch.moves; }
+    }
+    if (ALWAYS_HIDDEN.test(cmd)) ask('hidden', 'This is scrambled, or downloads something and runs it at once. It asks every time.');
+    else {
+      const files = []; SCRIPT.lastIndex = 0; let m; while ((m = SCRIPT.exec(cmd))) files.push(fullPath(m[1] || m[2] || m[3], base));
+      if (files.length || INLINE.test(cmd)) {
+        let print = '', known = true;
+        for (const f of files) { try { print += sha(fs.readFileSync(f)); } catch (e) { known = false; } }
+        const key = sha(cmd + '|' + base + '|' + print);
+        if (!known || !MEM.scripts.has(key)) { ask('script', 'Amit cannot see everything a script or typed code may do.' + (known ? ' If you approve, the same unchanged one will not ask again this session.' : ' The script file could not be read, so this will ask again next time.')); if (known) extra.script = key; }
+      }
+    }
+    return done(extra);
+  }
+  if (/^(WebFetch|WebSearch)$/.test(tool)) {
+    const said = String(tool === 'WebSearch' ? input.query || '' : input.url || '');
+    card.what = (tool === 'WebSearch' ? 'Searches the web for: ' : 'Opens this web page: ') + said; card.details = tool + '\n' + JSON.stringify(input, null, 2).slice(0, 6000);
+    let plainText = said; try { plainText = decodeURIComponent(said); } catch (e) {}
+    if (SECRET.test(plainText)) return done({ auto: false, block: 'Blocked: a password or key may not be put into a web search or web address.' });
+    const query = tool === 'WebFetch' ? (said.split('?')[1] || '') : '';
+    if (/[\w.+-]+@[\w-]+\.\w{2,}|[a-z]:[\\\/]users[\\\/]|\b\d{3}-\d{2}-\d{4}\b/i.test(plainText) || query.length > 150) ask('web', 'This may carry information from your files or private records. Check what is being sent.');
+    if (tool === 'WebFetch' && /(unsubscribe|confirm|approve|verify|delete|remove|activate|accept)/i.test(said.replace(/^https?:\/\/[^\/]+/, ''))) ask('web', 'Opening this link may do something, such as confirm or cancel.');
+    return done();
+  }
+  ask('unclear', 'Amit can’t tell what this tool changes or sends. If you are not sure, choose No.');
+  card.title = 'Can I use the tool ' + tool + '?'; card.what = 'Uses the tool named ' + tool + '.'; card.details = tool + '\n' + JSON.stringify(input, null, 2).slice(0, 6000);
+  return done();
+}
 //JUDGE-END
 function projectBase() { const p = String(title || pendingName).split(' - ')[0]; return p && S.projects().includes(p) ? path.join(ROOT, p) : ROOT; }
 function gateHook() { return { matcher: '*', hooks: [{ type: 'command', command: 'node "' + __filename.replace(/\\/g, '/') + '" --gate', timeout: 20 }] }; }
@@ -149,6 +300,23 @@ function saveText(why, force) {
     push('local', { msg: err || !file ? 'The conversation text could not be saved (' + why + ').' : 'Conversation text saved (' + why + '): ' + file });
   });
 }
+// ONE PROGRAM PER CHAT (Ryan, 2026-11-28; on 2026-11-27 it closed every other chat). Two programs driving one chat tangled it. Claude Code keeps one small file per
+// running program in ~\.claude\sessions\<pid>.json, with the chat's id. Closed only when that id is the Coder's own chat AND the process really is claude.exe
+// (never the Claude desktop app or a reused number), never the Coder's own program. No chat id, an unreadable file or a different id: left alone.
+function closeOthers(why) {
+  if (!sessionId) return;
+  const dir = path.join(os.homedir(), '.claude', 'sessions'); let files = [], closed = 0;
+  try { files = fs.readdirSync(dir).filter((f) => /^\d+\.json$/.test(f)); } catch (e) { return; }
+  for (const f of files) {
+    const pid = parseInt(f, 10); if (pid === process.pid || (child && pid === child.pid)) continue;
+    try {
+      if (JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')).sessionId !== sessionId) continue;
+      const image = require('child_process').execFileSync('tasklist.exe', ['/FI', 'PID eq ' + pid, '/FO', 'CSV', '/NH'], { encoding: 'utf8', windowsHide: true, timeout: 8000 });
+      if (/^"claude\.exe"/i.test(image.trim())) { process.kill(pid); closed++; }
+    } catch (e) {}
+  }
+  if (closed) push('local', { msg: 'Closed ' + closed + ' other copy(ies) of this chat (' + why + ').' });
+}
 function stopChild() {
   saveText('session ended');
   if (child) { const c = child; child = null; c.stdin.end(); setTimeout(() => c.kill(), 1500); }
@@ -156,17 +324,17 @@ function stopChild() {
 }
 function start(o) {
   stopChild();
-  if (!o.resume) { turns = 0; savedAt = 0; title = ''; pendingName = ''; asked = false; tellClaude = ''; sessionId = null; try { fs.unlinkSync(LASTFILE); } catch (e) {} }
+  if (!o.resume) { MEM.made.clear(); MEM.scripts.clear(); turns = 0; savedAt = 0; title = ''; pendingName = ''; asked = false; tellClaude = ''; sessionId = null; try { fs.unlinkSync(LASTFILE); } catch (e) {} }
   const args = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--include-partial-messages', '--include-hook-events',
     '--permission-mode', 'manual', '--permission-prompts', 'host', '--permission-prompt-tool', 'stdio'];
   const light = o.hooks === 'light';
   // The light setup skips the person's settings, so their default model and effort are passed in by hand.
   if (light) { const mine = userSettings(); o = Object.assign({}, o, { model: o.model || mine.model, effort: o.effort || mine.effortLevel }); args.push('--setting-sources', 'project,local', '--settings', lightSettings()); }
   else args.push('--settings', fullSettings());
-  args.push('--append-system-prompt', (light ? ALWAYS + ' ' + UNDERSTAND_TEXT[getUnderstand()] + ' ' : '') + 'The Amit Coder program names this session itself. Never run rename_session.js here. The person may be asked to approve your commands and sees your own words, not the command. So for EVERY Bash or PowerShell call write the description in this exact form: one everyday-language sentence saying everything the command will do | why: the reason in everyday words. Name anything it deletes, publishes, installs, sends, closes or overwrites. No technical terms. The description is not complete without the part after the bar. Example description: Shows the names of the files in your project | why: to find the page you asked me about');
+  args.push('--append-system-prompt', 'Use the file tools, not commands, to read, search and edit files. Put every test or throwaway file in the folder ' + SCRATCH + ' and create it with the file writing tool. ' + (light ? ALWAYS + ' ' + UNDERSTAND_TEXT[getUnderstand()] + ' ' : '') + 'The Amit Coder program names this session itself. Never run rename_session.js here. The person may be asked to approve your commands and sees your own words, not the command. So for EVERY Bash or PowerShell call write the description in this exact form: one everyday-language sentence saying everything the command will do | why: the reason in everyday words. Name anything it deletes, publishes, installs, sends, closes or overwrites. No technical terms. The description is not complete without the part after the bar. Example description: Shows the names of the files in your project | why: to find the page you asked me about');
   if (/^[a-z0-9.\-]+(\[1m\])?$/.test(o.model || '')) args.push('--model', o.model);
   if (/^(low|medium|high|xhigh|max)$/.test(o.effort || '')) args.push('--effort', o.effort);
-  if (o.resume && sessionId) args.push('--resume', sessionId);
+  if (o.resume && sessionId) { closeOthers('Amit Coder is continuing it'); args.push('--resume', sessionId); }   // covers opening a past chat too
   // A clean environment: no API key and nothing inherited from another Claude session, so it runs on the person's own sign-in.
   const env = {}; for (const [k, v] of Object.entries(process.env)) if (!/^(CLAUDE|ANTHROPIC)/i.test(k)) env[k] = v;
   const exe = /\.cmd$/i.test(CLAUDE) ? path.join(path.dirname(CLAUDE), 'node_modules', '@anthropic-ai', 'claude-code', 'bin', 'claude.exe') : CLAUDE;
@@ -188,8 +356,10 @@ function start(o) {
       if (m.type === 'control_request') {
         if (m.request && m.request.subtype === 'can_use_tool') {
           let v; try { v = judge(m.request.tool_name, m.request.input, getLevel(), projectBase()); } catch (e) { v = { auto: false, card: null }; }
+          if (v.block) { toClaude({ type: 'control_response', response: { subtype: 'success', request_id: m.request_id, response: { behavior: 'deny', message: v.block } } }); push('local', { msg: v.block }); continue; }
+          if (v.auto && !commit(v)) { v.auto = false; v.card.title = TITLES.undo; v.card.warnings.push('An undo copy could not be saved, so Amit is asking first.'); }
           if (v.auto) { toClaude({ type: 'control_response', response: { subtype: 'success', request_id: m.request_id, response: { behavior: 'allow', updatedInput: m.request.input } } }); continue; }
-          m.card = v.card; pending.set(m.request_id, m.request);
+          m.card = v.card; pending.set(m.request_id, Object.assign({ verdict: v }, m.request));
         }
         else toClaude({ type: 'control_response', response: { subtype: 'error', request_id: m.request_id, error: 'not supported' } });
       }
@@ -235,6 +405,7 @@ function run(cmd) {
       if (!text && !files.length) return false;
       if (!title && !pendingName && !b.button) { const found = S.detect(text); if (found.length === 1) pendingName = found[0]; }
       if (!child) start({ model: b.model, effort: b.effort, hooks: b.hooks, resume: !!sessionId });
+      else closeOthers('Amit Coder is using it');   // the same chat may have been opened elsewhere since the Coder started
       if (tellClaude) { text = '<system-reminder>' + tellClaude + '</system-reminder>\n\n' + text; tellClaude = ''; }
       const content = files.slice(); if (text) content.push({ type: 'text', text });
       busy = true; const went = toClaude({ type: 'user', message: { role: 'user', content } });
@@ -242,6 +413,7 @@ function run(cmd) {
     }
     case 'permission': {
       const r = pending.get(b.id); if (!r) return false; pending.delete(b.id);
+      if (b.allow === true && r.verdict && !commit(r.verdict)) push('local', { msg: 'You approved this, but no undo copy could be saved for it.' });
       return toClaude({ type: 'control_response', response: { subtype: 'success', request_id: b.id, response: b.allow === true ? { behavior: 'allow', updatedInput: r.input } : { behavior: 'deny', message: 'The person pressed Deny.' } } });
     }
     case 'level': {
@@ -275,10 +447,11 @@ function run(cmd) {
     }
     case 'sessions': return S.list(40);
     case 'projects': return S.projects();
-    case 'quit': setTimeout(() => { stopChild(); setTimeout(() => process.exit(0), 8000); }, 50); return true;
+    case 'quit': setTimeout(() => { stopChild(); setTimeout(() => closeOthers('Amit Coder shut down'), 3000); setTimeout(() => process.exit(0), 8000); }, 50); return true;
     default: return false;
   }
 }
+fs.mkdirSync(SCRATCH, { recursive: true }); purgeUndo();
 // after a restart, the next message continues the conversation from the last day
 try {
   const last = JSON.parse(fs.readFileSync(LASTFILE, 'utf8')), past = Date.now() - last.at < 24 * 3600e3 && S.get(last.id);
@@ -293,12 +466,18 @@ setInterval(() => {
     if (cmd.reply && /^[a-f0-9]{8,40}$/.test(cmd.reply)) { const to = path.join(REPLY, cmd.reply + '.json'); fs.writeFileSync(to + '.tmp', JSON.stringify({ ok: out !== false, data: out })); fs.renameSync(to + '.tmp', to); }
   }
 }, 60);
-// Heartbeat. With no page asking for 2 minutes the text is saved; after 30 quiet minutes the engine stops.
+closeOthers('Amit Coder started');
+// Heartbeat. With no page asking for 2 minutes and no job running, Amit Coder is shut down: the text is saved and every coding session is closed.
+// After 30 quiet minutes the engine stops. Time the computer spent asleep does not count.
+let shut = false, ticked = Date.now(), woke = 0;
 setInterval(() => {
   fs.writeFileSync(path.join(STATE, 'engine.json'), JSON.stringify({ pid: process.pid, at: Date.now(), busy }));
+  if (Date.now() - ticked > 20000) woke = Date.now();
+  ticked = Date.now();
   let seen = Date.now(); try { seen = fs.statSync(path.join(STATE, 'alive.touch')).mtimeMs; } catch (e) {}
-  const away = Date.now() - seen;
-  if (away > 2 * 60000 && !busy) saveText('page closed');
+  const away = Date.now() - Math.max(seen, woke);
+  if (away > 2 * 60000 && !busy && !shut) { shut = true; stopChild(); setTimeout(() => closeOthers('Amit Coder shut down'), 3000); }
+  else if (shut && Date.now() - seen < 15000) { shut = false; closeOthers('Amit Coder started'); }
   if (away > 30 * 60000 && !busy) { stopChild(); setTimeout(() => process.exit(0), 8000); }
   try { if (fs.statSync(EVENTS).size > 8e6) { const keep = fs.readFileSync(EVENTS, 'utf8').split('\n').slice(-2000).join('\n'); fs.writeFileSync(EVENTS, keep); } } catch (e) {}
 }, 2000);
