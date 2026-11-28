@@ -1,4 +1,5 @@
-/* amit_coder_screen.js v0.08 (2026-11-27): attachments in a message: screen capture through Show Amit, add files, paste or drag them in.
+/* amit_coder_screen.js v0.10 (2026-11-28): permission sets per session.
+   Was v0.08 (2026-11-27): attachments in a message: screen capture through Show Amit, add files, paste or drag them in.
    Was v0.07: the microphone reconnects by itself; a running job is picked up after a refresh; an old page says so.
    Was v0.06: messages can be sent while Amit works; a status box that never looks locked up; new projects are found.
    Was v0.05: spoken words appear in the box as they are said; a job can no longer stay locked after a restart.
@@ -55,6 +56,7 @@
 #cd pre{white-space:pre-wrap;word-break:break-word;font:12.5px/1.45 Consolas,monospace;background:#050b12;padding:7px;border-radius:5px;margin-top:6px;max-height:320px;overflow:auto}
 #cd .permit{border:2px solid #e8c56a;border-radius:10px;padding:10px;background:#201d12}
 #cd .permit button{margin:8px 8px 0 0}
+#cd-perm{width:100%}
 #cd-levels{width:100%;display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:13.5px}
 #cd-levels button.on{background:#c9a84c;color:#09141f;font-weight:700;opacity:1}
 #cd-understand{width:100%;display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:13.5px}
@@ -112,6 +114,7 @@
   <label>Effort <select id="cd-effort"><option value="">my default</option><option>low</option><option>medium</option><option>high</option></select></label>
   <label>Setup <select id="cd-hooks"><option value="light">light (buttons)</option><option value="full">my full setup</option></select></label>
   <button id="cd-new">New session</button><button id="cd-past-open" title="Open or continue an earlier session">📂 Sessions</button><button id="cd-resume">Resume last</button>
+  <div id="cd-perm"></div>
   <div id="cd-levels"><b>How often should Amit ask you?</b><button data-lv="0" disabled>Ask me everything</button><button data-lv="1" disabled>Ask me some things</button><button data-lv="2" disabled>Ask me very little</button><div id="cd-level-text">Your choice appears when your computer is connected.</div></div>
   <div id="cd-understand"><b>How should Amit explain things to you?</b><button data-un="0" disabled>Plain words</button><button data-un="1" disabled>Some experience</button><button data-un="2" disabled>Technical / coder</button></div>
   <div id="cd-meter"><span class="m" id="cd-m-five_hour"><b>5-hour</b><u><i></i></u><span>waiting for the first message</span><small></small></span><span class="m" id="cd-m-seven_day"><b>Week</b><u><i></i></u><span>waiting</span><small></small></span><span id="cd-age"></span></div>
@@ -148,6 +151,7 @@
     var style = document.createElement('style'); style.textContent = CSS; document.head.appendChild(style);
     root = document.createElement('div'); root.id = 'cd'; root.innerHTML = HTML;
     var q = function (id) { return root.querySelector('#cd-' + id); };
+    var perms = function () { return window.AmitCoderPermsUI; };
     var link = function () { return window.AmitCoderLink; };
     var extras = function () { return Array.prototype.slice.call(root.querySelectorAll('.extras button')); };
     var extra = 0, watch = null, run = null, blocks = {}, tools = {}, ready = false, wantNew = false, openedAt = Date.now();
@@ -567,6 +571,7 @@
     var share = function (units) { return learned.pct >= 0.03 && learned.units > 0 ? units * learned.pct / learned.units * 100 : null; };
     var pctText = function (p) { return p < 1 ? 'under 1%' : 'about ' + Math.round(p) + '%'; };
     function track(o, t) {
+      if (o.type === 'system' && o.subtype === 'init' && perms()) perms().sessionId(o.session_id);
       if (o.type === 'system' && o.subtype === 'init' && o.session_id !== S.id) { if (S.id === null) S.id = o.session_id; else newTally(o.session_id); }
       if (o.type === 'rate_limit_event') {
         var w = o.rate_limit_info && o.rate_limit_info.unifiedWindows && o.rate_limit_info.unifiedWindows.five_hour;
@@ -705,6 +710,7 @@
     }
     function onEvent(e) {
       if (e.n) { if (e.n <= lastN) return; lastN = e.n; }
+      if (e.kind === 'permissions') { if (perms()) perms().engineSays(e.data, e.t); return; }
       if (e.kind === 'session') { showWhere(e.data); return; }
       if (e.kind === 'level') { level = IDS.indexOf(e.data.level); drawLevel(); return; }
       if (e.kind === 'understand') { understand = UIDS.indexOf(e.data.level); drawUnderstand(); return; }
@@ -726,6 +732,7 @@
     function fresh(resume) {
       wantNew = false; end(); watchHide(); extra = 0; run = null; q('log').textContent = ''; extras().forEach(function (b) { b.classList.remove('used'); });
       if (!resume) { newTally(null); drawSession(); showWhere(null); }
+      if (!resume && perms()) perms().newSessionStarting();
       link().newSession(Object.assign({ resume: !!resume }, opts())).then(function (ok) { if (!ok) row('err', 'That could not be started. ' + link().lastError(), 0, true); controls(); });
     }
 
@@ -806,7 +813,7 @@
     /* ── the connection ── */
     function connection(x) {
       var was = ready; ready = x.code === 'local-ready';
-      if (ready) { if (!was) { q('info').textContent = 'Connected to ' + x.computer + '. Claude Code reports its details after your first message.'; loadProjects(); setTimeout(askLevel, 200); } }
+      if (ready) { if (!was) { q('info').textContent = 'Connected to ' + x.computer + '. Claude Code reports its details after your first message.'; loadProjects(); setTimeout(askLevel, 200); if (perms()) perms().connected(); } }
       else {
         if (was && run && !run.over) { row('err', 'This job stopped: the connection to your computer was interrupted. Some steps may already be done.', 0, true); watchStopped('This job stopped: the connection was interrupted', 'The clock has stopped. Some steps may already be done, so check before anything is done again.', S.id); end(); }
         q('info').textContent = x.code === 'checking' ? 'Checking the connection…' : x.code === 'signed-out' ? 'Sign in to connect to your computer.' : 'Not connected. ' + (x.missing || []).join(' ');
@@ -824,12 +831,14 @@
     q('newer-go').onclick = function () { location.replace(location.pathname + '?v=' + Date.now() + location.hash); };
     setInterval(checkNewer, 60000); setTimeout(checkNewer, 3000);
     document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') checkNewer(); });
+    // permission sets (Helper 2.46 and newer); until the computer answers, the older three choices stay
+    if (perms()) perms().mountSession(q('perm'), { supported: function () { q('levels').style.display = 'none'; } });
     link().onState(connection); link().onEvent(onEvent);
     showWhere(null); drawSession(); drawMeter(); connection(link().state()); link().refresh();
   }
 
   window.AmitCoderScreen = {
-    version: '0.09',
+    version: '0.10',
     mount: function (host) {
       if (!host || !window.AmitCoderLink) return;
       if (!root) build();

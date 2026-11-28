@@ -97,8 +97,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../Amit_Ask_Live.js?v=6.23"></script>
 <script src="../amit_master.js?v=0.01"></script>
-<script src="amit_coder_link.js?v=0.09" defer></script>
-<script src="amit_coder_screen.js?v=0.09" defer></script>
+<script src="amit_coder_link.js?v=0.10" defer></script>
+<script src="amit_coder_permissions.js?v=0.02" defer></script>
+<script src="amit_coder_permissions_page.js?v=0.01" defer></script>
+<script src="amit_coder_screen.js?v=0.10" defer></script>
 <script src="../amit_appearance.js?v=1.06"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -432,7 +434,7 @@ select option{background:#132844;color:#fff;}
     <img src="../amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">AmitCoder</div>
-      <div class="page-version" id="pageVersion">v7.20</div>
+      <div class="page-version" id="pageVersion">v7.21</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1793,6 +1795,13 @@ async function removeIdea(id){
   loadIdeas();
 }
 
+// The Permissions page loads from its own files; this waits for them, then puts the same page back after any rebuild.
+function mountPermissionsPage(){
+  const host=document.getElementById('cp-mount');
+  if(!host)return;
+  if(window.AmitCoderPermsUI&&window.AmitCoderPermissions){ AmitCoderPermsUI.mountPage(host); return; }
+  setTimeout(mountPermissionsPage,200);
+}
 // The coding screen loads from its own file; this waits for it, then puts the same screen back after any rebuild.
 function mountCodingScreen(){
   if(!document.getElementById('cd-mount'))return;
@@ -1836,6 +1845,15 @@ function renderAllPages(){
     detailHtml+=`<div class="detail" id="detail-7" style="flex-direction:column">
       <div class="detail-head"><span class="detail-heading">Coding</span></div>
       ${codingTabsHtml(7)}
+    </div>`;
+    // AmitCoder page 8: Permissions (permission sets) — same owner-only rule as Coding
+    navHtml+=`<div class="page-nav" id="page-8" onclick="openPage(8)" data-tip="Permissions">
+      <div class="page-icon">🛡️</div>
+      <div class="page-info"><div class="page-name">Permissions</div><div class="page-sub">What Amit may do</div></div>
+    </div>`;
+    detailHtml+=`<div class="detail" id="detail-8" style="flex-direction:column">
+      <div class="detail-head"><span class="detail-heading">Permissions</span></div>
+      <div id="cp-mount" style="flex:1;min-height:0;overflow:auto;padding:4px 14px 20px"></div>
     </div>`;
   }
 
@@ -1886,6 +1904,7 @@ function renderAllPages(){
   kept.forEach(el=>document.getElementById(el.id).replaceWith(el));
   initPageTooltips('sidebarPages','right');
   mountCodingScreen();
+  mountPermissionsPage();
 
   // restore whichever page was open before the re-render, if it still exists
   if(document.getElementById('page-'+activeId)) openPage(isNaN(activeId)?activeId:Number(activeId));
@@ -2327,7 +2346,9 @@ function popupClose(){
 // ══════════════════════════════════════════════
 if(db){
   db.auth.onAuthStateChange((event,session)=>{
+    const wasWho=currentUser?currentUser.id:null;
     currentUser=session?session.user:null;
+    if(window.AmitCoderPermsUI&&(currentUser?currentUser.id:null)!==wasWho)setTimeout(()=>AmitCoderPermsUI.signInChanged(),0);
     if(!currentUser)scAllRows=[];
     _updateSyncUI();
     setTimeout(loadShortcuts,0);

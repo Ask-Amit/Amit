@@ -1,4 +1,5 @@
-// amit_coder_engine.js v0.11 (2026-11-28): the permission rules Ryan agreed, for "Ask me very little", with undo copies. Record: AmitCoder/Sessions_Design.md, APPROVALS AND THE APPROVAL LIST.
+// amit_coder_engine.js v0.12 (2026-11-28): permission sets chosen per session (command 'permissions'); changing Amit's own permissions asks in every set.
+// Was v0.11 (2026-11-28): the permission rules Ryan agreed, for "Ask me very little", with undo copies. Record: AmitCoder/Sessions_Design.md, APPROVALS AND THE APPROVAL LIST.
 // Was v0.10: the Coder closes ONLY a program running the same chat it is using; every other chat stays open (Ryan, 2026-11-28).
 // Was v0.09: a command with no explanation is sent back to be rewritten instead of asking the person.
 // Was v0.08: only one coding session at a time. When Amit Coder starts it closes every other Claude Code session on this computer
@@ -26,7 +27,9 @@ if (process.argv[2] === '--gate') {
   // A command with no explanation goes back to be rewritten (agents often leave it out); the person is not asked. The new try is judged as usual.
   const unexplained = /^(Bash|PowerShell|Monitor)$/.test(name) && !String(input.description || '').split(/\s*\|\s*why:\s*/i)[0].trim();
   const keyed = /^(Read|Grep)$/.test(name) && KEYGATE.test(String(input.file_path || input.path || ''));
-  if (keyed || !UNGATED.test(name)) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: unexplained ? 'deny' : 'ask', permissionDecisionReason: unexplained ? 'Not run, because it has no explanation. Send the same command again with its description in this form: one everyday-language sentence saying everything the command will do | why: the reason in everyday words.' : 'Amit Coder permission level' } }));
+  let setAsks = false;
+  try { const c = JSON.parse(fs.readFileSync(path.join(process.argv[3] || '', 'session_permissions.json'), 'utf8')).choices; const item = /^(Read|NotebookRead)$/.test(name) ? '10' : /^(Grep|Glob|LS)$/.test(name) ? '11' : /^(Agent|Task)$/.test(name) ? '12' : ''; setAsks = !!item && c[item] === 'ask'; } catch (e) {}
+  if (setAsks || keyed || !UNGATED.test(name)) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: unexplained ? 'deny' : 'ask', permissionDecisionReason: unexplained ? 'Not run, because it has no explanation. Send the same command again with its description in this form: one everyday-language sentence saying everything the command will do | why: the reason in everyday words.' : 'Amit Coder permission level' } }));
   process.exit(0);
 }
 const { spawn, execFile } = require('child_process');
@@ -110,7 +113,7 @@ function judge(tool, input, level, base) {
   const card = { what: '', why: '', warnings: [], heads: '', title: '', details: '' }, kinds = [];
   const file = input.file_path || input.notebook_path || input.path || '';
   let auto = false;
-  if (/^(Read|Glob|Grep|LS|NotebookRead|TodoWrite|ToolSearch|Skill)$/.test(tool)) return { auto: true, kinds, card };
+  if (/^(Read|Glob|Grep|LS|NotebookRead|TodoWrite|ToolSearch|Skill|Agent|Task)$/.test(tool)) return { auto: true, kinds, card };
   if (/^(Edit|Write|MultiEdit|NotebookEdit)$/.test(tool)) {
     const full = path.resolve(base, String(file)), rel = path.relative(base, full), inside = !!file && !rel.startsWith('..') && !path.isAbsolute(rel);
     const made = tool === 'Write' && !fs.existsSync(full), name = path.basename(full);
@@ -283,9 +286,71 @@ function judgeLittle(tool, input, base) {
   card.title = 'Can I use the tool ' + tool + '?'; card.what = 'Uses the tool named ' + tool + '.'; card.details = tool + '\n' + JSON.stringify(input, null, 2).slice(0, 6000);
   return done();
 }
+// ── PERMISSION SETS (Ryan, 2026-11-28). A set says, for each item: ask (every time), rule (the agreed rule) or allow (no question). Chosen per session by the person.
+const ITEMS = ['1', '2', '3', '4', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15'];
+const allOf = (v) => ITEMS.reduce((o, k) => { o[k] = v; return o; }, {});
+const AGREED = Object.assign(allOf('rule'), { 10: 'allow', 11: 'allow', 12: 'allow', 14: 'allow' });
+const RANK = { ask: 0, rule: 1, allow: 2 };
+const cleanChoices = (c) => c && typeof c === 'object' && ITEMS.every((k) => Object.prototype.hasOwnProperty.call(RANK, c[k])) && Object.keys(c).every((k) => ITEMS.includes(k)) ? ITEMS.reduce((o, k) => { o[k] = c[k]; return o; }, {}) : null;
+const looser = (was, next) => ITEMS.some((k) => RANK[next[k]] > RANK[was[k]]);
+// FIXED IN EVERY SET: changing what controls Amit's own permissions always asks.
+const OWNGUARD = /permission_level\.json|session_permissions\.json|light_settings\.json|gate_settings\.json|amit_coder_(engine|routes|link|screen|sessions|permissions)|AmitComputerHealth[\\\/](Watchers|AmitCoder)\b|cod_(permission|session_permission|choices)|[\\\/]\.claude[\\\/]settings/i;
+const BYKIND = { delete: '1', publish: '2', install: '3', send: '4', programs: '6', script: '7', hidden: '7', setting: '8', keys: '8', web: '13', undo: '15' };
+// Which items does this action belong to, whether or not the agreed rule would ask?
+function itemsOf(tool, input, base) {
+  const s = new Set(), file = String(input.file_path || input.notebook_path || input.path || '');
+  if (/^(Read|NotebookRead)$/.test(tool)) s.add('10');
+  else if (/^(Grep|Glob|LS)$/.test(tool)) s.add('11');
+  else if (/^(Agent|Task)$/.test(tool)) s.add('12');
+  else if (/^(WebFetch|WebSearch)$/.test(tool)) s.add('13');
+  else if (/^(Edit|Write|MultiEdit|NotebookEdit)$/.test(tool)) { s.add('15'); if (KEYFILE.test(file) || RULEFILE.test(file) || CONTROL.test(file)) s.add('8'); }
+  else if (/^(Bash|PowerShell|Monitor)$/.test(tool)) {
+    const cmd = String(input.command || '');
+    for (const [k, , rx] of PROTECTED) if (/^(delete|publish|install|send)$/.test(k) && rx.test(cmd)) s.add(BYKIND[k]);
+    if (PROGRAMS.test(cmd)) s.add('6');
+    SCRIPT.lastIndex = 0; if (ALWAYS_HIDDEN.test(cmd) || INLINE.test(cmd) || SCRIPT.test(cmd)) s.add('7'); SCRIPT.lastIndex = 0;
+    if (KEYWORDS.test(cmd) || ((CONTROL.test(cmd) || RULEFILE.test(cmd)) && !readsOnly(cmd))) s.add('8');
+    const ch = fileChanges(cmd, base); if (ch.cannot || ch.keep.length || ch.moves.length) s.add('15');
+    if (!s.size) s.add('14');
+  } else if (!/^(TodoWrite|ToolSearch|Skill|ReportFindings|ScheduleWakeup|TaskCreate|TaskUpdate|TaskList|TaskGet|TaskOutput|BashOutput|KillShell|TaskStop|ExitPlanMode|EnterPlanMode)$/.test(tool)) s.add('9');
+  if ((tool === 'Read' || tool === 'Grep') && KEYFILE.test(file)) s.add('8');
+  return s;
+}
+function judgeSet(tool, input, base, choices) {
+  input = input || {};
+  const v = judgeLittle(tool, input, base);
+  if (v.block) return v;
+  const cmd = /^(Bash|PowerShell|Monitor)$/.test(tool) ? String(input.command || '') : '';
+  const writes = /^(Edit|Write|MultiEdit|NotebookEdit)$/.test(tool) ? String(input.file_path || input.notebook_path || '') : cmd ? (readsOnly(cmd) ? '' : cmd) : /^(Read|Grep|Glob|LS|NotebookRead|Agent|Task|WebFetch|WebSearch)$/.test(tool) ? '' : JSON.stringify(input);
+  const own = !!writes && OWNGUARD.test(writes);
+  const items = itemsOf(tool, input, base);
+  const ruleAsks = new Set(v.kinds.map((k) => BYKIND[k]).filter(Boolean));
+  if (v.kinds.includes('unclear') && items.has('9')) ruleAsks.add('9');
+  v.kinds.forEach((k) => { if (BYKIND[k]) items.add(BYKIND[k]); });
+  const asked = [...items].filter((k) => choices[k] === 'ask' || (choices[k] === 'rule' && ruleAsks.has(k)));
+  const unexplained = !!cmd && !String(input.description || '').split(/\s*\|\s*why:\s*/i)[0].trim();
+  v.auto = !asked.length && !own && !unexplained;
+  // A file too large (or unclear) for an undo copy that the set allows anyway: do not try to copy it.
+  if (v.kinds.includes('undo')) v.keep = [];
+  if (!v.auto) {
+    if (own) { v.card.title = TITLES.setting; v.card.warnings.push('This touches what controls Amit\'s own permissions. It asks in every permission set.'); }
+    if (!v.card.title || v.card.title === 'Can I do this on your computer?') v.card.title = 'Can I do this?';
+    const READS = { Read: ['Can I read a file?', 'Reads the file ' + input.file_path], Grep: ['Can I search your files?', 'Searches for ' + input.pattern], Glob: ['Can I search your files?', 'Looks for files named ' + input.pattern], Agent: ['Can I start a helper agent?', 'Starts an agent: ' + (input.description || '')] };
+    if (READS[tool]) { v.card.title = READS[tool][0]; v.card.what = READS[tool][1]; }
+    if (!v.card.what) v.card.what = (input.file_path ? 'Uses the file ' + input.file_path : input.pattern ? 'Searches for ' + input.pattern : input.description || 'Uses the tool ' + tool);
+    if (!v.card.details) v.card.details = tool + '\n' + JSON.stringify(input, null, 2).slice(0, 6000);
+  }
+  return v;
+}
 //JUDGE-END
+const SETFILE = path.join(STATE, 'session_permissions.json');
+let SET = null;   // null = the older three levels (a page that does not send permission sets)
+function keepSet() { try { if (SET) fs.writeFileSync(SETFILE, JSON.stringify(Object.assign({ session: sessionId }, SET))); } catch (e) {} }
+// A new or reopened session starts at the most careful until the page sends that session's own set.
+function carefulUntilSent() { if (SET) { SET = { letter: '', name: 'Show Me Everything (until your set is loaded)', choices: allOf('ask') }; keepSet(); push('permissions', Object.assign({ session: sessionId }, SET)); } }
+try { const s = JSON.parse(fs.readFileSync(SETFILE, 'utf8')), c = cleanChoices(s.choices); if (c) SET = { letter: String(s.letter || ''), name: String(s.name || ''), choices: c }; } catch (e) {}
 function projectBase() { const p = String(title || pendingName).split(' - ')[0]; return p && S.projects().includes(p) ? path.join(ROOT, p) : ROOT; }
-function gateHook() { return { matcher: '*', hooks: [{ type: 'command', command: 'node "' + __filename.replace(/\\/g, '/') + '" --gate', timeout: 20 }] }; }
+function gateHook() { return { matcher: '*', hooks: [{ type: 'command', command: 'node "' + __filename.replace(/\\/g, '/') + '" --gate "' + STATE.replace(/\\/g, '/') + '"', timeout: 20 }] }; }
 function push(kind, data) { fs.appendFileSync(EVENTS, JSON.stringify({ n: ++seq, t: Date.now(), kind, data }) + '\n'); }
 function toClaude(o) { if (!child || !child.stdin.writable) return false; child.stdin.write(JSON.stringify(o) + '\n'); return true; }
 function tellWhere(extra) { const p = title.split(' - ')[0]; push('session', Object.assign({ title, folder: S.projects().includes(p) ? p + '\\Daily Sessions' : 'Daily Sessions (unsorted)' }, extra || {})); }
@@ -355,7 +420,7 @@ function start(o) {
       }
       if (m.type === 'control_request') {
         if (m.request && m.request.subtype === 'can_use_tool') {
-          let v; try { v = judge(m.request.tool_name, m.request.input, getLevel(), projectBase()); } catch (e) { v = { auto: false, card: null }; }
+          let v; try { v = SET ? judgeSet(m.request.tool_name, m.request.input, projectBase(), SET.choices) : judge(m.request.tool_name, m.request.input, getLevel(), projectBase()); } catch (e) { v = { auto: false, card: null }; }
           if (v.block) { toClaude({ type: 'control_response', response: { subtype: 'success', request_id: m.request_id, response: { behavior: 'deny', message: v.block } } }); push('local', { msg: v.block }); continue; }
           if (v.auto && !commit(v)) { v.auto = false; v.card.title = TITLES.undo; v.card.warnings.push('An undo copy could not be saved, so Amit is asking first.'); }
           if (v.auto) { toClaude({ type: 'control_response', response: { subtype: 'success', request_id: m.request_id, response: { behavior: 'allow', updatedInput: m.request.input } } }); continue; }
@@ -391,7 +456,7 @@ function attachments(list) {
 function run(cmd) {
   const b = cmd.body || {};
   switch (cmd.what) {
-    case 'new': start({ model: b.model, effort: b.effort, hooks: b.hooks, resume: !!b.resume && !!sessionId }); return true;
+    case 'new': if (!(b.resume && sessionId)) { sessionId = null; carefulUntilSent(); } start({ model: b.model, effort: b.effort, hooks: b.hooks, resume: !!b.resume && !!sessionId }); return true;
     case 'send': {
       let text = String(b.text || '');
       if (b.button) {
@@ -425,6 +490,16 @@ function run(cmd) {
       }
       push('level', { level: getLevel() }); return true;
     }
+    case 'permissions': {
+      // From the page only (the person's own choice). Anything that lets Amit do more than now needs the person's yes.
+      if (b.choices !== undefined) {
+        const c = cleanChoices(b.choices); if (!c) return false;
+        const was = SET ? SET.choices : getLevel() === 'little' ? AGREED : allOf('ask');
+        if (looser(was, c) && b.confirm !== true) return false;
+        SET = { letter: /^[A-J]$/.test(b.letter) ? b.letter : '', name: String(b.name || '').replace(/[\r\n<>]+/g, ' ').slice(0, 40), choices: c }; keepSet();
+      }
+      push('permissions', Object.assign({ session: sessionId }, SET || {})); return true;
+    }
     case 'understand': {
       const want = String(b.level || '');
       if (want) { if (!UNDERSTANDS.includes(want)) return false; fs.writeFileSync(UNDERSTANDFILE, JSON.stringify({ level: want })); }
@@ -440,7 +515,7 @@ function run(cmd) {
     }
     case 'open': {
       const past = S.get(b.id); if (!past) return false;
-      stopChild(); sessionId = b.id; turns = 0; savedAt = 0; title = past.title; pendingName = ''; asked = false;
+      stopChild(); sessionId = b.id; carefulUntilSent(); turns = 0; savedAt = 0; title = past.title; pendingName = ''; asked = false;
       push('history', { turns: past.turns.slice(-30), older: Math.max(0, past.turns.length - 30) });
       if (title) tellWhere(); else { asked = true; push('session', { ask: true }); }
       start({ model: b.model, effort: b.effort, hooks: b.hooks, resume: true }); return true;

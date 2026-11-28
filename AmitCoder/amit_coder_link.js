@@ -1,4 +1,5 @@
-/* amit_coder_link.js v0.08 (2026-11-27: a message can carry attachments) - the ONE connection layer of Amit Coder.
+/* amit_coder_link.js v0.10 (2026-11-28): permissions() sends the session's permission set.
+   Was v0.08 (2026-11-27: a message can carry attachments) - the ONE connection layer of Amit Coder.
    The coding screen talks only to AmitCoderLink. How the messages travel is a ROUTE behind it:
      local : this computer, through the shared Amit Helper at http://localhost:8710 (routes /api/coder/*)
      away  : another device reaching your computer over the internet (version 2, NOT BUILT)
@@ -148,7 +149,7 @@
   async function post(what, body) { return route && session ? route.post(what, body) : false; }
   async function get(what, more) { return route && session ? route.get(what, more) : null; }
   window.AmitCoderLink = {
-    version: '0.09', client: null,
+    version: '0.10', client: null,
     refresh: refresh, state: function () { return stateNow; }, lastError: function () { return lastError; },
     onState: function (f) { stateFns.push(f); }, onEvent: function (f) { eventFns.push(f); },
     newSession: function (o) { return post('new', o); },
@@ -169,6 +170,7 @@
       var go = function (what, body) { try { fetch(HELPER + '/api/coder/' + what + '?s=' + session, { method: 'POST', body: JSON.stringify(body), keepalive: true }); } catch (e) {} };
       if (mic) go('mic', { action: 'off' }); if (voice) go('say', { stop: true });
     },
+    permissions: function (set, confirm) { return post('permissions', set ? { letter: set.letter, name: set.name, choices: set.choices, confirm: !!confirm } : {}); },
     level: function (to, confirm) { return post('level', to ? { level: to, confirm: !!confirm } : {}); },
     understand: function (to) { return post('understand', to ? { level: to } : {}); },
     name: function (project, piece) { return post('name', { project: project, piece: piece }); },
